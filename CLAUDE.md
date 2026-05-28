@@ -75,12 +75,12 @@ Temperaturas: Competição 26-27°C, Lazer/Infantil/Maceira/Caranguejeira 28-30�
 
 ## Estado Atual do Projeto
 
-O projeto encontra-se estabilizado e alojado em `C:\dev\piscinas_mmcrespo`.
+O projeto encontra-se estabilizado, alojado em `C:\dev\piscinas_mmcrespo-main` e versionado em `https://github.com/DanielPazMMCrespo/piscinas_mmcrespo`.
 
 | Plano | Estado | Descrição |
 |---|---|---|
-| Plano 1 — Fundações | **CONCLUÍDO** | Instalação do Laravel 12, PostgreSQL, 14 Migrações, 14 Models, Seeders (roles, utilizadores, instalações, piscinas, químicos) e testes unitários. |
-| Plano 2 — Interface Administrativa (Filament) | **CONCLUÍDO** | Todos os Recursos (Resources) gerados e divididos em 4 Navigation Groups: **Sistema**, **Estrutura**, **Inventário** e **Operação**. Permissões aplicadas por role. Ações personalizadas de Entrada/Saída de stock geram logs automáticos. Formulários estruturados com secções. Ecrãs testados no browser. |
+| Plano 1 — Fundações | **CONCLUÍDO** | Instalação do Laravel 12, PostgreSQL (SQLite local para dev), 14 Migrações, 14 Models, Seeders (roles, utilizadores, instalações, piscinas, químicos) e testes unitários. |
+| Plano 2 — Interface Administrativa (Filament) | **CONCLUÍDO** | Todos os Recursos (Resources) gerados e divididos em 4 Navigation Groups. Permissões aplicadas por role. Formulários estruturados com secções. Ecrãs validados por automação de browser. **Bugs de integridade de dados (user_id desidratado) e controlo de acesso ao painel resolvidos.** |
 | Plano 3 — Dashboards e Analytics | **A INICIAR NA PRÓXIMA SESSÃO** | Construção da HomePage (Dashboard vazio atualmente). Incluir avisos de stock baixo, gráficos de cloro/pH e contadores de incidentes em aberto. |
 | Plano 4 — Inteligência Artificial | Pendente | OCR das fotos e análise de filtros através da API. |
 | Plano 5 — Relatórios PDF (CN 14/DA) | Pendente | Construção dos relatórios formatados de forma regulamentar para download. |
