@@ -4,11 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DailyRecordResource extends Resource
 {
@@ -19,6 +22,17 @@ class DailyRecordResource extends Resource
     protected static ?string $navigationGroup = 'Operação';
     protected static ?string $modelLabel = 'Registo Diário';
     protected static ?string $pluralModelLabel = 'Registos Diários';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->user()->hasRole('nadador_salvador')) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query;
+    }
 
     public static function form(Form $form): Form
     {
@@ -53,27 +67,47 @@ class DailyRecordResource extends Resource
                             ->label('pH')
                             ->required()
                             ->numeric()
-                            ->step(0.1),
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(14)
+                            ->rules(['between:0,14']),
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
                             ->required()
                             ->numeric()
-                            ->step(0.1),
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(20)
+                            ->live(onBlur: true),
                         Forms\Components\TextInput::make('cloro_total')
                             ->label('Cloro Total (mg/L)')
                             ->required()
                             ->numeric()
-                            ->step(0.1),
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(20)
+                            ->rules([
+                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
+                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                    }
+                                },
+                            ]),
                         Forms\Components\TextInput::make('temperatura')
                             ->label('Temperatura (ºC)')
                             ->required()
                             ->numeric()
-                            ->step(0.1),
+                            ->step(0.1)
+                            ->minValue(0)
+                            ->maxValue(45)
+                            ->rules(['between:0,45']),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Transparência (m)')
                             ->required()
                             ->numeric()
-                            ->step(0.1),
+                            ->step(1)
+                            ->minValue(0)
+                            ->maxValue(100),
                     ]),
 
                 Forms\Components\Section::make('Tarefas de Manutenção')

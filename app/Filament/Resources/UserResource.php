@@ -3,15 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UserResource extends Resource
 {
@@ -47,13 +45,16 @@ class UserResource extends Resource
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
                     ->dehydrated(fn (?string $state) => filled($state))
+                    ->minLength(8)
                     ->maxLength(255),
                 Forms\Components\Select::make('roles')
                     ->label('Perfis de Acesso (Roles)')
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->disabled(fn ($record): bool => $record !== null && $record->id === auth()->id())
+                    ->dehydrated(fn ($record): bool => $record === null || $record->id !== auth()->id()),
             ]);
     }
 
@@ -88,10 +89,24 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function ($record, Tables\Actions\DeleteAction $action): void {
+                        if ($record->id === auth()->id()) {
+                            Notification::make()->danger()->title('Não pode eliminar a sua própria conta.')->send();
+                            $action->halt();
+                        }
+                        if ($record->hasRole('admin') && User::role('admin')->count() <= 1) {
+                            Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                            $records->reject(fn ($r) => $r->id === auth()->id())->each->delete();
+                        }),
                 ]),
             ]);
     }

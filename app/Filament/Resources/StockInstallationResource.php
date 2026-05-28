@@ -6,9 +6,11 @@ use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 
 class StockInstallationResource extends Resource
 {
@@ -19,6 +21,11 @@ class StockInstallationResource extends Resource
     protected static ?string $navigationGroup = 'Inventário';
     protected static ?string $modelLabel = 'Stock na Instalação';
     protected static ?string $pluralModelLabel = 'Stock nas Instalações';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()->hasAnyRole(['admin', 'tecnico']);
+    }
 
     public static function form(Form $form): Form
     {
@@ -40,10 +47,12 @@ class StockInstallationResource extends Resource
                     ->label('Quantidade Mínima / Inicial')
                     ->required()
                     ->numeric()
+                    ->minValue(0)
                     ->default(0),
                 Forms\Components\TextInput::make('limite_minimo')
                     ->label('Alerta de Stock Baixo (Mínimo)')
                     ->numeric()
+                    ->minValue(0)
                     ->default(0),
             ]);
     }
@@ -82,19 +91,23 @@ class StockInstallationResource extends Resource
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade a dar entrada (Recebido do Armazém)')
                             ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
                             ->required(),
                     ])
                     ->action(function (StockInstallation $record, array $data): void {
-                        $record->quantity += $data['quantidade'];
-                        $record->save();
-
-                        \App\Models\StockInstallationLog::create([
-                            'stock_installation_id' => $record->id,
-                            'user_id'               => auth()->id(),
-                            'tipo_movimento'        => 'entrada',
-                            'quantity'              => $data['quantidade'],
-                            'created_at'            => now(),
-                        ]);
+                        DB::transaction(function () use ($record, $data) {
+                            $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
+                            $fresh->quantity += $data['quantidade'];
+                            $fresh->save();
+                            \App\Models\StockInstallationLog::create([
+                                'stock_installation_id' => $fresh->id,
+                                'user_id'               => auth()->id(),
+                                'tipo_movimento'        => 'entrada',
+                                'quantity'              => $data['quantidade'],
+                                'created_at'            => now(),
+                            ]);
+                        });
                     }),
                 Tables\Actions\Action::make('consumo_stock')
                     ->label('Consumo Manual')
@@ -104,19 +117,31 @@ class StockInstallationResource extends Resource
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade consumida (Ajuste Manual)')
                             ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
                             ->required(),
                     ])
                     ->action(function (StockInstallation $record, array $data): void {
-                        $record->quantity -= $data['quantidade'];
-                        $record->save();
-
-                        \App\Models\StockInstallationLog::create([
-                            'stock_installation_id' => $record->id,
-                            'user_id'               => auth()->id(),
-                            'tipo_movimento'        => 'consumo',
-                            'quantity'              => $data['quantidade'],
-                            'created_at'            => now(),
-                        ]);
+                        DB::transaction(function () use ($record, $data) {
+                            $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
+                            if ($fresh->quantity < $data['quantidade']) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Stock insuficiente')
+                                    ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
+                                    ->send();
+                                return;
+                            }
+                            $fresh->quantity -= $data['quantidade'];
+                            $fresh->save();
+                            \App\Models\StockInstallationLog::create([
+                                'stock_installation_id' => $fresh->id,
+                                'user_id'               => auth()->id(),
+                                'tipo_movimento'        => 'consumo',
+                                'quantity'              => $data['quantidade'],
+                                'created_at'            => now(),
+                            ]);
+                        });
                     }),
             ])
             ->bulkActions([

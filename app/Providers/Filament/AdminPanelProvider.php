@@ -27,8 +27,13 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Piscinas MMCrespo')
+            ->brandLogo(asset('images/logo-mmcrespo.png'))
+            ->brandLogoHeight('2.5rem')
+            ->favicon(asset('images/logo-mmcrespo.png'))
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::hex('#2b9cd8'),
+                'success' => Color::hex('#76b82a'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -38,7 +43,6 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

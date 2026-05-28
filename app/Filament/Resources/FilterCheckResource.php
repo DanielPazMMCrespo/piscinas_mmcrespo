@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class FilterCheckResource extends Resource
 {
@@ -19,6 +20,17 @@ class FilterCheckResource extends Resource
     protected static ?string $navigationGroup = 'Operação';
     protected static ?string $modelLabel = 'Limpeza de Filtro';
     protected static ?string $pluralModelLabel = 'Limpezas de Filtros';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->user()->hasRole('nadador_salvador')) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query;
+    }
 
     public static function form(Form $form): Form
     {
@@ -52,7 +64,11 @@ class FilterCheckResource extends Resource
                 Forms\Components\FileUpload::make('caminho_foto')
                     ->label('Fotografia do Filtro / Água')
                     ->image()
-                    ->directory('verificacoes-filtro'),
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(10240)
+                    ->disk('local')
+                    ->directory('verificacoes-filtro')
+                    ->visibility('private'),
                 Forms\Components\Textarea::make('observacoes')
                     ->label('Observações')
                     ->columnSpanFull(),

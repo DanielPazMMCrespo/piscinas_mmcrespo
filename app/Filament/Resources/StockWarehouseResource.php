@@ -6,9 +6,11 @@ use App\Filament\Resources\StockWarehouseResource\Pages;
 use App\Models\StockWarehouse;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 
 class StockWarehouseResource extends Resource
 {
@@ -40,6 +42,7 @@ class StockWarehouseResource extends Resource
                     ->label('Quantidade Mínima / Inicial')
                     ->required()
                     ->numeric()
+                    ->minValue(0)
                     ->default(0),
             ]);
     }
@@ -70,22 +73,26 @@ class StockWarehouseResource extends Resource
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade a adicionar')
                             ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
                             ->required(),
                         Forms\Components\Textarea::make('observacoes')
                             ->label('Observações (ex: Nº da Fatura)')
                             ->maxLength(255),
                     ])
                     ->action(function (StockWarehouse $record, array $data): void {
-                        $record->quantity += $data['quantidade'];
-                        $record->save();
-
-                        \App\Models\StockWarehouseLog::create([
-                            'product_id'    => $record->product_id,
-                            'user_id'       => auth()->id(),
-                            'tipo_movimento'=> 'entrada',
-                            'quantity'      => $data['quantidade'],
-                            'fornecedor'    => $data['observacoes'] ?? null,
-                        ]);
+                        DB::transaction(function () use ($record, $data) {
+                            $fresh = StockWarehouse::lockForUpdate()->findOrFail($record->id);
+                            $fresh->quantity += $data['quantidade'];
+                            $fresh->save();
+                            \App\Models\StockWarehouseLog::create([
+                                'product_id'     => $fresh->product_id,
+                                'user_id'        => auth()->id(),
+                                'tipo_movimento' => 'entrada',
+                                'quantity'       => $data['quantidade'],
+                                'fornecedor'     => $data['observacoes'] ?? null,
+                            ]);
+                        });
                     }),
                 Tables\Actions\Action::make('saida_stock')
                     ->label('Saída')
@@ -95,22 +102,34 @@ class StockWarehouseResource extends Resource
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade a remover (Saída p/ Instalação)')
                             ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
                             ->required(),
                         Forms\Components\Textarea::make('observacoes')
                             ->label('Observações (ex: Destino)')
                             ->maxLength(255),
                     ])
                     ->action(function (StockWarehouse $record, array $data): void {
-                        $record->quantity -= $data['quantidade'];
-                        $record->save();
-
-                        \App\Models\StockWarehouseLog::create([
-                            'product_id'    => $record->product_id,
-                            'user_id'       => auth()->id(),
-                            'tipo_movimento'=> 'saida',
-                            'quantity'      => $data['quantidade'],
-                            'fornecedor'    => $data['observacoes'] ?? null,
-                        ]);
+                        DB::transaction(function () use ($record, $data) {
+                            $fresh = StockWarehouse::lockForUpdate()->findOrFail($record->id);
+                            if ($fresh->quantity < $data['quantidade']) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Stock insuficiente')
+                                    ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
+                                    ->send();
+                                return;
+                            }
+                            $fresh->quantity -= $data['quantidade'];
+                            $fresh->save();
+                            \App\Models\StockWarehouseLog::create([
+                                'product_id'     => $fresh->product_id,
+                                'user_id'        => auth()->id(),
+                                'tipo_movimento' => 'saida',
+                                'quantity'       => $data['quantidade'],
+                                'fornecedor'     => $data['observacoes'] ?? null,
+                            ]);
+                        });
                     }),
             ])
             ->bulkActions([
