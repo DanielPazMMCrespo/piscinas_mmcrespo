@@ -9,6 +9,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DailyRecord extends Model
 {
+    /**
+     * Limites regulamentares CN 14/DA (DGS 2009) para piscinas públicas.
+     * Fonte única de verdade — usados em validação, tabelas e dashboard.
+     */
+    public const PH_MIN = 6.9;
+    public const PH_MAX = 8.0;
+    public const CLORO_LIVRE_MIN = 0.5;
+    public const CLORO_LIVRE_MAX = 2.0;
+    public const CLORO_COMBINADO_MAX = 0.6;
+
     protected $fillable = [
         'pool_id', 'user_id', 'registado_em',
         'cloro_livre', 'cloro_total',
@@ -36,6 +46,35 @@ class DailyRecord extends Model
         );
     }
 
+    public function phConforme(): bool
+    {
+        return $this->ph >= self::PH_MIN && $this->ph <= self::PH_MAX;
+    }
+
+    public function cloroLivreConforme(): bool
+    {
+        return $this->cloro_livre >= self::CLORO_LIVRE_MIN && $this->cloro_livre <= self::CLORO_LIVRE_MAX;
+    }
+
+    public function cloroCombinadoConforme(): bool
+    {
+        return $this->cloro_combinado <= self::CLORO_COMBINADO_MAX;
+    }
+
+    /**
+     * Temperatura conforme os limites próprios da piscina (Pool::temp_min/temp_max).
+     * Devolve true se não houver piscina/limites definidos (não há base para alertar).
+     */
+    public function temperaturaConforme(): bool
+    {
+        if (! $this->piscina || $this->piscina->temp_min === null || $this->piscina->temp_max === null) {
+            return true;
+        }
+
+        return $this->temperatura >= $this->piscina->temp_min
+            && $this->temperatura <= $this->piscina->temp_max;
+    }
+
     public function piscina(): BelongsTo
     {
         return $this->belongsTo(Pool::class, 'pool_id');
@@ -59,5 +98,10 @@ class DailyRecord extends Model
     public function registoOriginal(): BelongsTo
     {
         return $this->belongsTo(DailyRecord::class, 'corrige_registo_id');
+    }
+
+    public function correcoes(): HasMany
+    {
+        return $this->hasMany(DailyRecord::class, 'corrige_registo_id');
     }
 }

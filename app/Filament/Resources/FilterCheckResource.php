@@ -32,6 +32,24 @@ class FilterCheckResource extends Resource
         return $query;
     }
 
+    /**
+     * Apenas o admin pode editar/eliminar registos. O pessoal de campo cria e consulta.
+     */
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
     public static function form(Form $form): Form
     {
         return $form

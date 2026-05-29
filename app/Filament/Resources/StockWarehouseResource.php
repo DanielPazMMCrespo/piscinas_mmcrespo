@@ -39,7 +39,7 @@ class StockWarehouseResource extends Resource
                     ->searchable()
                     ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('quantity')
-                    ->label('Quantidade Mínima / Inicial')
+                    ->label('Quantidade Inicial em Stock')
                     ->required()
                     ->numeric()
                     ->minValue(0)

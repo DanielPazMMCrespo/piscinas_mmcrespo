@@ -11,6 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 class StockInstallationResource extends Resource
 {
@@ -42,9 +44,15 @@ class StockInstallationResource extends Resource
                     ->relationship('produto', 'name')
                     ->required()
                     ->preload()
-                    ->searchable(),
+                    ->searchable()
+                    ->rule(fn (Forms\Get $get, ?StockInstallation $record): Unique => Rule::unique('stock_installations', 'product_id')
+                        ->where('installation_id', $get('installation_id'))
+                        ->ignore($record?->id))
+                    ->validationMessages([
+                        'unique' => 'Este produto já tem stock registado nesta instalação. Edite o registo existente.',
+                    ]),
                 Forms\Components\TextInput::make('quantity')
-                    ->label('Quantidade Mínima / Inicial')
+                    ->label('Quantidade Inicial em Stock')
                     ->required()
                     ->numeric()
                     ->minValue(0)

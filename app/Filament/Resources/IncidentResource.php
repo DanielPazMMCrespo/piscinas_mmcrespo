@@ -20,6 +20,24 @@ class IncidentResource extends Resource
     protected static ?string $modelLabel = 'Incidente';
     protected static ?string $pluralModelLabel = 'Incidentes';
 
+    /**
+     * Apenas o admin pode editar/eliminar incidentes. O pessoal de campo regista e consulta.
+     */
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
     public static function form(Form $form): Form
     {
         return $form

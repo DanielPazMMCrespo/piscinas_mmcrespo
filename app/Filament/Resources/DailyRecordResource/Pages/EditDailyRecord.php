@@ -17,4 +17,16 @@ class EditDailyRecord extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function getFormActions(): array
+    {
+        return [
+            $this->getSaveFormAction()
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar alteração')
+                ->modalDescription('Confirme que pretende guardar as alterações a este registo.')
+                ->modalSubmitActionLabel('Confirmar e guardar'),
+            $this->getCancelFormAction(),
+        ];
+    }
 }
