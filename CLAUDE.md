@@ -90,6 +90,11 @@ O projeto encontra-se estabilizado, alojado em `C:\dev\piscinas_mmcrespo-main` e
 
 **Próximo passo imediato:** Iniciar o **Plano 4 — Inteligência Artificial** (OCR de filtros via Gemini API no FilterCheckResource).
 
+**Nota de desenvolvimento:** Corrigido problema de runtime no ambiente local do Windows adicionando `C:\php` ao `PATH` e reiniciando o servidor para que a extensão PHP `intl` carregue corretamente. Isso resolve o erro "the intl php extension is required to use the [format] method" nas páginas Filament.
+
+- **Feito:** o PHP CLI agora carrega `intl` e o servidor Laravel foi reiniciado usando o PATH corrigido.
+- **A fazer:** validar no browser/mobile que as páginas Filament adicionais abrem sem erro; se persistir, confirmar o processo ativo com `php -m | Select-String '^intl$'` e reiniciar novamente.
+
 ### Decisões técnicas tomadas (não reverter sem razão forte)
 - `transparencia` é coluna `INTEGER` na BD — usar `->step(1)` no formulário, não `0.1`
 - Uploads de filtros usam `->disk('local')` (privado, `storage/app/private/`) — não voltar para `public`
