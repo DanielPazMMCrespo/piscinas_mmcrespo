@@ -24,19 +24,22 @@ class DailyRecord extends Model
         'cloro_livre', 'cloro_total',
         'ph', 'temperatura', 'transparencia',
         'caleira_feita', 'renovacao_agua',
+        'bomba_com_bolhas', 'pressao_filtro', 'estado_valvulas_filtro',
         'observacoes', 'e_correcao',
         'corrige_registo_id', 'razao_correcao',
     ];
 
     protected $casts = [
-        'registado_em'  => 'datetime',
-        'cloro_livre'   => 'decimal:2',
-        'cloro_total'   => 'decimal:2',
-        'ph'            => 'decimal:2',
-        'temperatura'   => 'decimal:1',
-        'caleira_feita' => 'boolean',
-        'renovacao_agua'=> 'boolean',
-        'e_correcao'    => 'boolean',
+        'registado_em'     => 'datetime',
+        'cloro_livre'      => 'decimal:2',
+        'cloro_total'      => 'decimal:2',
+        'ph'               => 'decimal:2',
+        'temperatura'      => 'decimal:1',
+        'pressao_filtro'   => 'decimal:2',
+        'caleira_feita'    => 'boolean',
+        'renovacao_agua'   => 'boolean',
+        'bomba_com_bolhas' => 'boolean',
+        'e_correcao'       => 'boolean',
     ];
 
     protected function cloroCombinado(): Attribute

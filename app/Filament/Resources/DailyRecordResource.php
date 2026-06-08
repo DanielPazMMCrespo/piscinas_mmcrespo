@@ -4,10 +4,12 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
+use App\Services\OcrVisionService;
 use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -54,19 +56,65 @@ class DailyRecordResource extends Resource
         return auth()->user()->hasRole('admin');
     }
 
+    /** Anel verde/vermelho para indicar se a secção está completa. */
+    private static function sectionRing(bool $complete): array
+    {
+        return ['class' => $complete
+            ? 'ring-2 ring-green-500 ring-offset-2 rounded-xl'
+            : 'ring-2 ring-red-500 ring-offset-2 rounded-xl'];
+    }
+
+    /** Callback partilhado para processar OCR após upload. */
+    private static function ocrAfterStateUpdated(mixed $state, Set $set): void
+    {
+        if (! $state) {
+            return;
+        }
+
+        try {
+            $result = app(OcrVisionService::class)->analyze($state);
+
+            foreach ([
+                'ph', 'cloro_livre', 'cloro_total', 'temperatura',
+                'transparencia', 'pressao_filtro', 'estado_valvulas_filtro', 'observacoes',
+            ] as $field) {
+                if (isset($result[$field]) && $result[$field] !== null) {
+                    $set($field, $result[$field]);
+                }
+            }
+
+            Notification::make()
+                ->success()
+                ->title('OCR concluído')
+                ->body('Campos preenchidos automaticamente. Confirma antes de guardar.')
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->danger()
+                ->title('Erro no OCR')
+                ->body('Não foi possível analisar a imagem: ' . $e->getMessage())
+                ->send();
+        }
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+                // ── SECÇÃO 1 — Informação Geral ──────────────────────────────────
                 Forms\Components\Section::make('Informação Geral')
                     ->columns(3)
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        filled($get('pool_id')) && filled($get('registado_em'))
+                    ))
                     ->schema([
                         Forms\Components\Select::make('pool_id')
                             ->label('Piscina')
                             ->relationship('piscina', 'name')
                             ->required()
                             ->preload()
-                            ->searchable(),
+                            ->searchable()
+                            ->live(onBlur: true),
                         Forms\Components\Select::make('user_id')
                             ->label('Técnico / Nadador-Salvador')
                             ->relationship('utilizador', 'name')
@@ -77,11 +125,54 @@ class DailyRecordResource extends Resource
                         Forms\Components\DateTimePicker::make('registado_em')
                             ->label('Data e Hora do Registo')
                             ->default(now())
-                            ->required(),
+                            ->required()
+                            ->live(onBlur: true),
                     ]),
 
+                // ── SECÇÃO 2 — OCR: Foto NS ───────────────────────────────────────
+                Forms\Components\Section::make('Foto NS — Leitura Automática (OCR)')
+                    ->description('Faz upload da foto da folha de análise. Os campos são preenchidos automaticamente via IA.')
+                    ->collapsed()
+                    ->schema([
+                        Forms\Components\FileUpload::make('foto_ocr_ns')
+                            ->label('Foto (Nadador-Salvador)')
+                            ->disk('local')
+                            ->directory('ocr-temp')
+                            ->image()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->dehydrated(false)
+                            ->live()
+                            ->afterStateUpdated(fn ($state, Set $set) => self::ocrAfterStateUpdated($state, $set)),
+                    ]),
+
+                // ── SECÇÃO 3 — OCR: Foto Técnico ──────────────────────────────────
+                Forms\Components\Section::make('Foto Técnico — Leitura Automática (OCR)')
+                    ->description('Faz upload da foto da folha de análise do técnico.')
+                    ->collapsed()
+                    ->schema([
+                        Forms\Components\FileUpload::make('foto_ocr_tecnico')
+                            ->label('Foto (Técnico)')
+                            ->disk('local')
+                            ->directory('ocr-temp')
+                            ->image()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->dehydrated(false)
+                            ->live()
+                            ->afterStateUpdated(fn ($state, Set $set) => self::ocrAfterStateUpdated($state, $set)),
+                    ]),
+
+                // ── SECÇÃO 4 — Parâmetros da Água ────────────────────────────────
                 Forms\Components\Section::make('Parâmetros da Água')
                     ->columns(3)
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        filled($get('ph'))
+                        && filled($get('cloro_livre'))
+                        && filled($get('cloro_total'))
+                        && filled($get('temperatura'))
+                        && filled($get('transparencia'))
+                    ))
                     ->schema([
                         Forms\Components\TextInput::make('ph')
                             ->label('pH')
@@ -91,7 +182,8 @@ class DailyRecordResource extends Resource
                             ->step(0.01)
                             ->minValue(0)
                             ->maxValue(14)
-                            ->rules(['between:0,14']),
+                            ->rules(['between:0,14'])
+                            ->live(onBlur: true),
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
                             ->helperText('Limite legal: ' . DailyRecord::CLORO_LIVRE_MIN . ' a ' . DailyRecord::CLORO_LIVRE_MAX . ' mg/L')
@@ -109,6 +201,7 @@ class DailyRecordResource extends Resource
                             ->step(0.01)
                             ->minValue(0)
                             ->maxValue(20)
+                            ->live(onBlur: true)
                             ->rules([
                                 fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                     if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
@@ -123,18 +216,55 @@ class DailyRecordResource extends Resource
                             ->step(0.1)
                             ->minValue(0)
                             ->maxValue(45)
-                            ->rules(['between:0,45']),
+                            ->rules(['between:0,45'])
+                            ->live(onBlur: true),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Transparência (m)')
                             ->required()
                             ->numeric()
                             ->step(1)
                             ->minValue(0)
-                            ->maxValue(100),
+                            ->maxValue(100)
+                            ->live(onBlur: true),
                     ]),
 
+                // ── SECÇÃO 5 — Bomba e Filtro ─────────────────────────────────────
+                Forms\Components\Section::make('Bomba e Filtro')
+                    ->columns(3)
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        filled($get('estado_valvulas_filtro'))
+                    ))
+                    ->schema([
+                        Forms\Components\Toggle::make('bomba_com_bolhas')
+                            ->label('Bomba com bolhas de ar?')
+                            ->helperText('Indica presença de ar no circuito')
+                            ->default(false)
+                            ->live(onBlur: true),
+                        Forms\Components\TextInput::make('pressao_filtro')
+                            ->label('Pressão do Filtro (bar)')
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(10)
+                            ->placeholder('ex: 1.5')
+                            ->live(onBlur: true),
+                        Forms\Components\Select::make('estado_valvulas_filtro')
+                            ->label('Estado das Válvulas')
+                            ->required()
+                            ->options([
+                                'normal'       => 'Normal (filtração)',
+                                'retrolavagem' => 'Retrolavagem',
+                                'enxaguamento' => 'Enxaguamento',
+                                'circulacao'   => 'Circulação',
+                                'avaria'       => 'Avaria',
+                            ])
+                            ->live(onBlur: true),
+                    ]),
+
+                // ── SECÇÃO 6 — Tarefas de Manutenção ─────────────────────────────
                 Forms\Components\Section::make('Tarefas de Manutenção')
                     ->columns(2)
+                    ->extraAttributes(fn (): array => self::sectionRing(true))
                     ->schema([
                         Forms\Components\Toggle::make('caleira_feita')
                             ->label('Caleira Trasbordada?')
@@ -142,8 +272,33 @@ class DailyRecordResource extends Resource
                         Forms\Components\Toggle::make('renovacao_agua')
                             ->label('Renovação de Água Feita?')
                             ->default(false),
+                    ]),
+
+                // ── SECÇÃO 7 — Observações ────────────────────────────────────────
+                Forms\Components\Section::make('Observações')
+                    ->extraAttributes(fn (): array => self::sectionRing(true))
+                    ->schema([
                         Forms\Components\Textarea::make('observacoes')
                             ->label('Observações')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ]),
+
+                // ── SECÇÃO 8 — Informação de Correção ─────────────────────────────
+                Forms\Components\Section::make('Informação de Correção')
+                    ->visible(fn (Get $get): bool => (bool) $get('e_correcao'))
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        ! $get('e_correcao') || filled($get('razao_correcao'))
+                    ))
+                    ->schema([
+                        Forms\Components\Placeholder::make('aviso_correcao')
+                            ->label('')
+                            ->content('Este registo é uma correção. O original mantém-se inalterado no livro sanitário.'),
+                        Forms\Components\Textarea::make('razao_correcao')
+                            ->label('Razão da Correção')
+                            ->required()
+                            ->minLength(5)
+                            ->live(onBlur: true)
                             ->columnSpanFull(),
                     ]),
             ]);
@@ -154,7 +309,6 @@ class DailyRecordResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('piscina')->withCount('correcoes'))
             ->columns([
-                // Split: em desktop fica em linha; em telemóvel empilha (from: md).
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
                         Tables\Columns\TextColumn::make('piscina.name')
@@ -198,6 +352,13 @@ class DailyRecordResource extends Resource
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->temperaturaConforme() ? 'success' : 'danger')
                             ->tooltip(fn (DailyRecord $record): ?string => $record->temperaturaConforme() ? null : 'Fora dos limites desta piscina'),
+                        Tables\Columns\IconColumn::make('bomba_com_bolhas')
+                            ->label('Bomba')
+                            ->boolean()
+                            ->trueIcon('heroicon-o-exclamation-triangle')
+                            ->falseIcon('heroicon-o-check-circle')
+                            ->trueColor('warning')
+                            ->falseColor('success'),
                     ])->space(1),
 
                     Tables\Columns\TextColumn::make('estado')
@@ -230,11 +391,14 @@ class DailyRecordResource extends Resource
                     ->modalDescription('Cria um novo registo de correção ligado ao original. O original mantém-se inalterado, como exige o livro sanitário.')
                     ->modalSubmitActionLabel('Registar correção')
                     ->fillForm(fn (DailyRecord $record): array => [
-                        'cloro_livre'   => $record->cloro_livre,
-                        'cloro_total'   => $record->cloro_total,
-                        'ph'            => $record->ph,
-                        'temperatura'   => $record->temperatura,
-                        'transparencia' => $record->transparencia,
+                        'cloro_livre'            => $record->cloro_livre,
+                        'cloro_total'            => $record->cloro_total,
+                        'ph'                     => $record->ph,
+                        'temperatura'            => $record->temperatura,
+                        'transparencia'          => $record->transparencia,
+                        'bomba_com_bolhas'       => $record->bomba_com_bolhas,
+                        'pressao_filtro'         => $record->pressao_filtro,
+                        'estado_valvulas_filtro' => $record->estado_valvulas_filtro,
                     ])
                     ->form([
                         Forms\Components\TextInput::make('ph')
@@ -259,6 +423,22 @@ class DailyRecordResource extends Resource
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Transparência (m)')
                             ->required()->numeric()->step(1)->minValue(0)->maxValue(100),
+                        Forms\Components\Toggle::make('bomba_com_bolhas')
+                            ->label('Bomba com bolhas de ar?')
+                            ->default(false),
+                        Forms\Components\TextInput::make('pressao_filtro')
+                            ->label('Pressão do Filtro (bar)')
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(10),
+                        Forms\Components\Select::make('estado_valvulas_filtro')
+                            ->label('Estado das Válvulas')
+                            ->required()
+                            ->options([
+                                'normal'       => 'Normal (filtração)',
+                                'retrolavagem' => 'Retrolavagem',
+                                'enxaguamento' => 'Enxaguamento',
+                                'circulacao'   => 'Circulação',
+                                'avaria'       => 'Avaria',
+                            ]),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()
@@ -267,20 +447,23 @@ class DailyRecordResource extends Resource
                     ])
                     ->action(function (DailyRecord $record, array $data): void {
                         DailyRecord::create([
-                            'pool_id'            => $record->pool_id,
-                            'user_id'            => auth()->id(),
-                            'registado_em'       => $record->registado_em,
-                            'cloro_livre'        => $data['cloro_livre'],
-                            'cloro_total'        => $data['cloro_total'],
-                            'ph'                 => $data['ph'],
-                            'temperatura'        => $data['temperatura'],
-                            'transparencia'      => $data['transparencia'],
-                            'caleira_feita'      => $record->caleira_feita,
-                            'renovacao_agua'     => $record->renovacao_agua,
-                            'observacoes'        => $record->observacoes,
-                            'e_correcao'         => true,
-                            'corrige_registo_id' => $record->id,
-                            'razao_correcao'     => $data['razao_correcao'],
+                            'pool_id'                => $record->pool_id,
+                            'user_id'                => auth()->id(),
+                            'registado_em'           => $record->registado_em,
+                            'cloro_livre'            => $data['cloro_livre'],
+                            'cloro_total'            => $data['cloro_total'],
+                            'ph'                     => $data['ph'],
+                            'temperatura'            => $data['temperatura'],
+                            'transparencia'          => $data['transparencia'],
+                            'bomba_com_bolhas'       => $data['bomba_com_bolhas'] ?? false,
+                            'pressao_filtro'         => $data['pressao_filtro'] ?? null,
+                            'estado_valvulas_filtro' => $data['estado_valvulas_filtro'] ?? null,
+                            'caleira_feita'          => $record->caleira_feita,
+                            'renovacao_agua'         => $record->renovacao_agua,
+                            'observacoes'            => $record->observacoes,
+                            'e_correcao'             => true,
+                            'corrige_registo_id'     => $record->id,
+                            'razao_correcao'         => $data['razao_correcao'],
                         ]);
 
                         Notification::make()
