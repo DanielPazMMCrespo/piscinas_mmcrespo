@@ -27,19 +27,29 @@ class DailyRecord extends Model
         'bomba_com_bolhas', 'pressao_filtro', 'estado_valvulas_filtro',
         'observacoes', 'e_correcao',
         'corrige_registo_id', 'razao_correcao',
+        // Leituras do Nadador-Salvador
+        'ns_foto', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura',
+        // Filtros
+        'filtro_faz_retrolavagem',
+        'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
     ];
 
     protected $casts = [
-        'registado_em'     => 'datetime',
-        'cloro_livre'      => 'decimal:2',
-        'cloro_total'      => 'decimal:2',
-        'ph'               => 'decimal:2',
-        'temperatura'      => 'decimal:1',
-        'pressao_filtro'   => 'decimal:2',
-        'caleira_feita'    => 'boolean',
-        'renovacao_agua'   => 'boolean',
-        'bomba_com_bolhas' => 'boolean',
-        'e_correcao'       => 'boolean',
+        'registado_em'           => 'datetime',
+        'cloro_livre'            => 'decimal:2',
+        'cloro_total'            => 'decimal:2',
+        'ph'                     => 'decimal:2',
+        'temperatura'            => 'decimal:1',
+        'pressao_filtro'         => 'decimal:2',
+        'ns_ph'                  => 'decimal:2',
+        'ns_cloro_livre'         => 'decimal:2',
+        'ns_cloro_total'         => 'decimal:2',
+        'ns_temperatura'         => 'decimal:2',
+        'caleira_feita'          => 'boolean',
+        'renovacao_agua'         => 'boolean',
+        'bomba_com_bolhas'       => 'boolean',
+        'filtro_faz_retrolavagem'=> 'boolean',
+        'e_correcao'             => 'boolean',
     ];
 
     protected function cloroCombinado(): Attribute
