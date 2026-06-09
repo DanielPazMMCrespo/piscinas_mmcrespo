@@ -83,10 +83,19 @@ class DailyRecordResource extends Resource
                 }
             }
 
+            $confianca = isset($result['confianca_geral']) ? round((float) $result['confianca_geral'] * 100) : null;
+            $body = 'Campos preenchidos automaticamente. Confirma os valores antes de guardar.';
+            if ($confianca !== null) {
+                $body .= " Confiança do OCR: {$confianca}%.";
+                if ($confianca < 70) {
+                    $body .= ' Leitura incerta — verifica com atenção.';
+                }
+            }
+
             Notification::make()
                 ->success()
                 ->title('OCR concluído')
-                ->body('Campos preenchidos automaticamente. Confirma antes de guardar.')
+                ->body($body)
                 ->send();
         } catch (\Throwable $e) {
             Notification::make()
