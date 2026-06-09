@@ -55,6 +55,13 @@ class PoolResource extends Resource
                     ->label('Temperatura Máxima (ºC)')
                     ->required()
                     ->numeric(),
+                Forms\Components\TextInput::make('volume')
+                    ->label('Volume (m³)')
+                    ->helperText('Necessário para a calculadora de dosagem de químicos.')
+                    ->numeric()
+                    ->step(0.01)
+                    ->minValue(0)
+                    ->suffix('m³'),
                 Forms\Components\Toggle::make('active')
                     ->label('Ativo')
                     ->default(true)
@@ -84,6 +91,11 @@ class PoolResource extends Resource
                     ->label('Temp. Máx')
                     ->numeric()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('volume')
+                    ->label('Volume (m³)')
+                    ->numeric()
+                    ->sortable()
+                    ->placeholder('—'),
                 Tables\Columns\IconColumn::make('active')
                     ->label('Ativo')
                     ->boolean(),
