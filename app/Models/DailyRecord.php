@@ -32,6 +32,11 @@ class DailyRecord extends Model
         // Filtros
         'filtro_faz_retrolavagem',
         'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
+        // Caminho da água
+        'bomba_ferrada', 'contador_valor', 'agua_modo',
+        'tanque_ok', 'tanque_observacoes',
+        // Fotos das nossas análises (até 5)
+        'analises_fotos',
     ];
 
     protected $casts = [
@@ -45,11 +50,15 @@ class DailyRecord extends Model
         'ns_cloro_livre'         => 'decimal:2',
         'ns_cloro_total'         => 'decimal:2',
         'ns_temperatura'         => 'decimal:2',
+        'contador_valor'         => 'decimal:2',
         'caleira_feita'          => 'boolean',
         'renovacao_agua'         => 'boolean',
         'bomba_com_bolhas'       => 'boolean',
+        'bomba_ferrada'          => 'boolean',
+        'tanque_ok'              => 'boolean',
         'filtro_faz_retrolavagem'=> 'boolean',
         'e_correcao'             => 'boolean',
+        'analises_fotos'         => 'array',
     ];
 
     protected function cloroCombinado(): Attribute

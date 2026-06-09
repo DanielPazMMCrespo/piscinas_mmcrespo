@@ -67,8 +67,10 @@ class DailyRecordResource extends Resource
     {
         return $form
             ->schema([
-                // ── SECÇÃO 1 — Informação Geral ──────────────────────────────────
+                // ── Informação Geral ─────────────────────────────────────────────
                 Forms\Components\Section::make('Informação Geral')
+                    ->icon('heroicon-o-identification')
+                    ->collapsible()
                     ->columns(3)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
                         filled($get('pool_id')) && filled($get('registado_em'))
@@ -95,9 +97,116 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                     ]),
 
-                // ── SECÇÃO 2 — Nadadores Salvadores ──────────────────────────────
-                Forms\Components\Section::make('Nadadores Salvadores')
-                    ->description('Leituras registadas pelo Nadador-Salvador.')
+                // ── 1. Bomba ─────────────────────────────────────────────────────
+                Forms\Components\Section::make('Bomba')
+                    ->description('A bomba está ferrada?')
+                    ->icon('heroicon-o-bolt')
+                    ->collapsible()
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        $get('bomba_ferrada') !== null
+                    ))
+                    ->schema([
+                        Forms\Components\Toggle::make('bomba_ferrada')
+                            ->label('Bomba ferrada')
+                            ->helperText('Liga se a bomba está a aspirar bem, sem ar.')
+                            ->onIcon('heroicon-m-check')
+                            ->offIcon('heroicon-m-x-mark')
+                            ->live(onBlur: true),
+                    ]),
+
+                // ── 2. Filtros ───────────────────────────────────────────────────
+                Forms\Components\Section::make('Filtros')
+                    ->description('Retrolavagem e fotos das três posições da válvula.')
+                    ->icon('heroicon-o-funnel')
+                    ->collapsible()
+                    ->extraAttributes(fn (): array => self::sectionRing(true))
+                    ->schema([
+                        Forms\Components\Toggle::make('filtro_faz_retrolavagem')
+                            ->label('Vai ser feita uma retrolavagem?')
+                            ->default(false)
+                            ->live(),
+                        Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
+                            ->label('Foto — Posição Retrolavagem')
+                            ->disk('local')
+                            ->directory('filtros')
+                            ->image()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                        Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
+                            ->label('Foto — Posição Enxaguamento')
+                            ->disk('local')
+                            ->directory('filtros')
+                            ->image()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                        Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
+                            ->label('Foto — Retorno à Posição Normal')
+                            ->disk('local')
+                            ->directory('filtros')
+                            ->image()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    ]),
+
+                // ── 3. Contador & Água ───────────────────────────────────────────
+                Forms\Components\Section::make('Contador & Água')
+                    ->description('Leitura do contador e estado da entrada de água.')
+                    ->icon('heroicon-o-calculator')
+                    ->collapsible()
+                    ->columns(2)
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        filled($get('contador_valor')) && filled($get('agua_modo'))
+                    ))
+                    ->schema([
+                        Forms\Components\TextInput::make('contador_valor')
+                            ->label('Valor do Contador (m³)')
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->suffix('m³')
+                            ->live(onBlur: true),
+                        Forms\Components\Select::make('agua_modo')
+                            ->label('Estado da Entrada de Água')
+                            ->options([
+                                'auto_com_agua' => 'Automático — com água',
+                                'auto_sem_agua' => 'Automático — sem água',
+                                'on_com_agua'   => 'ON — com água',
+                                'on_sem_agua'   => 'ON — sem água',
+                                'off'           => 'OFF — sem água na instalação',
+                            ])
+                            ->native(false)
+                            ->live(onBlur: true),
+                    ]),
+
+                // ── 4. Tanque de Compensação ─────────────────────────────────────
+                Forms\Components\Section::make('Tanque de Compensação')
+                    ->icon('heroicon-o-beaker')
+                    ->collapsible()
+                    ->columns(2)
+                    ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                        $get('tanque_ok') !== null
+                    ))
+                    ->schema([
+                        Forms\Components\Toggle::make('tanque_ok')
+                            ->label('Tanque OK')
+                            ->helperText('Nível e estado conformes.')
+                            ->onIcon('heroicon-m-check')
+                            ->offIcon('heroicon-m-x-mark')
+                            ->live(onBlur: true),
+                        Forms\Components\Textarea::make('tanque_observacoes')
+                            ->label('Observações do Tanque')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ]),
+
+                // ── 5. Análises NS ───────────────────────────────────────────────
+                Forms\Components\Section::make('Análises — Nadador-Salvador')
+                    ->description('Leituras feitas pelo Nadador-Salvador.')
+                    ->icon('heroicon-o-eye')
+                    ->collapsible()
                     ->columns(2)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
                         filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
@@ -141,8 +250,11 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                     ]),
 
-                // ── SECÇÃO 3 — Nossas Análises ───────────────────────────────────
+                // ── 6. Nossas Análises ───────────────────────────────────────────
                 Forms\Components\Section::make('Nossas Análises')
+                    ->description('Análises do técnico, com até 5 fotos de evidência.')
+                    ->icon('heroicon-o-beaker')
+                    ->collapsible()
                     ->columns(2)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
                         filled($get('ph'))
@@ -194,44 +306,24 @@ class DailyRecordResource extends Resource
                             ->minValue(0)
                             ->maxValue(100)
                             ->live(onBlur: true),
+                        Forms\Components\FileUpload::make('analises_fotos')
+                            ->label('Fotos das análises (até 5)')
+                            ->disk('local')
+                            ->directory('analises')
+                            ->image()
+                            ->multiple()
+                            ->maxFiles(5)
+                            ->reorderable()
+                            ->appendFiles()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->columnSpanFull(),
                     ]),
 
-                // ── SECÇÃO 4 — Filtros ────────────────────────────────────────────
-                Forms\Components\Section::make('Filtros')
-                    ->extraAttributes(fn (): array => self::sectionRing(true))
-                    ->schema([
-                        Forms\Components\Toggle::make('filtro_faz_retrolavagem')
-                            ->label('Vai ser feita uma retrolavagem?')
-                            ->default(false)
-                            ->live(),
-                        Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
-                            ->label('Foto — Posição Retrolavagem')
-                            ->disk('local')
-                            ->directory('filtros')
-                            ->image()
-                            ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
-                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                        Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
-                            ->label('Foto — Posição Enxaguamento')
-                            ->disk('local')
-                            ->directory('filtros')
-                            ->image()
-                            ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
-                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                        Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
-                            ->label('Foto — Retorno à Posição Normal')
-                            ->disk('local')
-                            ->directory('filtros')
-                            ->image()
-                            ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
-                            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                    ]),
-
-                // ── SECÇÃO 5 — Adições de Químicos ───────────────────────────────
+                // ── 7. Adições de Químicos ───────────────────────────────────────
                 Forms\Components\Section::make('Adições de Químicos')
+                    ->icon('heroicon-o-sparkles')
+                    ->collapsible()
                     ->extraAttributes(fn (): array => self::sectionRing(true))
                     ->schema([
                         Forms\Components\Repeater::make('adicoes')
@@ -261,20 +353,23 @@ class DailyRecordResource extends Resource
                                                     ->label('Dosagem (mg/L)')
                                                     ->numeric()
                                                     ->required()
-                                                    ->step(0.01),
+                                                    ->step(0.0001)
+                                                    ->minValue(0),
                                                 Forms\Components\TextInput::make('concentracao')
                                                     ->label('% Concentração do produto')
+                                                    ->helperText('Aceita decimais (ex.: 0,56 para granulado).')
                                                     ->numeric()
                                                     ->required()
-                                                    ->step(0.1)
-                                                    ->minValue(0.1)
-                                                    ->maxValue(100),
+                                                    ->step(0.0001)
+                                                    ->minValue(0.0001)
+                                                    ->maxValue(100)
+                                                    ->suffix('%'),
                                             ])
                                             ->action(function (array $data, Set $set, Get $get): void {
                                                 $poolId = $get('../../pool_id');
                                                 $pool   = Pool::find($poolId);
 
-                                                if (! $pool || ! $pool->volume || $data['concentracao'] <= 0) {
+                                                if (! $pool || ! $pool->volume || (float) $data['concentracao'] <= 0) {
                                                     Notification::make()
                                                         ->warning()
                                                         ->title('Cálculo impossível')
@@ -283,15 +378,17 @@ class DailyRecordResource extends Resource
                                                     return;
                                                 }
 
-                                                $result = ($pool->volume * $data['dosagem']) / $data['concentracao'];
-                                                $set('quantity', round($result, 2));
+                                                $result = ((float) $pool->volume * (float) $data['dosagem']) / (float) $data['concentracao'];
+                                                $set('quantity', round($result, 3));
                                             })
                                     ),
                             ]),
                     ]),
 
-                // ── SECÇÃO 6 — Observações ────────────────────────────────────────
+                // ── 8. Observações ───────────────────────────────────────────────
                 Forms\Components\Section::make('Observações')
+                    ->icon('heroicon-o-chat-bubble-bottom-center-text')
+                    ->collapsible()
                     ->extraAttributes(fn (): array => self::sectionRing(true))
                     ->schema([
                         Forms\Components\Textarea::make('observacoes')
@@ -300,8 +397,10 @@ class DailyRecordResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                // ── SECÇÃO 7 — Informação de Correção ─────────────────────────────
+                // ── Informação de Correção (só visível em correções) ─────────────
                 Forms\Components\Section::make('Informação de Correção')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->collapsible()
                     ->visible(fn (Get $get): bool => (bool) $get('e_correcao'))
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
                         ! $get('e_correcao') || filled($get('razao_correcao'))
