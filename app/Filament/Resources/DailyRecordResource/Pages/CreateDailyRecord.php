@@ -47,9 +47,10 @@ class CreateDailyRecord extends CreateRecord
         $this->notificarNaoConformidade($registo);
         $this->gerirTorneira($registo);
 
-        // Broadcast em tempo real para o Kanban refrescar imediatamente
-        // em vez de esperar 60 segundos.
-        $this->dispatch('daily-record-created', poolId: $registo->pool_id);
+        // Limpar o memo de alertas para que o próximo cálculo seja fresco.
+        // Isto faz com que qualquer widget que refrescar (polling automático,
+        // próxima navegação, etc.) veja o novo estado imediatamente.
+        \App\Services\AlertasService::limparMemo();
     }
 
     /**
