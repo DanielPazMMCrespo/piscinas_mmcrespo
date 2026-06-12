@@ -45,7 +45,7 @@ class DemoRegistosDiariosSeeder extends Seeder
         ];
 
         $registos = [];
-        $anomaliaMap = collect($anomalias)->groupBy(fn($a) => "{$a['pool_id']}-{$a['dia']}");
+        $anomaliaMap = collect($anomalias)->groupBy(fn ($a) => "{$a['pool_id']}-{$a['dia']}");
 
         foreach (range(13, 0) as $diasAtras) {
             $data = Carbon::today()->subDays($diasAtras)->setTime(9, rand(0, 30));
@@ -59,7 +59,7 @@ class DemoRegistosDiariosSeeder extends Seeder
                     continue;
                 }
 
-                $chave = "{$poolId}-" . (13 - $diasAtras + 1);
+                $chave = "{$poolId}-".(13 - $diasAtras + 1);
                 $anomalia = $anomaliaMap->get($chave)?->first();
 
                 $cloroLivre = $anomalia['cloro_livre'] ?? round($cfg['cloro_base'] + (rand(-100, 100) / 100) * $cfg['cloro_var'], 2);
@@ -69,19 +69,19 @@ class DemoRegistosDiariosSeeder extends Seeder
                 $transparencia = rand(2, 3);
 
                 $registos[] = [
-                    'pool_id'      => $poolId,
-                    'user_id'      => $cfg['autor']?->id ?? 2,
+                    'pool_id' => $poolId,
+                    'user_id' => $cfg['autor']?->id ?? 2,
                     'registado_em' => $data->copy()->setTime(9, rand(0, 45)),
-                    'cloro_livre'  => max(0.1, $cloroLivre),
-                    'cloro_total'  => max(0.2, $cloroTotal),
-                    'ph'           => $ph,
-                    'temperatura'  => $temp,
-                    'transparencia'=> $transparencia,
-                    'caleira_feita'=> rand(0, 1),
+                    'cloro_livre' => max(0.1, $cloroLivre),
+                    'cloro_total' => max(0.2, $cloroTotal),
+                    'ph' => $ph,
+                    'temperatura' => $temp,
+                    'transparencia' => $transparencia,
+                    'caleira_feita' => rand(0, 1),
                     'renovacao_agua' => rand(0, 10) > 8,
-                    'e_correcao'   => false,
-                    'created_at'   => $data,
-                    'updated_at'   => $data,
+                    'e_correcao' => false,
+                    'created_at' => $data,
+                    'updated_at' => $data,
                 ];
             }
         }
@@ -100,21 +100,21 @@ class DemoRegistosDiariosSeeder extends Seeder
 
         if ($registoAnomaloPH) {
             DailyRecord::create([
-                'pool_id'            => $registoAnomaloPH->pool_id,
-                'user_id'            => $tecnico?->id ?? 2,
-                'registado_em'       => $registoAnomaloPH->registado_em->addHours(2),
-                'cloro_livre'        => $registoAnomaloPH->cloro_livre,
-                'cloro_total'        => $registoAnomaloPH->cloro_total,
-                'ph'                 => 7.4,
-                'temperatura'        => $registoAnomaloPH->temperatura,
-                'transparencia'      => $registoAnomaloPH->transparencia,
-                'caleira_feita'      => $registoAnomaloPH->caleira_feita,
-                'renovacao_agua'     => false,
-                'e_correcao'         => true,
+                'pool_id' => $registoAnomaloPH->pool_id,
+                'user_id' => $tecnico?->id ?? 2,
+                'registado_em' => $registoAnomaloPH->registado_em->addHours(2),
+                'cloro_livre' => $registoAnomaloPH->cloro_livre,
+                'cloro_total' => $registoAnomaloPH->cloro_total,
+                'ph' => 7.4,
+                'temperatura' => $registoAnomaloPH->temperatura,
+                'transparencia' => $registoAnomaloPH->transparencia,
+                'caleira_feita' => $registoAnomaloPH->caleira_feita,
+                'renovacao_agua' => false,
+                'e_correcao' => true,
                 'corrige_registo_id' => $registoAnomaloPH->id,
-                'razao_correcao'     => 'pH lido incorretamente — sonda descalibrada. Valor real: 7,4.',
+                'razao_correcao' => 'pH lido incorretamente — sonda descalibrada. Valor real: 7,4.',
             ]);
-            $this->command->info("Criado registo de correção para demonstração do workflow.");
+            $this->command->info('Criado registo de correção para demonstração do workflow.');
         }
     }
 }

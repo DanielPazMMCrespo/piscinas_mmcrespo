@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -21,7 +22,9 @@ class StockInstallationResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
 
     protected static ?string $navigationGroup = 'Inventário';
+
     protected static ?string $modelLabel = 'Stock na Instalação';
+
     protected static ?string $pluralModelLabel = 'Stock nas Instalações';
 
     public static function canAccess(): bool
@@ -108,12 +111,12 @@ class StockInstallationResource extends Resource
                             $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
                             $fresh->quantity += $data['quantidade'];
                             $fresh->save();
-                            \App\Models\StockInstallationLog::create([
+                            StockInstallationLog::create([
                                 'stock_installation_id' => $fresh->id,
-                                'user_id'               => auth()->id(),
-                                'tipo_movimento'        => 'entrada',
-                                'quantity'              => $data['quantidade'],
-                                'created_at'            => now(),
+                                'user_id' => auth()->id(),
+                                'tipo_movimento' => 'entrada',
+                                'quantity' => $data['quantidade'],
+                                'created_at' => now(),
                             ]);
                         });
                     }),
@@ -138,16 +141,17 @@ class StockInstallationResource extends Resource
                                     ->title('Stock insuficiente')
                                     ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
                                     ->send();
+
                                 return;
                             }
                             $fresh->quantity -= $data['quantidade'];
                             $fresh->save();
-                            \App\Models\StockInstallationLog::create([
+                            StockInstallationLog::create([
                                 'stock_installation_id' => $fresh->id,
-                                'user_id'               => auth()->id(),
-                                'tipo_movimento'        => 'consumo',
-                                'quantity'              => $data['quantidade'],
-                                'created_at'            => now(),
+                                'user_id' => auth()->id(),
+                                'tipo_movimento' => 'consumo',
+                                'quantity' => $data['quantidade'],
+                                'created_at' => now(),
                             ]);
                         });
                     }),
@@ -167,10 +171,10 @@ class StockInstallationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListStockInstallations::route('/'),
+            'index' => Pages\ListStockInstallations::route('/'),
             'create' => Pages\CreateStockInstallation::route('/create'),
-            'view'   => Pages\ViewStockInstallation::route('/{record}'),
-            'edit'   => Pages\EditStockInstallation::route('/{record}/edit'),
+            'view' => Pages\ViewStockInstallation::route('/{record}'),
+            'edit' => Pages\EditStockInstallation::route('/{record}/edit'),
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockWarehouseResource\Pages;
 use App\Models\StockWarehouse;
+use App\Models\StockWarehouseLog;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -19,7 +20,9 @@ class StockWarehouseResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-archive-box';
 
     protected static ?string $navigationGroup = 'Inventário';
+
     protected static ?string $modelLabel = 'Stock de Armazém';
+
     protected static ?string $pluralModelLabel = 'Stock de Armazém';
 
     public static function canAccess(): bool
@@ -85,12 +88,12 @@ class StockWarehouseResource extends Resource
                             $fresh = StockWarehouse::lockForUpdate()->findOrFail($record->id);
                             $fresh->quantity += $data['quantidade'];
                             $fresh->save();
-                            \App\Models\StockWarehouseLog::create([
-                                'product_id'     => $fresh->product_id,
-                                'user_id'        => auth()->id(),
+                            StockWarehouseLog::create([
+                                'product_id' => $fresh->product_id,
+                                'user_id' => auth()->id(),
                                 'tipo_movimento' => 'entrada',
-                                'quantity'       => $data['quantidade'],
-                                'fornecedor'     => $data['observacoes'] ?? null,
+                                'quantity' => $data['quantidade'],
+                                'fornecedor' => $data['observacoes'] ?? null,
                             ]);
                         });
                     }),
@@ -118,16 +121,17 @@ class StockWarehouseResource extends Resource
                                     ->title('Stock insuficiente')
                                     ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
                                     ->send();
+
                                 return;
                             }
                             $fresh->quantity -= $data['quantidade'];
                             $fresh->save();
-                            \App\Models\StockWarehouseLog::create([
-                                'product_id'     => $fresh->product_id,
-                                'user_id'        => auth()->id(),
+                            StockWarehouseLog::create([
+                                'product_id' => $fresh->product_id,
+                                'user_id' => auth()->id(),
                                 'tipo_movimento' => 'saida',
-                                'quantity'       => $data['quantidade'],
-                                'fornecedor'     => $data['observacoes'] ?? null,
+                                'quantity' => $data['quantidade'],
+                                'fornecedor' => $data['observacoes'] ?? null,
                             ]);
                         });
                     }),
@@ -147,10 +151,10 @@ class StockWarehouseResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListStockWarehouses::route('/'),
+            'index' => Pages\ListStockWarehouses::route('/'),
             'create' => Pages\CreateStockWarehouse::route('/create'),
-            'view'   => Pages\ViewStockWarehouse::route('/{record}'),
-            'edit'   => Pages\EditStockWarehouse::route('/{record}/edit'),
+            'view' => Pages\ViewStockWarehouse::route('/{record}'),
+            'edit' => Pages\EditStockWarehouse::route('/{record}/edit'),
         ];
     }
 }

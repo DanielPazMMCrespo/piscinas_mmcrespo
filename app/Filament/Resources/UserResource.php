@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class UserResource extends Resource
 {
@@ -18,10 +19,11 @@ class UserResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
     protected static ?string $navigationGroup = 'Sistema';
+
     protected static ?string $modelLabel = 'Utilizador';
+
     protected static ?string $pluralModelLabel = 'Utilizadores';
 
-    
     public static function canAccess(): bool
     {
         return auth()->user()->hasRole('admin');
@@ -104,7 +106,7 @@ class UserResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                        ->action(function (Collection $records): void {
                             $records->reject(fn ($r) => $r->id === auth()->id())->each->delete();
                         }),
                 ]),

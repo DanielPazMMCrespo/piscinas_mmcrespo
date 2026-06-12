@@ -12,7 +12,7 @@ class StockWarehouseLog extends Model
     protected $fillable = ['product_id', 'user_id', 'tipo_movimento', 'quantity', 'fornecedor', 'created_at'];
 
     protected $casts = [
-        'quantity'   => 'decimal:3',
+        'quantity' => 'decimal:3',
         'created_at' => 'datetime',
     ];
 

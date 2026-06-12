@@ -3,15 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
-use App\Filament\Resources\PoolResource\RelationManagers;
 use App\Models\Pool;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PoolResource extends Resource
 {
@@ -20,10 +17,11 @@ class PoolResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-view-columns';
 
     protected static ?string $navigationGroup = 'Estrutura';
+
     protected static ?string $modelLabel = 'Piscina';
+
     protected static ?string $pluralModelLabel = 'Piscinas';
 
-    
     public static function canAccess(): bool
     {
         return auth()->user()->hasRole('admin');

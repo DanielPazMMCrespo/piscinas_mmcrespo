@@ -12,9 +12,18 @@ class Incident extends Model
     protected $fillable = [
         'installation_id', 'user_id', 'ocorreu_em',
         'type', 'descricao', 'observacoes',
+        'status', 'resolvido_em', 'resolvido_por', 'resolucao',
     ];
 
-    protected $casts = ['ocorreu_em' => 'datetime'];
+    protected $casts = [
+        'ocorreu_em' => 'datetime',
+        'resolvido_em' => 'datetime',
+    ];
+
+    public function estaResolvido(): bool
+    {
+        return $this->status === 'resolvido';
+    }
 
     public function instalacao(): BelongsTo
     {
@@ -24,6 +33,11 @@ class Incident extends Model
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function resolvidoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolvido_por');
     }
 
     public function piscinas(): BelongsToMany

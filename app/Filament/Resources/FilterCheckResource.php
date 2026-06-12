@@ -18,7 +18,9 @@ class FilterCheckResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-funnel';
 
     protected static ?string $navigationGroup = 'Operação';
+
     protected static ?string $modelLabel = 'Limpeza de Filtro';
+
     protected static ?string $pluralModelLabel = 'Limpezas de Filtros';
 
     public static function getEloquentQuery(): Builder
@@ -74,9 +76,9 @@ class FilterCheckResource extends Resource
                 Forms\Components\Select::make('tipo_operacao')
                     ->label('Tipo de Operação')
                     ->options([
-                        'lavagem'          => 'Lavagem (Backwash)',
-                        'enxaguamento'     => 'Enxaguamento (Rinse)',
-                        'posicao_normal'   => 'Posição Normal',
+                        'lavagem' => 'Lavagem (Backwash)',
+                        'enxaguamento' => 'Enxaguamento (Rinse)',
+                        'posicao_normal' => 'Posição Normal',
                     ])
                     ->required(),
                 Forms\Components\FileUpload::make('caminho_foto')
@@ -90,16 +92,6 @@ class FilterCheckResource extends Resource
                 Forms\Components\Textarea::make('observacoes')
                     ->label('Observações')
                     ->columnSpanFull(),
-                Forms\Components\Section::make('Análise de Inteligência Artificial (Automático)')
-                    ->schema([
-                        Forms\Components\TextInput::make('resultado_ia')
-                            ->label('Resultado (Limpo/Sujo)')
-                            ->disabled(),
-                        Forms\Components\Textarea::make('descricao_ia')
-                            ->label('Descrição da IA')
-                            ->disabled()
-                            ->columnSpanFull(),
-                    ])->collapsed(),
             ]);
     }
 
@@ -122,10 +114,6 @@ class FilterCheckResource extends Resource
                     ->label('Data/Hora')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('resultado_ia')
-                    ->label('IA')
-                    ->badge()
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
@@ -159,10 +147,10 @@ class FilterCheckResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListFilterChecks::route('/'),
+            'index' => Pages\ListFilterChecks::route('/'),
             'create' => Pages\CreateFilterCheck::route('/create'),
-            'view'   => Pages\ViewFilterCheck::route('/{record}'),
-            'edit'   => Pages\EditFilterCheck::route('/{record}/edit'),
+            'view' => Pages\ViewFilterCheck::route('/{record}'),
+            'edit' => Pages\EditFilterCheck::route('/{record}/edit'),
         ];
     }
 }

@@ -40,7 +40,8 @@
                         <canvas x-ref="canvas"></canvas>
                     </div>
 
-                    <script type="application/json" x-ref="payload">{{ Illuminate\Support\Js::from($g) }}</script>
+                    {{-- JSON puro (não Js::from, que emite uma expressão JS) — o app.js faz JSON.parse disto. --}}
+                    <script type="application/json" x-ref="payload">@json($g)</script>
                 </div>
             @empty
                 <div class="mmc-grafico-vazio">

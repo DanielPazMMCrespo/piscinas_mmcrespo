@@ -8,17 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Estas colunas tambem sao criadas pela migration 2026_06_08_000001.
+        // Guardamos com hasColumn para esta migration ser um no-op seguro em BDs
+        // onde a 000001 ja correu, sem partir o migrate.
         Schema::table('daily_records', function (Blueprint $table) {
-            $table->boolean('bomba_com_bolhas')->default(false)->after('renovacao_agua');
-            $table->decimal('pressao_filtro', 5, 2)->nullable()->after('bomba_com_bolhas');
-            $table->string('estado_valvulas_filtro')->nullable()->after('pressao_filtro');
+            if (! Schema::hasColumn('daily_records', 'bomba_com_bolhas')) {
+                $table->boolean('bomba_com_bolhas')->default(false)->after('renovacao_agua');
+            }
+            if (! Schema::hasColumn('daily_records', 'pressao_filtro')) {
+                $table->decimal('pressao_filtro', 5, 2)->nullable();
+            }
+            if (! Schema::hasColumn('daily_records', 'estado_valvulas_filtro')) {
+                $table->string('estado_valvulas_filtro')->nullable();
+            }
         });
     }
 
     public function down(): void
     {
-        Schema::table('daily_records', function (Blueprint $table) {
-            $table->dropColumn(['bomba_com_bolhas', 'pressao_filtro', 'estado_valvulas_filtro']);
-        });
+        // No-op: as colunas pertencem a migration 2026_06_08_000001.
+        // Esta migration nao as remove para nao apagar dados de outra migration.
     }
 };

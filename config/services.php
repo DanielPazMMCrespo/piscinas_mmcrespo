@@ -35,5 +35,15 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_OCR_MODEL', 'gemini-2.0-flash'),
+        'confidence_threshold' => env('GEMINI_CONFIDENCE_THRESHOLD', 0.85),
+    ],
+
+    'hanna' => [
+        'email' => env('HANNA_CLOUD_EMAIL'),
+        'password' => env('HANNA_CLOUD_PASSWORD'),
+    ],
 
 ];

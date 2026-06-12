@@ -9,12 +9,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('daily_records', function (Blueprint $table) {
-            $table->boolean('bomba_ferrada')->nullable()->after('estado_valvulas_filtro');
-            $table->decimal('contador_valor', 12, 2)->nullable()->after('bomba_ferrada');
-            $table->string('agua_modo', 30)->nullable()->after('contador_valor');
-            $table->boolean('tanque_ok')->nullable()->after('agua_modo');
-            $table->text('tanque_observacoes')->nullable()->after('tanque_ok');
-            $table->json('analises_fotos')->nullable()->after('tanque_observacoes');
+            if (! Schema::hasColumn('daily_records', 'bomba_ferrada')) {
+                $table->boolean('bomba_ferrada')->nullable()->after('estado_valvulas_filtro');
+            }
+            if (! Schema::hasColumn('daily_records', 'contador_valor')) {
+                $table->decimal('contador_valor', 12, 2)->nullable();
+            }
+            if (! Schema::hasColumn('daily_records', 'agua_modo')) {
+                $table->string('agua_modo', 30)->nullable();
+            }
+            if (! Schema::hasColumn('daily_records', 'tanque_ok')) {
+                $table->boolean('tanque_ok')->nullable();
+            }
+            if (! Schema::hasColumn('daily_records', 'tanque_observacoes')) {
+                $table->text('tanque_observacoes')->nullable();
+            }
+            if (! Schema::hasColumn('daily_records', 'analises_fotos')) {
+                $table->json('analises_fotos')->nullable();
+            }
         });
     }
 

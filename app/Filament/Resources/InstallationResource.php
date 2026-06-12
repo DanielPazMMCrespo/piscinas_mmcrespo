@@ -3,15 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstallationResource\Pages;
-use App\Filament\Resources\InstallationResource\RelationManagers;
 use App\Models\Installation;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class InstallationResource extends Resource
 {
@@ -20,10 +17,11 @@ class InstallationResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
     protected static ?string $navigationGroup = 'Estrutura';
+
     protected static ?string $modelLabel = 'Instalação';
+
     protected static ?string $pluralModelLabel = 'Instalações';
 
-    
     public static function canAccess(): bool
     {
         return auth()->user()->hasRole('admin');

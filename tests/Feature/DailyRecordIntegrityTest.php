@@ -9,6 +9,7 @@ use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class DailyRecordIntegrityTest extends TestCase
@@ -19,7 +20,7 @@ class DailyRecordIntegrityTest extends TestCase
     {
         parent::setUp();
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
         foreach (['admin', 'tecnico', 'nadador_salvador'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
@@ -31,24 +32,24 @@ class DailyRecordIntegrityTest extends TestCase
 
         return Pool::create([
             'installation_id' => $inst->id,
-            'name'            => 'Competição',
-            'type'            => 'Interior',
-            'temp_min'        => 26,
-            'temp_max'        => 27,
-            'active'          => true,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => 26,
+            'temp_max' => 27,
+            'active' => true,
         ]);
     }
 
     private function novoRegisto(Pool $pool, User $autor): DailyRecord
     {
         return DailyRecord::create([
-            'pool_id'       => $pool->id,
-            'user_id'       => $autor->id,
-            'registado_em'  => now(),
-            'cloro_livre'   => 1.0,
-            'cloro_total'   => 1.2,
-            'ph'            => 7.4,
-            'temperatura'   => 26.5,
+            'pool_id' => $pool->id,
+            'user_id' => $autor->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => 1.2,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
             'transparencia' => 2,
         ]);
     }
@@ -87,17 +88,17 @@ class DailyRecordIntegrityTest extends TestCase
         $original = $this->novoRegisto($pool, $autor);
 
         $correcao = DailyRecord::create([
-            'pool_id'            => $original->pool_id,
-            'user_id'            => $autor->id,
-            'registado_em'       => $original->registado_em,
-            'cloro_livre'        => 1.1,
-            'cloro_total'        => 1.3,
-            'ph'                 => 7.5,
-            'temperatura'        => 26.6,
-            'transparencia'      => 2,
-            'e_correcao'         => true,
+            'pool_id' => $original->pool_id,
+            'user_id' => $autor->id,
+            'registado_em' => $original->registado_em,
+            'cloro_livre' => 1.1,
+            'cloro_total' => 1.3,
+            'ph' => 7.5,
+            'temperatura' => 26.6,
+            'transparencia' => 2,
+            'e_correcao' => true,
             'corrige_registo_id' => $original->id,
-            'razao_correcao'     => 'Valor de pH mal lido.',
+            'razao_correcao' => 'Valor de pH mal lido.',
         ]);
 
         $this->assertTrue($correcao->e_correcao);
@@ -116,13 +117,13 @@ class DailyRecordIntegrityTest extends TestCase
         $autor = User::factory()->create();
 
         $foraDeLimite = DailyRecord::create([
-            'pool_id'       => $pool->id,
-            'user_id'       => $autor->id,
-            'registado_em'  => now(),
-            'cloro_livre'   => 5.0,   // acima de 2.0
-            'cloro_total'   => 5.2,
-            'ph'            => 9.0,   // acima de 8.0
-            'temperatura'   => 40.0,  // acima do limite da piscina (27)
+            'pool_id' => $pool->id,
+            'user_id' => $autor->id,
+            'registado_em' => now(),
+            'cloro_livre' => 5.0,   // acima de 2.0
+            'cloro_total' => 5.2,
+            'ph' => 9.0,   // acima de 8.0
+            'temperatura' => 40.0,  // acima do limite da piscina (27)
             'transparencia' => 2,
         ]);
         $foraDeLimite->setRelation('piscina', $pool);

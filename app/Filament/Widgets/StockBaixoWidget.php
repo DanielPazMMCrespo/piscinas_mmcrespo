@@ -9,8 +9,10 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class StockBaixoWidget extends BaseWidget
 {
-    protected static ?int $sort = 3;
+    protected static ?int $sort = -10;
+
     protected static ?string $heading = 'Alertas de Stock Baixo';
+
     protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table

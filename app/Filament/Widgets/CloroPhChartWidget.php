@@ -15,7 +15,12 @@ class CloroPhChartWidget extends Widget implements HasForms
     use InteractsWithForms;
 
     protected static ?int $sort = 2;
+
     protected int|string|array $columnSpan = 'full';
+
+    // Não aparece no dashboard global — apenas na página dedicada de gráficos.
+    protected static bool $isDiscovered = false;
+
     protected static string $view = 'filament.widgets.painel-parametros';
 
     /** Piscinas selecionadas (IDs como string, default: todas em mount). */
@@ -28,6 +33,10 @@ class CloroPhChartWidget extends Widget implements HasForms
      * Definição de cada parâmetro: label, unidade, casas decimais, gama do eixo,
      * banda de conformidade CN 14/DA (faixa verde) e cor própria (usada quando há
      * só uma piscina, para distinguir parâmetros pela cor).
+     *
+     * Os campos `min`/`max` são usados no modo mono-metrica (eixo Y real).
+     * No modo multi-metrica, a normalização 0-100% usa os limites de conformidade
+     * (banda), não estes limites de escala.
      */
     private const METRICAS = [
         'cloro_livre' => [
@@ -51,8 +60,8 @@ class CloroPhChartWidget extends Widget implements HasForms
             'banda' => null,
         ],
         'transparencia' => [
-            'label' => 'Transparência', 'unidade' => 'm', 'casas' => 0,
-            'min' => 0, 'max' => 4, 'cor' => '#8b5cf6',
+            'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 0,
+            'min' => 0, 'max' => 5, 'cor' => '#8b5cf6',
             'banda' => null,
         ],
     ];
@@ -80,7 +89,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->orderBy('installation_id')->orderBy('name')
             ->get()
             ->mapWithKeys(fn (Pool $p) => [
-                (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name . ' — ' : '') . $p->name,
+                (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
         $opcoesMetricas = collect(self::METRICAS)
@@ -101,11 +110,50 @@ class CloroPhChartWidget extends Widget implements HasForms
     }
 
     /**
+     * Normaliza um valor para o intervalo 0-100% com base nos limites de conformidade
+     * da banda (CN 14/DA). Parâmetros sem banda usam os limites próprios de escala
+     * (campo `min`/`max` da definição do parâmetro).
+     *
+     * Fórmula: pct = (valor - normMin) / (normMax - normMin) * 100
+     * Valores fora de gama resultam em pct < 0 ou pct > 100 (visíveis no gráfico
+     * acima/abaixo da banda verde, graças ao suggestedMin:-20 / suggestedMax:120).
+     */
+    private function normalizarValor(float $valor, string $metrica, array $def, Pool $piscina): float
+    {
+        // Para temperatura: usa os limites da própria piscina se existirem.
+        // Senão usa escala fixa 20-35°C — razoável para piscinas cobertas municipais
+        // portuguesas; valor documentado aqui e no app.js.
+        if ($metrica === 'temperatura') {
+            $normMin = $piscina->temp_min !== null ? (float) $piscina->temp_min : 20.0;
+            $normMax = $piscina->temp_max !== null ? (float) $piscina->temp_max : 35.0;
+        } elseif ($def['banda'] !== null) {
+            // Parâmetro com banda de conformidade: normaliza contra os limites legais.
+            $normMin = (float) $def['banda']['min'];
+            $normMax = (float) $def['banda']['max'];
+        } else {
+            // Parâmetro sem banda (ex: cloro_total, transparencia, cloro_combinado):
+            // usa min de escala (0 se null) e max de escala.
+            $normMin = $def['min'] !== null ? (float) $def['min'] : 0.0;
+            $normMax = (float) $def['max'];
+        }
+
+        $intervalo = $normMax - $normMin;
+
+        // Evita divisão por zero em definições mal configuradas.
+        if ($intervalo == 0.0) {
+            return 50.0;
+        }
+
+        return round(($valor - $normMin) / $intervalo * 100, 2);
+    }
+
+    /**
      * Blocos de gráficos a desenhar. Regra:
      *  - 1 piscina selecionada  -> UM gráfico único com todos os parâmetros como
-     *    linhas de cores distintas (eixo normalizado 0-100%) para ver correlações
-     *    pH<->cloro de relance.
-     *  - 2+ piscinas            -> um gráfico por parâmetro, cada série uma piscina.
+     *    linhas de cores distintas, eixo Y único normalizado 0-100% do intervalo
+     *    legal (CN 14/DA). Tooltip mostra valores reais com unidade.
+     *  - 2+ piscinas            -> um gráfico por parâmetro, cada série uma piscina
+     *    (eixo Y com valores reais, sem normalização).
      */
     public function getGraficos(): array
     {
@@ -135,48 +183,64 @@ class CloroPhChartWidget extends Widget implements HasForms
         $piscinas = Pool::query()->whereIn('id', $piscinaIds)
             ->orderBy('installation_id')->orderBy('name')->get();
 
-        // Devolve a série (array de valores por dia) de uma piscina+métrica.
-        $serie = function (int $poolId, string $metrica, array $def) use ($registos, $dias) {
+        // Devolve o array de valores reais (por dia) de uma piscina+métrica.
+        $serieReal = function (int $poolId, string $metrica, array $def) use ($registos, $dias): array {
             $porDia = ($registos->get($poolId) ?? collect())->keyBy('dia');
+
             return $dias->map(function ($d) use ($porDia, $metrica, $def) {
                 $r = $porDia->get($d->format('Y-m-d'));
+
                 return $r && $r->{$metrica} !== null
                     ? round((float) $r->{$metrica}, $def['casas'])
                     : null;
             })->values()->toArray();
         };
 
-        // --- MODO 1 PISCINA: um gráfico, parâmetros como linhas de cores distintas ---
+        // --- MODO 1 PISCINA: eixo único normalizado 0-100% do intervalo legal ---
         if ($piscinas->count() === 1) {
             $p = $piscinas->first();
             $series = [];
+
             foreach ($metricas as $metrica) {
                 $def = self::METRICAS[$metrica];
+                $valoresReais = $serieReal($p->id, $metrica, $def);
+
+                // Normaliza cada ponto; null mantém-se null (spanGaps=false).
+                $valoresNorm = array_map(
+                    fn ($v) => $v !== null ? $this->normalizarValor($v, $metrica, $def, $p) : null,
+                    $valoresReais
+                );
+
+                // Constrói a string de valor real para o tooltip (ex: "7,42" ou "1,20 mg/L").
+                $valoresReaisTooltip = array_map(function ($v) use ($def) {
+                    if ($v === null) {
+                        return null;
+                    }
+                    $formatado = number_format($v, $def['casas'], ',', '');
+
+                    return $def['unidade'] ? "{$formatado} {$def['unidade']}" : $formatado;
+                }, $valoresReais);
+
                 $series[] = [
-                    'label'   => $def['label'] . ($def['unidade'] ? " ({$def['unidade']})" : ''),
-                    'cor'     => $def['cor'],
-                    'data'    => $serie($p->id, $metrica, $def),
-                    // Eixo próprio por parâmetro: pH à direita, cloros/temp à esquerda.
-                    'eixo'    => $metrica === 'ph' ? 'ph' : 'principal',
-                    'banda'   => $def['banda'],
-                    'unidade' => $def['unidade'],
+                    'label'     => $def['label'],
+                    'cor'       => $def['cor'],
+                    // data: valores normalizados 0-100 — usados para desenhar a linha.
+                    'data'      => $valoresNorm,
+                    // dataReal: valores reais com unidade — usados exclusivamente pelo tooltip.
+                    'dataReal'  => $valoresReaisTooltip,
+                    // unidade: enviada para o tooltip poder reconstituir a legenda.
+                    'unidade'   => $def['unidade'],
                 ];
             }
 
             return [[
-                'modo'    => 'multi-metrica',
-                'titulo'  => $p->instalacao?->name ? "{$p->instalacao->name} — {$p->name}" : $p->name,
-                'labels'  => $labels,
-                'series'  => $series,
-                // Eixo principal (cloro/temp/transp) e eixo pH separados.
-                'eixos'   => [
-                    'principal' => ['min' => 0,   'max' => 3,   'titulo' => 'mg/L · °C · m'],
-                    'ph'        => ['min' => 6.5, 'max' => 8.5, 'titulo' => 'pH', 'banda' => ['min' => DailyRecord::PH_MIN, 'max' => DailyRecord::PH_MAX]],
-                ],
-                // Banda do cloro livre marcada no eixo principal se cloro_livre estiver selecionado.
-                'bandaPrincipal' => in_array('cloro_livre', $metricas, true)
-                    ? ['min' => DailyRecord::CLORO_LIVRE_MIN, 'max' => DailyRecord::CLORO_LIVRE_MAX]
-                    : null,
+                'modo'   => 'multi-metrica',
+                'titulo' => $p->instalacao?->name ? "{$p->instalacao->name} — {$p->name}" : $p->name,
+                'labels' => $labels,
+                'series' => $series,
+                // Eixo Y único normalizado: a banda "conforme" é sempre 0-100%.
+                // suggestedMin:-20 / suggestedMax:120 para valores fora de gama visíveis.
+                'bandaNormalizada' => ['min' => 0, 'max' => 100],
             ]];
         }
 
@@ -194,19 +258,19 @@ class CloroPhChartWidget extends Widget implements HasForms
                 $series[] = [
                     'label' => $p->name,
                     'cor'   => $corPorPiscina[$p->id],
-                    'data'  => $serie($p->id, $metrica, $def),
+                    'data'  => $serieReal($p->id, $metrica, $def),
                 ];
             }
 
             $graficos[] = [
-                'modo'    => 'mono-metrica',
-                'titulo'  => $def['label'],
+                'modo'   => 'mono-metrica',
+                'titulo' => $def['label'],
                 'unidade' => $def['unidade'],
-                'min'     => $def['min'],
-                'max'     => $def['max'],
-                'banda'   => $def['banda'],
-                'labels'  => $labels,
-                'series'  => $series,
+                'min'    => $def['min'],
+                'max'    => $def['max'],
+                'banda'  => $def['banda'],
+                'labels' => $labels,
+                'series' => $series,
             ];
         }
 

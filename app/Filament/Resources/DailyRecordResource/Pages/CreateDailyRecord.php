@@ -1,9 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
+use App\Models\DailyRecord;
+use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
+use App\Models\RecordPhoto;
+use App\Models\TapAlert;
+use App\Models\User;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\DB;
 
 class CreateDailyRecord extends CreateRecord
 {
@@ -19,5 +29,213 @@ class CreateDailyRecord extends CreateRecord
                 ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),
         ];
+    }
+
+    /**
+     * Depois de gravar o registo: (1) desconta do stock da instalação os químicos
+     * adicionados; (2) avisa os administradores se houver parâmetros fora dos limites.
+     * Nenhuma destas operações bloqueia o registo sanitário (append-only).
+     */
+    protected function afterCreate(): void
+    {
+        /** @var DailyRecord $registo */
+        $registo = $this->record;
+        $registo->loadMissing('piscina.instalacao', 'adicoes.produto');
+
+        $this->guardarFotos($registo);
+        $this->descontarStock($registo);
+        $this->notificarNaoConformidade($registo);
+        $this->gerirTorneira($registo);
+    }
+
+    /**
+     * Correlação água ↔ torneira: "ON — com água" (agua_modo='on_com_agua') é a
+     * torneira forçada aberta. Abre um alerta por piscina enquanto durar; qualquer
+     * outro estado num registo seguinte fecha o alerta aberto (resolução
+     * automática que faz o cartão sair do Kanban).
+     */
+    private function gerirTorneira(DailyRecord $registo): void
+    {
+        if (! $registo->pool_id) {
+            return;
+        }
+
+        $aberto = TapAlert::query()
+            ->where('pool_id', $registo->pool_id)
+            ->whereNull('resolved_at')
+            ->latest('opened_at')
+            ->first();
+
+        if ($registo->agua_modo === 'on_com_agua') {
+            // Já há um alerta aberto para esta piscina — não duplica.
+            if (! $aberto) {
+                TapAlert::create([
+                    'pool_id' => $registo->pool_id,
+                    'opened_record_id' => $registo->id,
+                    'opened_by' => $registo->user_id,
+                    'opened_at' => $registo->registado_em,
+                ]);
+            }
+
+            return;
+        }
+
+        // Estado diferente de "ON — com água": fecha o alerta que estiver aberto.
+        if ($aberto) {
+            $aberto->update([
+                'resolved_at' => $registo->registado_em,
+                'resolved_by' => $registo->user_id,
+                'resolved_record_id' => $registo->id,
+                'resolution' => 'registo_seguinte',
+            ]);
+        }
+    }
+
+    /**
+     * Cria registos em `record_photos` para cada foto no array `analises_fotos`.
+     * O Filament FileUpload já armazenou os ficheiros em disk storage.
+     */
+    private function guardarFotos(DailyRecord $registo): void
+    {
+        if (empty($registo->analises_fotos) || ! is_array($registo->analises_fotos)) {
+            return;
+        }
+
+        foreach ($registo->analises_fotos as $caminho) {
+            RecordPhoto::create([
+                'daily_record_id' => $registo->id,
+                'type' => 'tecnico',
+                'path' => (string) $caminho,
+            ]);
+        }
+    }
+
+    /**
+     * Desconta as adições de químicos do stock da instalação (transação + lock).
+     * Decisão: o registo sanitário é a fonte de verdade legal e nunca é bloqueado;
+     * se o stock for insuficiente, desconta até zero e avisa (não impede o registo).
+     */
+    private function descontarStock(DailyRecord $registo): void
+    {
+        $instalacaoId = $registo->piscina?->instalacao?->id;
+        if (! $instalacaoId || $registo->adicoes->isEmpty()) {
+            return;
+        }
+
+        $insuficientes = [];
+
+        foreach ($registo->adicoes as $adicao) {
+            if (! $adicao->product_id || (float) $adicao->quantity <= 0) {
+                continue;
+            }
+
+            $nomeProduto = $adicao->produto?->name ?? 'produto';
+
+            DB::transaction(function () use ($adicao, $instalacaoId, $nomeProduto, &$insuficientes): void {
+                $stock = StockInstallation::query()
+                    ->where('installation_id', $instalacaoId)
+                    ->where('product_id', $adicao->product_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                // Sem linha de stock para este produto na instalação: regista a falha
+                // como movimento na mesma, criando a linha a zero para haver rasto.
+                if (! $stock) {
+                    $stock = StockInstallation::create([
+                        'installation_id' => $instalacaoId,
+                        'product_id' => $adicao->product_id,
+                        'quantity' => 0,
+                        'limite_minimo' => 0,
+                    ]);
+                }
+
+                $pedido = (float) $adicao->quantity;
+                $disponivel = (float) $stock->quantity;
+                $consumo = min($pedido, $disponivel);
+
+                if ($pedido > $disponivel) {
+                    $insuficientes[] = $nomeProduto;
+                }
+
+                if ($consumo > 0) {
+                    $stock->quantity = $disponivel - $consumo;
+                    $stock->save();
+
+                    StockInstallationLog::create([
+                        'stock_installation_id' => $stock->id,
+                        'user_id' => auth()->id(),
+                        'tipo_movimento' => 'consumo',
+                        'quantity' => $consumo,
+                        'created_at' => now(),
+                    ]);
+                }
+            });
+        }
+
+        if ($insuficientes !== []) {
+            $destinatarios = User::role('admin')->get();
+            $corpo = 'Stock insuficiente na instalação '
+                .($registo->piscina?->instalacao?->name ?? '')
+                .' para: '.implode(', ', array_unique($insuficientes)).'.';
+
+            Notification::make()
+                ->warning()
+                ->title('Stock insuficiente')
+                ->body($corpo)
+                ->send();
+
+            if ($destinatarios->isNotEmpty()) {
+                Notification::make()
+                    ->warning()
+                    ->title('Stock insuficiente')
+                    ->body($corpo)
+                    ->sendToDatabase($destinatarios);
+            }
+        }
+    }
+
+    /**
+     * Se o registo tiver parâmetros fora dos limites legais CN 14/DA, notifica os
+     * administradores (notificação persistente) com a piscina e os parâmetros.
+     */
+    private function notificarNaoConformidade(DailyRecord $registo): void
+    {
+        // A avaliação de temperatura precisa dos limites da piscina.
+        if ($registo->piscina) {
+            $registo->setRelation('piscina', $registo->piscina);
+        }
+
+        $violacoes = [];
+        if (! $registo->phConforme()) {
+            $violacoes[] = 'pH '.$registo->ph;
+        }
+        if (! $registo->cloroLivreConforme()) {
+            $violacoes[] = 'cloro livre '.$registo->cloro_livre.' mg/L';
+        }
+        if (! $registo->cloroCombinadoConforme()) {
+            $violacoes[] = 'cloro combinado '.$registo->cloro_combinado.' mg/L';
+        }
+        if (! $registo->temperaturaConforme()) {
+            $violacoes[] = 'temperatura '.$registo->temperatura.' ºC';
+        }
+
+        if ($violacoes === []) {
+            return;
+        }
+
+        $nome = $registo->piscina?->instalacao?->name
+            ? $registo->piscina->instalacao->name.' '.$registo->piscina->name
+            : ($registo->piscina?->name ?? 'piscina');
+
+        $destinatarios = User::role('admin')->get();
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        Notification::make()
+            ->danger()
+            ->title('Parâmetros fora dos limites: '.$nome)
+            ->body(implode(' · ', $violacoes).'. Ação corretiva: '.($registo->acao_corretiva ?: 'não indicada').'.')
+            ->sendToDatabase($destinatarios);
     }
 }

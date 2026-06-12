@@ -3,15 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
-use App\Filament\Resources\ProductResource\RelationManagers;
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ProductResource extends Resource
 {
@@ -20,10 +17,11 @@ class ProductResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-beaker';
 
     protected static ?string $navigationGroup = 'Inventário';
+
     protected static ?string $modelLabel = 'Produto Químico';
+
     protected static ?string $pluralModelLabel = 'Produtos Químicos';
 
-    
     public static function canAccess(): bool
     {
         return auth()->user()->hasAnyRole(['admin', 'tecnico']);

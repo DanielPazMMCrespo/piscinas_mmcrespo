@@ -12,7 +12,7 @@ class StockInstallationLog extends Model
     protected $fillable = ['stock_installation_id', 'user_id', 'tipo_movimento', 'quantity', 'created_at'];
 
     protected $casts = [
-        'quantity'   => 'decimal:3',
+        'quantity' => 'decimal:3',
         'created_at' => 'datetime',
     ];
 

@@ -23,9 +23,9 @@ return new class extends Migration
             $table->text('observacoes')->nullable();
             $table->boolean('e_correcao')->default(false);
             $table->foreignId('corrige_registo_id')
-                  ->nullable()
-                  ->constrained('daily_records')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('daily_records')
+                ->nullOnDelete();
             $table->text('razao_correcao')->nullable();
             $table->timestamps();
         });

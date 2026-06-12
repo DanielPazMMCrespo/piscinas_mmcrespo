@@ -6,6 +6,7 @@ use App\Filament\Resources\IncidentResource\Pages;
 use App\Models\Incident;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -17,7 +18,9 @@ class IncidentResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
 
     protected static ?string $navigationGroup = 'Operação';
+
     protected static ?string $modelLabel = 'Incidente';
+
     protected static ?string $pluralModelLabel = 'Incidentes';
 
     /**
@@ -63,9 +66,9 @@ class IncidentResource extends Resource
                     ->label('Tipo de Incidente')
                     ->options([
                         'avaria_equipamento' => 'Avaria de Equipamento',
-                        'fuga_agua'          => 'Fuga de Água',
-                        'qualidade_agua'     => 'Problema na Qualidade da Água',
-                        'outro'              => 'Outro',
+                        'fuga_agua' => 'Fuga de Água',
+                        'qualidade_agua' => 'Problema na Qualidade da Água',
+                        'outro' => 'Outro',
                     ])
                     ->required(),
                 Forms\Components\Textarea::make('descricao')
@@ -75,6 +78,22 @@ class IncidentResource extends Resource
                 Forms\Components\Textarea::make('observacoes')
                     ->label('Observações Adicionais')
                     ->columnSpanFull(),
+                Forms\Components\Section::make('Resolução')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(fn (?Incident $record): bool => $record?->status === 'resolvido')
+                    ->columns(2)
+                    ->schema([
+                        Forms\Components\TextInput::make('resolvido_em')
+                            ->label('Resolvido em')
+                            ->disabled(),
+                        Forms\Components\TextInput::make('resolvidoPor.name')
+                            ->label('Resolvido por')
+                            ->disabled(),
+                        Forms\Components\Textarea::make('resolucao')
+                            ->label('Resolução aplicada')
+                            ->disabled()
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 
@@ -93,10 +112,23 @@ class IncidentResource extends Resource
                     ->label('Tipo')
                     ->badge()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Estado')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state === 'resolvido' ? 'Resolvido' : 'Aberto')
+                    ->color(fn (?string $state): string => $state === 'resolvido' ? 'success' : 'danger')
+                    ->icon(fn (?string $state): string => $state === 'resolvido' ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-circle'),
                 Tables\Columns\TextColumn::make('ocorreu_em')
                     ->label('Data/Hora')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('resolvido_em')
+                    ->label('Resolvido em')
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('—')
+                    ->color('gray')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
@@ -109,9 +141,41 @@ class IncidentResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Estado')
+                    ->options(['aberto' => 'Aberto', 'resolvido' => 'Resolvido'])
+                    ->default('aberto'),
             ])
             ->actions([
+                Tables\Actions\Action::make('resolver')
+                    ->label('Resolver')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (Incident $record): bool => $record->status !== 'resolvido')
+                    ->modalHeading('Resolver incidente')
+                    ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
+                    ->modalSubmitActionLabel('Marcar como resolvido')
+                    ->form([
+                        Forms\Components\Textarea::make('resolucao')
+                            ->label('Resolução aplicada')
+                            ->required()
+                            ->minLength(5)
+                            ->rows(3),
+                    ])
+                    ->action(function (Incident $record, array $data): void {
+                        $record->update([
+                            'status' => 'resolvido',
+                            'resolvido_em' => now(),
+                            'resolvido_por' => auth()->id(),
+                            'resolucao' => $data['resolucao'],
+                        ]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Incidente resolvido')
+                            ->body('Saiu do quadro de operação.')
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
@@ -130,10 +194,10 @@ class IncidentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListIncidents::route('/'),
+            'index' => Pages\ListIncidents::route('/'),
             'create' => Pages\CreateIncident::route('/create'),
-            'view'   => Pages\ViewIncident::route('/{record}'),
-            'edit'   => Pages\EditIncident::route('/{record}/edit'),
+            'view' => Pages\ViewIncident::route('/{record}'),
+            'edit' => Pages\EditIncident::route('/{record}/edit'),
         ];
     }
 }

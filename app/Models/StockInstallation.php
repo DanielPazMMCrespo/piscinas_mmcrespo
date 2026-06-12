@@ -11,7 +11,7 @@ class StockInstallation extends Model
     protected $fillable = ['installation_id', 'product_id', 'quantity', 'limite_minimo'];
 
     protected $casts = [
-        'quantity'      => 'decimal:3',
+        'quantity' => 'decimal:3',
         'limite_minimo' => 'decimal:3',
     ];
 
