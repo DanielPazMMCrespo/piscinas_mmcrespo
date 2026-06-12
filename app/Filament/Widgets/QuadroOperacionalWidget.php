@@ -32,6 +32,16 @@ class QuadroOperacionalWidget extends Widget
     protected static ?string $pollingInterval = '60s';
 
     /**
+     * Listener para quando um novo registo diário é criado — refrescar
+     * o Kanban imediatamente em vez de esperar 60 segundos.
+     */
+    #[\Livewire\Attributes\On('daily-record-created')]
+    public function refrescarAposNovoRegisto(): void
+    {
+        $this->dispatch('refresh');
+    }
+
+    /**
      * Move um cartão para outra coluna (chamado pelo drag-and-drop e botões).
      */
     public function moverAlerta(string $key, string $status): void

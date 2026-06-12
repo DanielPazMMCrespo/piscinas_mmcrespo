@@ -46,6 +46,10 @@ class CreateDailyRecord extends CreateRecord
         $this->descontarStock($registo);
         $this->notificarNaoConformidade($registo);
         $this->gerirTorneira($registo);
+
+        // Broadcast em tempo real para o Kanban refrescar imediatamente
+        // em vez de esperar 60 segundos.
+        $this->dispatch('daily-record-created', poolId: $registo->pool_id);
     }
 
     /**
