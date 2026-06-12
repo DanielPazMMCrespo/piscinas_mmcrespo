@@ -1,20 +1,31 @@
 import './bootstrap';
 
 import Chart from 'chart.js/auto';
+import { gsap } from 'gsap';
+import Sortable from 'sortablejs';
+
+const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * Componente Alpine para os gráficos do painel de parâmetros.
  *
  * Dois modos:
  *  - 'mono-metrica'  : um parâmetro, várias piscinas (cor por piscina) + banda CN 14/DA.
- *  - 'multi-metrica' : uma piscina, vários parâmetros (cor por parâmetro), dois eixos
- *                      (cloro/temp à esquerda, pH à direita) para correlacionar pH<->cloro.
+ *                      Eixo Y com valores reais (mg/L, °C, etc.).
+ *  - 'multi-metrica' : uma piscina, vários parâmetros (cor por parâmetro).
+ *                      Eixo Y único normalizado 0-100% do intervalo legal (CN 14/DA).
+ *                      A banda verde cobre exatamente 0-100. suggestedMin:-20 /
+ *                      suggestedMax:120 para linhas fora de gama ficarem visíveis.
+ *                      O tooltip mostra os valores REAIS (ex: "pH 7,42", "Cloro Livre 1,20 mg/L")
+ *                      lidos de dataset.dataReal[dataIndex].
  *
  * Registado no Alpine do Filament via o evento global `alpine:init`.
  */
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('mmcChart', (config) => ({
         chart: null,
+        resizeObserver: null,
+        resizeTimer: null,
 
         init() {
             this.render();
@@ -31,6 +42,19 @@ document.addEventListener('alpine:init', () => {
                 Alpine.store('theme');
                 this.$nextTick(() => this.render());
             });
+
+            // Rotação/redimensionamento em mobile: o canvas não acompanha o
+            // contentor sem um resize explícito. Debounce de 100ms.
+            this.resizeObserver = new ResizeObserver(() => {
+                clearTimeout(this.resizeTimer);
+                this.resizeTimer = setTimeout(() => this.chart?.resize(), 100);
+            });
+            this.resizeObserver.observe(this.$el);
+        },
+
+        destroy() {
+            this.resizeObserver?.disconnect();
+            this.chart?.destroy();
         },
 
         cores() {
@@ -62,7 +86,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         linhaDataset(s, eixoId) {
-            return {
+            const ds = {
                 label: s.label,
                 data: s.data,
                 yAxisID: eixoId,
@@ -75,6 +99,11 @@ document.addEventListener('alpine:init', () => {
                 spanGaps: false,
                 order: 1,
             };
+            // No modo multi-metrica os arrays dataReal e unidade são transportados
+            // no dataset para o callback do tooltip os poder ler diretamente.
+            if (s.dataReal !== undefined) ds.dataReal = s.dataReal;
+            if (s.unidade !== undefined) ds.unidade = s.unidade;
+            return ds;
         },
 
         render(novoConfig = null) {
@@ -85,44 +114,47 @@ document.addEventListener('alpine:init', () => {
             const n = config.labels.length;
             const datasets = [];
             let scales = {};
+            // Callback de tooltip — definido por modo abaixo.
+            let tooltipLabel = null;
 
             if (config.modo === 'multi-metrica') {
-                // Eixo principal (cloro/temp/transp) + eixo pH à direita.
-                const ep = config.eixos.principal;
-                const eph = config.eixos.ph;
-
-                // Banda do cloro livre no eixo principal.
-                if (config.bandaPrincipal) {
-                    datasets.push(...this.bandaDatasets(config.bandaPrincipal, 'principal', n, c.banda));
-                }
-                // Banda do pH no eixo pH.
-                if (eph.banda) {
-                    datasets.push(...this.bandaDatasets(eph.banda, 'ph', n, c.banda));
+                // Eixo Y único normalizado 0-100% do intervalo legal CN 14/DA.
+                // bandaNormalizada = {min:0, max:100} (a banda "conforme" cobre todo o eixo).
+                // suggestedMin:-20 / suggestedMax:120 para ver valores fora de gama.
+                if (config.bandaNormalizada) {
+                    datasets.push(...this.bandaDatasets(config.bandaNormalizada, 'y', n, c.banda));
                 }
 
                 config.series.forEach((s) => {
-                    datasets.push(this.linhaDataset(s, s.eixo === 'ph' ? 'ph' : 'principal'));
+                    datasets.push(this.linhaDataset(s, 'y'));
                 });
 
                 scales = {
                     x: { grid: { display: false }, ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 } },
-                    principal: {
-                        type: 'linear', position: 'left',
-                        min: ep.min, max: ep.max,
+                    y: {
+                        suggestedMin: -20,
+                        suggestedMax: 120,
                         grid: { color: c.grelha },
-                        ticks: { color: c.texto },
-                        title: { display: true, text: ep.titulo, color: c.texto },
-                    },
-                    ph: {
-                        type: 'linear', position: 'right',
-                        min: eph.min, max: eph.max,
-                        grid: { drawOnChartArea: false },
-                        ticks: { color: c.texto },
-                        title: { display: true, text: eph.titulo, color: c.texto },
+                        ticks: {
+                            color: c.texto,
+                            callback: (v) => v + '%',
+                        },
+                        title: { display: true, text: '% do intervalo legal', color: c.texto },
                     },
                 };
+
+                // Tooltip mostra o valor REAL da série (dataset.dataReal[dataIndex])
+                // em vez do valor normalizado. Ex: "pH: 7,42" ou "Cloro Livre: 1,20 mg/L".
+                tooltipLabel = (ctx) => {
+                    if (ctx.dataset.label.startsWith('__banda')) return null;
+                    const real = ctx.dataset.dataReal ? ctx.dataset.dataReal[ctx.dataIndex] : null;
+                    if (real === null || real === undefined) return `${ctx.dataset.label}: —`;
+                    const unidade = ctx.dataset.unidade || '';
+                    // dataReal já inclui a unidade formatada (feito no PHP).
+                    return `${ctx.dataset.label}: ${real}`;
+                };
             } else {
-                // mono-metrica: um parâmetro, várias piscinas.
+                // mono-metrica: um parâmetro, várias piscinas — sem normalização.
                 if (config.banda) {
                     datasets.push(...this.bandaDatasets(config.banda, 'y', n, c.banda));
                 }
@@ -136,6 +168,12 @@ document.addEventListener('alpine:init', () => {
                         ticks: { color: c.texto },
                         title: config.unidade ? { display: true, text: config.unidade, color: c.texto } : { display: false },
                     },
+                };
+
+                tooltipLabel = (ctx) => {
+                    if (ctx.dataset.label.startsWith('__banda')) return null;
+                    const u = config.unidade ? ' ' + config.unidade : '';
+                    return `${ctx.dataset.label}: ${ctx.formattedValue}${u}`;
                 };
             }
 
@@ -158,10 +196,7 @@ document.addEventListener('alpine:init', () => {
                         tooltip: {
                             filter: (item) => !item.dataset.label.startsWith('__banda'),
                             callbacks: {
-                                label: (ctx) => {
-                                    const u = config.modo === 'multi-metrica' ? '' : (config.unidade ? ' ' + config.unidade : '');
-                                    return `${ctx.dataset.label}: ${ctx.formattedValue}${u}`;
-                                },
+                                label: tooltipLabel,
                             },
                         },
                     },
@@ -170,4 +205,139 @@ document.addEventListener('alpine:init', () => {
             });
         },
     }));
+
+    /**
+     * Quadro Kanban operacional: drag-and-drop entre colunas (SortableJS)
+     * com persistência via Livewire (moverAlerta) e entrada animada (GSAP).
+     */
+    window.Alpine.data('mmcKanban', () => ({
+        sortables: [],
+
+        init() {
+            this.montar();
+
+            // O Livewire substitui o DOM das listas após cada movimento/polling —
+            // destrói e volta a montar o Sortable para não ficar órfão.
+            Livewire.hook('morph.updated', ({ el }) => {
+                if (el === this.$el || this.$el.contains(el)) {
+                    clearTimeout(this._remount);
+                    this._remount = setTimeout(() => this.montar(), 50);
+                }
+            });
+
+            if (!reduzMovimento) {
+                gsap.from(this.$el.querySelectorAll('.mmc-kb-card'), {
+                    y: 14, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'all',
+                });
+            }
+        },
+
+        montar() {
+            this.sortables.forEach((s) => s.destroy());
+            this.sortables = [];
+
+            this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
+                this.sortables.push(Sortable.create(lista, {
+                    group: 'mmc-kanban',
+                    animation: 150,
+                    ghostClass: 'mmc-kb-ghost',
+                    dragClass: 'mmc-kb-drag',
+                    // Nos ecrãs táteis o arrasto exige pressão longa para não
+                    // lutar com o scroll horizontal das colunas.
+                    delay: 150,
+                    delayOnTouchOnly: true,
+                    filter: '.mmc-kb-btn, a',
+                    preventOnFilter: false,
+                    onAdd: (evt) => {
+                        const key = evt.item?.dataset?.key;
+                        const status = evt.to?.dataset?.status;
+                        if (key && status) {
+                            if (!reduzMovimento) {
+                                gsap.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
+                            }
+                            this.$wire.moverAlerta(key, status);
+                        }
+                    },
+                }));
+            });
+        },
+
+        destroy() {
+            this.sortables.forEach((s) => s.destroy());
+        },
+    }));
 });
+
+// Logótipo e layout do header: reorganizar quando a barra lateral recolhe
+const setupHeaderLayout = () => {
+    const sidebarMain = document.querySelector('aside[class*="sidebar"]');
+    const navbar = document.querySelector('nav');
+    if (!sidebarMain || !navbar) return;
+
+    let headerLogo = null;
+
+    const updateHeaderLayout = () => {
+        const isHidden = sidebarMain.offsetWidth < 120 ||
+                         sidebarMain.style.display === 'none' ||
+                         getComputedStyle(sidebarMain).display === 'none';
+
+        if (isHidden) {
+            // Barra lateral recolhida: criar/mostrar logótipo no header
+            if (!headerLogo) {
+                // Criar contentor para o logótipo apenas
+                headerLogo = document.createElement('div');
+                headerLogo.id = 'mmcrespo-header-logo';
+                headerLogo.style.cssText = `
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 0.5rem !important;
+                    margin-right: auto !important;
+                `;
+
+                // Clonar apenas as imagens do logótipo
+                const brandLink = document.querySelector('.fi-sidebar-header a');
+                if (brandLink) {
+                    const brandImages = brandLink.querySelectorAll('img');
+                    brandImages.forEach((img) => {
+                        const imgClone = img.cloneNode(true);
+                        imgClone.style.height = '2.5rem';
+                        imgClone.style.width = 'auto';
+                        imgClone.style.display = 'block';
+                        headerLogo.appendChild(imgClone);
+                    });
+                }
+
+                // Garantir que o navbar é flex
+                navbar.style.display = 'flex';
+                navbar.style.alignItems = 'center';
+
+                // Inserir no início do navbar
+                navbar.insertBefore(headerLogo, navbar.firstChild);
+            } else {
+                headerLogo.style.display = 'flex';
+            }
+        } else {
+            // Barra lateral visível: esconder logótipo do header
+            if (headerLogo) {
+                headerLogo.style.display = 'none';
+            }
+        }
+    };
+
+    updateHeaderLayout();
+
+    const observer = new MutationObserver(updateHeaderLayout);
+    observer.observe(sidebarMain, {
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+        subtree: false,
+    });
+
+    setInterval(updateHeaderLayout, 500);
+};
+
+// Executar logo que o Filament estiver pronto
+document.addEventListener('DOMContentLoaded', setupHeaderLayout);
+if (document.readyState === 'complete') {
+    setupHeaderLayout();
+}
