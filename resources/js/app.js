@@ -290,7 +290,7 @@ const setupHeaderLayout = () => {
                 headerLogo.style.cssText = `
                     display: flex !important;
                     align-items: center !important;
-                    gap: 0.5rem !important;
+                    gap: 0.25rem !important;
                     margin-right: auto !important;
                 `;
 
@@ -336,8 +336,69 @@ const setupHeaderLayout = () => {
     setInterval(updateHeaderLayout, 500);
 };
 
+// Auto-scroll para próxima seção quando preenchida
+const setupAutoScroll = () => {
+    const form = document.querySelector('form');
+    if (!form) return;
+
+    const scrollToNextEmptySection = () => {
+        // Encontrar todas as seções (divs com classe que indicam seção do Filament)
+        const sections = Array.from(document.querySelectorAll('[role="region"], .space-y-6 > div'));
+
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+
+            // Verificar se tem ring verde (seção completa)
+            const hasGreenRing = section.className.includes('ring-green-500') ||
+                                section.querySelector('[class*="ring-green"]') !== null;
+
+            if (hasGreenRing && i < sections.length - 1) {
+                // Encontrar a próxima seção vazia (sem ring verde)
+                for (let j = i + 1; j < sections.length; j++) {
+                    const nextSection = sections[j];
+                    const nextHasRing = nextSection.className.includes('ring-green-500') ||
+                                       nextSection.querySelector('[class*="ring-green"]') !== null;
+
+                    if (!nextHasRing) {
+                        // Fazer scroll suave para a próxima seção vazia
+                        setTimeout(() => {
+                            nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 200);
+                        return;
+                    }
+                }
+            }
+        }
+    };
+
+    // Listener para mudanças no formulário
+    form.addEventListener('change', scrollToNextEmptySection);
+    form.addEventListener('input', scrollToNextEmptySection);
+
+    // Monitorar mudanças nas classes (quando Filament adiciona ring-green-500)
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (mutation.target.className.includes('ring-green-500')) {
+                    scrollToNextEmptySection();
+                }
+            }
+        });
+    });
+
+    observer.observe(form, {
+        attributes: true,
+        attributeFilter: ['class'],
+        subtree: true,
+    });
+};
+
 // Executar logo que o Filament estiver pronto
-document.addEventListener('DOMContentLoaded', setupHeaderLayout);
+document.addEventListener('DOMContentLoaded', () => {
+    setupHeaderLayout();
+    setupAutoScroll();
+});
 if (document.readyState === 'complete') {
     setupHeaderLayout();
+    setupAutoScroll();
 }
