@@ -1,5 +1,12 @@
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-15 (Sessão 12 — Limpeza total de dead code; preparação para PostgreSQL)
+> Última atualização: 2026-06-15 (Sessão 13 — Stock history + quantity validation; UX audit passed)
+
+## Sessão 13 — Histórico de stock + validação de quantidade (resumo)
+- **Histórico de transações**: `StockInstallationLogResource` (entrada/consumo por instalação) + `StockWarehouseLogResource` (entrada/saída central). Ambas com tabelas filtráveis (tipo movimento, produto, instalação, fornecedor), utilizador, data/hora. Ícones trending-down, grupo "Stock".
+- **Validação de quantidade**: ao selecionar um produto em "Adições de Químicos", mostra a quantidade disponível da instalação; tenta inserir mais → erro "Quantidade insuficiente. Disponível: X unidades". Métodos privados `quantidadeDisponivel()` + `helperQuantidadeDisponivel()`.
+- **UX por papel (audit completo)**: Nadador-Salvador vê apenas Informação Geral + Análises NS + Observações (secções Bomba, Filtros, Contador, Tanque, Nossas Análises, Químicos ocultadas); Técnico tem form completo; Admin tudo + históricos de stock + activity log. Forma prática e sem distrações.
+- **Fix: jobs table restaurada** — migração `2026_06_15_000002_restore_jobs_table` (tabela dropada por engano em sessão 11; `QUEUE_CONNECTION=database` + notificações de stock agora funcionam). Idempotente (verifica se existe antes de criar).
+- **Commits desta sessão**: `4daaca3` (dead code + PostgreSQL), `c20910d` (CSP + backups + NS form fix + PRODUCAO.md), `c8aa6cc` (jobs table fix), `e238237` (stock history + quantity validation).
 
 ## Sessão 12 — Limpeza de dead code + preparação PostgreSQL (resumo)
 - **Dead code removido**: `GeminiAnalysisService`, `OcrVisionService` (serviços IA/OCR nunca chamados); `IncidentPool`, `IncidentProduct` (models + tabelas dropadas, relações `piscinas()`/`produtosIncidente()` em `Incident` removidas); `DailyRecordWizardSubmitTest` (testava wizard apagado), `GeminiAnalysisServiceTest` (testava serviço morto).
