@@ -109,6 +109,46 @@ class DailyRecordResource extends Resource
     }
 
     /**
+     * Quantidade disponível de um produto na instalação (para validação de químicos).
+     * Retorna null se não houver produto/piscina/instalação configurados.
+     */
+    private static function quantidadeDisponivel(Get $get): ?float
+    {
+        $poolId = $get('../../pool_id');
+        $productId = $get('product_id');
+
+        if (! $poolId || ! $productId) {
+            return null;
+        }
+
+        $pool = Pool::find($poolId);
+        if (! $pool || ! $pool->instalacao) {
+            return null;
+        }
+
+        $stock = \App\Models\StockInstallation::query()
+            ->where('installation_id', $pool->instalacao->id)
+            ->where('product_id', $productId)
+            ->first();
+
+        return $stock ? (float) $stock->quantity : null;
+    }
+
+    /**
+     * Texto helperText para o campo quantity (mostra quantidade disponível).
+     */
+    private static function helperQuantidadeDisponivel(Get $get): string
+    {
+        $disponivel = self::quantidadeDisponivel($get);
+
+        if ($disponivel === null) {
+            return 'Selecione a piscina e o produto para ver a quantidade disponível.';
+        }
+
+        return "Disponível: $disponivel unidades";
+    }
+
+    /**
      * Avaliação de conformidade de um campo do formulário (semáforo em tempo real).
      * Mapeia o campo para a métrica legal certa; cloro total/combinado avalia-se
      * pelo combinado (total − livre).
@@ -566,13 +606,23 @@ class DailyRecordResource extends Resource
                                     ->relationship('produto', 'name')
                                     ->required()
                                     ->searchable()
-                                    ->preload(),
+                                    ->preload()
+                                    ->live(),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('Quantidade')
+                                    ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
                                     ->numeric()
                                     ->required()
                                     ->minValue(0)
                                     ->step(0.001)
+                                    ->rules([
+                                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                            $disponivel = self::quantidadeDisponivel($get);
+                                            if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
+                                                $fail("Quantidade insuficiente. Disponível: $disponivel unidades.");
+                                            }
+                                        },
+                                    ])
                                     ->suffixAction(
                                         Forms\Components\Actions\Action::make('calcular_dose')
                                             ->icon('heroicon-m-calculator')
