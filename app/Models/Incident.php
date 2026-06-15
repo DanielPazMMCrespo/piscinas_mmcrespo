@@ -1,11 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Incident extends Model
 {
@@ -40,13 +40,4 @@ class Incident extends Model
         return $this->belongsTo(User::class, 'resolvido_por');
     }
 
-    public function piscinas(): BelongsToMany
-    {
-        return $this->belongsToMany(Pool::class, 'incident_pools');
-    }
-
-    public function produtosIncidente(): HasMany
-    {
-        return $this->hasMany(IncidentProduct::class);
-    }
 }

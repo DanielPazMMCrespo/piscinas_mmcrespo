@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,7 @@ class FilterCheck extends Model
 {
     protected $fillable = [
         'pool_id', 'user_id', 'verificado_em', 'tipo_operacao',
-        'caminho_foto', 'resultado_ia', 'descricao_ia', 'observacoes',
+        'caminho_foto', 'observacoes',
     ];
 
     protected $casts = ['verificado_em' => 'datetime'];

@@ -1,5 +1,13 @@
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-15 (Sessão 11 — Revisão completa + limpeza do repo + correção de 4 bugs; IA/OCR fora do âmbito)
+> Última atualização: 2026-06-15 (Sessão 12 — Limpeza total de dead code; preparação para PostgreSQL)
+
+## Sessão 12 — Limpeza de dead code + preparação PostgreSQL (resumo)
+- **Dead code removido**: `GeminiAnalysisService`, `OcrVisionService` (serviços IA/OCR nunca chamados); `IncidentPool`, `IncidentProduct` (models + tabelas dropadas, relações `piscinas()`/`produtosIncidente()` em `Incident` removidas); `DailyRecordWizardSubmitTest` (testava wizard apagado), `GeminiAnalysisServiceTest` (testava serviço morto).
+- **$fillable limpos**: `FilterCheck` (removidos `resultado_ia`, `descricao_ia`); `RecordPhoto` (removido `resultado_ocr` + cast).
+- **Migration de limpeza**: `2026_06_15_000001_clean_dead_ai_columns` — dropa `record_photos.resultado_ocr`, `filter_checks.resultado_ia`/`descricao_ia` se existirem (idempotente; cobre fresh migrate em PostgreSQL onde a migração original as criaria). Aplicada ✓
+- **PostgreSQL pronto**: `config/database.php` já tinha `pgsql` configurado corretamente. `enum()` é compatível (check constraint em Laravel 12). `unsignedTinyInteger('attempts')` na migration `jobs` corrigido para `unsignedSmallInteger` (única incompatibilidade real com PostgreSQL encontrada). Para fazer a transição: alterar `DB_CONNECTION=pgsql` + credenciais no `.env`.
+- **declare(strict_types=1)** adicionado a `FilterCheck`, `RecordPhoto`, `Incident` (alinhamento com regra do projeto).
+- **Pendente para produção**: passwords dos seeders, CSP no `SecurityHeaders`, `PRODUCAO.md`, backups automáticos.
 
 ## Sessão 11 — Revisão, limpeza e correções (resumo)
 - **Kanban "real-time"**: é o polling de 60s do `QuadroOperacionalWidget` que atualiza. O `AlertasService::limparMemo()` que tinha sido adicionado era decorativo (memo é por-pedido; a request seguinte já recalcula) — **removido** o método e a chamada em `afterCreate()`.
@@ -7,7 +15,6 @@
 - **Revisão de 4 frentes** (segurança, código, produção, PDF) via subagentes. PDF verificado funcional (gera %PDF, coluna Conforme correta, exclui correções). Segurança acima da média (sem segredos no git, autorização por role OK, uploads privados+MIME, sessões endurecidas; falta CSP).
 - **Limpeza do repo**: removidos 42 ficheiros-lixo commitados (heredocs mal interpretados nos `git add -A` das sessões anteriores) + `*.zip` no `.gitignore`. BD de registos de teste limpa.
 - **4 bugs corrigidos**: (1) `cloroCombinado` dava negativo com `cloro_total` null → agora null-safe + `notificarNaoConformidade` com guards de null; (2) `app.js` montava observers/listeners em duplicado + `setInterval(500ms)` eterno → montagem única + observer-only + debounce no auto-scroll; (3) `agua_modo` null fechava alerta de torneira indevidamente → trata null como estado desconhecido; (4) `limparMemo` morto removido.
-- **Pendente para produção (não bloqueante para uso local)**: achatar a saga de migrações (largam-se `jobs`/`cache_locks`/pivots de incidente que ficam minas latentes), `enum()`→`string()` para PostgreSQL, passwords dos seeders, `PRODUCAO.md`, backups, CSP. Dead code IA (`GeminiAnalysisService`/`OcrVisionService` + colunas `*_ia`/`resultado_ocr`) por limpar.
 
 ## Sessão 10 — Correlações fechadas + limpezas (resumo)
 Leitura completa do codebase (modelos, serviços, recursos, widgets, migrações, seeders, testes, JS, configs). Correções feitas e verificadas:
@@ -118,10 +125,11 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 
 ## Checklist OBRIGATÓRIA antes de Produção
 - [ ] `APP_DEBUG=false` e `APP_ENV=production` no `.env`.
-- [ ] Trocar passwords de todos os seeders.
+- [ ] Trocar passwords de todos os seeders (`database/seeders/UserSeeder.php`).
 - [ ] `APP_URL` com domínio real e HTTPS ativado.
 - [ ] `SESSION_SECURE_COOKIE=true`.
-- [ ] Migrar infraestrutura para PostgreSQL.
+- [ ] Migrar para PostgreSQL: alterar `DB_CONNECTION=pgsql` + `DB_HOST/PORT/DATABASE/USERNAME/PASSWORD` no `.env`. `config/database.php` já tem a configuração `pgsql` pronta.
+- [ ] Adicionar CSP ao `SecurityHeaders` middleware.
 - [ ] Configurar rotina de Backups automáticos da DB.
 
 ---
