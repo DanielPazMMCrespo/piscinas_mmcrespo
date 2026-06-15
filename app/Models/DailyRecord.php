@@ -103,8 +103,12 @@ class DailyRecord extends Model
 
     protected function cloroCombinado(): Attribute
     {
+        // Sem ambas as leituras não há combinado calculável — devolve null em vez
+        // de um valor falso (ex: cloro_total null daria 0 - cloro_livre, negativo).
         return Attribute::make(
-            get: fn () => round((float) $this->cloro_total - (float) $this->cloro_livre, 2)
+            get: fn () => ($this->cloro_total === null || $this->cloro_livre === null)
+                ? null
+                : round((float) $this->cloro_total - (float) $this->cloro_livre, 2)
         );
     }
 
@@ -182,6 +186,11 @@ class DailyRecord extends Model
 
     public function cloroCombinadoConforme(): bool
     {
+        // Sem leitura combinada não há base para alertar.
+        if ($this->cloro_combinado === null) {
+            return true;
+        }
+
         return $this->cloro_combinado <= self::CLORO_COMBINADO_MAX;
     }
 

@@ -1,5 +1,13 @@
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-12 (Sessão 10 — Leitura integral do código; correlações torneira+incidente ligadas; volumes; limpezas)
+> Última atualização: 2026-06-15 (Sessão 11 — Revisão completa + limpeza do repo + correção de 4 bugs; IA/OCR fora do âmbito)
+
+## Sessão 11 — Revisão, limpeza e correções (resumo)
+- **Kanban "real-time"**: é o polling de 60s do `QuadroOperacionalWidget` que atualiza. O `AlertasService::limparMemo()` que tinha sido adicionado era decorativo (memo é por-pedido; a request seguinte já recalcula) — **removido** o método e a chamada em `afterCreate()`.
+- **Fotos bomba/tanque**: campos opcionais `bomba_foto` e `tanque_foto` no `DailyRecord` (migração idempotente), visíveis no `ViewDailyRecord`. (não usados no PDF — são evidência fotográfica.)
+- **Revisão de 4 frentes** (segurança, código, produção, PDF) via subagentes. PDF verificado funcional (gera %PDF, coluna Conforme correta, exclui correções). Segurança acima da média (sem segredos no git, autorização por role OK, uploads privados+MIME, sessões endurecidas; falta CSP).
+- **Limpeza do repo**: removidos 42 ficheiros-lixo commitados (heredocs mal interpretados nos `git add -A` das sessões anteriores) + `*.zip` no `.gitignore`. BD de registos de teste limpa.
+- **4 bugs corrigidos**: (1) `cloroCombinado` dava negativo com `cloro_total` null → agora null-safe + `notificarNaoConformidade` com guards de null; (2) `app.js` montava observers/listeners em duplicado + `setInterval(500ms)` eterno → montagem única + observer-only + debounce no auto-scroll; (3) `agua_modo` null fechava alerta de torneira indevidamente → trata null como estado desconhecido; (4) `limparMemo` morto removido.
+- **Pendente para produção (não bloqueante para uso local)**: achatar a saga de migrações (largam-se `jobs`/`cache_locks`/pivots de incidente que ficam minas latentes), `enum()`→`string()` para PostgreSQL, passwords dos seeders, `PRODUCAO.md`, backups, CSP. Dead code IA (`GeminiAnalysisService`/`OcrVisionService` + colunas `*_ia`/`resultado_ocr`) por limpar.
 
 ## Sessão 10 — Correlações fechadas + limpezas (resumo)
 Leitura completa do codebase (modelos, serviços, recursos, widgets, migrações, seeders, testes, JS, configs). Correções feitas e verificadas:
@@ -83,7 +91,7 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 | Plano | Estado | Descrição |
 |---|---|---|
 | Planos 1 a 3.9 | **CONCLUÍDO** | DB, Filament, Dashboards, Mobile/PWA, Análises Avançadas, Refatoração Caminho da Água, Segurança (Headers/Sessões) e Log de Atividades. Limpeza PSR-4 completa. |
-| Plano 4 — Inteligência Artificial | **REMOVIDO** | OCR cancelado por falta de fiabilidade. Página WIP e wizard apagados; serviços `Gemini`/`OcrVision` mantidos para retoma futura. |
+| Plano 4 — Inteligência Artificial | **FORA DO ÂMBITO** | Decisão do Daniel (2026-06-15): IA/OCR não será implementado. Serviços `Gemini`/`OcrVision` mantidos no código mas sem uso. |
 | Plano 5 — Relatórios PDF (CN 14/DA) | **CONCLUÍDO** | `RelatorioPdf` (grupo Operação) + `pdf/livro-sanitario.blade.php`: coluna Conforme ✓/✗, assinaturas, paginação, multi-piscina, exclui correções. `barryvdh/laravel-dompdf` instalado. Geração testada (PDF válido). |
 | Plano 6 — UI de Audit Trail | **CONCLUÍDO** | `ActivitylogPlugin` ativo. |
 | Plano 7 — Transformação UX (Sessão 7) | **CONCLUÍDO** | Ver secção abaixo. |

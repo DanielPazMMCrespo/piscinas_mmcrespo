@@ -326,14 +326,14 @@ const setupHeaderLayout = () => {
 
     updateHeaderLayout();
 
+    // O MutationObserver na sidebar cobre recolher/expandir (muda style/class).
+    // Sem setInterval — era um timer eterno a forçar reflow 2x/seg em todas as páginas.
     const observer = new MutationObserver(updateHeaderLayout);
     observer.observe(sidebarMain, {
         attributes: true,
         attributeFilter: ['style', 'class'],
         subtree: false,
     });
-
-    setInterval(updateHeaderLayout, 500);
 };
 
 // Auto-scroll para próxima seção quando preenchida
@@ -371,9 +371,17 @@ const setupAutoScroll = () => {
         }
     };
 
+    // Debounce: o handler varre o DOM inteiro (querySelectorAll); sem isto
+    // corria a cada tecla num formulário enorme.
+    let scrollTimer = null;
+    const scrollDebounced = () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(scrollToNextEmptySection, 150);
+    };
+
     // Listener para mudanças no formulário
-    form.addEventListener('change', scrollToNextEmptySection);
-    form.addEventListener('input', scrollToNextEmptySection);
+    form.addEventListener('change', scrollDebounced);
+    form.addEventListener('input', scrollDebounced);
 
     // Monitorar mudanças nas classes (quando Filament adiciona ring-green-500)
     const observer = new MutationObserver((mutations) => {
@@ -393,12 +401,17 @@ const setupAutoScroll = () => {
     });
 };
 
-// Executar logo que o Filament estiver pronto
-document.addEventListener('DOMContentLoaded', () => {
+// Montagem única — flag evita observers/listeners duplicados se o DOMContentLoaded
+// e o ramo readyState dispararem ambos, ou se o bundle reexecutar.
+let mmcSetupDone = false;
+const mmcSetup = () => {
+    if (mmcSetupDone) return;
+    mmcSetupDone = true;
     setupHeaderLayout();
     setupAutoScroll();
-});
-if (document.readyState === 'complete') {
-    setupHeaderLayout();
-    setupAutoScroll();
+};
+
+document.addEventListener('DOMContentLoaded', mmcSetup);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    mmcSetup();
 }

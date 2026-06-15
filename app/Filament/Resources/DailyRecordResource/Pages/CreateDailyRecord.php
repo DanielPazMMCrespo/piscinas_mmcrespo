@@ -47,10 +47,9 @@ class CreateDailyRecord extends CreateRecord
         $this->notificarNaoConformidade($registo);
         $this->gerirTorneira($registo);
 
-        // Limpar o memo de alertas para que o próximo cálculo seja fresco.
-        // Isto faz com que qualquer widget que refrescar (polling automático,
-        // próxima navegação, etc.) veja o novo estado imediatamente.
-        \App\Services\AlertasService::limparMemo();
+        // Nota: o Kanban atualiza pelo polling de 60s do QuadroOperacionalWidget.
+        // O AlertasService memoiza por-pedido, logo a próxima request HTTP já
+        // recalcula de fresco — não é preciso limpar nada aqui.
     }
 
     /**
@@ -85,7 +84,13 @@ class CreateDailyRecord extends CreateRecord
             return;
         }
 
-        // Estado diferente de "ON — com água": fecha o alerta que estiver aberto.
+        // Estado de água em branco = desconhecido. Não mexe num alerta aberto
+        // (não o pode dar como resolvido — a torneira pode continuar aberta).
+        if ($registo->agua_modo === null || $registo->agua_modo === '') {
+            return;
+        }
+
+        // Estado explícito diferente de "ON — com água": fecha o alerta aberto.
         if ($aberto) {
             $aberto->update([
                 'resolved_at' => $registo->registado_em,
@@ -210,17 +215,19 @@ class CreateDailyRecord extends CreateRecord
             $registo->setRelation('piscina', $registo->piscina);
         }
 
+        // Leituras em falta não são violações (evita "pH " vazio ou cloro
+        // combinado negativo de registos parciais) — só avalia o que existe.
         $violacoes = [];
-        if (! $registo->phConforme()) {
+        if ($registo->ph !== null && ! $registo->phConforme()) {
             $violacoes[] = 'pH '.$registo->ph;
         }
-        if (! $registo->cloroLivreConforme()) {
+        if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
             $violacoes[] = 'cloro livre '.$registo->cloro_livre.' mg/L';
         }
-        if (! $registo->cloroCombinadoConforme()) {
+        if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
             $violacoes[] = 'cloro combinado '.$registo->cloro_combinado.' mg/L';
         }
-        if (! $registo->temperaturaConforme()) {
+        if ($registo->temperatura !== null && ! $registo->temperaturaConforme()) {
             $violacoes[] = 'temperatura '.$registo->temperatura.' ºC';
         }
 

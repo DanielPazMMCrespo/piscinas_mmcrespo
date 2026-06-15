@@ -186,12 +186,6 @@ class AlertasService
         ];
     }
 
-    /** Invalida o memo (depois de mover um cartão no Kanban). */
-    public static function limparMemo(): void
-    {
-        self::$memo = [];
-    }
-
     /** @return array<int, string> */
     private function violacoesLegais(DailyRecord $registo): array
     {
