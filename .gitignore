@@ -1,5 +1,6 @@
 *.log
 *.zip
+/storage/backups
 .DS_Store
 .env
 .env.backup

@@ -12,3 +12,6 @@ Artisan::command('inspire', function () {
 if (config('services.hanna.email')) {
     Schedule::command('hanna:sync')->everyFifteenMinutes()->withoutOverlapping();
 }
+
+// Backup automático da base de dados: diário às 03:00, sem overlap, output em log.
+Schedule::command('backup:database')->dailyAt('03:00')->withoutOverlapping()->runInBackground();
