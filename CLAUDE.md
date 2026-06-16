@@ -1,5 +1,14 @@
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-15 (Sessão 13 — Stock history + quantity validation; UX audit passed)
+> Última atualização: 2026-06-16 (Sessão 14 — Popup pós-registo + transferência warehouse; VERSÃO BASE PRONTA PARA LEIRIA)
+
+## Sessão 14 — Popup pós-registo + transferência warehouse (resumo)
+- **Popup pós-registo**: Ao criar registo diário, notificação persistente "Registo guardado! O que pretende fazer a seguir?" com botões "Novo Registo" (fecha e fica no form) e "Ir para o Dashboard" (/admin). Implementado via `$this->dispatch('notificationSent', notification: $notificacao->toArray())` em `CreateDailyRecord::create()`.
+- **Modal de confirmação**: Botão "Criar" mostra diálogo de confirmação "Confirmar registo" antes de gravar (fix: mudado de `->action('create')` string para `->action(fn () => $this->create())` closure — string bypassa o sistema de modal).
+- **Fix FK delete Instalação**: `Installation::boot()` elimina incidentes em cascata antes de apagar a instalação (tabela `incidents` não tinha `cascadeOnDelete()`; model observer resolve).
+- **Transferência warehouse→instalação**: Ação "Saída" do `StockWarehouseResource` substituída por "Transferir p/ Instalação" — debita warehouse com `lockForUpdate()`, credita instalação (cria se não existe), cria `StockWarehouseLog` (saida) + `StockInstallationLog` (entrada). Notificação de sucesso.
+- **Unidades reais nos logs de stock**: `StockInstallationLogResource` e `StockWarehouseLogResource` agora mostram a unidade do produto (ex: "kg", "L") em vez de "unid." fixo. Usado `formatStateUsing` + `.unidade` do model.
+- **UX decimal**: app.js bloqueia tecla vírgula em campos `type="number"` ou `inputmode="decimal"` (força ponto decimal). Fallback para paste e IME (teclados móveis).
+- **Commit**: 844324f. **ESTA VERSÃO ESTÁ PRONTA PARA TESTES EM LEIRIA**.
 
 ## Sessão 13 — Histórico de stock + validação de quantidade (resumo)
 - **Histórico de transações**: `StockInstallationLogResource` (entrada/consumo por instalação) + `StockWarehouseLogResource` (entrada/saída central). Ambas com tabelas filtráveis (tipo movimento, produto, instalação, fornecedor), utilizador, data/hora. Ícones trending-down, grupo "Stock".
