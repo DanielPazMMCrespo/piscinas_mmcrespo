@@ -316,7 +316,7 @@ class CreateDailyRecord extends CreateRecord
         Notification::make()
             ->danger()
             ->title('Parâmetros fora dos limites: '.$nome)
-            ->body(implode(' · ', $violacoes).'. Ação corretiva: '.($registo->acao_corretiva ?: 'não indicada').'.')
+            ->body(implode(' · ', $violacoes).'.')
             ->sendToDatabase($destinatarios);
     }
 }

@@ -568,15 +568,6 @@ class DailyRecordResource extends Resource
                                 ->numeric()->step(0.01)->minValue(0)->maxValue(100),
                             'transparencia'
                         ),
-                        // Ação corretiva: obrigatória quando há parâmetros fora dos limites
-                        // legais (padrão "failed response → corrective action").
-                        Forms\Components\Textarea::make('acao_corretiva')
-                            ->label('Ação corretiva tomada')
-                            ->helperText('Há parâmetros fora dos limites legais. Descreva a correção aplicada (ex.: dose de ácido, reforço de cloro, fecho ao público).')
-                            ->rows(3)
-                            ->columnSpanFull()
-                            ->visible(fn (Get $get): bool => self::haNaoConformidade($get))
-                            ->required(fn (Get $get): bool => self::haNaoConformidade($get)),
                         Forms\Components\FileUpload::make('analises_fotos')
                             ->label('Fotos das análises (até 5)')
                             ->disk('local')
@@ -667,6 +658,11 @@ class DailyRecordResource extends Resource
                                                 $set('quantity', round($result, 3));
                                             })
                                     ),
+                                Forms\Components\Textarea::make('acao_corretiva')
+                                    ->label('Ação corretiva tomada (opcional)')
+                                    ->helperText('Descreva a correção ou medida aplicada (ex.: dose de ácido, reforço de cloro, pausa de funcionamento).')
+                                    ->rows(2)
+                                    ->columnSpanFull(),
                             ]),
                     ]),
 

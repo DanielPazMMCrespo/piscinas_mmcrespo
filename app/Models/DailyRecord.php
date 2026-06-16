@@ -75,8 +75,6 @@ class DailyRecord extends Model
         'tanque_ok', 'tanque_observacoes', 'tanque_foto',
         // Fotos das nossas análises (até 5)
         'analises_fotos',
-        // Ação corretiva tomada quando há parâmetros fora dos limites legais
-        'acao_corretiva',
     ];
 
     protected $casts = [

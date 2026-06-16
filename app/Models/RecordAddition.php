@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RecordAddition extends Model
 {
-    protected $fillable = ['daily_record_id', 'product_id', 'quantity'];
+    protected $fillable = ['daily_record_id', 'product_id', 'quantity', 'acao_corretiva'];
 
     protected $casts = ['quantity' => 'decimal:3'];
 
