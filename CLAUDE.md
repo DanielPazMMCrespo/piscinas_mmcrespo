@@ -8,7 +8,8 @@
 - **Transferência warehouse→instalação**: Ação "Saída" do `StockWarehouseResource` substituída por "Transferir p/ Instalação" — debita warehouse com `lockForUpdate()`, credita instalação (cria se não existe), cria `StockWarehouseLog` (saida) + `StockInstallationLog` (entrada). Notificação de sucesso.
 - **Unidades reais nos logs de stock**: `StockInstallationLogResource` e `StockWarehouseLogResource` agora mostram a unidade do produto (ex: "kg", "L") em vez de "unid." fixo. Usado `formatStateUsing` + `.unidade` do model.
 - **UX decimal**: app.js bloqueia tecla vírgula em campos `type="number"` ou `inputmode="decimal"` (força ponto decimal). Fallback para paste e IME (teclados móveis).
-- **Commit**: 844324f. **ESTA VERSÃO ESTÁ PRONTA PARA TESTES EM LEIRIA**.
+- **Ação corretiva (refactor)**: Removida do registo diário (campo obrigatório quando havia parâmetros fora dos limites). Agora está no Repeater de "Adições de Químicos" como campo de texto opcional — a ação corretiva é descrita junto com o produto adicionado, não no registo geral. Migrações: `add_acao_corretiva_to_record_additions`, `remove_acao_corretiva_from_daily_records`.
+- **Commits**: 844324f (popup pós-registo + transferência warehouse), 54c61b9 (refactor ação corretiva), 6eb5e9c (gitignore). **ESTA VERSÃO ESTÁ PRONTA PARA TESTES EM LEIRIA**.
 
 ## Sessão 13 — Histórico de stock + validação de quantidade (resumo)
 - **Histórico de transações**: `StockInstallationLogResource` (entrada/consumo por instalação) + `StockWarehouseLogResource` (entrada/saída central). Ambas com tabelas filtráveis (tipo movimento, produto, instalação, fornecedor), utilizador, data/hora. Ícones trending-down, grupo "Stock".
