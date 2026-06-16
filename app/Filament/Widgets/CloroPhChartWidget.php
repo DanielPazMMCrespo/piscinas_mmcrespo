@@ -60,8 +60,8 @@ class CloroPhChartWidget extends Widget implements HasForms
             'banda' => null,
         ],
         'transparencia' => [
-            'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 0,
-            'min' => 0, 'max' => 5, 'cor' => '#8b5cf6',
+            'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 2,
+            'min' => 0, 'max' => 1, 'cor' => '#8b5cf6',
             'banda' => null,
         ],
     ];
@@ -167,6 +167,12 @@ class CloroPhChartWidget extends Widget implements HasForms
         $labels = $dias->map(fn ($d) => $d->format('d/m'))->values()->toArray();
 
         if (empty($piscinaIds) || empty($metricas)) {
+            return [];
+        }
+
+        // Validate metric names to prevent SQL injection
+        $metricas = array_filter($metricas, fn ($m) => preg_match('/^[a-z_]+$/', $m));
+        if (empty($metricas)) {
             return [];
         }
 

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piscinas MMCrespo - Task Backlog</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #2b9cd8;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #2b9cd8;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #2b9cd8 0%, #0e7490 100%);
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .critical { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+        .high { background: linear-gradient(135deg, #fd7e14 0%, #e06b08 100%); }
+        .medium { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); }
+        .low { background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+            color: #333;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .badge-critical { background: #ffcccc; color: #c82333; }
+        .badge-high { background: #ffe6cc; color: #e06b08; }
+        .badge-medium { background: #fff3cd; color: #997700; }
+        .badge-low { background: #d4edda; color: #155724; }
+
+        .impact-critical { color: #dc3545; font-weight: bold; }
+        .impact-high { color: #fd7e14; font-weight: bold; }
+        .impact-medium { color: #ffc107; font-weight: bold; }
+
+        .quick-wins {
+            background: #e7f3ff;
+            border-left: 4px solid #2b9cd8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .quick-wins h3 {
+            color: #2b9cd8;
+            margin-bottom: 15px;
+        }
+
+        .quick-wins ol {
+            margin-left: 20px;
+        }
+
+        .quick-wins li {
+            margin-bottom: 8px;
+        }
+
+        .sprint {
+            background: #f0f8ff;
+            border: 2px solid #2b9cd8;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .sprint h4 {
+            color: #2b9cd8;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .sprint-content {
+            margin-left: 20px;
+        }
+
+        .sprint-content ul {
+            list-style: none;
+        }
+
+        .sprint-content li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .sprint-content li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #2b9cd8;
+            font-weight: bold;
+        }
+
+        .outcome {
+            background: #fff3cd;
+            padding: 10px 15px;
+            border-radius: 3px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .page-break {
+            page-break-after: always;
+        }
+
+        ul {
+            margin-left: 25px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        .priority-badge {
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+
+        @media print {
+            body { padding: 0; }
+            .section { page-break-inside: avoid; }
+            table { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏊 Piscinas MMCrespo</h1>
+        <p>Task Backlog & Roadmap</p>
+        <p class="subtitle">Compilado de: Sessões anteriores + Code Review Completo (2026-06-16)</p>
+    </div>
+
+    <!-- CRITICO -->
+    <div class="section">
+        <div class="section-title critical">🔴 CRÍTICO — Atacar Imediatamente</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origem</th>
+                    <th>Esforço</th>
+                    <th>Impacto</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Rotacionar credenciais (Gemini API, Hanna Cloud)</td>
+                    <td>Security Review</td>
+                    <td>30 min</td>
+                    <td class="impact-critical">🔴 CRÍTICO</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td><code>APP_DEBUG=false</code> em produção</td>
+                    <td>Security Review</td>
+                    <td>5 min</td>
+                    <td class="impact-critical">🔴 CRÍTICO</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Fix SQL injection em <code>selectRaw()</code> (CloroPhChartWidget:175)</td>
+                    <td>Security Review</td>
+                    <td>1 h</td>
+                    <td class="impact-critical">🔴 CRÍTICO</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>Remover arquivos-lixo da raiz (6 arquivos)</td>
+                    <td>Code Quality</td>
+                    <td>5 min</td>
+                    <td class="impact-critical">🔴 CRÍTICO</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td><code>SESSION_ENCRYPT=true</code> + <code>SESSION_SECURE_COOKIE=true</code></td>
+                    <td>Security Review</td>
+                    <td>10 min</td>
+                    <td class="impact-critical">🔴 CRÍTICO</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="quick-wins">
+            <h3>⚡ Quick Win — Fazer Hoje (30 min total)</h3>
+            <ol>
+                <li><strong>Remover lixo da raiz</strong> (5 min) — 6 arquivos-placeholder</li>
+                <li><strong>APP_DEBUG=false</strong> (2 min) — .env</li>
+                <li><strong>SESSION_ENCRYPT=true</strong> (2 min) — .env</li>
+                <li><strong>Rotacionar credenciais</strong> (15 min) — Google Cloud + Hanna admin</li>
+                <li><strong>Verificar git history</strong> (5 min) — .env commit check</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- ALTO -->
+    <div class="section">
+        <div class="section-title high">🟡 ALTO — Próxima Sprint (Semanas 2-3)</div>
+
+        <h3 style="color: #fd7e14; margin: 20px 0 15px 0;">Tier 1: Type Safety & Consistency (2-3 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origem</th>
+                    <th>Esforço</th>
+                    <th>Benefício</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>6</td>
+                    <td>Criar classe <code>UserRole</code> com constantes</td>
+                    <td>Code Quality</td>
+                    <td>30 min</td>
+                    <td>Evita erros em 39 places</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>Adicionar <code>declare(strict_types=1)</code> a 66 arquivos</td>
+                    <td>Code Quality</td>
+                    <td>2-3 h</td>
+                    <td>↑ 80% type safety</td>
+                </tr>
+                <tr>
+                    <td>8</td>
+                    <td>Script PHP para adicionar strict_types em batch</td>
+                    <td>Code Quality</td>
+                    <td>1 h</td>
+                    <td>Automação</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #fd7e14; margin: 20px 0 15px 0; margin-top: 30px;">Tier 2: Refactoring (3-4 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origen</th>
+                    <th>Esforço</th>
+                    <th>Benefício</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>9</td>
+                    <td>Quebrar <code>DailyRecordResource::form()</code> em 4 builders</td>
+                    <td>Code Quality</td>
+                    <td>3-4 h</td>
+                    <td>↑ 50% manutenibilidade (440 linhas → distribuídas)</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>Quebrar <code>DailyRecordResource::table()</code> em métodos</td>
+                    <td>Code Quality</td>
+                    <td>2 h</td>
+                    <td>Legibilidade (180 linhas)</td>
+                </tr>
+                <tr>
+                    <td>11</td>
+                    <td>Extrair magic numbers em classe <code>Constants</code></td>
+                    <td>Code Quality</td>
+                    <td>1 h</td>
+                    <td>Reutilização (10+ instances)</td>
+                </tr>
+                <tr>
+                    <td>12</td>
+                    <td>Aumentar null-safe operator <code>?-></code> em 30+ lugares</td>
+                    <td>Code Quality</td>
+                    <td>2-3 h</td>
+                    <td>↑ Segurança null</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #fd7e14; margin: 20px 0 15px 0; margin-top: 30px;">Tier 3: Testes (3-5 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origen</th>
+                    <th>Esforço</th>
+                    <th>Benefício</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>13</td>
+                    <td>Criar <code>AlertasServiceTest</code> (6+ testes)</td>
+                    <td>Code Quality</td>
+                    <td>2-3 h</td>
+                    <td>Cobertura crítica (lógica de alertas)</td>
+                </tr>
+                <tr>
+                    <td>14</td>
+                    <td>Criar <code>HannaCloudServiceTest</code> (mocking API)</td>
+                    <td>Code Quality</td>
+                    <td>3-4 h</td>
+                    <td>Integração confiável</td>
+                </tr>
+                <tr>
+                    <td>15</td>
+                    <td>Criar <code>DailyRecordFactories</code></td>
+                    <td>Code Quality</td>
+                    <td>1 h</td>
+                    <td>Testes mais rápidos</td>
+                </tr>
+                <tr>
+                    <td>16</td>
+                    <td>Criar <code>DailyRecordWorkflowTest</code> (integration)</td>
+                    <td>Code Quality</td>
+                    <td>2-3 h</td>
+                    <td>End-to-end verification</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="outcome"><strong>Status alvo:</strong> 70%+ coverage em Services e Models</div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- MEDIO -->
+    <div class="section">
+        <div class="section-title medium">🟠 MÉDIO — Nice-to-Have Puro (2-3 dias)</div>
+
+        <h3 style="color: #997700; margin: 20px 0 15px 0;">Documentation (1-2 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origen</th>
+                    <th>Esforço</th>
+                    <th>Proveito</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>17</td>
+                    <td>Adicionar docblocks faltando (~30 files)</td>
+                    <td>Code Quality</td>
+                    <td>3-4 h</td>
+                    <td>Legibilidade IDE</td>
+                </tr>
+                <tr>
+                    <td>18</td>
+                    <td>Documentar padrões internos em <code>ARCHITECTURE.md</code></td>
+                    <td>Code Quality</td>
+                    <td>2 h</td>
+                    <td>Onboarding</td>
+                </tr>
+                <tr>
+                    <td>19</td>
+                    <td>Explicar "why" em comentários-chave</td>
+                    <td>Code Quality</td>
+                    <td>1 h</td>
+                    <td>Contexto histórico</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #997700; margin: 20px 0 15px 0; margin-top: 30px;">Code Quality Improvements (2-3 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origen</th>
+                    <th>Esforço</th>
+                    <th>Proveito</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>20</td>
+                    <td>Criar custom exception classes</td>
+                    <td>Code Quality</td>
+                    <td>1 h</td>
+                    <td>Error handling</td>
+                </tr>
+                <tr>
+                    <td>21</td>
+                    <td>Rodar <code>php-cs-fixer</code> com PSR-12</td>
+                    <td>Code Quality</td>
+                    <td>30 min</td>
+                    <td>Formatação</td>
+                </tr>
+                <tr>
+                    <td>22</td>
+                    <td>Aumentar retry logic em <code>HannaCloudService</code></td>
+                    <td>Security Review</td>
+                    <td>1 h</td>
+                    <td>Robustez</td>
+                </tr>
+                <tr>
+                    <td>23</td>
+                    <td>Adicionar type hints a 15+ methods</td>
+                    <td>Code Quality</td>
+                    <td>2 h</td>
+                    <td>Type safety</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #997700; margin: 20px 0 15px 0; margin-top: 30px;">Security Hardening (2 dias)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tarefa</th>
+                    <th>Origen</th>
+                    <th>Esforço</th>
+                    <th>Proveito</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>24</td>
+                    <td>Adicionar <code>->visibility('private')</code> a file uploads</td>
+                    <td>Security Review</td>
+                    <td>30 min</td>
+                    <td>Privacidade arquivos</td>
+                </tr>
+                <tr>
+                    <td>25</td>
+                    <td>Implementar rate limiting em auth endpoints</td>
+                    <td>Security Review</td>
+                    <td>1-2 h</td>
+                    <td>Brute force protection</td>
+                </tr>
+                <tr>
+                    <td>26</td>
+                    <td>Remover <code>unsafe-eval</code> de CSP se possível</td>
+                    <td>Security Review</td>
+                    <td>2-3 h</td>
+                    <td>XSS hardening</td>
+                </tr>
+                <tr>
+                    <td>27</td>
+                    <td>Registar domínio em HSTS preload</td>
+                    <td>Security Review</td>
+                    <td>10 min</td>
+                    <td>Compliance</td>
+                </tr>
+                <tr>
+                    <td>28</td>
+                    <td>Adicionar <code>X-XSS-Protection</code> header (legacy)</td>
+                    <td>Security Review</td>
+                    <td>10 min</td>
+                    <td>Defense-in-depth</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SPRINTS -->
+    <div class="section">
+        <div class="section-title">📅 Sprint Breakdown Recomendado</div>
+
+        <div class="sprint">
+            <h4>Sprint 1 (5 dias) — SEGURANÇA 🔐</h4>
+            <div class="sprint-content">
+                <ul>
+                    <li>Tasks 1-5 (Critical security fixes)</li>
+                    <li>Tasks 6-8 (UserRole constants + strict_types)</li>
+                </ul>
+                <div class="outcome">
+                    <strong>Outcomes:</strong> Credenciais rotacionadas ✓ | Type safety +80% ✓ | SQL injection eliminada ✓
+                </div>
+            </div>
+        </div>
+
+        <div class="sprint">
+            <h4>Sprint 2 (5 dias) — REFACTORING 🔨</h4>
+            <div class="sprint-content">
+                <ul>
+                    <li>Tasks 9-12 (Break apart giant methods + constants)</li>
+                    <li>Tasks 13-16 (Tests foundation)</li>
+                </ul>
+                <div class="outcome">
+                    <strong>Outcomes:</strong> Code -440 linhas em um método | +15 testes novos | Legibilidade ↑50%
+                </div>
+            </div>
+        </div>
+
+        <div class="sprint">
+            <h4>Sprint 3 (5 dias) — QUALITY & POLISH ✨</h4>
+            <div class="sprint-content">
+                <ul>
+                    <li>Tasks 17-28 (Docs, hardening, polish)</li>
+                </ul>
+                <div class="outcome">
+                    <strong>Outcomes:</strong> Coverage 70% | 0 warnings | Production-ready
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- BACKLOG -->
+    <div class="section">
+        <div class="section-title low">✅ BACKLOG — Post-MVP (Ideias)</div>
+
+        <h3 style="color: #155724; margin: 20px 0 15px 0;">Features do CLAUDE.md (Status)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Descrição</th>
+                    <th>Status</th>
+                    <th>Notas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>29</td>
+                    <td>~~CSP no SecurityHeaders~~</td>
+                    <td style="color: green; font-weight: bold;">✅ FEITO</td>
+                    <td>Mas com <code>unsafe-inline</code> (necessário)</td>
+                </tr>
+                <tr>
+                    <td>30</td>
+                    <td>~~PRODUCAO.md~~</td>
+                    <td style="color: green; font-weight: bold;">✅ FEITO</td>
+                    <td>Checklist pré-deploy</td>
+                </tr>
+                <tr>
+                    <td>31</td>
+                    <td>~~Backups automáticos~~</td>
+                    <td style="color: green; font-weight: bold;">✅ FEITO</td>
+                    <td>Daily 03:00, keep 30</td>
+                </tr>
+                <tr>
+                    <td>32</td>
+                    <td>~~Stock history + validation~~</td>
+                    <td style="color: green; font-weight: bold;">✅ FEITO</td>
+                    <td>Sessão 13</td>
+                </tr>
+                <tr>
+                    <td>33</td>
+                    <td>~~Popup pós-registo + transferência warehouse~~</td>
+                    <td style="color: green; font-weight: bold;">✅ FEITO</td>
+                    <td>Sessão 14</td>
+                </tr>
+                <tr>
+                    <td>34</td>
+                    <td>Testes para Stock (end-to-end)</td>
+                    <td style="color: orange; font-weight: bold;">🔄 PENDENTE</td>
+                    <td>Nice-to-have</td>
+                </tr>
+                <tr>
+                    <td>35</td>
+                    <td>Testes para PDF generation</td>
+                    <td style="color: orange; font-weight: bold;">🔄 PENDENTE</td>
+                    <td>Nice-to-have</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: #155724; margin: 20px 0 15px 0; margin-top: 30px;">Melhorias de UX/Product</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Ideia</th>
+                    <th>Prioridade</th>
+                    <th>Esforço</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>36</td>
+                    <td>Export de relatórios em Excel (além PDF)</td>
+                    <td><span class="badge badge-low">Low</span></td>
+                    <td>2 h</td>
+                </tr>
+                <tr>
+                    <td>37</td>
+                    <td>Bulk import de sensor readings (fallback manual)</td>
+                    <td><span class="badge badge-low">Low</span></td>
+                    <td>3 h</td>
+                </tr>
+                <tr>
+                    <td>38</td>
+                    <td>Dashboard comparativo (piscinas lado-a-lado)</td>
+                    <td><span class="badge badge-low">Low</span></td>
+                    <td>4 h</td>
+                </tr>
+                <tr>
+                    <td>39</td>
+                    <td>Alertas por email/SMS para admin</td>
+                    <td><span class="badge badge-low">Low</span></td>
+                    <td>3 h</td>
+                </tr>
+                <tr>
+                    <td>40</td>
+                    <td>Dark mode (Filament support)</td>
+                    <td><span class="badge badge-low">Low</span></td>
+                    <td>1 h</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="section">
+        <div class="section-title" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);">📊 Resumo Geral</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Total Tasks</th>
+                    <th>Tempo Estimado</th>
+                    <th>Prioridade</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Crítico (Semana 1)</strong></td>
+                    <td>5 tasks</td>
+                    <td>~2-3 dias</td>
+                    <td><span class="badge badge-critical">CRÍTICO</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Alto (Semanas 2-3)</strong></td>
+                    <td>12 tasks</td>
+                    <td>~8-10 dias</td>
+                    <td><span class="badge badge-high">ALTO</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Médio (Semanas 3-4)</strong></td>
+                    <td>12 tasks</td>
+                    <td>~6-8 dias</td>
+                    <td><span class="badge badge-medium">MÉDIO</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Backlog/Low</strong></td>
+                    <td>11 tasks</td>
+                    <td>Flex</td>
+                    <td><span class="badge badge-low">LOW</span></td>
+                </tr>
+                <tr style="background: #f0f0f0; font-weight: bold;">
+                    <td><strong>TOTAL</strong></td>
+                    <td><strong>40 tasks</strong></td>
+                    <td><strong>~16-21 dias úteis</strong></td>
+                    <td>Mês completo</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="background: #e8f5e9; border-left: 4px solid #28a745; padding: 20px; margin-top: 20px; border-radius: 4px;">
+            <h3 style="color: #1e7e34; margin-bottom: 10px;">🎯 Recomendação</h3>
+            <p style="margin-bottom: 10px;"><strong>Comece por:</strong> Tarefas 1-5 (crítico) + 6-8 (UserRole + strict_types) = ~2-3 dias</p>
+            <p style="margin-bottom: 10px;"><strong>Depois:</strong> Sprints 2 e 3 em paralelo com development normal</p>
+            <p><strong>Resultado:</strong> Codebase production-ready em ~1 mês, com 70%+ test coverage e zero security issues críticos</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>📄 Piscinas MMCrespo - Task Backlog</p>
+        <p>Gerado: 2026-06-16 | Compilado de: Code Review + Security Audit + Codebase Analysis</p>
+        <p>Para usar: Imprimir para PDF ou editar diretamente no navegador</p>
+    </div>
+</body>
+</html>
