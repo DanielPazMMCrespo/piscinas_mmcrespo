@@ -11,22 +11,91 @@ use App\Models\StockInstallationLog;
 use App\Models\RecordPhoto;
 use App\Models\TapAlert;
 use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Facades\DB;
 
 class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
+    public function create(bool $another = false): void
+    {
+        if ($this->isCreating) {
+            return;
+        }
+
+        $this->isCreating = true;
+        $this->authorizeAccess();
+
+        try {
+            $this->beginDatabaseTransaction();
+            $this->callHook('beforeValidate');
+            $data = $this->form->getState();
+            $this->callHook('afterValidate');
+            $data = $this->mutateFormDataBeforeCreate($data);
+            $this->callHook('beforeCreate');
+            $this->record = $this->handleRecordCreation($data);
+            $this->form->model($this->getRecord())->saveRelationships();
+            $this->callHook('afterCreate');
+        } catch (Halt $exception) {
+            $exception->shouldRollbackDatabaseTransaction()
+                ? $this->rollBackDatabaseTransaction()
+                : $this->commitDatabaseTransaction();
+            $this->isCreating = false;
+
+            return;
+        } catch (\Throwable $exception) {
+            $this->rollBackDatabaseTransaction();
+            $this->isCreating = false;
+            throw $exception;
+        }
+
+        $this->commitDatabaseTransaction();
+        $this->rememberData();
+
+        // Reset form for next record
+        $this->form->model($this->getRecord()::class);
+        $this->record = null;
+        $this->fillForm();
+        $this->isCreating = false;
+
+        // Show persistent choice notification (dispatch real-time, bypass session)
+        $notificacao = Notification::make()
+            ->success()
+            ->title('Registo guardado!')
+            ->body('O que pretende fazer a seguir?')
+            ->persistent()
+            ->actions([
+                NotificationAction::make('novoRegisto')
+                    ->label('Novo Registo')
+                    ->button()
+                    ->close(),
+                NotificationAction::make('dashboard')
+                    ->label('Ir para o Dashboard')
+                    ->button()
+                    ->color('gray')
+                    ->url('/admin'),
+            ]);
+
+        $notificacao->send();
+        $this->dispatch('notificationSent', notification: $notificacao->toArray());
+    }
+
     protected function getFormActions(): array
     {
         return [
-            $this->getCreateFormAction()
+            Action::make('create')
+                ->label('Criar')
+                ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registo')
                 ->modalDescription('Confirme que os valores introduzidos estão corretos. Depois de submetido, só o administrador pode alterar este registo.')
-                ->modalSubmitActionLabel('Confirmar e guardar'),
+                ->modalSubmitActionLabel('Confirmar e guardar')
+                ->keyBindings(['mod+s']),
             $this->getCancelFormAction(),
         ];
     }

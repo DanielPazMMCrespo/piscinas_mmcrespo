@@ -3,6 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockWarehouseResource\Pages;
+use App\Models\Installation;
+use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
 use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use Filament\Forms;
@@ -97,43 +100,81 @@ class StockWarehouseResource extends Resource
                             ]);
                         });
                     }),
-                Tables\Actions\Action::make('saida_stock')
-                    ->label('Saída')
-                    ->icon('heroicon-o-minus-circle')
-                    ->color('danger')
+                Tables\Actions\Action::make('transferir_instalacao')
+                    ->label('Transferir p/ Instalação')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('primary')
                     ->form([
+                        Forms\Components\Select::make('installation_id')
+                            ->label('Instalação de Destino')
+                            ->options(Installation::where('active', true)->pluck('name', 'id'))
+                            ->required()
+                            ->searchable(),
                         Forms\Components\TextInput::make('quantidade')
-                            ->label('Quantidade a remover (Saída p/ Instalação)')
+                            ->label('Quantidade a transferir')
                             ->numeric()
                             ->minValue(0.001)
                             ->rules(['gt:0'])
                             ->required(),
                         Forms\Components\Textarea::make('observacoes')
-                            ->label('Observações (ex: Destino)')
+                            ->label('Observações (ex: Nº da Guia)')
                             ->maxLength(255),
                     ])
                     ->action(function (StockWarehouse $record, array $data): void {
                         DB::transaction(function () use ($record, $data) {
-                            $fresh = StockWarehouse::lockForUpdate()->findOrFail($record->id);
-                            if ($fresh->quantity < $data['quantidade']) {
+                            $freshArmazem = StockWarehouse::lockForUpdate()->findOrFail($record->id);
+
+                            if ($freshArmazem->quantity < $data['quantidade']) {
                                 Notification::make()
                                     ->danger()
-                                    ->title('Stock insuficiente')
-                                    ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
+                                    ->title('Stock insuficiente no armazém')
+                                    ->body("Disponível: {$freshArmazem->quantity}. Pedido: {$data['quantidade']}.")
                                     ->send();
 
                                 return;
                             }
-                            $fresh->quantity -= $data['quantidade'];
-                            $fresh->save();
+
+                            $freshArmazem->quantity -= $data['quantidade'];
+                            $freshArmazem->save();
+
                             StockWarehouseLog::create([
-                                'product_id' => $fresh->product_id,
+                                'product_id' => $freshArmazem->product_id,
                                 'user_id' => auth()->id(),
                                 'tipo_movimento' => 'saida',
                                 'quantity' => $data['quantidade'],
                                 'fornecedor' => $data['observacoes'] ?? null,
                             ]);
+
+                            $stockInstalacao = StockInstallation::lockForUpdate()
+                                ->where('installation_id', $data['installation_id'])
+                                ->where('product_id', $freshArmazem->product_id)
+                                ->first();
+
+                            if ($stockInstalacao === null) {
+                                $stockInstalacao = StockInstallation::create([
+                                    'installation_id' => $data['installation_id'],
+                                    'product_id' => $freshArmazem->product_id,
+                                    'quantity' => $data['quantidade'],
+                                    'limite_minimo' => 0,
+                                ]);
+                            } else {
+                                $stockInstalacao->quantity += $data['quantidade'];
+                                $stockInstalacao->save();
+                            }
+
+                            StockInstallationLog::create([
+                                'stock_installation_id' => $stockInstalacao->id,
+                                'user_id' => auth()->id(),
+                                'tipo_movimento' => 'entrada',
+                                'quantity' => $data['quantidade'],
+                                'created_at' => now(),
+                            ]);
                         });
+
+                        Notification::make()
+                            ->success()
+                            ->title('Transferência concluída')
+                            ->send();
                     }),
             ])
             ->bulkActions([

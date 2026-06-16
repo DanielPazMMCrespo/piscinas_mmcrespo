@@ -54,12 +54,6 @@ class StockInstallationResource extends Resource
                     ->validationMessages([
                         'unique' => 'Este produto já tem stock registado nesta instalação. Edite o registo existente.',
                     ]),
-                Forms\Components\TextInput::make('quantity')
-                    ->label('Quantidade Inicial em Stock')
-                    ->required()
-                    ->numeric()
-                    ->minValue(0)
-                    ->default(0),
                 Forms\Components\TextInput::make('limite_minimo')
                     ->label('Alerta de Stock Baixo (Mínimo)')
                     ->numeric()
@@ -94,32 +88,6 @@ class StockInstallationResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\Action::make('entrada_stock')
-                    ->label('Entrada')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
-                    ->form([
-                        Forms\Components\TextInput::make('quantidade')
-                            ->label('Quantidade a dar entrada (Recebido do Armazém)')
-                            ->numeric()
-                            ->minValue(0.001)
-                            ->rules(['gt:0'])
-                            ->required(),
-                    ])
-                    ->action(function (StockInstallation $record, array $data): void {
-                        DB::transaction(function () use ($record, $data) {
-                            $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
-                            $fresh->quantity += $data['quantidade'];
-                            $fresh->save();
-                            StockInstallationLog::create([
-                                'stock_installation_id' => $fresh->id,
-                                'user_id' => auth()->id(),
-                                'tipo_movimento' => 'entrada',
-                                'quantity' => $data['quantidade'],
-                                'created_at' => now(),
-                            ]);
-                        });
-                    }),
                 Tables\Actions\Action::make('consumo_stock')
                     ->label('Consumo Manual')
                     ->icon('heroicon-o-beaker')

@@ -145,7 +145,10 @@ class DailyRecordResource extends Resource
             return 'Selecione a piscina e o produto para ver a quantidade disponível.';
         }
 
-        return "Disponível: $disponivel unidades";
+        $productId = $get('product_id');
+        $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
+
+        return "Disponível: {$disponivel} {$unidade}";
     }
 
     /**
@@ -619,7 +622,9 @@ class DailyRecordResource extends Resource
                                         fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                             $disponivel = self::quantidadeDisponivel($get);
                                             if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
-                                                $fail("Quantidade insuficiente. Disponível: $disponivel unidades.");
+                                                $productId = $get('product_id');
+                                                $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
+                                                $fail("Quantidade insuficiente. Disponível: {$disponivel} {$unidade}.");
                                             }
                                         },
                                     ])

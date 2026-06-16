@@ -268,6 +268,57 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 
+// Bloqueio global de vírgula em campos numéricos.
+// Delegado no document (capture) para cobrir inputs do Livewire e modais do Filament.
+const setupDecimalInputs = () => {
+    // 1) Tecla vírgula → bloqueada
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== ',') return;
+        const el = e.target;
+        if (el.tagName !== 'INPUT') return;
+        if (el.type === 'number' || el.getAttribute('inputmode') === 'decimal') {
+            e.preventDefault();
+        }
+    }, { capture: true, passive: false });
+
+    // 2) Colar texto com vírgulas → converte para pontos
+    document.addEventListener('paste', (e) => {
+        const el = e.target;
+        if (el.tagName !== 'INPUT') return;
+        if (el.type !== 'number' && el.getAttribute('inputmode') !== 'decimal') return;
+
+        const texto = (e.clipboardData ?? window.clipboardData)?.getData('text') ?? '';
+        if (!texto.includes(',')) return;
+
+        e.preventDefault();
+        const corrigido = texto.replace(/,/g, '.');
+
+        if (el.type === 'number') {
+            el.value = corrigido;
+        } else {
+            const s = el.selectionStart ?? 0;
+            const f = el.selectionEnd ?? 0;
+            el.value = el.value.slice(0, s) + corrigido + el.value.slice(f);
+            el.setSelectionRange(s + corrigido.length, s + corrigido.length);
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { capture: true, passive: false });
+
+    // 3) Fallback para teclados móveis que insiram vírgula via IME
+    //    (só afeta type="text"; type="number" o browser já valida internamente)
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (el.tagName !== 'INPUT' || el.type === 'number') return;
+        if (el.getAttribute('inputmode') !== 'decimal') return;
+        if (!el.value.includes(',')) return;
+
+        const pos = el.selectionStart ?? el.value.length;
+        el.value = el.value.replace(/,/g, '.');
+        el.setSelectionRange(pos, pos);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { capture: true });
+};
+
 // Logótipo e layout do header: reorganizar quando a barra lateral recolhe
 const setupHeaderLayout = () => {
     const sidebarMain = document.querySelector('aside[class*="sidebar"]');
@@ -407,6 +458,7 @@ let mmcSetupDone = false;
 const mmcSetup = () => {
     if (mmcSetupDone) return;
     mmcSetupDone = true;
+    setupDecimalInputs();
     setupHeaderLayout();
     setupAutoScroll();
 };

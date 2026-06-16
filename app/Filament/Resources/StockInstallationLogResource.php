@@ -52,8 +52,8 @@ class StockInstallationLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade')
-                    ->numeric(decimalPlaces: 3)
-                    ->suffix(' unid.')
+                    ->formatStateUsing(fn ($state, $record): string =>
+                        number_format((float) $state, 3, '.', '') . ' ' . ($record->stockInstalacao?->produto?->unidade ?? ''))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Utilizador')
