@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
 use App\Models\Pool;
@@ -32,7 +33,7 @@ class DailyRecordResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (auth()->user()->hasRole('nadador_salvador')) {
+        if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->where('user_id', auth()->id());
         }
 
@@ -45,17 +46,17 @@ class DailyRecordResource extends Resource
      */
     public static function canEdit($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     private static function sectionRing(bool $complete): array
@@ -314,7 +315,7 @@ class DailyRecordResource extends Resource
                 Forms\Components\Section::make('Bomba')
                     ->description('A bomba está ferrada?')
                     ->icon('heroicon-o-bolt')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
                         $get('bomba_ferrada') !== null
@@ -342,7 +343,7 @@ class DailyRecordResource extends Resource
                 Forms\Components\Section::make('Filtros')
                     ->description('Retrolavagem e fotos das três posições da válvula.')
                     ->icon('heroicon-o-funnel')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->extraAttributes(fn (): array => self::sectionRing(true))
                     ->schema([
@@ -380,7 +381,7 @@ class DailyRecordResource extends Resource
                 Forms\Components\Section::make('Contador & Água')
                     ->description(fn (Get $get): string => 'Leitura do contador e estado da entrada de água. '.self::progresso(['contador_valor', 'agua_modo'], $get))
                     ->icon('heroicon-o-calculator')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->columns(2)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -432,7 +433,7 @@ class DailyRecordResource extends Resource
                 // ── 4. Tanque de Compensação ─────────────────────────────────────
                 Forms\Components\Section::make('Tanque de Compensação')
                     ->icon('heroicon-o-beaker')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->columns(2)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -509,7 +510,7 @@ class DailyRecordResource extends Resource
                 Forms\Components\Section::make('Nossas Análises')
                     ->description(fn (Get $get): string => 'Análises do técnico, com até 5 fotos de evidência. '.self::progresso(['ph', 'cloro_livre', 'cloro_total', 'temperatura', 'transparencia'], $get))
                     ->icon('heroicon-o-beaker')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->columns(2)
                     ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -524,7 +525,7 @@ class DailyRecordResource extends Resource
                             Forms\Components\TextInput::make('ph')
                                 ->label('pH')
                                 ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::PH_MIN.' a '.DailyRecord::PH_MAX.self::lookback('ph', $get))
-                                ->required(fn (): bool => ! (auth()->user()?->hasRole('nadador_salvador') ?? false))
+                                ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                                 ->numeric()->step(0.01)->minValue(0)->maxValue(14)
                                 ->rules(['between:0,14']),
                             'ph'
@@ -533,7 +534,7 @@ class DailyRecordResource extends Resource
                             Forms\Components\TextInput::make('cloro_livre')
                                 ->label('Cloro Livre (mg/L)')
                                 ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::CLORO_LIVRE_MIN.' a '.DailyRecord::CLORO_LIVRE_MAX.' mg/L'.self::lookback('cloro_livre', $get))
-                                ->required(fn (): bool => ! (auth()->user()?->hasRole('nadador_salvador') ?? false))
+                                ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                                 ->numeric()->step(0.01)->minValue(0)->maxValue(20),
                             'cloro_livre'
                         ),
@@ -541,7 +542,7 @@ class DailyRecordResource extends Resource
                             Forms\Components\TextInput::make('cloro_total')
                                 ->label('Cloro Total (mg/L)')
                                 ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::CLORO_COMBINADO_MAX.' mg/L'.self::lookback('cloro_total', $get))
-                                ->required(fn (): bool => ! (auth()->user()?->hasRole('nadador_salvador') ?? false))
+                                ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                                 ->numeric()->step(0.01)->minValue(0)->maxValue(20)
                                 ->rules([
                                     fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -556,16 +557,16 @@ class DailyRecordResource extends Resource
                             Forms\Components\TextInput::make('temperatura')
                                 ->label('Temperatura (ºC)')
                                 ->helperText(fn (Get $get): string => 'Avaliada contra os limites próprios da piscina (temp. mín/máx).'.self::lookback('temperatura', $get))
-                                ->required(fn (): bool => ! (auth()->user()?->hasRole('nadador_salvador') ?? false))
+                                ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                                 ->numeric()->step(0.1)->minValue(0)->maxValue(50),
                             'temperatura'
                         ),
                         self::comSemaforo(
                             Forms\Components\TextInput::make('transparencia')
                                 ->label('Turbidez (FNU)')
-                                ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU'.self::lookback('transparencia', $get))
-                                ->required(fn (): bool => ! (auth()->user()?->hasRole('nadador_salvador') ?? false))
-                                ->numeric()->step(0.01)->minValue(0)->maxValue(100),
+                                ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
+                                ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                                ->numeric()->step(0.01)->minValue(0)->maxValue(1),
                             'transparencia'
                         ),
                         Forms\Components\FileUpload::make('analises_fotos')
@@ -584,7 +585,7 @@ class DailyRecordResource extends Resource
                 // ── 7. Adições de Químicos ───────────────────────────────────────
                 Forms\Components\Section::make('Adições de Químicos')
                     ->icon('heroicon-o-sparkles')
-                    ->hidden(fn (): bool => auth()->user()?->hasRole('nadador_salvador') ?? false)
+                    ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
                     ->extraAttributes(fn (): array => self::sectionRing(true))
                     ->schema([
@@ -704,6 +705,7 @@ class DailyRecordResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('piscina')->withCount('correcoes'))
+            ->defaultSort('registado_em', 'desc')
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([

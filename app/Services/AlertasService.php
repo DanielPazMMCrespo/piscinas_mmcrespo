@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
@@ -44,7 +45,7 @@ class AlertasService
         }
 
         $alertas = [];
-        $soPiscinas = $utilizador?->hasRole('nadador_salvador') ?? false;
+        $soPiscinas = $utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
         $hoje = now()->toDateString();
 
         $piscinas = Pool::query()
