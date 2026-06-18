@@ -41,4 +41,12 @@ class Incident extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /**
+     * @return BelongsTo
+     */
+    public function resolvidoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolvido_por');
+    }
+
 }

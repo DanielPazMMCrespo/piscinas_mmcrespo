@@ -100,6 +100,7 @@ class FilterCheckResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['piscina', 'utilizador']))
             ->columns([
                 Tables\Columns\TextColumn::make('piscina.name')
                     ->label('Piscina')

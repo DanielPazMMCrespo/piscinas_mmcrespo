@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\DailyRecord;
 use App\Models\Pool;
+use App\Services\CacheService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -156,6 +157,8 @@ class CloroPhChartWidget extends Widget implements HasForms
      *    legal (CN 14/DA). Tooltip mostra valores reais com unidade.
      *  - 2+ piscinas            -> um gráfico por parâmetro, cada série uma piscina
      *    (eixo Y com valores reais, sem normalização).
+     *
+     * Cache: 30 min TTL por piscina + métricas (hash).
      */
     public function getGraficos(): array
     {
@@ -176,6 +179,17 @@ class CloroPhChartWidget extends Widget implements HasForms
         $metricas = array_filter($metricas, fn ($m) => preg_match('/^[a-z_]+$/', $m));
         if (empty($metricas)) {
             return [];
+        }
+
+        // Cache: para 1 piscina, tenta recuperar do cache antes de calcular.
+        $cacheService = app(CacheService::class);
+        if (count($piscinaIds) === 1) {
+            $poolId = $piscinaIds[0];
+            $metricsHash = md5(json_encode($metricas) ?: '');
+            $cached = $cacheService->getGraphData($poolId, $metricsHash);
+            if ($cached !== null) {
+                return $cached;
+            }
         }
 
         $colunas = collect($metricas)->map(fn ($m) => "AVG({$m}) as {$m}")->implode(', ');
@@ -241,7 +255,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ];
             }
 
-            return [[
+            $grafico = [[
                 'modo'   => 'multi-metrica',
                 'titulo' => $p->instalacao?->name ? "{$p->instalacao->name} — {$p->name}" : $p->name,
                 'labels' => $labels,
@@ -250,6 +264,12 @@ class CloroPhChartWidget extends Widget implements HasForms
                 // suggestedMin:-20 / suggestedMax:120 para valores fora de gama visíveis.
                 'bandaNormalizada' => ['min' => 0, 'max' => 100],
             ]];
+
+            // Cache: guarda para 30 min.
+            $metricsHash = md5(json_encode($metricas) ?: '');
+            $cacheService->cacheGraphData($p->id, $grafico, 30);
+
+            return $grafico;
         }
 
         // --- MODO VÁRIAS PISCINAS: um gráfico por parâmetro, série = piscina ---

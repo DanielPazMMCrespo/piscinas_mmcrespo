@@ -40,8 +40,17 @@ class AlertasService
     public function calcular(?User $utilizador): array
     {
         $memoKey = (string) ($utilizador?->id ?? 'guest');
+
+        // Verifica memo em-memória primeiro (dentro do mesmo request).
         if (isset(self::$memo[$memoKey])) {
             return self::$memo[$memoKey];
+        }
+
+        // Verifica cache (Redis/Database — 5 min TTL).
+        $cacheService = app(CacheService::class);
+        $cached = $cacheService->getAlerts($utilizador?->id);
+        if ($cached !== null) {
+            return self::$memo[$memoKey] = $cached;
         }
 
         $alertas = [];
@@ -62,17 +71,23 @@ class AlertasService
             ? DB::table('tap_alerts')->whereNull('resolved_at')->get()->groupBy('pool_id')
             : collect();
 
+        // Batch load últimos registos válidos de todas as piscinas (evita N+1).
+        // Agrupa por pool_id e obtém o mais recente de cada piscina.
+        $ultimosRegistos = DailyRecord::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereDoesntHave('correcoes')
+            ->orderByDesc('registado_em')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('pool_id')
+            ->map(fn ($registos) => $registos->first());
+
         foreach ($piscinas as $piscina) {
             $nome = $piscina->instalacao?->name
                 ? "{$piscina->instalacao->name} {$piscina->name}"
                 : $piscina->name;
 
-            $registo = DailyRecord::query()
-                ->where('pool_id', $piscina->id)
-                ->whereDoesntHave('correcoes')
-                ->orderByDesc('registado_em')
-                ->orderByDesc('id')
-                ->first();
+            $registo = $ultimosRegistos->get($piscina->id);
 
             $temRegistoHoje = $registo && $registo->registado_em->isToday();
 
@@ -140,7 +155,7 @@ class AlertasService
             $incidentes = Incident::query()
                 ->where('status', '!=', 'resolvido')
                 ->where('ocorreu_em', '>=', now()->subDays(30))
-                ->with('instalacao')
+                ->with(['instalacao', 'utilizador'])
                 ->orderByDesc('ocorreu_em')
                 ->limit(10)
                 ->get();
@@ -180,11 +195,17 @@ class AlertasService
         $peso = ['vermelho' => 0, 'amarelo' => 1, 'neutro' => 2];
         uasort($alertas, fn (array $a, array $b) => $peso[$a['nivel']] <=> $peso[$b['nivel']]);
 
-        return self::$memo[$memoKey] = [
+        $resultado = [
             'alertas' => $alertas,
             'totalPiscinas' => $piscinas->count(),
             'conformesHoje' => $conformesHoje,
         ];
+
+        // Guarda em cache (5 min TTL — crítico para dashboard).
+        $cacheService = app(CacheService::class);
+        $cacheService->cacheAlerts($utilizador?->id, $resultado, 5);
+
+        return self::$memo[$memoKey] = $resultado;
     }
 
     /** @return array<int, string> */

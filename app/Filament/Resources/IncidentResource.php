@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class IncidentResource extends Resource
 {
@@ -102,6 +103,7 @@ class IncidentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'utilizador']))
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
                     ->label('Instalação')

@@ -706,7 +706,10 @@ class DailyRecordResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('piscina')->withCount('correcoes'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->with(['piscina', 'utilizador', 'adicoes.produto', 'fotos'])
+                ->withCount('correcoes')
+            )
             ->defaultSort('registado_em', 'desc')
             ->columns([
                 Tables\Columns\Layout\Split::make([
