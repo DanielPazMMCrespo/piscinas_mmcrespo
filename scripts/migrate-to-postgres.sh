@@ -45,10 +45,10 @@ PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USERNAME -tc \
 echo "   ✅ Database pronto"
 echo ""
 
-# 4. Rodar migrations
+# 4. Rodar migrations (incluindo otimizações PostgreSQL)
 echo "4️⃣ Rodando migrations..."
 php artisan migrate --force
-echo "   ✅ Migrations completas"
+echo "   ✅ Migrations completas (com otimizações PostgreSQL)"
 echo ""
 
 # 5. Rodar seeders (opcional)
