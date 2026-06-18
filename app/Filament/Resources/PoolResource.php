@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
@@ -32,7 +33,7 @@ class PoolResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Select::make('installation_id')
-                    ->label('Instalação')
+                    ->label('InstalaÃ§Ã£o')
                     ->relationship('instalacao', 'name')
                     ->required()
                     ->preload()
@@ -46,20 +47,20 @@ class PoolResource extends Resource
                     ->required()
                     ->maxLength(50),
                 Forms\Components\TextInput::make('temp_min')
-                    ->label('Temperatura Mínima (ºC)')
+                    ->label('Temperatura MÃ­nima (ÂºC)')
                     ->required()
                     ->numeric(),
                 Forms\Components\TextInput::make('temp_max')
-                    ->label('Temperatura Máxima (ºC)')
+                    ->label('Temperatura MÃ¡xima (ÂºC)')
                     ->required()
                     ->numeric(),
                 Forms\Components\TextInput::make('volume')
-                    ->label('Volume (m³)')
-                    ->helperText('Necessário para a calculadora de dosagem de químicos.')
+                    ->label('Volume (mÂ³)')
+                    ->helperText('NecessÃ¡rio para a calculadora de dosagem de quÃ­micos.')
                     ->numeric()
                     ->step(0.01)
                     ->minValue(0)
-                    ->suffix('m³'),
+                    ->suffix('mÂ³'),
                 Forms\Components\Toggle::make('active')
                     ->label('Ativo')
                     ->default(true)
@@ -72,7 +73,7 @@ class PoolResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
-                    ->label('Instalação')
+                    ->label('InstalaÃ§Ã£o')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
@@ -82,18 +83,18 @@ class PoolResource extends Resource
                     ->label('Tipo')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('temp_min')
-                    ->label('Temp. Mín')
+                    ->label('Temp. MÃ­n')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('temp_max')
-                    ->label('Temp. Máx')
+                    ->label('Temp. MÃ¡x')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('volume')
-                    ->label('Volume (m³)')
+                    ->label('Volume (mÂ³)')
                     ->numeric()
                     ->sortable()
-                    ->placeholder('—'),
+                    ->placeholder('â€”'),
                 Tables\Columns\IconColumn::make('active')
                     ->label('Ativo')
                     ->boolean(),
@@ -139,3 +140,4 @@ class PoolResource extends Resource
         ];
     }
 }
+

@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Filament\Resources\StockInstallationResource\Pages;
 
 use App\Filament\Resources\StockInstallationResource;
@@ -9,3 +10,4 @@ class CreateStockInstallation extends CreateRecord
 {
     protected static string $resource = StockInstallationResource::class;
 }
+

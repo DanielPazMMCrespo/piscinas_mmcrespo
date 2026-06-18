@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
@@ -16,11 +17,11 @@ class ProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-beaker';
 
-    protected static ?string $navigationGroup = 'Inventário';
+    protected static ?string $navigationGroup = 'InventÃ¡rio';
 
-    protected static ?string $modelLabel = 'Produto Químico';
+    protected static ?string $modelLabel = 'Produto QuÃ­mico';
 
-    protected static ?string $pluralModelLabel = 'Produtos Químicos';
+    protected static ?string $pluralModelLabel = 'Produtos QuÃ­micos';
 
     public static function canAccess(): bool
     {
@@ -107,3 +108,4 @@ class ProductResource extends Resource
         ];
     }
 }
+

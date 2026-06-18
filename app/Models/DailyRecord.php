@@ -206,31 +206,41 @@ class DailyRecord extends Model
             && $this->temperatura <= $this->piscina->temp_max;
     }
 
+    /**
+     * @return BelongsTo
+     */
     public function piscina(): BelongsTo
     {
         return $this->belongsTo(Pool::class, 'pool_id');
     }
 
+    /**
+     * @return BelongsTo
+     */
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /**
+     * @return HasMany
+     */
     public function adicoes(): HasMany
     {
         return $this->hasMany(RecordAddition::class);
     }
 
+    /**
+     * @return HasMany
+     */
     public function fotos(): HasMany
     {
         return $this->hasMany(RecordPhoto::class);
     }
 
-    public function registoOriginal(): BelongsTo
-    {
-        return $this->belongsTo(DailyRecord::class, 'corrige_registo_id');
-    }
-
+    /**
+     * @return HasMany
+     */
     public function correcoes(): HasMany
     {
         return $this->hasMany(DailyRecord::class, 'corrige_registo_id');

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Estado de tratamento (Kanban) de um alerta operacional calculado.
@@ -22,8 +21,4 @@ class AlertState extends Model
         'moved_at' => 'datetime',
     ];
 
-    public function movidoPor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'moved_by');
-    }
 }

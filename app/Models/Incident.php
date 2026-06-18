@@ -25,19 +25,20 @@ class Incident extends Model
         return $this->status === 'resolvido';
     }
 
+    /**
+     * @return BelongsTo
+     */
     public function instalacao(): BelongsTo
     {
         return $this->belongsTo(Installation::class, 'installation_id');
     }
 
+    /**
+     * @return BelongsTo
+     */
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function resolvidoPor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'resolvido_por');
     }
 
 }

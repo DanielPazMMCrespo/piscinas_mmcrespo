@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Filament\Resources\PoolResource\Pages;
 
 use App\Filament\Resources\PoolResource;
@@ -9,3 +10,4 @@ class CreatePool extends CreateRecord
 {
     protected static string $resource = PoolResource::class;
 }
+

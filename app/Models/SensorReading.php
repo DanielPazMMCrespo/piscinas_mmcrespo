@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -34,3 +35,4 @@ class SensorReading extends Model
         return $this->belongsTo(HannaDevice::class, 'hanna_device_id', 'hanna_device_id');
     }
 }
+

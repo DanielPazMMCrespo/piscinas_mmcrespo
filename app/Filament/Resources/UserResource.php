@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
@@ -94,11 +95,11 @@ class UserResource extends Resource
                 Tables\Actions\DeleteAction::make()
                     ->before(function ($record, Tables\Actions\DeleteAction $action): void {
                         if ($record->id === auth()->id()) {
-                            Notification::make()->danger()->title('Não pode eliminar a sua própria conta.')->send();
+                            Notification::make()->danger()->title('NÃ£o pode eliminar a sua prÃ³pria conta.')->send();
                             $action->halt();
                         }
                         if ($record->hasRole('admin') && User::role('admin')->count() <= 1) {
-                            Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
+                            Notification::make()->danger()->title('NÃ£o Ã© possÃ­vel eliminar o Ãºnico administrador.')->send();
                             $action->halt();
                         }
                     }),
@@ -130,3 +131,4 @@ class UserResource extends Resource
         ];
     }
 }
+

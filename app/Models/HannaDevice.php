@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -25,9 +26,10 @@ class HannaDevice extends Model
         return $this->hasMany(SensorReading::class, 'hanna_device_id', 'hanna_device_id');
     }
 
-    /** Última leitura guardada para este dispositivo. */
+    /** Ãšltima leitura guardada para este dispositivo. */
     public function ultimaLeitura(): ?SensorReading
     {
         return $this->leituras()->latest('lida_em')->first();
     }
 }
+

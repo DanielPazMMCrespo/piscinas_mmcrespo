@@ -22,18 +22,20 @@ class Installation extends Model
         });
     }
 
+    /**
+     * @return HasMany
+     */
     public function piscinas(): HasMany
     {
         return $this->hasMany(Pool::class);
     }
 
+    /**
+     * @return HasMany
+     */
     public function incidentes(): HasMany
     {
         return $this->hasMany(Incident::class);
     }
 
-    public function stockInstalacoes(): HasMany
-    {
-        return $this->hasMany(StockInstallation::class);
-    }
 }
