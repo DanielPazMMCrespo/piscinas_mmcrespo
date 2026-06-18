@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\AlertLevel;
+use App\Constants\AlertType;
+use App\Constants\IncidentStatus;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
@@ -88,72 +91,23 @@ class AlertasService
                 : $piscina->name;
 
             $registo = $ultimosRegistos->get($piscina->id);
-
             $temRegistoHoje = $registo && $registo->registado_em->isToday();
 
-            if (! $temRegistoHoje) {
-                $alertas["sem_registo|{$piscina->id}|{$hoje}"] = [
-                    'nivel' => now()->hour >= 12 ? 'vermelho' : 'amarelo',
-                    'icone' => 'heroicon-o-clipboard-document-list',
-                    'titulo' => "{$nome}: sem registo diário hoje",
-                    'detalhe' => $registo
-                        ? 'Último registo em '.$registo->registado_em->format('d/m H:i')
-                        : 'Nunca teve registos',
-                    'url' => DailyRecordResource::getUrl('create'),
-                    'acao' => 'Criar registo',
-                ];
-            }
+            // Alertas de registos diários
+            $alertasRegistoDiario = $this->gerarAlertasRegistoDiario(
+                $piscina, $nome, $registo, $temRegistoHoje, $hoje
+            );
+            $alertas = array_merge($alertas, $alertasRegistoDiario['alertas']);
+            $conformesHoje += $alertasRegistoDiario['conformesHoje'];
 
-            if ($registo) {
-                $registo->setRelation('piscina', $piscina);
-
-                $violacoes = $this->violacoesLegais($registo);
-                $violacaoTemp = $this->violacaoTemperatura($registo, $piscina);
-
-                if ($violacoes !== []) {
-                    $alertas["fora_limites|{$registo->id}"] = [
-                        'nivel' => 'vermelho',
-                        'icone' => 'heroicon-o-beaker',
-                        'titulo' => "{$nome}: parâmetros fora dos limites CN 14/DA",
-                        'detalhe' => implode(' · ', $violacoes)
-                            .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                        'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
-                        'acao' => 'Ver registo',
-                    ];
-                }
-
-                if ($violacaoTemp !== null) {
-                    $alertas["temp|{$registo->id}"] = [
-                        'nivel' => 'amarelo',
-                        'icone' => 'heroicon-o-fire',
-                        'titulo' => "{$nome}: temperatura fora da gama da piscina",
-                        'detalhe' => $violacaoTemp
-                            .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                        'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
-                        'acao' => 'Ver registo',
-                    ];
-                }
-
-                if ($temRegistoHoje && $violacoes === [] && $violacaoTemp === null) {
-                    $conformesHoje++;
-                }
-            }
-
-            foreach ($taps->get($piscina->id, collect()) as $tap) {
-                $alertas["tap|{$tap->id}"] = [
-                    'nivel' => 'amarelo',
-                    'icone' => 'heroicon-o-exclamation-triangle',
-                    'titulo' => "{$nome}: torneira de água aberta por resolver",
-                    'detalhe' => 'Aberta desde '.Carbon::parse($tap->opened_at)->format('d/m H:i'),
-                    'url' => DailyRecordResource::getUrl('create'),
-                    'acao' => 'Registar fecho',
-                ];
-            }
+            // Alertas de torneiras
+            $alertasTorneiras = $this->gerarAlertasTorneiras($piscina, $nome, $taps);
+            $alertas = array_merge($alertas, $alertasTorneiras);
         }
 
         if (! $soPiscinas) {
             $incidentes = Incident::query()
-                ->where('status', '!=', 'resolvido')
+                ->where('status', '!=', IncidentStatus::RESOLVIDO)
                 ->where('ocorreu_em', '>=', now()->subDays(30))
                 ->with(['instalacao', 'utilizador'])
                 ->orderByDesc('ocorreu_em')
@@ -161,8 +115,8 @@ class AlertasService
                 ->get();
 
             foreach ($incidentes as $incidente) {
-                $alertas["incidente|{$incidente->id}"] = [
-                    'nivel' => 'neutro',
+                $alertas[AlertType::INCIDENTE."|{$incidente->id}"] = [
+                    'nivel' => AlertLevel::NEUTRO,
                     'icone' => 'heroicon-o-bell-alert',
                     'titulo' => ($incidente->instalacao?->name ? "{$incidente->instalacao->name}: " : '')
                         .'incidente — '.($incidente->type ?: 'sem tipo'),
@@ -178,8 +132,8 @@ class AlertasService
                 ->count();
 
             if ($stockBaixo > 0) {
-                $alertas["stock|{$hoje}"] = [
-                    'nivel' => 'amarelo',
+                $alertas[AlertType::STOCK."|{$hoje}"] = [
+                    'nivel' => AlertLevel::AMARELO,
                     'icone' => 'heroicon-o-archive-box-x-mark',
                     'titulo' => $stockBaixo === 1
                         ? '1 produto com stock abaixo do mínimo'
@@ -192,8 +146,7 @@ class AlertasService
         }
 
         // Prioridade visual: vermelho > amarelo > neutro (ordem estável).
-        $peso = ['vermelho' => 0, 'amarelo' => 1, 'neutro' => 2];
-        uasort($alertas, fn (array $a, array $b) => $peso[$a['nivel']] <=> $peso[$b['nivel']]);
+        uasort($alertas, fn (array $a, array $b) => AlertLevel::weight($a['nivel']) <=> AlertLevel::weight($b['nivel']));
 
         $resultado = [
             'alertas' => $alertas,
@@ -250,5 +203,94 @@ class AlertasService
         return $temp < (float) $piscina->temp_min
             ? 'temperatura '.$fmt($temp).' °C abaixo do mínimo ('.$fmt((float) $piscina->temp_min).')'
             : 'temperatura '.$fmt($temp).' °C acima do máximo ('.$fmt((float) $piscina->temp_max).')';
+    }
+
+    /**
+     * Gera alertas relativos a registos diários (falta de registo, parâmetros fora dos limites, temperatura).
+     *
+     * @return array{alertas: array<string, array<string, mixed>>, conformesHoje: int}
+     */
+    private function gerarAlertasRegistoDiario(
+        Pool $piscina,
+        string $nome,
+        ?DailyRecord $registo,
+        bool $temRegistoHoje,
+        string $hoje
+    ): array {
+        $alertas = [];
+        $conformesHoje = 0;
+
+        if (! $temRegistoHoje) {
+            $alertas[AlertType::SEM_REGISTO."|{$piscina->id}|{$hoje}"] = [
+                'nivel' => now()->hour >= 12 ? AlertLevel::VERMELHO : AlertLevel::AMARELO,
+                'icone' => 'heroicon-o-clipboard-document-list',
+                'titulo' => "{$nome}: sem registo diário hoje",
+                'detalhe' => $registo
+                    ? 'Último registo em '.$registo->registado_em->format('d/m H:i')
+                    : 'Nunca teve registos',
+                'url' => DailyRecordResource::getUrl('create'),
+                'acao' => 'Criar registo',
+            ];
+        }
+
+        if ($registo !== null) {
+            $registo->setRelation('piscina', $piscina);
+
+            $violacoes = $this->violacoesLegais($registo);
+            $violacaoTemp = $this->violacaoTemperatura($registo, $piscina);
+
+            if ($violacoes !== []) {
+                $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
+                    'nivel' => AlertLevel::VERMELHO,
+                    'icone' => 'heroicon-o-beaker',
+                    'titulo' => "{$nome}: parâmetros fora dos limites CN 14/DA",
+                    'detalhe' => implode(' · ', $violacoes)
+                        .' (registo de '.$registo->registado_em->format('d/m H:i').')',
+                    'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
+                    'acao' => 'Ver registo',
+                ];
+            }
+
+            if ($violacaoTemp !== null) {
+                $alertas[AlertType::TEMPERATURA."|{$registo->id}"] = [
+                    'nivel' => AlertLevel::AMARELO,
+                    'icone' => 'heroicon-o-fire',
+                    'titulo' => "{$nome}: temperatura fora da gama da piscina",
+                    'detalhe' => $violacaoTemp
+                        .' (registo de '.$registo->registado_em->format('d/m H:i').')',
+                    'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
+                    'acao' => 'Ver registo',
+                ];
+            }
+
+            if ($temRegistoHoje && $violacoes === [] && $violacaoTemp === null) {
+                $conformesHoje = 1;
+            }
+        }
+
+        return ['alertas' => $alertas, 'conformesHoje' => $conformesHoje];
+    }
+
+    /**
+     * Gera alertas de torneiras abertas para uma piscina.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function gerarAlertasTorneiras(Pool $piscina, string $nome, \Illuminate\Support\Collection $taps): array
+    {
+        $alertas = [];
+
+        foreach ($taps->get($piscina->id, collect()) as $tap) {
+            $alertas[AlertType::TORNEIRA."|{$tap->id}"] = [
+                'nivel' => AlertLevel::AMARELO,
+                'icone' => 'heroicon-o-exclamation-triangle',
+                'titulo' => "{$nome}: torneira de água aberta por resolver",
+                'detalhe' => 'Aberta desde '.Carbon::parse($tap->opened_at)->format('d/m H:i'),
+                'url' => DailyRecordResource::getUrl('create'),
+                'acao' => 'Registar fecho',
+            ];
+        }
+
+        return $alertas;
     }
 }

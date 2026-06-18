@@ -143,7 +143,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $intervalo = $normMax - $normMin;
 
         // Evita divisão por zero em definições mal configuradas.
-        if ($intervalo == 0.0) {
+        if ($intervalo === 0.0) {
             return 50.0;
         }
 
