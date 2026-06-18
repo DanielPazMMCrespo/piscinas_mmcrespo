@@ -1,0 +1,268 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Models;
+
+use App\Models\DailyRecord;
+use App\Models\Installation;
+use App\Models\Pool;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
+class DailyRecordTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        foreach (['admin', 'tecnico', 'nadador_salvador'] as $role) {
+            Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+        }
+    }
+
+    private function criarPiscina(float $tempMin = 26.0, float $tempMax = 27.0): Pool
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+
+        return Pool::create([
+            'installation_id' => $inst->id,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => $tempMin,
+            'temp_max' => $tempMax,
+            'volume' => 900.0,
+            'active' => true,
+        ]);
+    }
+
+    public function test_avaliar_conformidade_verde_all_within_limits(): void
+    {
+        $pool = $this->criarPiscina();
+
+        // Todos os valores dentro dos limites
+        $phResult = DailyRecord::avaliarConformidade('ph', 7.4, $pool);
+        $this->assertEquals('verde', $phResult['estado']);
+        $this->assertStringContainsString('Conforme', $phResult['mensagem']);
+
+        $cloroResult = DailyRecord::avaliarConformidade('cloro_livre', 1.0, $pool);
+        $this->assertEquals('verde', $cloroResult['estado']);
+
+        $tempResult = DailyRecord::avaliarConformidade('temperatura', 26.5, $pool);
+        $this->assertEquals('verde', $tempResult['estado']);
+    }
+
+    public function test_avaliar_conformidade_amarelo_warning_range(): void
+    {
+        $pool = $this->criarPiscina();
+
+        // pH perto do mínimo (6.9)
+        // Margem = (8.0 - 6.9) * 0.10 = 0.11
+        // Aviso se pH < 6.9 + 0.11 = 7.01
+        $resultBaixo = DailyRecord::avaliarConformidade('ph', 7.00, $pool);
+        $this->assertEquals('amarelo', $resultBaixo['estado']);
+        $this->assertStringContainsString('perto do mínimo', $resultBaixo['mensagem']);
+
+        // pH perto do máximo (8.0)
+        // Aviso se pH > 8.0 - 0.11 = 7.89
+        $resultAlto = DailyRecord::avaliarConformidade('ph', 7.95, $pool);
+        $this->assertEquals('amarelo', $resultAlto['estado']);
+        $this->assertStringContainsString('perto do máximo', $resultAlto['mensagem']);
+    }
+
+    public function test_avaliar_conformidade_vermelho_exceeds_limits(): void
+    {
+        $pool = $this->criarPiscina();
+
+        // pH abaixo do mínimo
+        $resultBaixo = DailyRecord::avaliarConformidade('ph', 6.5, $pool);
+        $this->assertEquals('vermelho', $resultBaixo['estado']);
+        $this->assertStringContainsString('abaixo do mínimo', $resultBaixo['mensagem']);
+
+        // pH acima do máximo
+        $resultAlto = DailyRecord::avaliarConformidade('ph', 8.5, $pool);
+        $this->assertEquals('vermelho', $resultAlto['estado']);
+        $this->assertStringContainsString('acima do máximo', $resultAlto['mensagem']);
+
+        // Temperatura acima do máximo da piscina
+        $resultTemp = DailyRecord::avaliarConformidade('temperatura', 28.0, $pool);
+        $this->assertEquals('vermelho', $resultTemp['estado']);
+    }
+
+    public function test_cloro_combinado_calculates_from_total_and_livre(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        $registo = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => 1.8,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $this->assertEquals(0.8, $registo->cloro_combinado);
+    }
+
+    public function test_null_values_return_neutro_estado(): void
+    {
+        $pool = $this->criarPiscina();
+
+        // Valor nulo
+        $resultNull = DailyRecord::avaliarConformidade('ph', null, $pool);
+        $this->assertEquals('neutro', $resultNull['estado']);
+        $this->assertEquals('', $resultNull['mensagem']);
+
+        // String vazia
+        $resultEmpty = DailyRecord::avaliarConformidade('ph', '', $pool);
+        $this->assertEquals('neutro', $resultEmpty['estado']);
+    }
+
+    public function test_cloro_combinado_null_when_missing_readings(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        // Sem cloro_total
+        $registo1 = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => null,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $this->assertNull($registo1->cloro_combinado);
+
+        // Sem cloro_livre
+        $registo2 = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => null,
+            'cloro_total' => 1.2,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $this->assertNull($registo2->cloro_combinado);
+    }
+
+    public function test_conformidade_helpers_return_true_when_within_limits(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        $registo = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => 1.2,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $registo->setRelation('piscina', $pool);
+
+        $this->assertTrue($registo->phConforme());
+        $this->assertTrue($registo->cloroLivreConforme());
+        $this->assertTrue($registo->cloroCombinadoConforme());
+        $this->assertTrue($registo->temperaturaConforme());
+    }
+
+    public function test_conformidade_helpers_return_false_when_exceeding_limits(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        $registo = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 5.0,  // acima do máximo (2.0)
+            'cloro_total' => 5.2,
+            'ph' => 9.0,  // acima do máximo (8.0)
+            'temperatura' => 40.0,  // acima do máximo da piscina
+            'transparencia' => 2,
+        ]);
+
+        $registo->setRelation('piscina', $pool);
+
+        $this->assertFalse($registo->phConforme());
+        $this->assertFalse($registo->cloroLivreConforme());
+        $this->assertFalse($registo->temperaturaConforme());
+    }
+
+    public function test_relationships_work_correctly(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        $registo = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => 1.2,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $this->assertNotNull($registo->piscina);
+        $this->assertEquals($pool->id, $registo->piscina->id);
+
+        $this->assertNotNull($registo->utilizador);
+        $this->assertEquals($user->id, $registo->utilizador->id);
+    }
+
+    public function test_correccao_relationship_works(): void
+    {
+        $pool = $this->criarPiscina();
+        $user = User::factory()->create();
+
+        $original = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => now(),
+            'cloro_livre' => 1.0,
+            'cloro_total' => 1.2,
+            'ph' => 7.4,
+            'temperatura' => 26.5,
+            'transparencia' => 2,
+        ]);
+
+        $correcao = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $user->id,
+            'registado_em' => $original->registado_em,
+            'cloro_livre' => 1.1,
+            'cloro_total' => 1.3,
+            'ph' => 7.5,
+            'temperatura' => 26.6,
+            'transparencia' => 2,
+            'e_correcao' => true,
+            'corrige_registo_id' => $original->id,
+            'razao_correcao' => 'Erro de leitura',
+        ]);
+
+        $this->assertEquals(1, $original->correcoes()->count());
+        $this->assertEquals($original->id, $correcao->registoOriginal->id);
+    }
+}

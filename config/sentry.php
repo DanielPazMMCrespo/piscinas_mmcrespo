@@ -67,18 +67,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Enable Client Reports
-    |--------------------------------------------------------------------------
-    |
-    | If enabled, the SDK will send client reports for dropped events and
-    | internal SDK errors.
-    |
-    */
-
-    'send_client_reports' => (bool) env('SENTRY_SEND_CLIENT_REPORTS', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Breadcrumbs
     |--------------------------------------------------------------------------
     |
@@ -93,16 +81,5 @@ return [
         'http_client_requests' => true,
         'queue_info' => true,
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Capture Unhandled Rejections
-    |--------------------------------------------------------------------------
-    |
-    | Capture unhandled JavaScript promise rejections (for Sentry JS SDK).
-    |
-    */
-
-    'capture_unhandled_rejections' => true,
 
 ];
