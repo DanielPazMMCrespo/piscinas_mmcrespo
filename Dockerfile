@@ -5,12 +5,13 @@ RUN npm ci
 
 FROM php:8.3-apache
 
-# Install system dependencies for PostgreSQL + intl extensions
+# Install system dependencies for PostgreSQL + intl + zip extensions
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     libpq-dev \
     libicu-dev \
     zlib1g-dev \
+    libzip-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
