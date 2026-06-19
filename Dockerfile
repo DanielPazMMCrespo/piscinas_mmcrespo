@@ -20,9 +20,10 @@ RUN docker-php-ext-install pdo pdo_pgsql intl zip
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Fix Apache MPM conflict and enable mod_rewrite
-RUN a2dismod mpm_event mpm_worker 2>/dev/null || true \
-    && a2enmod mpm_prefork rewrite
+# Fix Apache MPM conflict - remove conflicting MPM configs
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
+    && a2enmod mpm_prefork rewrite \
+    && a2enmod php8.4 2>/dev/null || true
 
 WORKDIR /var/www/html
 
