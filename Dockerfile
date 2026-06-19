@@ -49,6 +49,9 @@ RUN printf 'server {\n\
     }\n\
 }\n' > /etc/nginx/sites-enabled/default
 
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
 
-CMD php-fpm --nodaemonize & nginx -g 'daemon off;'
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
