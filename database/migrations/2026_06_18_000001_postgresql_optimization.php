@@ -47,7 +47,7 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasTable('stock_installation_logs')) {
+        if (Schema::hasTable('stock_installation_logs') && Schema::hasColumn('stock_installation_logs', 'installation_id')) {
             Schema::table('stock_installation_logs', function (Blueprint $table) {
                 if (!Schema::hasIndex('stock_installation_logs', 'stock_installation_logs_installation_id_created_at_index')) {
                     $table->index(['installation_id', 'created_at']);
