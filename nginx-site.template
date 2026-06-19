@@ -8,6 +8,13 @@ server {
 
     client_max_body_size 25M;
 
+    # Serve built assets directly (Vite output)
+    location ~* ^/build/ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
