@@ -25,31 +25,43 @@ class UserResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()?->hasAnyRole(['admin', 'gestor']) ?? false;
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+                Forms\Components\Grid::make(2)->schema([
+                    Forms\Components\TextInput::make('first_name')
+                        ->label('Primeiro nome')
+                        ->maxLength(100),
+                    Forms\Components\TextInput::make('last_name')
+                        ->label('Último nome')
+                        ->maxLength(100),
+                ]),
                 Forms\Components\TextInput::make('name')
-                    ->label('Nome')
+                    ->label('Nome completo')
                     ->required()
                     ->maxLength(255),
+                Forms\Components\TextInput::make('phone')
+                    ->label('Telefone')
+                    ->tel()
+                    ->maxLength(20),
                 Forms\Components\TextInput::make('email')
                     ->label('E-mail')
                     ->email()
                     ->required()
                     ->maxLength(255),
                 Forms\Components\TextInput::make('password')
-                    ->label('Password')
+                    ->label('Palavra-passe')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->minLength(8)
                     ->maxLength(255),
                 Forms\Components\Select::make('roles')
-                    ->label('Perfis de Acesso (Roles)')
+                    ->label('Cargo')
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload()
@@ -63,12 +75,16 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
+                Tables\Columns\TextColumn::make('full_name')
                     ->label('Nome')
-                    ->searchable(),
+                    ->searchable(['first_name', 'last_name', 'name'])
+                    ->sortable(query: fn ($query, $direction) => $query->orderBy('name', $direction)),
                 Tables\Columns\TextColumn::make('email')
                     ->label('E-mail')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Telefone')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Perfis')
                     ->badge()

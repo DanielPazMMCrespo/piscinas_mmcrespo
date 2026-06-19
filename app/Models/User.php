@@ -28,7 +28,21 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['admin', 'tecnico', 'nadador_salvador']);
+        return $this->hasAnyRole(['admin', 'gestor', 'tecnico', 'nadador_salvador']);
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        if ($this->first_name || $this->last_name) {
+            return trim("{$this->first_name} {$this->last_name}");
+        }
+
+        return $this->name;
+    }
+
+    public function hasPin(): bool
+    {
+        return $this->pin !== null;
     }
 
     /**
@@ -38,8 +52,12 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
+        'phone',
+        'pin',
     ];
 
     /**
@@ -49,6 +67,7 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $hidden = [
         'password',
+        'pin',
         'remember_token',
     ];
 

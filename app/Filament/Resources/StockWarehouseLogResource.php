@@ -21,6 +21,11 @@ class StockWarehouseLogResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Histórico de Transações — Armazém Central';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
+    }
+
     public static function table(Table $table): Table
     {
         return $table

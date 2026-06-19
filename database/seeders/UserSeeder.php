@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 namespace Database\Seeders;
 
@@ -12,22 +10,72 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@mmcrespo.pt'],
-            ['name' => 'Administrador MMCrespo', 'password' => Hash::make('password')]
+        // Contas reais de produção
+        $daniel = User::firstOrCreate(
+            ['email' => 'daniel@mmcrespo.pt'],
+            [
+                'name'       => 'Daniel Paz',
+                'first_name' => 'Daniel',
+                'last_name'  => 'Paz',
+                'password'   => Hash::make(env('ADMIN_PASSWORD_DANIEL', 'changeme123!')),
+                'email_verified_at' => now(),
+            ]
         );
-        $admin->syncRoles(['admin']);
+        $daniel->syncRoles(['admin']);
 
-        $tecnico = User::firstOrCreate(
-            ['email' => 'tecnico@mmcrespo.pt'],
-            ['name' => 'Técnico Teste', 'password' => Hash::make('password')]
+        $marcio = User::firstOrCreate(
+            ['email' => 'marcio@mmcrespo.pt'],
+            [
+                'name'       => 'Márcio',
+                'first_name' => 'Márcio',
+                'last_name'  => '',
+                'password'   => Hash::make(env('ADMIN_PASSWORD_MARCIO', 'changeme123!')),
+                'email_verified_at' => now(),
+            ]
         );
-        $tecnico->syncRoles(['tecnico']);
+        $marcio->syncRoles(['admin']);
 
-        $ns = User::firstOrCreate(
-            ['email' => 'ns@mmcrespo.pt'],
-            ['name' => 'Nadador Salvador Teste', 'password' => Hash::make('password')]
-        );
-        $ns->syncRoles(['nadador_salvador']);
+        // Contas de teste — apenas em desenvolvimento
+        if (! app()->isProduction()) {
+            $admin = User::firstOrCreate(
+                ['email' => 'admin@mmcrespo.pt'],
+                [
+                    'name'     => 'Admin Teste',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                ]
+            );
+            $admin->syncRoles(['admin']);
+
+            $tec = User::firstOrCreate(
+                ['email' => 'tecnico@mmcrespo.pt'],
+                [
+                    'name'     => 'Técnico Teste',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                ]
+            );
+            $tec->syncRoles(['tecnico']);
+
+            $ns = User::firstOrCreate(
+                ['email' => 'ns@mmcrespo.pt'],
+                [
+                    'name'     => 'Nadador Salvador Teste',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                ]
+            );
+            $ns->syncRoles(['nadador_salvador']);
+
+            $gestor = User::firstOrCreate(
+                ['email' => 'gestor@mmcrespo.pt'],
+                [
+                    'name'     => 'Gestor Teste',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                ]
+            );
+            $gestor->syncRoles(['gestor']);
+        }
     }
 }
