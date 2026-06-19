@@ -28,6 +28,7 @@ chown -R www-data:www-data storage bootstrap/cache || true
 php artisan package:discover --ansi || true
 php artisan storage:link || true
 php artisan migrate --force || echo "[entrypoint] WARNING: migrate failed (continuing)"
+php artisan db:seed --force || echo "[entrypoint] WARNING: db:seed failed (continuing)"
 php artisan filament:assets || true
 php artisan config:cache || true
 php artisan route:cache || true
