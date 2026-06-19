@@ -235,6 +235,36 @@ class DailyRecordResource extends Resource
         return false;
     }
 
+    /** Descrição da secção Filtros com estado de retrolavagem do registo anterior. */
+    private static function descricaoFiltros(Get $get): string
+    {
+        $ultimo = self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null);
+        if (! $ultimo) {
+            return 'Retrolavagem e fotos das três posições da válvula.';
+        }
+
+        if ($ultimo->filtro_faz_retrolavagem) {
+            return 'Retrolavagem e fotos das três posições da válvula. · Último registo ('.$ultimo->registado_em->format('d/m H:i').'): ✓ retrolavagem feita';
+        }
+
+        return 'Retrolavagem e fotos das três posições da válvula. · ⚠ Último registo ('.$ultimo->registado_em->format('d/m H:i').'): sem retrolavagem — considere fazer agora';
+    }
+
+    /** HelperText do toggle de retrolavagem — avisa se não foi feita no registo anterior. */
+    private static function helperRetrolavagem(Get $get): string
+    {
+        $ultimo = self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null);
+        if (! $ultimo) {
+            return '';
+        }
+
+        if ($ultimo->filtro_faz_retrolavagem) {
+            return '✓ Feita no registo anterior ('.$ultimo->registado_em->format('d/m H:i').')';
+        }
+
+        return '⚠ Não foi feita no registo anterior ('.$ultimo->registado_em->format('d/m H:i').') — recomendado fazer agora';
+    }
+
     /** Texto "Ontem: valor (dd/mm HH:mm)" para o helperText de um campo de métrica. */
     private static function lookback(string $campo, Get $get): string
     {
@@ -341,7 +371,7 @@ class DailyRecordResource extends Resource
 
                 // ── 2. Filtros ───────────────────────────────────────────────────
                 Forms\Components\Section::make('Filtros')
-                    ->description('Retrolavagem e fotos das três posições da válvula.')
+                    ->description(fn (Get $get): string => self::descricaoFiltros($get))
                     ->icon('heroicon-o-funnel')
                     ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                     ->collapsible()
@@ -349,6 +379,7 @@ class DailyRecordResource extends Resource
                     ->schema([
                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
                             ->label('Vai ser feita uma retrolavagem?')
+                            ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
                             ->default(false)
                             ->live(),
                         Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
