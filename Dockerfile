@@ -1,14 +1,14 @@
-# Stage 1: Build JS assets
+# Stage 1: Build JS/CSS assets (native Debian Node — no cross-platform binary issues)
 FROM node:22-bookworm-slim AS node-builder
 WORKDIR /build
 COPY package*.json vite.config.js ./
 COPY resources/ ./resources/
 RUN npm ci && npm run build
 
-# Stage 2: PHP + Nginx (no Apache MPM issues)
+# Stage 2: PHP-FPM + Nginx runtime
 FROM php:8.4-fpm
 
-# Install nginx + PHP extension deps
+# System deps: nginx + PHP extension build deps
 RUN apt-get update && apt-get install -y \
     nginx \
     libpq-dev \
@@ -17,40 +17,32 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
+# PHP extensions required by the app
 RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache
 
-# Install Composer
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy app
+# Application source
 COPY . .
+# Compiled front-end assets from the node builder stage
 COPY --from=node-builder /build/public/build ./public/build
 
-# Install PHP deps
+# PHP dependencies (scripts skipped — package:discover runs at startup with env present)
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install --optimize-autoloader --no-scripts --no-interaction
 
-# Permissions
+# Nginx site template + startup script (normalise CRLF -> LF for bash/sed safety)
+COPY nginx-site.template /etc/nginx/nginx-site.template
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh /etc/nginx/nginx-site.template \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && rm -f /etc/nginx/sites-enabled/default
+
+# Writable dirs
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Nginx config
-RUN printf 'server {\n\
-    listen 80;\n\
-    root /var/www/html/public;\n\
-    index index.php;\n\
-    location / { try_files $uri $uri/ /index.php?$query_string; }\n\
-    location ~ \\.php$ {\n\
-        fastcgi_pass 127.0.0.1:9000;\n\
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n\
-        include fastcgi_params;\n\
-    }\n\
-}\n' > /etc/nginx/sites-enabled/default
-
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 80
 
