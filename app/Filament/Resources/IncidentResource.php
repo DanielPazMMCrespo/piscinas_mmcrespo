@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources;
 
-namespace App\Filament\Resources;
 
 use App\Filament\Resources\IncidentResource\Pages;
 use App\Models\Incident;

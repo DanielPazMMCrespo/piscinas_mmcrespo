@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\StockWarehouseLogResource\Pages;
 
-namespace App\Filament\Resources\StockWarehouseLogResource\Pages;
 
 use App\Filament\Resources\StockWarehouseLogResource;
 use Filament\Resources\Pages\ListRecords;

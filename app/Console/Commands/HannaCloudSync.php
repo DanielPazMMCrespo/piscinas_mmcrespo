@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Console\Commands;
 
-namespace App\Console\Commands;
 
 use App\Models\HannaDevice;
 use App\Models\SensorReading;

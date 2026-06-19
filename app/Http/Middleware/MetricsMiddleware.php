@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Http\Middleware;
 
-namespace App\Http\Middleware;
 
 use App\Services\MetricsService;
 use Closure;

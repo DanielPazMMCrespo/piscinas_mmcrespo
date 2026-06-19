@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\FilterCheckResource\Pages;
 
-namespace App\Filament\Resources\FilterCheckResource\Pages;
 
 use App\Filament\Resources\FilterCheckResource;
 use Filament\Actions;

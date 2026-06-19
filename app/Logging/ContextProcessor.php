@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Logging;
 
-namespace App\Logging;
 
 use Illuminate\Support\Facades\Auth;
 use Monolog\LogRecord;

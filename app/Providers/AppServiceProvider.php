@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Providers;
 
-namespace App\Providers;
 
 use App\Models\DailyRecord;
 use App\Models\Incident;

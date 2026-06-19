@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\HannaDeviceResource\Pages;
 
-namespace App\Filament\Resources\HannaDeviceResource\Pages;
 
 use App\Filament\Resources\HannaDeviceResource;
 use Filament\Actions;

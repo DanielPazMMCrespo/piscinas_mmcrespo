@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\InstallationResource\Pages;
 
-namespace App\Filament\Resources\InstallationResource\Pages;
 
 use App\Filament\Resources\InstallationResource;
 use Filament\Actions;

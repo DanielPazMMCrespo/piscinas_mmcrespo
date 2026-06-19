@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Observers;
 
-namespace App\Observers;
 
 use App\Models\Incident;
 use App\Services\CacheService;

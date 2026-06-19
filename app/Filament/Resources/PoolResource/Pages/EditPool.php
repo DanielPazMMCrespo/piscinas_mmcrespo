@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\PoolResource\Pages;
 
-namespace App\Filament\Resources\PoolResource\Pages;
 
 use App\Filament\Resources\PoolResource;
 use Filament\Actions;

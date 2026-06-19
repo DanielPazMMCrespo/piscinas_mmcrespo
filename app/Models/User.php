@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Models;
 
-namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;

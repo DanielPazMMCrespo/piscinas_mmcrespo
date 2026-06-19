@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Exceptions;
 
-namespace App\Exceptions;
 
 /**
  * Lançada quando a comunicação com a API Hanna Cloud falha.
