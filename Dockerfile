@@ -51,4 +51,4 @@ RUN printf 'server {\n\
 
 EXPOSE 80
 
-CMD php-fpm -D && nginx -g 'daemon off;'
+CMD php-fpm --nodaemonize & nginx -g 'daemon off;'
