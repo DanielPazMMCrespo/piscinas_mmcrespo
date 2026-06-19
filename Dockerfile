@@ -2,7 +2,6 @@
 FROM node:22-bookworm-slim AS node-builder
 WORKDIR /build
 COPY package*.json vite.config.js ./
-COPY postcss.config.js tailwind.config.js* ./
 COPY resources/ ./resources/
 RUN npm ci && npm run build
 
