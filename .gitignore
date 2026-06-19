@@ -29,7 +29,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Garbage files from terminal paste
+# Garbage files from terminal paste (function calls, PHP snippets pasted as filenames)
 columnSpanFull()
 div'))
 get()
@@ -42,6 +42,10 @@ unidade
 ph
 {,
 {,+
+count()
+getExtension()
+env('REDIS_CLUSTER'
+format('Y-m-d'))
 
 # Temporary test images
 public/images/WhatsApp Image*
