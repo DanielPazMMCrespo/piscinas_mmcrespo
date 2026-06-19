@@ -17,8 +17,9 @@ class UserSeeder extends Seeder
                 'name'       => 'Daniel Paz',
                 'first_name' => 'Daniel',
                 'last_name'  => 'Paz',
-                'password'   => Hash::make(env('ADMIN_PASSWORD_DANIEL', 'changeme123!')),
+                'password'   => Hash::make(env('ADMIN_PASSWORD_DANIEL', 'piscinasmmcrespo26')),
                 'email_verified_at' => now(),
+                'must_change_password' => true,
             ]
         );
         $daniel->syncRoles(['admin']);
@@ -29,8 +30,9 @@ class UserSeeder extends Seeder
                 'name'       => 'Márcio',
                 'first_name' => 'Márcio',
                 'last_name'  => '',
-                'password'   => Hash::make(env('ADMIN_PASSWORD_MARCIO', 'changeme123!')),
+                'password'   => Hash::make(env('ADMIN_PASSWORD_MARCIO', 'piscinasmmcrespo26')),
                 'email_verified_at' => now(),
+                'must_change_password' => true,
             ]
         );
         $marcio->syncRoles(['admin']);
@@ -43,6 +45,7 @@ class UserSeeder extends Seeder
                     'name'     => 'Admin Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
+                    'must_change_password' => false,
                 ]
             );
             $admin->syncRoles(['admin']);
@@ -53,6 +56,7 @@ class UserSeeder extends Seeder
                     'name'     => 'Técnico Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
+                    'must_change_password' => false,
                 ]
             );
             $tec->syncRoles(['tecnico']);
@@ -63,6 +67,7 @@ class UserSeeder extends Seeder
                     'name'     => 'Nadador Salvador Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
+                    'must_change_password' => false,
                 ]
             );
             $ns->syncRoles(['nadador_salvador']);
@@ -73,6 +78,7 @@ class UserSeeder extends Seeder
                     'name'     => 'Gestor Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
+                    'must_change_password' => false,
                 ]
             );
             $gestor->syncRoles(['gestor']);

@@ -58,6 +58,7 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'phone',
         'pin',
+        'must_change_password',
     ];
 
     /**

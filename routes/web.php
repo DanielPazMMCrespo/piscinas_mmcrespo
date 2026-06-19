@@ -11,3 +11,11 @@ Route::get('/convite/{token}', [\App\Http\Controllers\InvitationController::clas
 Route::post('/convite/{token}', [\App\Http\Controllers\InvitationController::class, 'store'])
     ->name('invitation.store')
     ->middleware('throttle:10,1');
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/primeiro-acesso', [\App\Http\Controllers\PasswordChangeController::class, 'show'])
+        ->name('password-change.show');
+    Route::post('/primeiro-acesso', [\App\Http\Controllers\PasswordChangeController::class, 'store'])
+        ->name('password-change.store')
+        ->middleware('throttle:5,1');
+});
