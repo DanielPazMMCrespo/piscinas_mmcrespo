@@ -15,11 +15,11 @@ class ProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-beaker';
 
-    protected static ?string $navigationGroup = 'InventÃ¡rio';
+    protected static ?string $navigationGroup = 'Inventário';
 
-    protected static ?string $modelLabel = 'Produto QuÃ­mico';
+    protected static ?string $modelLabel = 'Produto Químico';
 
-    protected static ?string $pluralModelLabel = 'Produtos QuÃ­micos';
+    protected static ?string $pluralModelLabel = 'Produtos Químicos';
 
     public static function canAccess(): bool
     {
