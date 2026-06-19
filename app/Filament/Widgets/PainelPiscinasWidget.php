@@ -43,7 +43,6 @@ class PainelPiscinasWidget extends Widget
         $sondas = HannaDevice::query()
             ->where('active', true)
             ->whereNotNull('pool_id')
-            ->with('ultimaLeitura')
             ->get()
             ->keyBy('pool_id');
 
