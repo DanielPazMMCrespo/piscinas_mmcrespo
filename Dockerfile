@@ -1,51 +1,42 @@
-FROM heroku/heroku:24-build as builder
+FROM node:22-alpine as node-builder
+WORKDIR /build
+COPY package*.json ./
+RUN npm ci
 
-# Install PHP 8.3 with required extensions
-RUN apt-get update && apt-get install -y \
-    php8.3 \
-    php8.3-cli \
-    php8.3-fpm \
-    php8.3-intl \
-    php8.3-zip \
-    php8.3-pgsql \
-    php8.3-redis \
-    composer \
-    && rm -rf /var/lib/apt/lists/*
+FROM php:8.3-apache
 
-WORKDIR /app
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_pgsql intl zip \
+    && docker-php-ext-enable pdo pdo_pgsql intl zip
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Enable Apache mod_rewrite
+RUN a2enmod rewrite
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application
 COPY . .
+
+# Copy built assets from Node builder
+COPY --from=node-builder /build/node_modules ./node_modules
 
 # Install PHP dependencies
 RUN composer install --optimize-autoloader --no-scripts --no-interaction
 
 # Build assets
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && npm ci \
-    && npm run build
+RUN npm run build
 
-FROM heroku/heroku:24 as runtime
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html
 
-# Install PHP runtime with extensions
-RUN apt-get update && apt-get install -y \
-    php8.3 \
-    php8.3-cli \
-    php8.3-fpm \
-    php8.3-intl \
-    php8.3-zip \
-    php8.3-pgsql \
-    php8.3-redis \
-    apache2 \
-    libapache2-mod-php8.3 \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY --from=builder /app .
-
-# Apache configuration
-RUN a2enmod rewrite
-RUN sed -i 's|/var/www/html|/app/public|g' /etc/apache2/sites-available/000-default.conf
+# Configure Apache
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf
+RUN echo '<Directory /var/www/html/public>\n    AllowOverride All\n    Require all granted\n</Directory>' >> /etc/apache2/apache2.conf
 
 EXPOSE 80
 
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+CMD ["apache2-foreground"]
