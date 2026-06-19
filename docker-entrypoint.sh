@@ -3,26 +3,22 @@ set -e
 
 cd /var/www/html
 
-# --- 1. Bind nginx to Railway's public target port (default: 9000 per Railway settings) ---
+# --- 1. Bind nginx to Railway's public target port (Railway routes public HTTP here) ---
 PORT="${PORT:-9000}"
 sed "s/__PORT__/${PORT}/g" /etc/nginx/nginx-site.template > /etc/nginx/sites-enabled/default
 echo "[entrypoint] nginx will listen on port ${PORT}"
 
-# --- 2. Move php-fpm to a Unix socket (avoids any TCP port collision with nginx) ---
-FPM_SOCK="/run/php-fpm.sock"
-# Override the listen directive regardless of what value is already there
-sed -i "s|^listen = .*|listen = ${FPM_SOCK}|" /usr/local/etc/php-fpm.d/www.conf
-# Ensure socket is accessible by nginx (www-data user)
-grep -q "^listen.owner" /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i "s|^listen.owner = .*|listen.owner = www-data|" /usr/local/etc/php-fpm.d/www.conf \
-    || echo "listen.owner = www-data" >> /usr/local/etc/php-fpm.d/www.conf
-grep -q "^listen.group" /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i "s|^listen.group = .*|listen.group = www-data|" /usr/local/etc/php-fpm.d/www.conf \
-    || echo "listen.group = www-data" >> /usr/local/etc/php-fpm.d/www.conf
-echo "[entrypoint] php-fpm will use Unix socket: ${FPM_SOCK}"
+# --- 2. Force php-fpm onto an INTERNAL port (9001) so it never collides with nginx ---
+# The official php:fpm image ships zz-docker.conf which loads AFTER www.conf and
+# overrides `listen`. We rewrite it directly — this is the file that actually wins.
+cat > /usr/local/etc/php-fpm.d/zz-docker.conf <<'EOF'
+[global]
+daemonize = no
 
-# Verify the change took effect
-grep "^listen" /usr/local/etc/php-fpm.d/www.conf || true
+[www]
+listen = 127.0.0.1:9001
+EOF
+echo "[entrypoint] php-fpm forced to 127.0.0.1:9001 (via zz-docker.conf)"
 
 # --- 3. Ensure writable storage structure + permissions ---
 mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs
@@ -41,19 +37,19 @@ php artisan view:cache || true
 php-fpm --nodaemonize &
 FPM_PID=$!
 
-echo "[entrypoint] waiting for php-fpm socket at ${FPM_SOCK}..."
+echo "[entrypoint] waiting for php-fpm on 127.0.0.1:9001..."
 READY=0
 for i in $(seq 1 60); do
-    if [ -S "${FPM_SOCK}" ]; then
+    if (echo > /dev/tcp/127.0.0.1/9001) 2>/dev/null; then
         READY=1
-        echo "[entrypoint] php-fpm socket ready after ${i} attempts"
+        echo "[entrypoint] php-fpm ready on :9001 after ${i} attempts"
         break
     fi
     sleep 0.5
 done
 
 if [ "$READY" -eq 0 ]; then
-    echo "[entrypoint] ERROR: php-fpm socket never appeared — check php-fpm config"
+    echo "[entrypoint] ERROR: php-fpm never bound 127.0.0.1:9001"
     exit 1
 fi
 
