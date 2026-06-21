@@ -1,5 +1,14 @@
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-16 (Sessão 14 — Popup pós-registo + transferência warehouse; VERSÃO BASE PRONTA PARA LEIRIA)
+> Última atualização: 2026-06-21 (Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications)
+
+## Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications (resumo)
+- **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). App em `https://piscinas-mmcrespo-main.up.railway.app`.
+- **Erro 500 no dashboard diagnosticado**: Coluna `notifications.data` era `TEXT` em vez de `JSONB`. Filament filtra com `data->>'format' = 'filament'` — o operador `->>` (JSON extraction) requer JSONB em PostgreSQL. Erro: `SQLSTATE[42883]: Undefined function` + `operator does not exist: text ->> unknown`.
+- **Fix migração**: `2026_06_19_000001_fix_notifications_data_column_jsonb.php` executa `ALTER TABLE notifications ALTER COLUMN data TYPE jsonb USING data::jsonb` em produção. Migração original (`2026_06_11_172454_create_notifications_table.php`) corrigida para criar `jsonb` em vez de `text`.
+- **Login funcional**: Utilizador `daniel@mmcrespo.pt` / `piscinasmmcrespo26` (password padrão de produção, requer mudança na primeira sessão via `/primeiro-acesso`). Seeder `UserSeeder` corre em `docker-entrypoint.sh` com `db:seed --force`.
+- **TrustProxies corrigido**: Bootstrap já tinha `trustProxies(at: '*')` para Railway (reverse proxy, terminates SSL externally). Assets carregam via HTTPS corretamente.
+- **Próximos passos para go-live**: (1) Mudar password de `daniel@mmcrespo.pt` via interface `/primeiro-acesso` ou tinker antes de lançar; (2) Verificar permissões de roles (admin, tecnico, nadador_salvador, gestor); (3) Testar fluxo completo (login → registos → dashboard → notificações); (4) Configurar domínio custom (mmcrespo.leiria.com?); (5) Configurar backups automáticos da DB PostgreSQL.
+- **Commit**: `730a9d3` (fix: cast notifications.data from TEXT to JSONB for PostgreSQL).
 
 ## Sessão 14 — Popup pós-registo + transferência warehouse (resumo)
 - **Popup pós-registo**: Ao criar registo diário, notificação persistente "Registo guardado! O que pretende fazer a seguir?" com botões "Novo Registo" (fecha e fica no form) e "Ir para o Dashboard" (/admin). Implementado via `$this->dispatch('notificationSent', notification: $notificacao->toArray())` em `CreateDailyRecord::create()`.
