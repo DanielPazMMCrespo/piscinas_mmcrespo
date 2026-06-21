@@ -30,6 +30,8 @@ class AlertasServiceTest extends TestCase
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
+        AlertasService::resetMemo();
+
         $this->service = new AlertasService();
     }
 
@@ -193,12 +195,17 @@ class AlertasServiceTest extends TestCase
             'transparencia' => 2,
         ]);
 
-        // Nova instância de serviço (novo memo)
+        // A criação do registo deve invalidar a cache; com o array driver dos testes a
+        // invalidação por padrão é no-op, por isso limpamos explicitamente (memo + cache)
+        // para simular fielmente o cache miss e forçar o recálculo nesta nova "request".
+        AlertasService::resetMemo();
+        \Illuminate\Support\Facades\Cache::flush();
         $novoServico = new AlertasService();
         $resultado2 = $novoServico->calcular($user);
         $conformesDepois = $resultado2['conformesHoje'];
 
-        $this->assertLessThan($conformesDepois, $conformesAntes + 1);
+        // Após criar um registo conforme hoje, a contagem de conformes deve aumentar.
+        $this->assertGreaterThan($conformesAntes, $conformesDepois);
     }
 
     public function test_multiple_violations_aggregated(): void

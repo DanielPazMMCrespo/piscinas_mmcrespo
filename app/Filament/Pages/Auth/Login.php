@@ -13,6 +13,8 @@ class Login extends BaseLogin
 {
     public function authenticate(): ?LoginResponse
     {
+        $this->rateLimit(5);
+
         $data     = $this->form->getState();
         $email    = $data['email'];
         $password = (string) ($data['password'] ?? '');
@@ -26,6 +28,7 @@ class Login extends BaseLogin
                 && strlen($password) <= 6;
 
             if ($isPinAttempt && $user->pin && Hash::check($password, $user->pin)) {
+                $this->clearRateLimiter();
                 Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
@@ -33,11 +36,14 @@ class Login extends BaseLogin
 
             // Standard password authentication
             if ($user->password && Hash::check($password, $user->password)) {
+                $this->clearRateLimiter();
                 Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
             }
         }
+
+        $this->incrementRateLimiter();
 
         throw ValidationException::withMessages([
             'data.email' => __('filament-panels::pages/auth/login.messages.failed'),

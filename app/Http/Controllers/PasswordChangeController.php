@@ -32,8 +32,9 @@ class PasswordChangeController extends Controller
             'pin.digits_between'    => 'O PIN deve ter entre 4 e 6 dígitos.',
         ]);
 
-        // Bloqueio: não deixar usar a password padrão
-        if (Hash::check('piscinasmmcrespo26', $validated['password'])) {
+        // Bloqueio: não deixar usar a password padrão (comparação directa — ambos são plaintext aqui)
+        $defaultPassword = config('auth.default_password');
+        if ($defaultPassword !== '' && $validated['password'] === $defaultPassword) {
             return back()
                 ->withErrors(['password' => 'Não pode utilizar a password padrão. Escolha uma palavra-passe pessoal.'])
                 ->withInput();

@@ -3,6 +3,7 @@ namespace App\Models;
 
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class DailyRecord extends Model
 {
+    use HasFactory;
     use LogsActivity;
 
     public function getActivitylogOptions(): LogOptions
@@ -242,5 +244,15 @@ class DailyRecord extends Model
     public function correcoes(): HasMany
     {
         return $this->hasMany(DailyRecord::class, 'corrige_registo_id');
+    }
+
+    /**
+     * Registo original que este registo corrige (inversa de correcoes()).
+     *
+     * @return BelongsTo
+     */
+    public function registoOriginal(): BelongsTo
+    {
+        return $this->belongsTo(DailyRecord::class, 'corrige_registo_id');
     }
 }

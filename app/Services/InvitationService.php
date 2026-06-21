@@ -27,15 +27,17 @@ class InvitationService
             throw new RuntimeException("Já existe um convite pendente para {$email}. Expira em {$existing->expires_at->format('d/m H:i')}.");
         }
 
+        $rawToken = Str::random(64);
+
         $invitation = UserInvitation::create([
             'email'         => $email,
             'role'          => $role,
-            'token'         => Str::random(64),
+            'token'         => hash('sha256', $rawToken),
             'invited_by_id' => $invitedBy->id,
             'expires_at'    => now()->addHours(48),
         ]);
 
-        Mail::to($email)->send(new UserInvitationMail($invitation));
+        Mail::to($email)->send(new UserInvitationMail($invitation, $rawToken));
 
         return $invitation;
     }

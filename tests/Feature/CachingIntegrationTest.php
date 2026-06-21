@@ -26,6 +26,10 @@ class CachingIntegrationTest extends TestCase
 
         // Force cache driver para testes
         config(['cache.default' => 'array']);
+
+        // Evita que o memo estático do AlertasService (curto-circuita o cache)
+        // polua testes que verificam a escrita em cache.
+        AlertasService::resetMemo();
     }
 
     public function test_alertas_service_uses_cache(): void
@@ -61,7 +65,7 @@ class CachingIntegrationTest extends TestCase
     public function test_graph_cache_for_single_pool(): void
     {
         $pool = Pool::factory()->create();
-        DailyRecord::factory()->for($pool)->create();
+        DailyRecord::factory()->create(['pool_id' => $pool->id]);
 
         $data = [
             'modo' => 'multi-metrica',
@@ -107,11 +111,12 @@ class CachingIntegrationTest extends TestCase
 
         // Verificar que estão em cache
         $this->assertNotNull($this->cacheService->getAlerts(1));
-        $this->assertNotNull($this->cacheService->getGraphData($pool->id, md5(json_encode(['pH'])) ?: ''));
+        // O gráfico foi guardado sem 'series' → hash de [] (igual ao usado por cacheGraphData).
+        $this->assertNotNull($this->cacheService->getGraphData($pool->id, md5(json_encode([])) ?: ''));
         $this->assertNotNull($this->cacheService->getPoolData());
 
         // Criar novo DailyRecord (observer deve invalidar cache)
-        DailyRecord::factory()->for($pool)->create();
+        DailyRecord::factory()->create(['pool_id' => $pool->id]);
 
         // Verificar que o cache foi invalidado
         // (observers verificam se cache foi invalidado)

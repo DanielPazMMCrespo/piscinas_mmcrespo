@@ -33,6 +33,16 @@ class StockInstallationResource extends Resource
         return auth()->user()->hasAnyRole(['admin', 'tecnico']);
     }
 
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form

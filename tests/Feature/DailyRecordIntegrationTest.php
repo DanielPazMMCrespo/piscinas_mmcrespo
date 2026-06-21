@@ -487,8 +487,8 @@ class DailyRecordIntegrationTest extends TestCase
         $cloro_combinado = $record->cloro_total - $record->cloro_livre;
         $is_combinado_conforming = $cloro_combinado <= DailyRecord::CLORO_COMBINADO_MAX;
 
-        $this->assertEquals(0.8, $cloro_combinado);
-        $this->assertTrue($is_combinado_conforming);  // 0.8 <= 0.6 is false, so max is exceeded
+        $this->assertEqualsWithDelta(0.8, $cloro_combinado, 0.0001);
+        // 0.8 > CLORO_COMBINADO_MAX (0.6) → não conforme.
         $this->assertFalse($is_combinado_conforming);
     }
 

@@ -130,33 +130,22 @@ class DailyRecordTest extends TestCase
 
     public function test_cloro_combinado_null_when_missing_readings(): void
     {
-        $pool = $this->criarPiscina();
-        $user = User::factory()->create();
+        // As colunas cloro_livre/cloro_total são NOT NULL no schema (formulário exige-as);
+        // o accessor cloro_combinado é null-safe para registos legados. Testa-se o accessor
+        // em memória, sem persistir, para validar o null-handling sem violar o schema.
 
         // Sem cloro_total
-        $registo1 = DailyRecord::create([
-            'pool_id' => $pool->id,
-            'user_id' => $user->id,
-            'registado_em' => now(),
+        $registo1 = new DailyRecord([
             'cloro_livre' => 1.0,
             'cloro_total' => null,
-            'ph' => 7.4,
-            'temperatura' => 26.5,
-            'transparencia' => 2,
         ]);
 
         $this->assertNull($registo1->cloro_combinado);
 
         // Sem cloro_livre
-        $registo2 = DailyRecord::create([
-            'pool_id' => $pool->id,
-            'user_id' => $user->id,
-            'registado_em' => now(),
+        $registo2 = new DailyRecord([
             'cloro_livre' => null,
             'cloro_total' => 1.2,
-            'ph' => 7.4,
-            'temperatura' => 26.5,
-            'transparencia' => 2,
         ]);
 
         $this->assertNull($registo2->cloro_combinado);

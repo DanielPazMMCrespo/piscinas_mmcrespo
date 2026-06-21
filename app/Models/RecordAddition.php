@@ -2,11 +2,14 @@
 namespace App\Models;
 
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RecordAddition extends Model
 {
+    use HasFactory;
+
     protected $fillable = ['daily_record_id', 'product_id', 'quantity', 'acao_corretiva'];
 
     protected $casts = ['quantity' => 'decimal:3'];

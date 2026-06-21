@@ -203,7 +203,7 @@ class RoleBasedAccessTest extends TestCase
         $response = $this->actingAs($admin)->get('/admin/relatorio-pdf');
 
         // May return 200 or redirect, depending on implementation
-        $this->assertIn($response->getStatusCode(), [200, 302]);
+        $this->assertContains($response->getStatusCode(), [200, 302]);
     }
 
     public function test_technician_can_access_pdf_reports(): void
@@ -214,7 +214,7 @@ class RoleBasedAccessTest extends TestCase
         $response = $this->actingAs($technician)->get('/admin/relatorio-pdf');
 
         // May return 200 or redirect
-        $this->assertIn($response->getStatusCode(), [200, 302]);
+        $this->assertContains($response->getStatusCode(), [200, 302]);
     }
 
     public function test_admin_has_admin_role(): void

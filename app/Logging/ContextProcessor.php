@@ -46,12 +46,8 @@ class ContextProcessor implements ProcessorInterface
      */
     private function getAppVersion(): string
     {
-        try {
-            $hash = trim(shell_exec('git rev-parse --short HEAD') ?? '');
+        $hash = (string) env('APP_VERSION', 'unknown');
 
-            return $hash ?: 'unknown';
-        } catch (\Throwable) {
-            return 'unknown';
-        }
+        return $hash ?: 'unknown';
     }
 }

@@ -33,6 +33,16 @@ class StockWarehouseResource extends Resource
         return auth()->user()->hasAnyRole(['admin', 'tecnico']);
     }
 
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -70,7 +80,8 @@ class StockWarehouseResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
                 Tables\Actions\Action::make('entrada_stock')
                     ->label('Entrada')
                     ->icon('heroicon-o-plus-circle')
@@ -145,22 +156,19 @@ class StockWarehouseResource extends Resource
                                 'fornecedor' => $data['observacoes'] ?? null,
                             ]);
 
+                            // Passo 1: garantir existência (atómico)
+                            StockInstallation::firstOrCreate(
+                                ['installation_id' => $data['installation_id'], 'product_id' => $freshArmazem->product_id],
+                                ['quantity' => 0, 'limite_minimo' => 0]
+                            );
+
+                            // Passo 2: re-ler com lock e incrementar
                             $stockInstalacao = StockInstallation::lockForUpdate()
                                 ->where('installation_id', $data['installation_id'])
                                 ->where('product_id', $freshArmazem->product_id)
-                                ->first();
-
-                            if ($stockInstalacao === null) {
-                                $stockInstalacao = StockInstallation::create([
-                                    'installation_id' => $data['installation_id'],
-                                    'product_id' => $freshArmazem->product_id,
-                                    'quantity' => $data['quantidade'],
-                                    'limite_minimo' => 0,
-                                ]);
-                            } else {
-                                $stockInstalacao->quantity += $data['quantidade'];
-                                $stockInstalacao->save();
-                            }
+                                ->firstOrFail();
+                            $stockInstalacao->quantity += $data['quantidade'];
+                            $stockInstalacao->save();
 
                             StockInstallationLog::create([
                                 'stock_installation_id' => $stockInstalacao->id,

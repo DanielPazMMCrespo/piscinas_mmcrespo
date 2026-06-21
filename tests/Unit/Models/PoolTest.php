@@ -141,12 +141,14 @@ class PoolTest extends TestCase
             'pool_id' => $pool->id,
             'user_id' => $user->id,
             'verificado_em' => now(),
+            'tipo_operacao' => 'lavagem',
         ]);
 
         FilterCheck::create([
             'pool_id' => $pool->id,
             'user_id' => $user->id,
             'verificado_em' => now()->subDay(),
+            'tipo_operacao' => 'enxaguamento',
         ]);
 
         $this->assertEquals(2, $pool->verificacoesFiltro()->count());

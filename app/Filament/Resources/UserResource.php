@@ -28,6 +28,26 @@ class UserResource extends Resource
         return auth()->user()?->hasAnyRole(['admin', 'gestor']) ?? false;
     }
 
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -66,7 +86,7 @@ class UserResource extends Resource
                     ->multiple()
                     ->preload()
                     ->required()
-                    ->disabled(fn ($record): bool => $record !== null && $record->id === auth()->id())
+                    ->disabled(fn ($record): bool => !auth()->user()?->hasRole('admin') || ($record !== null && $record->id === auth()->id()))
                     ->dehydrated(fn ($record): bool => $record === null || $record->id !== auth()->id()),
             ]);
     }

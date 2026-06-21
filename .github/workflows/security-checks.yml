@@ -1,0 +1,48 @@
+name: Security Checks
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  blade-unescaped-output:
+    name: Unescaped Blade output
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect unescaped Blade output ({!! !!})
+        run: |
+          if grep -r '{!!' resources/views/; then
+            echo "Unescaped Blade output found — security review required"
+            exit 1
+          fi
+
+  composer-audit:
+    name: Composer audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+
+      - name: Audit Composer dependencies
+        run: composer audit --no-interaction
+
+  npm-audit:
+    name: NPM audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit NPM dependencies (production)
+        run: npm audit --omit=dev --audit-level=high

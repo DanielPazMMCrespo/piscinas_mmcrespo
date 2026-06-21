@@ -13,7 +13,8 @@ class SecurityHeadersTest extends TestCase
      */
     public function test_security_headers_are_present(): void
     {
-        $response = $this->get('/admin');
+        // HSTS só é emitido em pedidos seguros (não-local) — ver SecurityHeaders (AUTH-008).
+        $response = $this->get('https://localhost/admin');
 
         $requiredHeaders = [
             'Content-Security-Policy',
@@ -34,7 +35,8 @@ class SecurityHeadersTest extends TestCase
      */
     public function test_security_header_values(): void
     {
-        $response = $this->get('/admin');
+        // HSTS só é emitido em pedidos seguros (não-local) — ver SecurityHeaders (AUTH-008).
+        $response = $this->get('https://localhost/admin');
 
         // X-Frame-Options deve ser DENY
         $response->assertHeader('X-Frame-Options', 'DENY');

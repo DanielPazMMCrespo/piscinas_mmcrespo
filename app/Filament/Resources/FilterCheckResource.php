@@ -85,6 +85,7 @@ class FilterCheckResource extends Resource
                     ->label('Fotografia do Filtro / Água')
                     ->image()
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                     ->maxSize(10240)
                     ->disk('local')
                     ->directory('verificacoes-filtro')

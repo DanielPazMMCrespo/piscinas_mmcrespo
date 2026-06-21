@@ -2,6 +2,7 @@
 namespace App\Filament\Resources;
 
 
+use App\Constants\UserRole;
 use App\Filament\Resources\IncidentResource\Pages;
 use App\Models\Incident;
 use Filament\Forms;
@@ -153,7 +154,7 @@ class IncidentResource extends Resource
                     ->label('Resolver')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (Incident $record): bool => $record->status !== 'resolvido')
+                    ->visible(fn (Incident $record): bool => $record->status !== 'resolvido' && auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]))
                     ->modalHeading('Resolver incidente')
                     ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
                     ->modalSubmitActionLabel('Marcar como resolvido')
@@ -165,6 +166,11 @@ class IncidentResource extends Resource
                             ->rows(3),
                     ])
                     ->action(function (Incident $record, array $data): void {
+                        if (! auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+                            Notification::make()->danger()->title('Sem permissão')->send();
+                            return;
+                        }
+
                         $record->update([
                             'status' => 'resolvido',
                             'resolvido_em' => now(),

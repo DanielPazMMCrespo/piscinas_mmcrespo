@@ -183,21 +183,15 @@ class PDFIntegrationTest extends TestCase
             'razao_correcao' => 'Leitura incorreta',
         ]);
 
-        // Query records excluding corrections (as PDF generator would)
+        // Query tal como o gerador de PDF real (RelatorioPdf): whereDoesntHave('correcoes').
         $records = DailyRecord::where('pool_id', $pool->id)
-            ->whereBetween('registado_em', [$date_start, $date_end])
-            ->whereDoesntHave('correcoes')  // Records that are NOT corrections
+            ->whereBetween('registado_em', [now()->startOfMonth(), now()->endOfDay()])
+            ->whereDoesntHave('correcoes')
             ->get();
 
-        // Original should be included, correction should not
-        $this->assertTrue($records->contains($original->id));
-        // Correction is a record where corrige_registo_id is not null, so checking differently
-        $corrections_in_period = DailyRecord::where('pool_id', $pool->id)
-            ->whereBetween('registado_em', [$date_start, $date_end])
-            ->where('e_correcao', true)
-            ->get();
-
-        $this->assertTrue($corrections_in_period->contains($correction->id));
+        // O original foi corrigido (tem correcoes) → excluído; a correção (valor válido) → incluída.
+        $this->assertFalse($records->contains($original->id));
+        $this->assertTrue($records->contains($correction->id));
     }
 
     public function test_pdf_report_generation_with_valid_parameters(): void
@@ -315,12 +309,9 @@ class PDFIntegrationTest extends TestCase
             ]);
         }
 
-        // Query specific date range
-        $date_inicio = now()->subDays(7)->toDateString();
-        $date_fim = now()->toDateString();
-
+        // Query specific date range (limites inclusivos do dia para apanhar horas da tarde).
         $records_in_range = DailyRecord::where('pool_id', $pool->id)
-            ->whereBetween('registado_em', [$date_inicio, $date_fim])
+            ->whereBetween('registado_em', [now()->subDays(7)->startOfDay(), now()->endOfDay()])
             ->get();
 
         $this->assertCount(2, $records_in_range, 'Should have records from last 7 days');
@@ -399,9 +390,9 @@ class PDFIntegrationTest extends TestCase
             'corrige_registo_id' => $original->id,
         ]);
 
-        // PDF query: exclude records where e_correcao = true
+        // PDF query: exclude records where e_correcao = true (limites inclusivos do dia)
         $records_for_pdf = DailyRecord::where('pool_id', $pool->id)
-            ->whereBetween('registado_em', [$date_inicio, $date_fim])
+            ->whereBetween('registado_em', [now()->startOfMonth(), now()->endOfDay()])
             ->where('e_correcao', false)
             ->get();
 

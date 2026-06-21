@@ -44,6 +44,19 @@ class DailyRecordResource extends Resource
      * Livro de registo sanitário é append-only (CN 14/DA).
      * Técnicos e NS criam e corrigem; apenas o admin pode editar/eliminar.
      */
+    /**
+     * Apenas admin, técnico e nadador-salvador criam registos.
+     * O gestor é só-leitura (vê a lista mas não cria).
+     */
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasAnyRole([
+            UserRole::ADMIN,
+            UserRole::TECNICO,
+            UserRole::NADADOR_SALVADOR,
+        ]) ?? false;
+    }
+
     public static function canEdit($record): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
@@ -364,7 +377,8 @@ class DailyRecordResource extends Resource
                             ->directory('bomba')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->helperText('Foto opcional da bomba para documentação')
                             ->columnSpanFull(),
                     ]),
@@ -388,7 +402,8 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                             ->label('Foto — Posição Enxaguamento')
@@ -396,7 +411,8 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                             ->label('Foto — Retorno à Posição Normal')
@@ -404,7 +420,8 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     ]),
 
@@ -456,7 +473,8 @@ class DailyRecordResource extends Resource
                             ->directory('contador')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->helperText('Evidência fotográfica da leitura do contador')
                             ->columnSpanFull(),
                     ]),
@@ -488,7 +506,8 @@ class DailyRecordResource extends Resource
                             ->directory('tanque')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->helperText('Foto opcional do tanque de compensação para documentação')
                             ->columnSpanFull(),
                     ]),
@@ -509,7 +528,8 @@ class DailyRecordResource extends Resource
                             ->directory('ns-fotos')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->columnSpanFull(),
                         self::comSemaforo(
                             Forms\Components\TextInput::make('ns_ph')
@@ -597,7 +617,7 @@ class DailyRecordResource extends Resource
                                 ->label('Turbidez (FNU)')
                                 ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
                                 ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                ->numeric()->step(0.01)->minValue(0)->maxValue(1),
+                                ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                             'transparencia'
                         ),
                         Forms\Components\FileUpload::make('analises_fotos')
@@ -609,7 +629,8 @@ class DailyRecordResource extends Resource
                             ->maxFiles(5)
                             ->reorderable()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
                             ->columnSpanFull(),
                     ]),
 
@@ -847,7 +868,7 @@ class DailyRecordResource extends Resource
                     ->label('Corrigir')
                     ->icon('heroicon-o-pencil-square')
                     ->color('warning')
-                    ->visible(fn (DailyRecord $record): bool => ! $record->e_correcao && ($record->correcoes_count ?? 0) === 0)
+                    ->visible(fn (DailyRecord $record): bool => ! $record->e_correcao && ($record->correcoes_count ?? 0) === 0 && auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]))
                     ->modalHeading('Corrigir registo')
                     ->modalDescription('Cria um novo registo de correção ligado ao original. O original mantém-se inalterado, como exige o livro sanitário.')
                     ->modalSubmitActionLabel('Registar correção')
@@ -876,7 +897,7 @@ class DailyRecordResource extends Resource
                             ]),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(100),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()
@@ -884,6 +905,11 @@ class DailyRecordResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->action(function (DailyRecord $record, array $data): void {
+                        if (! auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+                            Notification::make()->danger()->title('Sem permissão')->send();
+                            return;
+                        }
+
                         DailyRecord::create([
                             'pool_id' => $record->pool_id,
                             'user_id' => auth()->id(),

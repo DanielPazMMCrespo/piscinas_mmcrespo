@@ -36,6 +36,16 @@ class AlertasService
     private static array $memo = [];
 
     /**
+     * Limpa o memo estático. Em produção o memo é por-pedido (processo efémero),
+     * mas em testes o mesmo processo corre vários "pedidos" — chamar entre testes
+     * evita que resultados memoizados poluam asserções seguintes.
+     */
+    public static function resetMemo(): void
+    {
+        self::$memo = [];
+    }
+
+    /**
      * @return array{alertas: array<string, array<string, mixed>>, totalPiscinas: int, conformesHoje: int}
      */
     public function calcular(?User $utilizador): array

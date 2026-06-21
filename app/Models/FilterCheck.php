@@ -2,11 +2,14 @@
 namespace App\Models;
 
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FilterCheck extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'pool_id', 'user_id', 'verificado_em', 'tipo_operacao',
         'caminho_foto', 'observacoes',

@@ -13,7 +13,10 @@ class UserInvitationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public readonly UserInvitation $invitation) {}
+    public function __construct(
+        public readonly UserInvitation $invitation,
+        public readonly string $rawToken,
+    ) {}
 
     public function envelope(): Envelope
     {
@@ -27,7 +30,7 @@ class UserInvitationMail extends Mailable
         return new Content(
             view: 'emails.user-invitation',
             with: [
-                'url'       => url('/convite/'.$this->invitation->token),
+                'url'       => url('/convite/'.$this->rawToken),
                 'role'      => $this->invitation->role,
                 'email'     => $this->invitation->email,
                 'expiresAt' => $this->invitation->expires_at->format('d/m/Y \à\s H:i'),

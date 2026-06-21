@@ -114,4 +114,8 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    // Password padrão bloqueada no primeiro acesso — nunca colocar o valor real aqui.
+    // Definir DEFAULT_USER_PASSWORD no .env (não em .env.example).
+    'default_password' => env('DEFAULT_USER_PASSWORD', ''),
+
 ];

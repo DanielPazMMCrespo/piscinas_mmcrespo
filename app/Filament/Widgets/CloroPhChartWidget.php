@@ -10,6 +10,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CloroPhChartWidget extends Widget implements HasForms
 {
@@ -190,9 +191,13 @@ class CloroPhChartWidget extends Widget implements HasForms
             }
         }
 
-        $colunas = collect($metricas)->map(fn ($m) => "AVG({$m}) as {$m}")->implode(', ');
+        $allowedMetrics = array_keys(self::METRICAS);
+        $metricas = array_values(array_intersect($metricas, $allowedMetrics));
 
-        $registos = DailyRecord::selectRaw("pool_id, DATE(registado_em) as dia, {$colunas}")
+        $selectCols = array_map(fn ($m) => DB::raw("AVG({$m}) as {$m}"), $metricas);
+        array_unshift($selectCols, 'pool_id', DB::raw('DATE(registado_em) as dia'));
+
+        $registos = DailyRecord::select($selectCols)
             ->whereIn('pool_id', $piscinaIds)
             ->where('registado_em', '>=', Carbon::today()->subDays(13)->startOfDay())
             ->whereDoesntHave('correcoes')

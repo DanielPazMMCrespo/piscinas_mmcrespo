@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
@@ -11,15 +13,22 @@ class SecurityHeaders
     /**
      * Append global security headers to every response.
      *
-     * CSP nota:
-     *  - 'unsafe-inline' em script-src é necessário para Alpine.js (x-data) e Livewire.
-     *  - 'unsafe-eval' é necessário para Alpine.js avaliar expressões dinâmicas.
-     *  - O valor real de CSP aqui é bloquear recursos de origens externas não autorizadas
-     *    (CDNs, iframes, objects) — que são o vetor de ataque mais comum em apps internas.
-     *  - Se migrar para Vite nonces (Laravel 12 suporta), pode remover unsafe-inline.
+     * CSP — estratégia em duas políticas:
+     *  - ENFORCED (Content-Security-Policy): mantém 'unsafe-inline'/'unsafe-eval' em
+     *    script-src porque o Filament 3.2 + Alpine.js + Livewire emitem scripts inline
+     *    SEM nonce e o Alpine avalia expressões dinâmicas (x-data) — removê-los parte o painel.
+     *  - REPORT-ONLY (Content-Security-Policy-Report-Only): política nonce-based estrita,
+     *    sem unsafe-inline/eval, que NÃO bloqueia nada mas reporta violações. É a 1ª fase
+     *    da migração para nonce: recolher o que precisaria de nonce antes do switch enforced.
+     *    O nonce por-pedido é partilhado com as views via Vite::useCspNonce() (ver AppServiceProvider).
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Nonce único por pedido. Vite::useCspNonce() (AppServiceProvider) gera-o e carimba-o
+        // nos assets @vite; aqui lemos o mesmo valor. Fallback para pedidos fora do ciclo Vite.
+        $nonce = Vite::cspNonce() ?: Str::random(32);
+        $request->attributes->set('csp_nonce', $nonce);
+
         $response = $next($request);
 
         $csp = implode('; ', [
@@ -34,10 +43,26 @@ class SecurityHeaders
             "base-uri 'self'",
         ]);
 
+        // Política estrita em modo report-only — não bloqueia, apenas reporta o que partiria.
+        $cspReportOnly = implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",
+            "style-src 'self' 'nonce-{$nonce}'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "object-src 'none'",
+            "base-uri 'self'",
+        ]);
+
         $response->headers->set('Content-Security-Policy', $csp);
+        $response->headers->set('Content-Security-Policy-Report-Only', $cspReportOnly);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
-        $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+        if ($request->isSecure() && ! app()->environment('local')) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+        }
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 

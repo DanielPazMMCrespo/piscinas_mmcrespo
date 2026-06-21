@@ -41,9 +41,9 @@ class UserInvitation extends Model
         return $this->accepted_at !== null;
     }
 
-    public static function findValid(string $token): ?self
+    public static function findValid(string $rawToken): ?self
     {
-        return self::where('token', $token)
+        return self::where('token', hash('sha256', $rawToken))
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
             ->first();

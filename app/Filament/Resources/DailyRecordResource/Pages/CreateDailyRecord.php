@@ -201,30 +201,25 @@ class CreateDailyRecord extends CreateRecord
 
         $insuficientes = [];
 
-        foreach ($registo->adicoes as $adicao) {
-            if (! $adicao->product_id || (float) $adicao->quantity <= 0) {
-                continue;
-            }
+        DB::transaction(function () use ($registo, $instalacaoId, &$insuficientes): void {
+            foreach ($registo->adicoes as $adicao) {
+                if (! $adicao->product_id || (float) $adicao->quantity <= 0) {
+                    continue;
+                }
 
-            $nomeProduto = $adicao->produto?->name ?? 'produto';
+                $nomeProduto = $adicao->produto?->name ?? 'produto';
 
-            DB::transaction(function () use ($adicao, $instalacaoId, $nomeProduto, &$insuficientes): void {
+                // Garante a existência da linha de stock (atómico) antes do lock.
+                StockInstallation::firstOrCreate(
+                    ['installation_id' => $instalacaoId, 'product_id' => $adicao->product_id],
+                    ['quantity' => 0, 'limite_minimo' => 0]
+                );
+
                 $stock = StockInstallation::query()
                     ->where('installation_id', $instalacaoId)
                     ->where('product_id', $adicao->product_id)
                     ->lockForUpdate()
                     ->first();
-
-                // Sem linha de stock para este produto na instalação: regista a falha
-                // como movimento na mesma, criando a linha a zero para haver rasto.
-                if (! $stock) {
-                    $stock = StockInstallation::create([
-                        'installation_id' => $instalacaoId,
-                        'product_id' => $adicao->product_id,
-                        'quantity' => 0,
-                        'limite_minimo' => 0,
-                    ]);
-                }
 
                 $pedido = (float) $adicao->quantity;
                 $disponivel = (float) $stock->quantity;
@@ -246,8 +241,8 @@ class CreateDailyRecord extends CreateRecord
                         'created_at' => now(),
                     ]);
                 }
-            });
-        }
+            }
+        });
 
         if ($insuficientes !== []) {
             $destinatarios = User::role('admin')->get();

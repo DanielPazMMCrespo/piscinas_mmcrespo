@@ -76,7 +76,7 @@ class IncidentTest extends TestCase
 
         $incidente->update([
             'status' => 'resolvido',
-            'resolvido_em' => $agora->addHours(2),
+            'resolvido_em' => $agora->copy()->addHours(2),
             'resolvido_por' => $resolver->id,
             'resolucao' => 'Filtro limpo',
         ]);
@@ -96,6 +96,7 @@ class IncidentTest extends TestCase
             'user_id' => $user->id,
             'ocorreu_em' => now(),
             'type' => 'Vidro partido',
+            'descricao' => 'Vidro da janela partido',
             'status' => 'aberto',
         ]);
 
@@ -114,6 +115,7 @@ class IncidentTest extends TestCase
             'user_id' => $user->id,
             'ocorreu_em' => now(),
             'type' => 'Avaria',
+            'descricao' => 'Avaria no equipamento',
             'status' => 'aberto',
         ]);
 
@@ -133,6 +135,7 @@ class IncidentTest extends TestCase
             'user_id' => $user->id,
             'ocorreu_em' => now(),
             'type' => 'Avaria',
+            'descricao' => 'Avaria no equipamento',
             'status' => 'resolvido',
             'resolvido_em' => now(),
             'resolvido_por' => $resolver->id,

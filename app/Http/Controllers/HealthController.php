@@ -30,7 +30,6 @@ class HealthController extends Controller
                 'database' => $checks['database'],
                 'cache' => $checks['cache'],
                 'timestamp' => $checks['timestamp'],
-                'version' => $checks['version'],
             ]);
         } catch (\Throwable $e) {
             Log::error('Health check failed', ['error' => $e->getMessage()]);
@@ -40,7 +39,6 @@ class HealthController extends Controller
                 'database' => 'error',
                 'cache' => 'error',
                 'timestamp' => now()->toIso8601String(),
-                'version' => $this->getVersion(),
             ], 503);
         }
     }
@@ -76,12 +74,6 @@ class HealthController extends Controller
 
     private function getVersion(): string
     {
-        try {
-            $hash = trim(shell_exec('git rev-parse --short HEAD') ?? '');
-
-            return $hash ?: 'unknown';
-        } catch (\Throwable) {
-            return 'unknown';
-        }
+        return (string) env('APP_VERSION', 'unknown');
     }
 }

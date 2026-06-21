@@ -38,7 +38,7 @@ return [
     |
     */
 
-    'release' => trim(exec('git rev-parse --short HEAD')),
+    'release' => env('APP_VERSION', 'unknown'),
 
     /*
     |--------------------------------------------------------------------------
