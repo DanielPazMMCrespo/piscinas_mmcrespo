@@ -3,6 +3,7 @@ namespace App\Services;
 
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Centraliza a gestão de cache para operações críticas de performance:
@@ -193,7 +194,11 @@ class CacheService
             return $this->invalidateRedisPattern($pattern);
         }
 
-        // Para database/file store: sem suporte a wildcard nativo.
+        if ($driver === 'database') {
+            return $this->invalidateDatabasePattern($pattern);
+        }
+
+        // Para file store: sem suporte a wildcard nativo.
         // Fallback seguro: não invalida (evita erros, cache expira naturalmente).
         // Se necessário, usar tagging ou flush completo.
         return 0;
@@ -204,6 +209,22 @@ class CacheService
      *
      * @param string $pattern Ex: "cache_*"
      * @return int Número de chaves removidas
+     */
+    private function invalidateDatabasePattern(string $pattern): int
+    {
+        $connection = config('cache.stores.database.connection');
+        $table = config('cache.stores.database.table', 'cache');
+        $prefix = config('cache.prefix') ?: '';
+        $like = $prefix.str_replace('*', '%', $pattern);
+
+        return DB::connection($connection)
+            ->table($table)
+            ->where('key', 'like', $like)
+            ->delete();
+    }
+
+    /**
+     * Invalida padrao Redis via KEYS + DEL.
      */
     private function invalidateRedisPattern(string $pattern): int
     {

@@ -156,6 +156,22 @@ class CachingIntegrationTest extends TestCase
         $this->assertTrue(true); // Test passed if no exceptions
     }
 
+    public function test_database_cache_pattern_invalidation_clears_all_alerts(): void
+    {
+        config(['cache.default' => 'database']);
+
+        $this->cacheService->cacheAlerts(1, ['alertas' => ['a'], 'totalPiscinas' => 1, 'conformesHoje' => 0], 5);
+        $this->cacheService->cacheAlerts(2, ['alertas' => ['b'], 'totalPiscinas' => 1, 'conformesHoje' => 0], 5);
+
+        $this->assertNotNull($this->cacheService->getAlerts(1));
+        $this->assertNotNull($this->cacheService->getAlerts(2));
+
+        $this->cacheService->invalidateAllAlerts();
+
+        $this->assertNull($this->cacheService->getAlerts(1));
+        $this->assertNull($this->cacheService->getAlerts(2));
+    }
+
     public function test_cache_ttl_respects_timeouts(): void
     {
         // Nota: Com array cache, TTL não é respeitado (sempre hit até flush)
