@@ -43,7 +43,7 @@ class Login extends BaseLogin
             }
         }
 
-        $this->incrementRateLimiter();
+        $this->hitRateLimiter();
 
         throw ValidationException::withMessages([
             'data.email' => __('filament-panels::pages/auth/login.messages.failed'),
