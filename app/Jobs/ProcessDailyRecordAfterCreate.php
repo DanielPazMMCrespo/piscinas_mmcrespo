@@ -1,0 +1,231 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Models\DailyRecord;
+use App\Models\RecordPhoto;
+use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
+use App\Models\TapAlert;
+use App\Models\User;
+use Filament\Notifications\Notification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
+
+class ProcessDailyRecordAfterCreate implements ShouldQueue
+{
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
+
+    public int $tries = 3;
+
+    public int $timeout = 60;
+
+    public function __construct(public int $dailyRecordId, public int $actorUserId)
+    {
+        $this->onQueue('daily-records');
+    }
+
+    /** @return array<int, int> */
+    public function backoff(): array
+    {
+        return [10, 30, 120];
+    }
+
+    public function handle(): void
+    {
+        $registo = DailyRecord::query()
+            ->with(['piscina.instalacao', 'adicoes.produto'])
+            ->findOrFail($this->dailyRecordId);
+
+        $this->guardarFotos($registo);
+        $this->descontarStock($registo);
+        $this->notificarNaoConformidade($registo);
+        $this->gerirTorneira($registo);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('daily_record_post_processing_failed', [
+            'daily_record_id' => $this->dailyRecordId,
+            'actor_user_id' => $this->actorUserId,
+            'exception_class' => $exception::class,
+            'exception_code' => $exception->getCode(),
+        ]);
+    }
+
+    private function gerirTorneira(DailyRecord $registo): void
+    {
+        if (! $registo->pool_id) {
+            return;
+        }
+
+        $aberto = TapAlert::query()
+            ->where('pool_id', $registo->pool_id)
+            ->whereNull('resolved_at')
+            ->latest('opened_at')
+            ->first();
+
+        if ($registo->agua_modo === 'on_com_agua') {
+            if (! $aberto) {
+                TapAlert::create([
+                    'pool_id' => $registo->pool_id,
+                    'opened_record_id' => $registo->id,
+                    'opened_by' => $registo->user_id,
+                    'opened_at' => $registo->registado_em,
+                ]);
+            }
+
+            return;
+        }
+
+        if ($registo->agua_modo === null || $registo->agua_modo === '') {
+            return;
+        }
+
+        if ($aberto) {
+            $aberto->update([
+                'resolved_at' => $registo->registado_em,
+                'resolved_by' => $registo->user_id,
+                'resolved_record_id' => $registo->id,
+                'resolution' => 'registo_seguinte',
+            ]);
+        }
+    }
+
+    private function guardarFotos(DailyRecord $registo): void
+    {
+        if (empty($registo->analises_fotos) || ! is_array($registo->analises_fotos)) {
+            return;
+        }
+
+        foreach ($registo->analises_fotos as $caminho) {
+            RecordPhoto::create([
+                'daily_record_id' => $registo->id,
+                'type' => 'tecnico',
+                'path' => (string) $caminho,
+            ]);
+        }
+    }
+
+    private function descontarStock(DailyRecord $registo): void
+    {
+        $instalacaoId = $registo->piscina?->instalacao?->id;
+        if (! $instalacaoId || $registo->adicoes->isEmpty()) {
+            return;
+        }
+
+        $insuficientes = [];
+
+        DB::transaction(function () use ($registo, $instalacaoId, &$insuficientes): void {
+            foreach ($registo->adicoes as $adicao) {
+                if (! $adicao->product_id || (float) $adicao->quantity <= 0) {
+                    continue;
+                }
+
+                $nomeProduto = $adicao->produto?->name ?? 'produto';
+
+                StockInstallation::firstOrCreate(
+                    ['installation_id' => $instalacaoId, 'product_id' => $adicao->product_id],
+                    ['quantity' => 0, 'limite_minimo' => 0]
+                );
+
+                $stock = StockInstallation::query()
+                    ->where('installation_id', $instalacaoId)
+                    ->where('product_id', $adicao->product_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                $pedido = (float) $adicao->quantity;
+                $disponivel = (float) $stock->quantity;
+                $consumo = min($pedido, $disponivel);
+
+                if ($pedido > $disponivel) {
+                    $insuficientes[] = $nomeProduto;
+                }
+
+                if ($consumo > 0) {
+                    $stock->quantity = $disponivel - $consumo;
+                    $stock->save();
+
+                    StockInstallationLog::create([
+                        'stock_installation_id' => $stock->id,
+                        'user_id' => $this->actorUserId,
+                        'tipo_movimento' => 'consumo',
+                        'quantity' => $consumo,
+                        'created_at' => now(),
+                    ]);
+                }
+            }
+        });
+
+        if ($insuficientes === []) {
+            return;
+        }
+
+        $destinatarios = User::role('admin')->get();
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        $corpo = 'Stock insuficiente na instalação '
+            .($registo->piscina?->instalacao?->name ?? '')
+            .' para: '.implode(', ', array_unique($insuficientes)).'.';
+
+        Notification::make()
+            ->warning()
+            ->title('Stock insuficiente')
+            ->body($corpo)
+            ->sendToDatabase($destinatarios);
+    }
+
+    private function notificarNaoConformidade(DailyRecord $registo): void
+    {
+        if ($registo->piscina) {
+            $registo->setRelation('piscina', $registo->piscina);
+        }
+
+        $violacoes = [];
+        if ($registo->ph !== null && ! $registo->phConforme()) {
+            $violacoes[] = 'pH '.$registo->ph;
+        }
+        if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
+            $violacoes[] = 'cloro livre '.$registo->cloro_livre.' mg/L';
+        }
+        if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
+            $violacoes[] = 'cloro combinado '.$registo->cloro_combinado.' mg/L';
+        }
+        if ($registo->temperatura !== null && ! $registo->temperaturaConforme()) {
+            $violacoes[] = 'temperatura '.$registo->temperatura.' ºC';
+        }
+
+        if ($violacoes === []) {
+            return;
+        }
+
+        $nome = $registo->piscina?->instalacao?->name
+            ? $registo->piscina->instalacao->name.' '.$registo->piscina->name
+            : ($registo->piscina?->name ?? 'piscina');
+
+        $destinatarios = User::role('admin')->get();
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        Notification::make()
+            ->danger()
+            ->title('Parâmetros fora dos limites: '.$nome)
+            ->body(implode(' · ', $violacoes).'.')
+            ->sendToDatabase($destinatarios);
+    }
+}

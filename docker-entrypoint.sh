@@ -3,6 +3,20 @@ set -e
 
 cd /var/www/html
 
+# --- 0. Worker / one-off mode ------------------------------------------------
+# Railway appends a service's "Custom Start Command" as arguments to this
+# ENTRYPOINT. The queue worker service runs the SAME image but must NOT start
+# nginx/php-fpm, and must NOT migrate/seed (the web service owns schema changes).
+# When invoked with any arguments (e.g. `php artisan queue:work ...`), run them
+# directly after a minimal, read-only setup.
+if [ "$#" -gt 0 ]; then
+    echo "[entrypoint] command override detected — worker mode: $*"
+    mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs
+    chown -R www-data:www-data storage bootstrap/cache || true
+    php artisan config:cache || true
+    exec "$@"
+fi
+
 # --- 1. Bind nginx to Railway's public target port (Railway routes public HTTP here) ---
 PORT="${PORT:-9000}"
 sed "s/__PORT__/${PORT}/g" /etc/nginx/nginx-site.template > /etc/nginx/sites-enabled/default
@@ -33,6 +47,7 @@ php artisan filament:assets || true
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
+php artisan filament:optimize || true
 
 # --- 5. Start php-fpm in background ---
 php-fpm --nodaemonize &
