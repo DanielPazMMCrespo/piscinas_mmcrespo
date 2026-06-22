@@ -49,7 +49,11 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan filament:optimize || true
 
-# --- 5. Start php-fpm in background ---
+# --- 5. Start scheduler in background (runs schedule:run every minute) ---
+php artisan schedule:work &
+echo "[entrypoint] scheduler started (PID $!)"
+
+# --- 6. Start php-fpm in background ---
 php-fpm --nodaemonize &
 FPM_PID=$!
 

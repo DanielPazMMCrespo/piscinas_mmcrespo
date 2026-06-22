@@ -30,7 +30,7 @@ class HannaCloudSync extends Command
         $password = config('services.hanna.password');
 
         if (empty($email) || empty($password)) {
-            $this->error('HANNA_EMAIL e HANNA_PASSWORD não estão definidos no .env');
+            $this->error('HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD não estão definidos no .env');
 
             return self::FAILURE;
         }

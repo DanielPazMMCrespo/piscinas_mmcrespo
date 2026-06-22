@@ -99,7 +99,7 @@ class HannaDeviceResource extends Resource
                     ->successNotificationTitle('Dispositivos actualizados — verifica a lista.')
                     ->requiresConfirmation()
                     ->modalHeading('Descobrir dispositivos Hanna Cloud')
-                    ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_EMAIL e HANNA_PASSWORD no .env.'),
+                    ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
