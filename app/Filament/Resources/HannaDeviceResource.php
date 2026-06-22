@@ -40,6 +40,8 @@ class HannaDeviceResource extends Resource
             Forms\Components\TextInput::make('hanna_device_id')
                 ->label('Device ID (DID)')
                 ->required()
+                ->disabled(fn (string $operation): bool => $operation === 'edit')
+                ->dehydrated(fn (string $operation): bool => $operation !== 'edit')
                 ->helperText('Obtém o DID com: php artisan hanna:sync --discover'),
 
             Forms\Components\TextInput::make('name')
