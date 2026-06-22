@@ -91,6 +91,19 @@ class HannaDeviceResource extends Resource
                     ->label('Activo')->boolean(),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('sync_now')
+                    ->label('Sincronizar agora')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->action(function () {
+                        Artisan::call('hanna:sync');
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Sync concluído')
+                            ->body(trim(Artisan::output()) ?: 'Leituras actualizadas.')
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('discover')
                     ->label('Descobrir dispositivos')
                     ->icon('heroicon-o-magnifying-glass')
