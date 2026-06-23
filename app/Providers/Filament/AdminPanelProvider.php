@@ -76,6 +76,33 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.pwa-head')->render(),
             )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function initLightbox() {
+        document.querySelectorAll('.fi-in-image img, .fi-in-image a').forEach(function (el) {
+            if (el.dataset.glightboxInit) return;
+            el.dataset.glightboxInit = '1';
+            var src = el.tagName === 'IMG' ? el.src : el.href;
+            if (!src) return;
+            el.style.cursor = 'zoom-in';
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                GLightbox({ elements: [{ href: src, type: 'image' }], touchNavigation: true, loop: false }).open();
+            });
+        });
+    }
+    initLightbox();
+    var observer = new MutationObserver(initLightbox);
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>
+HTML,
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
