@@ -57,7 +57,7 @@ class InvitationService
                 ? Hash::make($data['password'])
                 : null,
             'pin'        => isset($data['pin']) && $data['pin'] !== ''
-                ? Hash::make($data['pin'])
+                ? $data['pin']
                 : null,
             'email_verified_at' => now(),
         ]);

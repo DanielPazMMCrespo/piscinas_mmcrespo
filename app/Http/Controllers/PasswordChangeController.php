@@ -43,7 +43,7 @@ class PasswordChangeController extends Controller
         $user->update([
             'password'              => Hash::make($validated['password']),
             'pin'                   => isset($validated['pin']) && $validated['pin'] !== ''
-                ? Hash::make($validated['pin'])
+                ? $validated['pin']
                 : $user->pin,
             'must_change_password'  => false,
         ]);

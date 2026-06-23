@@ -137,9 +137,28 @@ class RelatorioPdf extends Page implements HasForms
     {
         $estado = $this->form->getState();
 
-        $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
         $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
         $fim = Carbon::parse((string) $estado['data_fim'])->endOfDay();
+
+        if ($inicio->isAfter($fim)) {
+            Notification::make()
+                ->title('Erro de validação')
+                ->body('A data de fim tem de ser igual ou posterior à data de início.')
+                ->danger()
+                ->send();
+            return null;
+        }
+
+        if ($inicio->isFuture() || $fim->isFuture()) {
+            Notification::make()
+                ->title('Erro de validação')
+                ->body('As datas não podem estar no futuro.')
+                ->danger()
+                ->send();
+            return null;
+        }
+
+        $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
         $todas = $estado['pool_id'] === 'todas';
 
         $piscinas = $instalacao->piscinas()

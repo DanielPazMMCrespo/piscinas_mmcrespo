@@ -57,8 +57,11 @@ class QuadroOperacionalWidget extends Widget
         $resultado = app(AlertasService::class)->calcular(auth()->user());
         $ativos = $resultado['alertas'];
 
-        // Poda: estados com mais de 7 dias já não interessam ao quadro.
-        AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
+        // Poda: estados com mais de 7 dias já não interessam ao quadro (corre no máximo 1x por hora).
+        \Illuminate\Support\Facades\Cache::remember('alert_state_pruning', 3600, function () {
+            AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
+            return true;
+        });
 
         $estados = AlertState::query()
             ->whereIn('status', ['pendente', 'em_curso'])
