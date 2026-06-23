@@ -377,8 +377,7 @@ class DailyRecordResource extends Resource
                             ->directory('bomba')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional da bomba para documentação')
                             ->columnSpanFull(),
                     ]),
@@ -402,8 +401,7 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                             ->label('Foto — Posição Enxaguamento')
@@ -411,8 +409,7 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                             ->label('Foto — Retorno à Posição Normal')
@@ -420,8 +417,7 @@ class DailyRecordResource extends Resource
                             ->directory('filtros')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     ]),
 
@@ -473,8 +469,7 @@ class DailyRecordResource extends Resource
                             ->directory('contador')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Evidência fotográfica da leitura do contador')
                             ->columnSpanFull(),
                     ]),
@@ -506,8 +501,7 @@ class DailyRecordResource extends Resource
                             ->directory('tanque')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional do tanque de compensação para documentação')
                             ->columnSpanFull(),
                     ]),
@@ -528,8 +522,7 @@ class DailyRecordResource extends Resource
                             ->directory('ns-fotos')
                             ->image()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                         self::comSemaforo(
                             Forms\Components\TextInput::make('ns_ph')
@@ -629,8 +622,7 @@ class DailyRecordResource extends Resource
                             ->maxFiles(5)
                             ->reorderable()
                             ->maxSize(10240)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->rules(['mimes:jpeg,jpg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                     ]),
 

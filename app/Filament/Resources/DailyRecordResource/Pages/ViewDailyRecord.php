@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 
@@ -26,8 +29,12 @@ class ViewDailyRecord extends ViewRecord
         return $infolist
             ->schema([
                 Section::make('Fotos do Registo')
-                    ->visible(fn () => $this->record->fotos()->exists() || filled($this->record->contador_foto)
-                        || filled($this->record->bomba_foto) || filled($this->record->tanque_foto))
+                    ->visible(fn () => ! empty($this->record->analises_fotos)
+                        || $this->record->fotos()->exists()
+                        || filled($this->record->contador_foto)
+                        || filled($this->record->bomba_foto)
+                        || filled($this->record->tanque_foto)
+                        || filled($this->record->ns_foto))
                     ->schema([
                         Grid::make(columns: 2)
                             ->schema([
@@ -52,22 +59,30 @@ class ViewDailyRecord extends ViewRecord
                                             ->label('')
                                             ->disk('local'),
                                     ]),
-                                Section::make('Análises (até 5)')
-                                    ->visible(fn () => $this->record->fotos()->exists())
+                                Section::make('Foto Análise NS')
+                                    ->visible(fn () => filled($this->record->ns_foto))
                                     ->schema([
-                                        Grid::make(columns: 3)
-                                            ->schema([
-                                                ImageEntry::make('fotos')
-                                                    ->label('')
-                                                    ->disk('local')
-                                                    ->getStateUsing(function () {
-                                                        return $this->record->fotos()
-                                                            ->pluck('path')
-                                                            ->map(fn ($path) => $path)
-                                                            ->toArray();
-                                                    }),
-                                            ]),
+                                        ImageEntry::make('ns_foto')
+                                            ->label('')
+                                            ->disk('local'),
                                     ]),
+                            ]),
+                        Section::make('Fotos das Análises')
+                            ->visible(fn () => ! empty($this->record->analises_fotos) || $this->record->fotos()->exists())
+                            ->schema([
+                                ImageEntry::make('analises_fotos')
+                                    ->label('')
+                                    ->disk('local')
+                                    ->getStateUsing(function (): array {
+                                        // Preferência: campo JSON do model (escrito em cada novo registo).
+                                        // Fallback: tabela record_photos (registos criados antes desta versão).
+                                        $fromJson = $this->record->analises_fotos ?? [];
+                                        if (! empty($fromJson)) {
+                                            return $fromJson;
+                                        }
+
+                                        return $this->record->fotos()->pluck('path')->toArray();
+                                    }),
                             ]),
                     ]),
             ]);

@@ -28,8 +28,8 @@ class PainelPiscinasWidget extends Widget
 
     protected static string $view = 'filament.widgets.painel-piscinas';
 
-    /** As sondas enviam a cada 15 min; 60s de polling mantém o painel vivo. */
-    protected static ?string $pollingInterval = '60s';
+    /** 15s de polling garante que os dados aparecem logo após um sync manual. */
+    protected static ?string $pollingInterval = '15s';
 
     protected function getViewData(): array
     {
