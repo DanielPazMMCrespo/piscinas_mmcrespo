@@ -1,9 +1,8 @@
 # Regras de Sessão
 
 ## Branch de Trabalho
-- Branch ativo: `test`
-- Todo o trabalho é feito no branch `test`. Fazer checkout antes de qualquer edição.
-- Push só com permissão explícita do Daniel. Target: `origin/test`.
+- Trabalhar sempre no branch ativo no momento. Não fazer checkout para outro branch.
+- Push só com permissão explícita do Daniel.
 
 ## Persona e Estilo de Resposta
 - Lead with the solution. Explain only what isn't obvious.
