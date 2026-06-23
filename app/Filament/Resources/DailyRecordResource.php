@@ -376,7 +376,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('bomba')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional da bomba para documentação')
                             ->columnSpanFull(),
@@ -400,7 +400,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
@@ -408,7 +408,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
@@ -416,7 +416,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     ]),
@@ -468,7 +468,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('contador')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Evidência fotográfica da leitura do contador')
                             ->columnSpanFull(),
@@ -500,7 +500,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('tanque')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional do tanque de compensação para documentação')
                             ->columnSpanFull(),
@@ -521,7 +521,7 @@ class DailyRecordResource extends Resource
                             ->disk('r2')
                             ->directory('ns-fotos')
                             ->image()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                         self::comSemaforo(
@@ -621,7 +621,7 @@ class DailyRecordResource extends Resource
                             ->multiple()
                             ->maxFiles(5)
                             ->reorderable()
-                            ->maxSize(5120)
+                            ->maxSize(20480)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                     ]),
