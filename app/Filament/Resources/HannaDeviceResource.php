@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\HannaDeviceResource\Pages;
 use App\Models\HannaDevice;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -89,17 +92,56 @@ class HannaDeviceResource extends Resource
                     ->label('Activo')->boolean(),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('sync')
+                    ->label('Sincronizar leituras')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->action(function (): void {
+                        $exitCode = Artisan::call('hanna:sync');
+                        // Strip ANSI colour codes from console output.
+                        $output = preg_replace('/\x1B\[[0-9;]*[mGKHF]/u', '', trim(Artisan::output()));
+
+                        if ($exitCode === 0) {
+                            Notification::make()
+                                ->success()
+                                ->title('Sincronização concluída')
+                                ->body($output ?: 'Sem leituras novas.')
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->danger()
+                                ->title('Falha na sincronização')
+                                ->body($output ?: 'Verifica HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.')
+                                ->persistent()
+                                ->send();
+                        }
+                    }),
                 Tables\Actions\Action::make('discover')
                     ->label('Descobrir dispositivos')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('gray')
-                    ->action(function () {
-                        Artisan::call('hanna:sync', ['--discover' => true]);
+                    ->action(function (): void {
+                        $exitCode = Artisan::call('hanna:sync', ['--discover' => true]);
+                        $output = preg_replace('/\x1B\[[0-9;]*[mGKHF]/u', '', trim(Artisan::output()));
+
+                        if ($exitCode === 0) {
+                            Notification::make()
+                                ->success()
+                                ->title('Dispositivos actualizados')
+                                ->body($output ?: 'Verifica a lista abaixo.')
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->danger()
+                                ->title('Falha ao descobrir dispositivos')
+                                ->body($output ?: 'Verifica as credenciais no .env.')
+                                ->persistent()
+                                ->send();
+                        }
                     })
-                    ->successNotificationTitle('Dispositivos actualizados — verifica a lista.')
                     ->requiresConfirmation()
                     ->modalHeading('Descobrir dispositivos Hanna Cloud')
-                    ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_EMAIL e HANNA_PASSWORD no .env.'),
+                    ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
