@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use App\Constants\UserRole;
 
 class ListUsers extends ListRecords
 {
@@ -30,9 +31,9 @@ class ListUsers extends ListRecords
                     Select::make('role')
                         ->label('Cargo')
                         ->options([
-                            'gestor'           => 'Gestor',
-                            'tecnico'          => 'Técnico',
-                            'nadador_salvador' => 'Nadador Salvador',
+                            UserRole::GESTOR           => 'Gestor',
+                            UserRole::TECNICO          => 'Técnico',
+                            UserRole::NADADOR_SALVADOR => 'Nadador Salvador',
                         ])
                         ->required(),
                 ])

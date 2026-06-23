@@ -452,6 +452,76 @@ const setupAutoScroll = () => {
     });
 };
 
+// Auto-save form draft in localStorage for Daily Record creation
+const setupFormDraft = () => {
+    if (!window.location.pathname.includes('/daily-records/create')) return;
+
+    const form = document.querySelector('form');
+    if (!form) return;
+
+    const formKey = 'daily_record_form_draft';
+
+    // Restore draft after a small timeout to let Livewire/Filament bindings initialize
+    setTimeout(() => {
+        const draft = localStorage.getItem(formKey);
+        if (draft) {
+            try {
+                const data = JSON.parse(draft);
+                Object.entries(data).forEach(([name, val]) => {
+                    const input = form.querySelector(`[name="${name}"], [name*="${name}"]`);
+                    if (input) {
+                        if (input.type === 'checkbox' || input.type === 'radio') {
+                            input.checked = !!val;
+                        } else {
+                            input.value = val;
+                        }
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            } catch (e) {
+                console.error('Error restoring draft:', e);
+            }
+        }
+    }, 500);
+
+    // Save draft on input
+    form.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!el.name) return;
+
+        const currentDraft = localStorage.getItem(formKey);
+        let data = {};
+        try {
+            data = currentDraft ? JSON.parse(currentDraft) : {};
+        } catch (e) {
+            data = {};
+        }
+
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            data[el.name] = el.checked;
+        } else {
+            data[el.name] = el.value;
+        }
+
+        localStorage.setItem(formKey, JSON.stringify(data));
+    });
+
+    // Clear draft on form submit
+    form.addEventListener('submit', () => {
+        localStorage.removeItem(formKey);
+    });
+
+    // Also clear draft when Filament notifies that the record was successfully saved
+    if (window.Livewire) {
+        window.Livewire.on('notificationSent', (event) => {
+            if (event.notification && event.notification.status === 'success') {
+                localStorage.removeItem(formKey);
+            }
+        });
+    }
+};
+
 // Montagem única — flag evita observers/listeners duplicados se o DOMContentLoaded
 // e o ramo readyState dispararem ambos, ou se o bundle reexecutar.
 let mmcSetupDone = false;
@@ -461,6 +531,7 @@ const mmcSetup = () => {
     setupDecimalInputs();
     setupHeaderLayout();
     setupAutoScroll();
+    setupFormDraft();
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);

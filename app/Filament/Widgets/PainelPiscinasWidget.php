@@ -126,9 +126,21 @@ class PainelPiscinasWidget extends Widget
                 ];
             });
 
+            $totalPiscinas = $piscinasMapped->count();
+            $registadasHoje = $piscinasMapped->filter(fn ($p) => !$p['sem_hoje'])->count();
+            $conformes = $piscinasMapped->filter(fn ($p) => $p['registo'] && collect($p['metricas'])->every(fn ($m) => $m['ok'] !== false))->count();
+
+            $percentagemRegisto = $totalPiscinas > 0 ? (int) (($registadasHoje / $totalPiscinas) * 100) : 0;
+            $percentagemConforme = $totalPiscinas > 0 ? (int) (($conformes / $totalPiscinas) * 100) : 0;
+
             $viewData = [
                 'piscinas' => $piscinasMapped,
                 'urlRegistar' => DailyRecordResource::getUrl('create'),
+                'totalPiscinas' => $totalPiscinas,
+                'registadasHoje' => $registadasHoje,
+                'conformes' => $conformes,
+                'percentagemRegisto' => $percentagemRegisto,
+                'percentagemConforme' => $percentagemConforme,
             ];
 
             // Cache: guarda para 10 min.
@@ -138,6 +150,11 @@ class PainelPiscinasWidget extends Widget
         }) ?? [
             'piscinas' => collect(),
             'urlRegistar' => DailyRecordResource::getUrl('create'),
+            'totalPiscinas' => 0,
+            'registadasHoje' => 0,
+            'conformes' => 0,
+            'percentagemRegisto' => 0,
+            'percentagemConforme' => 0,
         ];
     }
 
