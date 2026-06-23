@@ -30,14 +30,11 @@ class EnsureHannaReadingsAreFresh
             $ultimaLeitura === null
             || now()->diffInMinutes($ultimaLeitura) > 30
         ) {
-            // Leituras ausentes ou stale — sincroniza silenciosamente.
-            // Timeout 10s para não bloquear a request se a rede falhar.
+            // Leituras ausentes ou stale — sincroniza silenciosamente em background após a resposta.
             try {
-                set_time_limit(15);
-                Artisan::call('hanna:sync', [], null);
-            } catch (\Exception) {
-                // Silent fail — continua mesmo que sync falhe.
-                // (credenciais ausentes, rede down, etc.)
+                \App\Jobs\ProcessHannaSync::dispatch()->afterResponse();
+            } catch (\Throwable) {
+                // Previne crash se falhar o dispatch do job.
             }
         }
 

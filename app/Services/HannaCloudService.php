@@ -39,6 +39,12 @@ class HannaCloudService
      */
     public function authenticate(string $email, string $password): void
     {
+        $cachedToken = \Illuminate\Support\Facades\Cache::get('hanna_cloud_access_token');
+        if ($cachedToken) {
+            $this->accessToken = $cachedToken;
+            return;
+        }
+
         $query = <<<'GQL'
         query Login($email: String!, $password: String!,
                     $userLanguage: String!, $source: String) {
@@ -67,6 +73,8 @@ class HannaCloudService
         foreach ($tokens as $token) {
             if (($token['tokenType'] ?? '') === 'accessToken') {
                 $this->accessToken = $token['token'];
+                // Cachear por 1 hora (3600 segundos)
+                \Illuminate\Support\Facades\Cache::put('hanna_cloud_access_token', $this->accessToken, 3600);
 
                 return;
             }
@@ -275,6 +283,9 @@ class HannaCloudService
             ]);
         } catch (\RuntimeException $e) {
             if (str_contains($e->getMessage(), '403')) {
+                // Invalidar o token em cache se recebermos 403
+                \Illuminate\Support\Facades\Cache::forget('hanna_cloud_access_token');
+                
                 // Re-autentica com as credenciais da config.
                 $this->authenticate(
                     config('services.hanna.email'),

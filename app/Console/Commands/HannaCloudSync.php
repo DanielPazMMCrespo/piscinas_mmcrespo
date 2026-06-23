@@ -69,24 +69,27 @@ class HannaCloudSync extends Command
                     ? Carbon::parse($reading['dt'])
                     : now();
 
-                // Evita duplicados: mesmo device + mesmo timestamp
-                $existe = SensorReading::where('hanna_device_id', $device->hanna_device_id)
-                    ->where('lida_em', $lida_em)
-                    ->exists();
-
-                if (! $existe) {
-                    SensorReading::create([
+                // Evita duplicados de forma atómica usando upsert (INSERT ... ON CONFLICT DO NOTHING)
+                $affected = SensorReading::upsert(
+                    [[
                         'pool_id' => $device->pool_id,
                         'hanna_device_id' => $device->hanna_device_id,
-                        'lida_em' => $lida_em,
+                        'lida_em' => $lida_em->toDateTimeString(),
                         'ph' => $reading['ph'],
                         'orp' => $reading['orp'],
                         'temperatura_agua' => $reading['temperatura_agua'],
                         'temperatura_ar' => $reading['temperatura_ar'],
                         'caudal_ph' => $reading['caudal_ph'],
                         'caudal_cloro' => $reading['caudal_cloro'],
-                        'raw_parameters' => $reading['raw_parameters'],
-                    ]);
+                        'raw_parameters' => json_encode($reading['raw_parameters']),
+                        'created_at' => now()->toDateTimeString(),
+                        'updated_at' => now()->toDateTimeString(),
+                    ]],
+                    ['hanna_device_id', 'lida_em'], // unique constraint
+                    [] // do nothing on conflict (no columns updated)
+                );
+
+                if ($affected > 0) {
                     $sincronizados++;
                     $this->line("  ✓ {$device->name}: pH={$reading['ph']} ORP={$reading['orp']}mV T={$reading['temperatura_agua']}°C");
                 } else {
