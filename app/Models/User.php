@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
+use App\Constants\UserRole;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -28,7 +29,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['admin', 'gestor', 'tecnico', 'nadador_salvador']);
+        return $this->hasAnyRole(UserRole::all());
     }
 
     public function getFullNameAttribute(): string

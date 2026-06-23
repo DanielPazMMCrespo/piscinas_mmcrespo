@@ -41,6 +41,9 @@ chown -R www-data:www-data storage bootstrap/cache || true
 # --- 4. Laravel runtime setup ---
 php artisan package:discover --ansi || true
 php artisan storage:link || true
+mkdir -p storage/logs bootstrap/cache
+chown -R www-data:www-data storage bootstrap
+chmod -R 775 storage bootstrap
 php artisan migrate --force || echo "[entrypoint] WARNING: migrate failed (continuing)"
 php artisan db:seed --force || echo "[entrypoint] WARNING: db:seed failed (continuing)"
 php artisan filament:assets || true

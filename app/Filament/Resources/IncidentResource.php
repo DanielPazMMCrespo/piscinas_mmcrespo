@@ -25,22 +25,33 @@ class IncidentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Incidentes';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query;
+    }
+
     /**
      * Apenas o admin pode editar/eliminar incidentes. O pessoal de campo regista e consulta.
      */
     public static function canEdit($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function form(Form $form): Form

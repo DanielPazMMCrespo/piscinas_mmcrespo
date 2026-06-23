@@ -3,6 +3,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Constants\UserRole;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -25,27 +26,27 @@ class UserResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'gestor']) ?? false;
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function form(Form $form): Form
@@ -132,7 +133,7 @@ class UserResource extends Resource
                             Notification::make()->danger()->title('Não pode eliminar a sua própria conta.')->send();
                             $action->halt();
                         }
-                        if ($record->hasRole('admin') && User::role('admin')->count() <= 1) {
+                        if ($record->hasRole(UserRole::ADMIN) && User::role(UserRole::ADMIN)->count() <= 1) {
                             Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
                             $action->halt();
                         }

@@ -32,7 +32,6 @@ class ArchiveDailyRecordsCommand extends Command
             // Count records to archive
             $recordsToArchive = DB::table('daily_records')
                 ->where('created_at', '<', $cutoffDate)
-                ->whereDoesntHave('archivalRecord') // Not already archived
                 ->count();
 
             $this->info("Found {$recordsToArchive} records to archive");
@@ -50,6 +49,16 @@ class ArchiveDailyRecordsCommand extends Command
 
             // Perform archival in transaction
             $archivedCount = DB::transaction(function () use ($cutoffDate) {
+                // Get the list of daily record IDs that will be archived
+                $ids = DB::table('daily_records')
+                    ->where('created_at', '<', $cutoffDate)
+                    ->pluck('id')
+                    ->toArray();
+
+                if (empty($ids)) {
+                    return 0;
+                }
+
                 // Insert into archive table (with explicit column mapping)
                 $insertCount = DB::table('daily_records_archive')->insertUsing(
                     [
@@ -66,7 +75,7 @@ class ArchiveDailyRecordsCommand extends Command
                         'created_at', 'updated_at', 'archived_at'
                     ],
                     DB::table('daily_records')
-                        ->where('created_at', '<', $cutoffDate)
+                        ->whereIn('id', $ids)
                         ->select([
                             'id', 'pool_id', 'user_id', 'registado_em',
                             'ph', 'cloro_total', 'cloro_livre', 'cloro_combinado',
@@ -78,18 +87,40 @@ class ArchiveDailyRecordsCommand extends Command
                             'ns_cloro_teste_rapido', 'ns_ph_teste_rapido', 'ns_observacoes',
                             'agua_modo',
                             'e_correcao', 'corrige_registo_id', 'razao_correcao',
-                            'created_at', 'updated_at', DB::raw('NOW() as archived_at')
+                            'created_at', 'updated_at', DB::raw("'" . now()->toDateTimeString() . "' as archived_at")
                         ])
                 );
 
-                // Delete from production table (only after successful insert)
+                if ($insertCount !== count($ids)) {
+                    throw new \Exception(
+                        "Archival count mismatch: found " . count($ids) . " daily records but inserted {$insertCount} into archive."
+                    );
+                }
+
+                // Copy additions to archive
+                DB::table('record_additions_archive')->insertUsing(
+                    ['id', 'daily_record_id', 'product_id', 'quantity', 'created_at', 'updated_at'],
+                    DB::table('record_additions')
+                        ->whereIn('daily_record_id', $ids)
+                        ->select(['id', 'daily_record_id', 'product_id', 'quantity', 'created_at', 'updated_at'])
+                );
+
+                // Copy photos to archive
+                DB::table('record_photos_archive')->insertUsing(
+                    ['id', 'daily_record_id', 'type', 'path', 'resultado_ocr', 'created_at', 'updated_at'],
+                    DB::table('record_photos')
+                        ->whereIn('daily_record_id', $ids)
+                        ->select(['id', 'daily_record_id', 'type', 'path', 'resultado_ocr', 'created_at', 'updated_at'])
+                );
+
+                // Delete from production table (cascades deletion to additions and photos)
                 $deleteCount = DB::table('daily_records')
-                    ->where('created_at', '<', $cutoffDate)
+                    ->whereIn('id', $ids)
                     ->delete();
 
-                if ($insertCount !== $deleteCount) {
+                if ($deleteCount !== count($ids)) {
                     throw new \Exception(
-                        "Archival count mismatch: inserted {$insertCount} but deleted {$deleteCount}. Rolling back."
+                        "Archival delete count mismatch: inserted " . count($ids) . " records but deleted {$deleteCount}. Rolling back."
                     );
                 }
 

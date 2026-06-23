@@ -40,8 +40,6 @@ toArray())
 toJson()
 unidade
 ph
-{,
-{,+
 count()
 getExtension()
 env('REDIS_CLUSTER'

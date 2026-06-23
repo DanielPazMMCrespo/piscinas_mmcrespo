@@ -63,7 +63,32 @@ class HannaCloudSync extends Command
 
         foreach ($devices as $device) {
             try {
-                $reading = $hanna->getLastReading($device->hanna_device_id);
+                $reading = \App\Services\HannaCircuitBreaker::execute(
+                    function () use ($hanna, $device) {
+                        try {
+                            return $hanna->getLastReading($device->hanna_device_id);
+                        } catch (\Throwable $e) {
+                            $statusCode = null;
+                            if (method_exists($e, 'getResponse') && $e->getResponse()) {
+                                $statusCode = (int) $e->getResponse()->status();
+                            } elseif (isset($e->response) && method_exists($e->response, 'status')) {
+                                $statusCode = (int) $e->response->status();
+                            }
+                            throw new \App\Exceptions\SensorCommunicationException(
+                                $device->hanna_device_id,
+                                1,
+                                $statusCode,
+                                $e
+                            );
+                        }
+                    },
+                    fn () => null // fallback: skip
+                );
+
+                if ($reading === null) {
+                    $this->warn("  ⚠ {$device->name}: API indisponível (circuit breaker aberto).");
+                    continue;
+                }
 
                 $lida_em = $reading['dt']
                     ? Carbon::parse($reading['dt'])

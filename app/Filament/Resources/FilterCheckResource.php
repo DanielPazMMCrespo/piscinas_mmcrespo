@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Constants\UserRole;
 
 class FilterCheckResource extends Resource
 {
@@ -27,7 +28,7 @@ class FilterCheckResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (auth()->user()->hasRole('nadador_salvador')) {
+        if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->where('user_id', auth()->id());
         }
 
@@ -39,17 +40,17 @@ class FilterCheckResource extends Resource
      */
     public static function canEdit($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     public static function form(Form $form): Form

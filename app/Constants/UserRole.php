@@ -5,6 +5,7 @@ namespace App\Constants;
 final class UserRole
 {
     public const ADMIN = 'admin';
+    public const GESTOR = 'gestor';
     public const TECNICO = 'tecnico';
     public const NADADOR_SALVADOR = 'nadador_salvador';
 
@@ -20,6 +21,7 @@ final class UserRole
     {
         return [
             self::ADMIN,
+            self::GESTOR,
             self::TECNICO,
             self::NADADOR_SALVADOR,
         ];
