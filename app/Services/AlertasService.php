@@ -82,16 +82,19 @@ class AlertasService
             ? DB::table('tap_alerts')->whereNull('resolved_at')->get()->groupBy('pool_id')
             : collect();
 
-        // Batch load últimos registos válidos de todas as piscinas (evita N+1).
-        // Agrupa por pool_id e obtém o mais recente de cada piscina.
-        $ultimosRegistos = DailyRecord::query()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->whereDoesntHave('correcoes')
-            ->orderByDesc('registado_em')
-            ->orderByDesc('id')
-            ->get()
-            ->groupBy('pool_id')
-            ->map(fn ($registos) => $registos->first());
+        // Otimização: obter apenas o último registo válido de cada piscina (evita carregar tudo sem LIMIT).
+        $ultimosRegistos = collect();
+        foreach ($piscinas->pluck('id') as $poolId) {
+            $registo = DailyRecord::query()
+                ->where('pool_id', $poolId)
+                ->whereDoesntHave('correcoes')
+                ->latest('registado_em')
+                ->latest('id')
+                ->first();
+            if ($registo) {
+                $ultimosRegistos->put($poolId, $registo);
+            }
+        }
 
         foreach ($piscinas as $piscina) {
             $nome = $piscina->instalacao?->name
@@ -163,7 +166,6 @@ class AlertasService
         ];
 
         // Guarda em cache (5 min TTL — crítico para dashboard).
-        $cacheService = app(CacheService::class);
         $cacheService->cacheAlerts($utilizador?->id, $resultado, 5);
 
         return self::$memo[$memoKey] = $resultado;

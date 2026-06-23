@@ -155,6 +155,16 @@ class CacheService
     }
 
     /**
+     * Invalida o cache de IDs de stock baixo.
+     *
+     * @return void
+     */
+    public function invalidateLowStockCache(): void
+    {
+        Cache::forget('cache_low_stock_ids');
+    }
+
+    /**
      * Invalida todos os alertas (para todos os utilizadores).
      * Útil em operações críticas (resolução de incidente, reset de BD).
      *

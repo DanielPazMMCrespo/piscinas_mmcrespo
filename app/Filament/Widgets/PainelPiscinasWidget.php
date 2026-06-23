@@ -40,36 +40,58 @@ class PainelPiscinasWidget extends Widget
             return $cached;
         }
 
-        $sondas = HannaDevice::query()
-            ->where('active', true)
-            ->whereNotNull('pool_id')
-            ->get()
-            ->keyBy('pool_id');
+        // Lock de 15 segundos para evitar cache stampede.
+        return \Illuminate\Support\Facades\Cache::lock('painel_piscinas_widget_lock', 15)->get(function () use ($cacheService) {
+            // Verifica novamente após obter o lock
+            $cached = $cacheService->getPoolData();
+            if ($cached !== null) {
+                return $cached;
+            }
 
-        $piscinas = Pool::query()
-            ->where('active', true)
-            ->with('instalacao')
-            ->orderBy('installation_id')
-            ->orderBy('name')
-            ->get();
+            $sondas = HannaDevice::query()
+                ->where('active', true)
+                ->whereNotNull('pool_id')
+                ->get()
+                ->keyBy('pool_id');
 
-        // Batch load últimos registos válidos de todas as piscinas (evita N+1).
-        $ultimosRegistos = DailyRecord::query()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->whereDoesntHave('correcoes')
-            ->orderByDesc('registado_em')
-            ->orderByDesc('id')
-            ->get()
-            ->groupBy('pool_id')
-            ->map(fn ($registos) => $registos->first());
+            $piscinas = Pool::query()
+                ->where('active', true)
+                ->with('instalacao')
+                ->orderBy('installation_id')
+                ->orderBy('name')
+                ->get();
 
-        $piscinas = $piscinas->map(function (Pool $piscina) use ($sondas, $ultimosRegistos): array {
-            $registo = $ultimosRegistos->get($piscina->id);
+            // Otimização: obter as últimas leituras das sondas em batch (evita N+1).
+            $ultimasLeituras = \App\Models\SensorReading::query()
+                ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
+                ->orderByDesc('lida_em')
+                ->get()
+                ->groupBy('hanna_device_id')
+                ->map(fn ($leituras) => $leituras->first());
+
+            // Otimização: obter apenas o último registo válido de cada piscina (evita carregar tudo sem LIMIT).
+            $ultimosRegistos = collect();
+            foreach ($piscinas->pluck('id') as $poolId) {
+                $registo = DailyRecord::query()
+                    ->where('pool_id', $poolId)
+                    ->whereDoesntHave('correcoes')
+                    ->latest('registado_em')
+                    ->latest('id')
+                    ->first();
+                if ($registo) {
+                    $ultimosRegistos->put($poolId, $registo);
+                }
+            }
+
+            $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $ultimosRegistos, $ultimasLeituras): array {
+                $registo = $ultimosRegistos->get($piscina->id);
 
                 // Garante que a avaliação de temperatura conhece os limites da piscina.
                 $registo?->setRelation('piscina', $piscina);
 
-                $leitura = $sondas->get($piscina->id)?->ultimaLeitura();
+                $device = $sondas->get($piscina->id);
+                $leitura = $device ? $ultimasLeituras->get($device->hanna_device_id) : null;
+
                 $idadeMin = $leitura?->lida_em
                     ? (int) $leitura->lida_em->diffInMinutes(now())
                     : null;
@@ -104,15 +126,19 @@ class PainelPiscinasWidget extends Widget
                 ];
             });
 
-        $viewData = [
-            'piscinas' => $piscinas,
+            $viewData = [
+                'piscinas' => $piscinasMapped,
+                'urlRegistar' => DailyRecordResource::getUrl('create'),
+            ];
+
+            // Cache: guarda para 10 min.
+            $cacheService->cachePoolData($viewData, 10);
+
+            return $viewData;
+        }) ?? [
+            'piscinas' => collect(),
             'urlRegistar' => DailyRecordResource::getUrl('create'),
         ];
-
-        // Cache: guarda para 10 min.
-        $cacheService->cachePoolData($viewData, 10);
-
-        return $viewData;
     }
 
     /**

@@ -46,5 +46,8 @@ class StockInstallationObserver
 
         // Painel pode mostrar status de stock.
         $this->cacheService->invalidatePoolData();
+
+        // Limpa cache de alertas de stock baixo
+        $this->cacheService->invalidateLowStockCache();
     }
 }

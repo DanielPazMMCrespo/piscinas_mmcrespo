@@ -17,10 +17,17 @@ class StockBaixoWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
+        $ids = \Illuminate\Support\Facades\Cache::remember('cache_low_stock_ids', 300, function () {
+            return StockInstallation::query()
+                ->whereColumn('quantity', '<=', 'limite_minimo')
+                ->pluck('id')
+                ->toArray();
+        });
+
         return $table
             ->query(
                 StockInstallation::query()
-                    ->whereColumn('quantity', '<=', 'limite_minimo')
+                    ->whereIn('id', $ids)
                     ->with(['instalacao', 'produto'])
                     ->orderBy('quantity')
             )
