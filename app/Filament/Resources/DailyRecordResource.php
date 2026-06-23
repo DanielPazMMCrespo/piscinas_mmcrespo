@@ -753,7 +753,7 @@ class DailyRecordResource extends Resource
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
-            ->recordUrl(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record]))
+            ->recordAction(Tables\Actions\ViewAction::class)
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
@@ -944,6 +944,7 @@ class DailyRecordResource extends Resource
         return [
             'index' => Pages\ListDailyRecords::route('/'),
             'create' => Pages\CreateDailyRecord::route('/create'),
+            'view' => Pages\ViewDailyRecord::route('/{record}'),
             'edit' => Pages\EditDailyRecord::route('/{record}/edit'),
         ];
     }
