@@ -60,7 +60,7 @@ class ViewDailyRecord extends ViewRecord
                             }),
                         ImageEntry::make('bomba_foto')
                             ->label('Foto da Bomba')
-                            ->disk('public')
+                            ->disk('r2')
                             ->visible(fn () => filled($this->record->bomba_foto)),
                     ]),
 
@@ -80,15 +80,15 @@ class ViewDailyRecord extends ViewRecord
                             ->color(fn ($state) => $state ? 'success' : 'gray'),
                         ImageEntry::make('filtro_foto_retrolavagem')
                             ->label('Foto — Posição Retrolavagem')
-                            ->disk('public')
+                            ->disk('r2')
                             ->visible(fn () => filled($this->record->filtro_foto_retrolavagem)),
                         ImageEntry::make('filtro_foto_enxaguamento')
                             ->label('Foto — Posição Enxaguamento')
-                            ->disk('public')
+                            ->disk('r2')
                             ->visible(fn () => filled($this->record->filtro_foto_enxaguamento)),
                         ImageEntry::make('filtro_foto_posicao_normal')
                             ->label('Foto — Retorno à Posição Normal')
-                            ->disk('public')
+                            ->disk('r2')
                             ->visible(fn () => filled($this->record->filtro_foto_posicao_normal)),
                     ]),
 
@@ -117,7 +117,7 @@ class ViewDailyRecord extends ViewRecord
                             ->visible(fn () => filled($this->record->agua_modo)),
                         ImageEntry::make('contador_foto')
                             ->label('Foto do Contador')
-                            ->disk('public')
+                            ->disk('r2')
                             ->columnSpanFull()
                             ->visible(fn () => filled($this->record->contador_foto)),
                     ]),
@@ -145,7 +145,7 @@ class ViewDailyRecord extends ViewRecord
                             ->visible(fn () => filled($this->record->tanque_observacoes)),
                         ImageEntry::make('tanque_foto')
                             ->label('Foto do Tanque')
-                            ->disk('public')
+                            ->disk('r2')
                             ->columnSpanFull()
                             ->visible(fn () => filled($this->record->tanque_foto)),
                     ]),
@@ -173,7 +173,7 @@ class ViewDailyRecord extends ViewRecord
                             ->visible(fn () => filled($this->record->ns_temperatura)),
                         ImageEntry::make('ns_foto')
                             ->label('Foto da Análise NS')
-                            ->disk('public')
+                            ->disk('r2')
                             ->columnSpanFull()
                             ->visible(fn () => filled($this->record->ns_foto)),
                     ]),
@@ -204,7 +204,7 @@ class ViewDailyRecord extends ViewRecord
                             ->visible(fn () => filled($this->record->transparencia)),
                         ImageEntry::make('analises_fotos')
                             ->label('Fotos das análises')
-                            ->disk('public')
+                            ->disk('r2')
                             ->columnSpanFull()
                             ->visible(fn () => ! empty($this->record->analises_fotos))
                             ->getStateUsing(function (): array {

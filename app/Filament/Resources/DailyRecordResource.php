@@ -373,7 +373,7 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                         Forms\Components\FileUpload::make('bomba_foto')
                             ->label('Foto da Bomba')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('bomba')
                             ->image()
                             ->maxSize(5120)
@@ -397,7 +397,7 @@ class DailyRecordResource extends Resource
                             ->live(),
                         Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
                             ->label('Foto — Posição Retrolavagem')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('filtros')
                             ->image()
                             ->maxSize(5120)
@@ -405,7 +405,7 @@ class DailyRecordResource extends Resource
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                             ->label('Foto — Posição Enxaguamento')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('filtros')
                             ->image()
                             ->maxSize(5120)
@@ -413,7 +413,7 @@ class DailyRecordResource extends Resource
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                             ->label('Foto — Retorno à Posição Normal')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('filtros')
                             ->image()
                             ->maxSize(5120)
@@ -465,7 +465,7 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                         Forms\Components\FileUpload::make('contador_foto')
                             ->label('Foto do Contador')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('contador')
                             ->image()
                             ->maxSize(5120)
@@ -497,7 +497,7 @@ class DailyRecordResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\FileUpload::make('tanque_foto')
                             ->label('Foto do Tanque')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('tanque')
                             ->image()
                             ->maxSize(5120)
@@ -518,7 +518,7 @@ class DailyRecordResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('ns_foto')
                             ->label('Foto da Análise NS')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('ns-fotos')
                             ->image()
                             ->maxSize(5120)
@@ -615,7 +615,7 @@ class DailyRecordResource extends Resource
                         ),
                         Forms\Components\FileUpload::make('analises_fotos')
                             ->label('Fotos das análises (até 5)')
-                            ->disk('public')->visibility('public')
+                            ->disk('r2')
                             ->directory('analises')
                             ->image()
                             ->multiple()
