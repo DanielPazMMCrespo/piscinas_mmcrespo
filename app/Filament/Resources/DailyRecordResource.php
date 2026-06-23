@@ -373,10 +373,10 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                         Forms\Components\FileUpload::make('bomba_foto')
                             ->label('Foto da Bomba')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('bomba')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional da bomba para documentação')
                             ->columnSpanFull(),
@@ -397,26 +397,26 @@ class DailyRecordResource extends Resource
                             ->live(),
                         Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
                             ->label('Foto — Posição Retrolavagem')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                             ->label('Foto — Posição Enxaguamento')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                         Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                             ->label('Foto — Retorno à Posição Normal')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('filtros')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     ]),
@@ -465,10 +465,10 @@ class DailyRecordResource extends Resource
                             ->live(onBlur: true),
                         Forms\Components\FileUpload::make('contador_foto')
                             ->label('Foto do Contador')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('contador')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Evidência fotográfica da leitura do contador')
                             ->columnSpanFull(),
@@ -497,10 +497,10 @@ class DailyRecordResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\FileUpload::make('tanque_foto')
                             ->label('Foto do Tanque')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('tanque')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->helperText('Foto opcional do tanque de compensação para documentação')
                             ->columnSpanFull(),
@@ -518,10 +518,10 @@ class DailyRecordResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('ns_foto')
                             ->label('Foto da Análise NS')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('ns-fotos')
                             ->image()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                         self::comSemaforo(
@@ -615,13 +615,13 @@ class DailyRecordResource extends Resource
                         ),
                         Forms\Components\FileUpload::make('analises_fotos')
                             ->label('Fotos das análises (até 5)')
-                            ->disk('local')
+                            ->disk('public')->visibility('public')
                             ->directory('analises')
                             ->image()
                             ->multiple()
                             ->maxFiles(5)
                             ->reorderable()
-                            ->maxSize(10240)
+                            ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                             ->columnSpanFull(),
                     ]),
@@ -753,6 +753,7 @@ class DailyRecordResource extends Resource
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
+            ->recordUrl(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record]))
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
@@ -943,7 +944,6 @@ class DailyRecordResource extends Resource
         return [
             'index' => Pages\ListDailyRecords::route('/'),
             'create' => Pages\CreateDailyRecord::route('/create'),
-            'view' => Pages\ViewDailyRecord::route('/{record}'),
             'edit' => Pages\EditDailyRecord::route('/{record}/edit'),
         ];
     }
