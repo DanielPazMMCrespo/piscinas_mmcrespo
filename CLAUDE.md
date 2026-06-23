@@ -1,5 +1,53 @@
+# Regras de Sessão
+
+## Branch de Trabalho
+- Branch ativo: `test`
+- Todo o trabalho é feito no branch `test`. Fazer checkout antes de qualquer edição.
+- Push só com permissão explícita do Daniel. Target: `origin/test`.
+
+## Persona e Estilo de Resposta
+- Lead with the solution. Explain only what isn't obvious.
+- If I'm wrong, say so directly and say why.
+- No filler: no "great question", no "certainly", no "I'd be happy to".
+- No hedging: no "you might want to consider", no "one approach could be".
+- Short sentences. If a paragraph can be a bullet list, use the list.
+- Code must be complete and runnable. Never truncate with "// rest of code here".
+
+## Regras de Código
+- Match the style and conventions already in the file.
+- No comments that explain what the code does — only comments for non-obvious WHY.
+- No extra features, no premature abstractions, no defensive code for impossible scenarios.
+- Never introduce security vulnerabilities (XSS, SQLi, IDOR, command injection).
+- No emojis in code or commit messages.
+
+## Formato de Resposta para Alterações de Código
+Return exactly:
+1. Full modified files (not diffs, not fragments)
+2. Any migrations or schema changes needed
+3. Commands to run, in order
+
+## Token Efficiency
+- Answer the question asked, not adjacent questions I didn't ask.
+- If something needs clarification, ask one question, not five.
+- Don't restate my question back to me.
+- Don't summarize what you just did at the end of a response.
+
+---
+
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-21 (Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications)
+> Última atualização: 2026-06-23 (Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks)
+
+## Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks (resumo)
+- **Correção de Cache Locks (Bug de Produção)**: Corrigido o erro `relation "cache_locks" does not exist` em produção adicionando a migração `2026_06_23_000006_ensure_cache_locks_table_exists.php`. Esta migração garante a criação da tabela `cache_locks` necessária para locks atómicos do cache em PostgreSQL.
+- **Arquivamento em Cascata (Batch 4)**: Atualizado o comando `archive:daily-records` para realizar cópia dos registos de `record_additions` e `record_photos` para as novas tabelas de arquivo antes de remover os registos originais. Adicionada a migração `2026_06_23_000004_create_record_additions_and_photos_archives.php` e o teste unitário robusto `ArchiveDailyRecordsTest.php` (com correção de compatibilidade de `agua_modo` nulo no SQLite via migração `2026_06_23_000005_make_agua_modo_nullable_in_archive.php`).
+- **Políticas e Segurança de Dados (Batch 4)**: Criadas as políticas de acesso Eloquent `DailyRecordPolicy`, `IncidentPolicy` e `StockInstallationPolicy` para verificação de permissões e restrições. Refatoradas as referências de cargos por strings para o uso central das constantes da classe `UserRole` em Filament (`UserResource`, `FilterCheckResource`, `IncidentResource` e `ListUsers`).
+- **UX/UI Premium & Acessibilidade WCAG AA (Batch 5)**:
+  - Adicionado painel com barras de progresso visual dinâmicas no topo do painel principal (`PainelPiscinasWidget` / `painel-piscinas.blade.php`), exibindo a percentagem de registos diários preenchidos hoje e conformidade com limites legais.
+  - Refatorado todo o estilo CSS no widget do painel para usar Custom Properties (variáveis CSS) nos blocos `:root` e `.dark`, garantindo compatibilidade elegante e automática com Dark Mode.
+  - Substituídos os pesos inválidos de fonte (de `650` para `600`) e corrigida a opacidade e rácio de contraste da classe `.mmc-metric-label` (`0.72` em light mode e `0.8` em dark mode) para cumprir as regras WCAG AA.
+  - Configurada a fonte premium **DM Sans** em Filament (`AdminPanelProvider.php`) e tema principal (`resources/css/app.css`).
+  - Implementado o rascunho de auto-save/restore do formulário via `localStorage` no ficheiro `resources/js/app.js` para o formulário `/daily-records/create`, com auto-limpeza aquando do evento de gravação.
+- **Commits**: `dfe810a` e `e7e76bf` (pushed para `test` e `main`).
 
 ## Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications (resumo)
 - **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). App em `https://piscinas-mmcrespo-main.up.railway.app`.
