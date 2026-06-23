@@ -29,7 +29,13 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(UserRole::all());
+        $hasRole = $this->hasAnyRole(UserRole::all());
+
+        if (! $hasRole) {
+            session()->flash('mmc_sem_cargo', true);
+        }
+
+        return $hasRole;
     }
 
     public function getFullNameAttribute(): string

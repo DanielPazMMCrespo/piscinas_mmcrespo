@@ -1,6 +1,18 @@
 import './bootstrap';
 
-import Chart from 'chart.js/auto';
+import {
+    Chart,
+    LineController,
+    LineElement,
+    PointElement,
+    LinearScale,
+    CategoryScale,
+    Filler,
+    Legend,
+    Tooltip,
+} from 'chart.js';
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Legend, Tooltip);
 import { gsap } from 'gsap';
 import Sortable from 'sortablejs';
 
