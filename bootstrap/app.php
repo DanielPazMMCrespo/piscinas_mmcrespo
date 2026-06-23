@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Cabecalhos de seguranca globais aplicados a todas as respostas.
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        // Auto-sincroniza sensores Hanna se leitura > 30 min stale.
+        $middleware->append(\App\Http\Middleware\EnsureHannaReadingsAreFresh::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
