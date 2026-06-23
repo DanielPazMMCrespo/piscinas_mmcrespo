@@ -20,6 +20,10 @@ class Installation extends Model
 
         static::deleting(function (Installation $installation): void {
             $installation->incidentes()->delete();
+            // Apaga pools em cascata (FK cascadeOnDelete cuida dos daily_records filhos).
+            $installation->piscinas()->each(fn (Pool $pool) => $pool->delete());
+            // Stock da instalação
+            StockInstallation::where('installation_id', $installation->id)->delete();
         });
     }
 

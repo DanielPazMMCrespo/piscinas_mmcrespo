@@ -135,16 +135,18 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
 
                 $nomeProduto = $adicao->produto?->name ?? 'produto';
 
-                StockInstallation::firstOrCreate(
-                    ['installation_id' => $instalacaoId, 'product_id' => $adicao->product_id],
-                    ['quantity' => 0, 'limite_minimo' => 0]
+                // Upsert atómico: INSERT ... ON CONFLICT DO NOTHING (PostgreSQL).
+                StockInstallation::upsert(
+                    [['installation_id' => $instalacaoId, 'product_id' => $adicao->product_id, 'quantity' => 0, 'limite_minimo' => 0]],
+                    ['installation_id', 'product_id'],
+                    [] // não actualiza nada se já existir
                 );
 
                 $stock = StockInstallation::query()
                     ->where('installation_id', $instalacaoId)
                     ->where('product_id', $adicao->product_id)
                     ->lockForUpdate()
-                    ->first();
+                    ->firstOrFail();
 
                 $pedido = (float) $adicao->quantity;
                 $disponivel = (float) $stock->quantity;

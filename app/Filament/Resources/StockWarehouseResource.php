@@ -156,14 +156,16 @@ class StockWarehouseResource extends Resource
                                 'fornecedor' => $data['observacoes'] ?? null,
                             ]);
 
-                            // Passo 1: garantir existência (atómico)
-                            StockInstallation::firstOrCreate(
-                                ['installation_id' => $data['installation_id'], 'product_id' => $freshArmazem->product_id],
-                                ['quantity' => 0, 'limite_minimo' => 0]
+                            // Passo 1: garantir existência (upsert atómico — ON CONFLICT DO NOTHING)
+                            StockInstallation::upsert(
+                                [['installation_id' => $data['installation_id'], 'product_id' => $freshArmazem->product_id, 'quantity' => 0, 'limite_minimo' => 0]],
+                                ['installation_id', 'product_id'],
+                                [] // não actualiza nada se já existir
                             );
 
                             // Passo 2: re-ler com lock e incrementar
-                            $stockInstalacao = StockInstallation::lockForUpdate()
+                            $stockInstalacao = StockInstallation::query()
+                                ->lockForUpdate()
                                 ->where('installation_id', $data['installation_id'])
                                 ->where('product_id', $freshArmazem->product_id)
                                 ->firstOrFail();

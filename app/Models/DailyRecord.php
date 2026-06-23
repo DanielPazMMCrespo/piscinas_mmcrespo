@@ -174,12 +174,20 @@ class DailyRecord extends Model
 
     public function phConforme(): bool
     {
-        return $this->ph >= self::PH_MIN && $this->ph <= self::PH_MAX;
+        if ($this->ph === null) {
+            return true; // sem leitura não é violação
+        }
+
+        return (float) $this->ph >= self::PH_MIN && (float) $this->ph <= self::PH_MAX;
     }
 
     public function cloroLivreConforme(): bool
     {
-        return $this->cloro_livre >= self::CLORO_LIVRE_MIN && $this->cloro_livre <= self::CLORO_LIVRE_MAX;
+        if ($this->cloro_livre === null) {
+            return true; // sem leitura não é violação
+        }
+
+        return (float) $this->cloro_livre >= self::CLORO_LIVRE_MIN && (float) $this->cloro_livre <= self::CLORO_LIVRE_MAX;
     }
 
     public function cloroCombinadoConforme(): bool

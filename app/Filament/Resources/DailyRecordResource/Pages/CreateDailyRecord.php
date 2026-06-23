@@ -20,6 +20,9 @@ class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
+    /** Guarda flag para evitar duplo-submit (previne re-entrada em create()). */
+    public bool $isCreating = false;
+
     public function create(bool $another = false): void
     {
         if ($this->isCreating) {
@@ -101,20 +104,21 @@ class CreateDailyRecord extends CreateRecord
     /**
      * Depois de gravar o registo: (1) desconta do stock da instalação os químicos
      * adicionados; (2) avisa os administradores se houver parâmetros fora dos limites.
-     * Nenhuma destas operações bloqueia o registo sanitário (append-only).
+     * Delegado ao Job ProcessDailyRecordAfterCreate para não bloquear o request HTTP.
      */
     protected function afterCreate(): void
     {
         /** @var DailyRecord $registo */
         $registo = $this->record;
-        $registo->loadMissing('piscina.instalacao', 'adicoes.produto');
 
-        $this->guardarFotos($registo);
-        $this->descontarStock($registo);
-        $this->notificarNaoConformidade($registo);
-        $this->gerirTorneira($registo);
+        // Delegar ao Job async — tem retry (3x), backoff, e não bloqueia o request.
+        \App\Jobs\ProcessDailyRecordAfterCreate::dispatch(
+            $registo->id,
+            (int) auth()->id()
+        );
 
-        // Nota: o Kanban atualiza pelo polling de 60s do QuadroOperacionalWidget.
+        // Invalida cache de alertas para que o dashboard reflicta o novo registo.
+        app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
         // O AlertasService memoiza por-pedido, logo a próxima request HTTP já
         // recalcula de fresco — não é preciso limpar nada aqui.
     }
