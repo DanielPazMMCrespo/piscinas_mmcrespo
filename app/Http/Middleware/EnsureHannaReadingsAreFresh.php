@@ -19,8 +19,12 @@ class EnsureHannaReadingsAreFresh
             return $next($request);
         }
 
-        // Verifica se há alguma leitura mais recente que 30 minutos.
-        $ultimaLeitura = SensorReading::latest('lida_em')->first()?->lida_em;
+        try {
+            // Verifica se há alguma leitura mais recente que 30 minutos.
+            $ultimaLeitura = SensorReading::latest('lida_em')->first()?->lida_em;
+        } catch (\Throwable) {
+            return $next($request);
+        }
 
         if (
             $ultimaLeitura === null
