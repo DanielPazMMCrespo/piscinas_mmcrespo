@@ -18,9 +18,14 @@ class EnsureHannaFreshTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeGetRequest(): Request
+    private function handle(Request $request): void
     {
-        return Request::create('/admin', 'GET');
+        $middleware = new EnsureHannaReadingsAreFresh();
+        $middleware->handle($request, fn ($r) => response('ok'));
+
+        // afterResponse() registers a terminating callback on the Application.
+        // trigger it here to simulate the end-of-request lifecycle.
+        app()->terminate();
     }
 
     private function createReading(int $minutesAgo): SensorReading
@@ -52,8 +57,7 @@ class EnsureHannaFreshTest extends TestCase
     {
         Queue::fake();
 
-        $middleware = new EnsureHannaReadingsAreFresh();
-        $middleware->handle($this->makeGetRequest(), fn ($r) => response('ok'));
+        $this->handle(Request::create('/admin', 'GET'));
 
         Queue::assertPushed(ProcessHannaSync::class);
     }
@@ -64,8 +68,7 @@ class EnsureHannaFreshTest extends TestCase
 
         $this->createReading(31);
 
-        $middleware = new EnsureHannaReadingsAreFresh();
-        $middleware->handle($this->makeGetRequest(), fn ($r) => response('ok'));
+        $this->handle(Request::create('/admin', 'GET'));
 
         Queue::assertPushed(ProcessHannaSync::class);
     }
@@ -76,8 +79,7 @@ class EnsureHannaFreshTest extends TestCase
 
         $this->createReading(10);
 
-        $middleware = new EnsureHannaReadingsAreFresh();
-        $middleware->handle($this->makeGetRequest(), fn ($r) => response('ok'));
+        $this->handle(Request::create('/admin', 'GET'));
 
         Queue::assertNotPushed(ProcessHannaSync::class);
     }
@@ -86,22 +88,18 @@ class EnsureHannaFreshTest extends TestCase
     {
         Queue::fake();
 
-        $request = Request::create('/admin/registos-diarios', 'POST');
-
-        $middleware = new EnsureHannaReadingsAreFresh();
-        $middleware->handle($request, fn ($r) => response('ok'));
+        $this->handle(Request::create('/admin/registos-diarios', 'POST'));
 
         Queue::assertNotPushed(ProcessHannaSync::class);
     }
 
-    public function test_reading_exactly_at_30_minutes_is_still_fresh(): void
+    public function test_reading_exactly_at_30_minutes_is_not_stale(): void
     {
         Queue::fake();
 
         $this->createReading(30);
 
-        $middleware = new EnsureHannaReadingsAreFresh();
-        $middleware->handle($this->makeGetRequest(), fn ($r) => response('ok'));
+        $this->handle(Request::create('/admin', 'GET'));
 
         Queue::assertNotPushed(ProcessHannaSync::class);
     }
