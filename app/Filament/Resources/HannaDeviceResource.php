@@ -96,9 +96,8 @@ class HannaDeviceResource extends Resource
                     ->label('Sincronizar leituras')
                     ->icon('heroicon-o-arrow-path')
                     ->color('primary')
-                    ->action(function (): void {
+                    ->action(function (Tables\Actions\Action $action): void {
                         $exitCode = Artisan::call('hanna:sync');
-                        // Strip ANSI colour codes from console output.
                         $output = preg_replace('/\x1B\[[0-9;]*[mGKHF]/u', '', trim(Artisan::output()));
 
                         if ($exitCode === 0) {
@@ -107,6 +106,9 @@ class HannaDeviceResource extends Resource
                                 ->title('Sincronização concluída')
                                 ->body($output ?: 'Sem leituras novas.')
                                 ->send();
+
+                            // Redireciona para o dashboard para mostrar dados frescos.
+                            $action->redirect(filament()->getUrl());
                         } else {
                             Notification::make()
                                 ->danger()
