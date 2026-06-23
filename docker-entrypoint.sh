@@ -35,7 +35,7 @@ EOF
 echo "[entrypoint] php-fpm forced to 127.0.0.1:9001 (via zz-docker.conf)"
 
 # --- 3. Ensure writable storage structure + permissions ---
-mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs
+mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs storage/app/private/livewire-tmp storage/app/public
 chown -R www-data:www-data storage bootstrap/cache || true
 
 # --- 4. Laravel runtime setup ---
