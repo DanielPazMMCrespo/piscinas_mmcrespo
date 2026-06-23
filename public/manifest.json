@@ -28,5 +28,21 @@
             "type": "image/png",
             "purpose": "maskable"
         }
+    ],
+    "screenshots": [
+        {
+            "src": "/images/screenshot-dashboard.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Dashboard com estado das piscinas"
+        },
+        {
+            "src": "/images/screenshot-registo.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Formulário de registo diário"
+        }
     ]
 }

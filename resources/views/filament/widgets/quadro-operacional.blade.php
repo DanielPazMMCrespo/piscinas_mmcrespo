@@ -214,5 +214,13 @@
             border: 1px dashed #d1d5db; border-radius: 0.75rem;
         }
         .dark .mmc-kb-empty { border-color: #3f3f46; }
+
+        /* Drop target highlight durante drag-over. */
+        .mmc-kb-col--over {
+            outline: 2px solid #2b9cd8;
+            outline-offset: 2px;
+            background: rgba(43, 156, 216, 0.06);
+        }
+        .dark .mmc-kb-col--over { background: rgba(43, 156, 216, 0.1); }
     </style>
 </x-filament-widgets::widget>
