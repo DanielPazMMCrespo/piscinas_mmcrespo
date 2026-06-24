@@ -892,7 +892,6 @@ class DailyRecordResource extends Resource
                     ->falseLabel('Apenas registos originais'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('corrigir')
                     ->label('Corrigir')
