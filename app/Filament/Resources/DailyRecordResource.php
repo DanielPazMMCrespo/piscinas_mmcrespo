@@ -82,6 +82,28 @@ class DailyRecordResource extends Resource
     private static array $ultimoCache = [];
     private static array $poolCache = [];
 
+    private static function fotoPreview(string $field, string $label): Forms\Components\Placeholder
+    {
+        return Forms\Components\Placeholder::make($field . '_preview')
+            ->label($label)
+            ->visible(fn ($record, Get $get) => $record !== null && filled($record->{$field}) && ($field === 'filtro_foto_retrolavagem' || $field === 'filtro_foto_enxaguamento' || $field === 'filtro_foto_posicao_normal' ? (bool)$get('filtro_faz_retrolavagem') : true))
+            ->content(function ($record) use ($field) {
+                $val = $record->{$field};
+                if (empty($val)) {
+                    return null;
+                }
+
+                $paths = is_array($val) ? $val : [$val];
+                $html = '<div class="flex flex-wrap gap-4 mt-2 mb-2">';
+                foreach ($paths as $path) {
+                    $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                    $html .= "<div class='relative'><a href='{$url}' class='glightbox-trigger'><img src='{$url}' class='max-w-[200px] h-auto rounded-lg shadow cursor-zoom-in border border-gray-200 dark:border-gray-700' /></a></div>";
+                }
+                $html .= '</div>';
+                return new \Illuminate\Support\HtmlString($html);
+            });
+    }
+
     private static function ultimoRegisto(?int $poolId): ?DailyRecord
     {
         if (! $poolId) {
@@ -376,6 +398,7 @@ class DailyRecordResource extends Resource
                         ->offIcon('heroicon-m-x-mark')
                         ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada)
                         ->live(onBlur: true),
+                    self::fotoPreview('bomba_foto', 'Visualização da Foto da Bomba'),
                     Forms\Components\FileUpload::make('bomba_foto')
                         ->label('Foto da Bomba')
                         ->disk('public')->visibility('public')
@@ -429,6 +452,7 @@ class DailyRecordResource extends Resource
                         ->native(false)
                         ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
                         ->live(onBlur: true),
+                    self::fotoPreview('contador_foto', 'Visualização da Foto do Contador'),
                     Forms\Components\FileUpload::make('contador_foto')
                         ->label('Foto do Contador')
                         ->disk('public')->visibility('public')
@@ -462,6 +486,7 @@ class DailyRecordResource extends Resource
                         ->label('Observações do Tanque')
                         ->rows(2)
                         ->columnSpanFull(),
+                    self::fotoPreview('tanque_foto', 'Visualização da Foto do Tanque'),
                     Forms\Components\FileUpload::make('tanque_foto')
                         ->label('Foto do Tanque')
                         ->disk('public')->visibility('public')
@@ -486,6 +511,7 @@ class DailyRecordResource extends Resource
                     filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
                 ))
                 ->schema([
+                    self::fotoPreview('ns_foto', 'Visualização da Foto da Análise NS'),
                     Forms\Components\FileUpload::make('ns_foto')
                         ->label('Foto da Análise NS')
                         ->disk('public')->visibility('public')
@@ -584,6 +610,7 @@ class DailyRecordResource extends Resource
                             ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         'transparencia'
                     ),
+                    self::fotoPreview('analises_fotos', 'Visualização das Fotos das Análises'),
                     Forms\Components\FileUpload::make('analises_fotos')
                         ->label('Fotos das análises (até 5)')
                         ->disk('public')->visibility('public')
@@ -612,6 +639,7 @@ class DailyRecordResource extends Resource
                         ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
                         ->default(false)
                         ->live(),
+                    self::fotoPreview('filtro_foto_retrolavagem', 'Visualização — Posição Retrolavagem'),
                     Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
                         ->label('Foto — Posição Retrolavagem')
                         ->disk('public')->visibility('public')
@@ -622,6 +650,7 @@ class DailyRecordResource extends Resource
                         ->openable()
                         ->downloadable()
                         ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    self::fotoPreview('filtro_foto_enxaguamento', 'Visualização — Posição Enxaguamento'),
                     Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                         ->label('Foto — Posição Enxaguamento')
                         ->disk('public')->visibility('public')
@@ -632,6 +661,7 @@ class DailyRecordResource extends Resource
                         ->openable()
                         ->downloadable()
                         ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    self::fotoPreview('filtro_foto_posicao_normal', 'Visualização — Retorno à Posição Normal'),
                     Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                         ->label('Foto — Retorno à Posição Normal')
                         ->disk('public')->visibility('public')
