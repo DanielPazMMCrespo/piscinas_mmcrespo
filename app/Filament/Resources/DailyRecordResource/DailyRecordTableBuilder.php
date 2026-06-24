@@ -207,6 +207,29 @@ class DailyRecordTableBuilder
             ]);
     }
 
+    private static function fotoEntry(string $field, string $label): \Filament\Infolists\Components\TextEntry
+    {
+        return \Filament\Infolists\Components\TextEntry::make($field)
+            ->label($label)
+            ->html()
+            ->formatStateUsing(function ($state) {
+                $paths = is_array($state) ? $state : [$state];
+                $html = '<div class="flex flex-wrap gap-4 mt-1">';
+                foreach (array_filter($paths) as $path) {
+                    $url = DailyRecord::getStorageUrl($path);
+                    if (! $url) {
+                        continue;
+                    }
+                    $html .= "<a href='{$url}' class='glightbox-trigger block overflow-hidden rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-primary-500 hover:shadow-md transition-all duration-200'>"
+                           . "<img src='{$url}' class='object-cover h-40 w-56 cursor-zoom-in' alt='Foto' />"
+                           . '</a>';
+                }
+                $html .= '</div>';
+                return $html;
+            })
+            ->visible(fn ($record) => filled($record?->{$field}));
+    }
+
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
         return $infolist
@@ -229,11 +252,7 @@ class DailyRecordTableBuilder
                                             ->label('Bomba ferrada')
                                             ->boolean(),
                                     ]),
-                                \Filament\Infolists\Components\ImageEntry::make('bomba_foto')
-                                    ->label('Foto da Bomba')
-                                    ->disk(DailyRecord::getStorageDisk())
-                                    ->visibility('public')
-                                    ->visible(fn ($record) => filled($record?->bomba_foto)),
+                                self::fotoEntry('bomba_foto', 'Foto da Bomba'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Contador & Água')
                             ->icon('heroicon-o-calculator')
@@ -245,11 +264,7 @@ class DailyRecordTableBuilder
                                         \Filament\Infolists\Components\TextEntry::make('agua_modo')
                                             ->label('Entrada de Água'),
                                     ]),
-                                \Filament\Infolists\Components\ImageEntry::make('contador_foto')
-                                    ->label('Foto do Contador')
-                                    ->disk(DailyRecord::getStorageDisk())
-                                    ->visibility('public')
-                                    ->visible(fn ($record) => filled($record?->contador_foto)),
+                                self::fotoEntry('contador_foto', 'Foto do Contador'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Tanque de Compensação')
                             ->icon('heroicon-o-beaker')
@@ -262,11 +277,7 @@ class DailyRecordTableBuilder
                                         \Filament\Infolists\Components\TextEntry::make('tanque_observacoes')
                                             ->label('Observações'),
                                     ]),
-                                \Filament\Infolists\Components\ImageEntry::make('tanque_foto')
-                                    ->label('Foto do Tanque')
-                                    ->disk(DailyRecord::getStorageDisk())
-                                    ->visibility('public')
-                                    ->visible(fn ($record) => filled($record?->tanque_foto)),
+                                self::fotoEntry('tanque_foto', 'Foto do Tanque'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Análises')
                             ->icon('heroicon-o-eye')
@@ -280,11 +291,7 @@ class DailyRecordTableBuilder
                                                 \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
                                                 \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                             ]),
-                                        \Filament\Infolists\Components\ImageEntry::make('ns_foto')
-                                            ->label('Foto da Análise NS')
-                                            ->disk(DailyRecord::getStorageDisk())
-                                            ->visibility('public')
-                                            ->visible(fn ($record) => filled($record?->ns_foto)),
+                                        self::fotoEntry('ns_foto', 'Foto da Análise NS'),
                                     ]),
                                 \Filament\Infolists\Components\Section::make('Técnico')
                                     ->schema([
@@ -296,11 +303,7 @@ class DailyRecordTableBuilder
                                                 \Filament\Infolists\Components\TextEntry::make('temperatura')->label('Temperatura (Técnico)'),
                                                 \Filament\Infolists\Components\TextEntry::make('transparencia')->label('Turbidez (FNU)'),
                                             ]),
-                                        \Filament\Infolists\Components\ImageEntry::make('analises_fotos')
-                                            ->label('Fotos das Análises')
-                                            ->disk(DailyRecord::getStorageDisk())
-                                            ->visibility('public')
-                                            ->visible(fn ($record) => !empty($record?->analises_fotos)),
+                                        self::fotoEntry('analises_fotos', 'Fotos das Análises'),
                                     ]),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Filtros')
@@ -311,21 +314,9 @@ class DailyRecordTableBuilder
                                     ->boolean(),
                                 \Filament\Infolists\Components\Grid::make(3)
                                     ->schema([
-                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_retrolavagem')
-                                            ->label('Posição Retrolavagem')
-                                            ->disk(DailyRecord::getStorageDisk())
-                                            ->visibility('public')
-                                            ->visible(fn ($record) => filled($record?->filtro_foto_retrolavagem)),
-                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_enxaguamento')
-                                            ->label('Posição Enxaguamento')
-                                            ->disk(DailyRecord::getStorageDisk())
-                                            ->visibility('public')
-                                            ->visible(fn ($record) => filled($record?->filtro_foto_enxaguamento)),
-                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_posicao_normal')
-                                            ->label('Posição Normal')
-                                            ->disk(DailyRecord::getStorageDisk())
-                                            ->visibility('public')
-                                            ->visible(fn ($record) => filled($record?->filtro_foto_posicao_normal)),
+                                        self::fotoEntry('filtro_foto_retrolavagem', 'Posição Retrolavagem'),
+                                        self::fotoEntry('filtro_foto_enxaguamento', 'Posição Enxaguamento'),
+                                        self::fotoEntry('filtro_foto_posicao_normal', 'Posição Normal'),
                                     ]),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Químicos & Notas')
