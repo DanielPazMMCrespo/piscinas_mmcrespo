@@ -66,7 +66,6 @@ class User extends Authenticatable implements FilamentUser
         'phone',
         'pin',
         'must_change_password',
-        'haptic_enabled',
     ];
 
     /**
@@ -91,7 +90,6 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'pin' => 'hashed',
-            'haptic_enabled' => 'boolean',
         ];
     }
 }
