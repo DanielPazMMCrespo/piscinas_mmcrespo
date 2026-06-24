@@ -97,6 +97,9 @@ class DailyRecordResource extends Resource
                 $html = '<div class="flex flex-wrap gap-4 mt-2 mb-2">';
                 foreach ($paths as $path) {
                     $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                    if (str_starts_with($url, 'http://') && !str_contains($url, 'localhost') && !str_contains($url, '127.0.0.1')) {
+                        $url = str_replace('http://', 'https://', $url);
+                    }
                     $html .= "<div class='relative'><a href='{$url}' class='glightbox-trigger'><img src='{$url}' class='max-w-[200px] h-auto rounded-lg shadow cursor-zoom-in border border-gray-200 dark:border-gray-700' /></a></div>";
                 }
                 $html .= '</div>';

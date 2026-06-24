@@ -29,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (config('app.env') !== 'local') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // Gera um nonce CSP por-pedido; o @vite injeta-o nos <script>/<link> automaticamente.
         // O middleware SecurityHeaders lê este mesmo nonce (Vite::cspNonce()) para a política
         // Content-Security-Policy-Report-Only nonce-based.
