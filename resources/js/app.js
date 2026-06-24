@@ -544,6 +544,42 @@ const setupFormDraft = () => {
     }
 };
 
+const setupHapticFeedback = () => {
+    // Clique com vibração suave nos botões e elementos interativos principais
+    document.body.addEventListener('click', (e) => {
+        if (localStorage.getItem('mmcrespo_haptic_disabled') === 'true') {
+            return;
+        }
+        const target = e.target.closest('button, a.fi-btn, .fi-fo-wizard-header-step, .mmc-kb-card, .fi-modal-close-button, .fi-ta-action');
+        if (target && navigator.vibrate) {
+            navigator.vibrate(10); // toque suave de 10ms
+        }
+    });
+
+    // Integração com eventos Livewire e notificações do Filament
+    if (window.Livewire) {
+        // Erro de validação de formulários (HTTP 422)
+        window.Livewire.hook('request', ({ fail }) => {
+            fail(({ status }) => {
+                if (status === 422 && navigator.vibrate && localStorage.getItem('mmcrespo_haptic_disabled') !== 'true') {
+                    navigator.vibrate([50, 50, 100]); // vibração forte/aguda (erro)
+                }
+            });
+        });
+
+        // Notificações de Sucesso ou Alertas/Perigo emitidas pelo Filament
+        window.Livewire.on('notificationSent', (event) => {
+            if (event.notification && navigator.vibrate && localStorage.getItem('mmcrespo_haptic_disabled') !== 'true') {
+                if (event.notification.status === 'success') {
+                    navigator.vibrate([15, 30, 15]); // clique duplo de sucesso
+                } else if (event.notification.status === 'danger' || event.notification.status === 'warning') {
+                    navigator.vibrate([50, 50, 100]); // vibração forte/aguda
+                }
+            }
+        });
+    }
+};
+
 // Montagem única — flag evita observers/listeners duplicados se o DOMContentLoaded
 // e o ramo readyState dispararem ambos, ou se o bundle reexecutar.
 let mmcSetupDone = false;
@@ -554,6 +590,7 @@ const mmcSetup = () => {
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
+    setupHapticFeedback();
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);

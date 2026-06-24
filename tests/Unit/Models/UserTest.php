@@ -104,4 +104,17 @@ class UserTest extends TestCase
             'password' => bcrypt('password123'),
         ]);
     }
+
+    public function test_user_has_haptic_enabled_by_default(): void
+    {
+        $user = User::factory()->create();
+        $this->assertTrue($user->haptic_enabled);
+    }
+
+    public function test_user_can_disable_haptic(): void
+    {
+        $user = User::factory()->create();
+        $user->update(['haptic_enabled' => false]);
+        $this->assertFalse($user->haptic_enabled);
+    }
 }

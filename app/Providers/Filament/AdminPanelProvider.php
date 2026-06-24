@@ -32,6 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->font('DM Sans')
             ->login(\App\Filament\Pages\Auth\Login::class)
+            ->profile(\App\Filament\Pages\Auth\EditProfile::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
@@ -75,6 +76,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.pwa-head')->render(),
+            )
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): string => view('filament.haptic-toggle')->render(),
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

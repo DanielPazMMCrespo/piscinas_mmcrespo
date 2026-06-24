@@ -18,4 +18,14 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/primeiro-acesso', [\App\Http\Controllers\PasswordChangeController::class, 'store'])
         ->name('password-change.store')
         ->middleware('throttle:5,1');
+
+    Route::post('/admin/update-haptic-preference', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        $user->update(['haptic_enabled' => $validated['enabled']]);
+        return response()->json(['status' => 'success']);
+    })->name('admin.update-haptic-preference');
 });
