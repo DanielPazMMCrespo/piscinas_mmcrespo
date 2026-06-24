@@ -9,3 +9,38 @@
     --font-sans: 'DM Sans', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* FilePond Success Upload Feedback */
+.filepond--item[data-filepond-item-state="processing-complete"] .filepond--file {
+    border: 2px solid #76b82a !important; /* MMCrespo success green */
+    box-shadow: 0 0 10px rgba(118, 184, 42, 0.4) !important;
+    transition: all 0.3s ease;
+}
+
+/* Add a visual checkmark badge when upload is successful */
+.filepond--item[data-filepond-item-state="processing-complete"]::after {
+    content: "✓ Sucesso";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background-color: #76b82a !important;
+    color: white !important;
+    font-size: 0.65rem !important;
+    font-weight: bold !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    pointer-events: none;
+    animation: mmc-success-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes mmc-success-pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Cursor helper for zoom preview */
+.filepond--image-preview-wrapper {
+    cursor: zoom-in !important;
+}

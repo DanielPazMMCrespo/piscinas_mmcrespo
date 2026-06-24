@@ -621,6 +621,39 @@ const setupHapticFeedback = () => {
     }
 };
 
+const setupFilePondPreviewLightbox = () => {
+    document.addEventListener('click', (e) => {
+        const canvas = e.target.closest('.filepond--image-preview-wrapper canvas, .filepond--image-preview');
+        if (!canvas) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            const canvasEl = canvas.tagName === 'CANVAS' ? canvas : canvas.querySelector('canvas');
+            if (!canvasEl) return;
+
+            const dataUrl = canvasEl.toDataURL('image/jpeg', 0.95);
+
+            if (typeof window.GLightbox !== 'undefined') {
+                window.GLightbox({
+                    elements: [{ href: dataUrl, type: 'image' }],
+                    touchNavigation: true,
+                    zoomable: true,
+                    draggable: true
+                }).open();
+            } else {
+                const win = window.open();
+                if (win) {
+                    win.document.write(`<img src="${dataUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
+                }
+            }
+        } catch (err) {
+            console.error('Error opening image preview:', err);
+        }
+    });
+};
+
 // Montagem única — flag evita observers/listeners duplicados se o DOMContentLoaded
 // e o ramo readyState dispararem ambos, ou se o bundle reexecutar.
 let mmcSetupDone = false;
@@ -632,6 +665,7 @@ const mmcSetup = () => {
     setupAutoScroll();
     setupFormDraft();
     setupHapticFeedback();
+    setupFilePondPreviewLightbox();
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);
