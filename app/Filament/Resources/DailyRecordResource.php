@@ -384,6 +384,8 @@ class DailyRecordResource extends Resource
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                         ->helperText('Foto opcional da bomba para documentação')
+                        ->openable()
+                        ->downloadable()
                         ->columnSpanFull(),
                 ]),
 
@@ -435,6 +437,8 @@ class DailyRecordResource extends Resource
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                         ->helperText('Evidência fotográfica da leitura do contador')
+                        ->openable()
+                        ->downloadable()
                         ->columnSpanFull(),
                 ]),
 
@@ -466,6 +470,8 @@ class DailyRecordResource extends Resource
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                         ->helperText('Foto opcional do tanque de compensação para documentação')
+                        ->openable()
+                        ->downloadable()
                         ->columnSpanFull(),
                 ]),
         ];
@@ -487,6 +493,8 @@ class DailyRecordResource extends Resource
                         ->image()
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->openable()
+                        ->downloadable()
                         ->columnSpanFull(),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_ph')
@@ -586,6 +594,8 @@ class DailyRecordResource extends Resource
                         ->reorderable()
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->openable()
+                        ->downloadable()
                         ->columnSpanFull(),
                 ]),
         ];
@@ -609,6 +619,8 @@ class DailyRecordResource extends Resource
                         ->image()
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->openable()
+                        ->downloadable()
                         ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
                         ->label('Foto — Posição Enxaguamento')
@@ -617,6 +629,8 @@ class DailyRecordResource extends Resource
                         ->image()
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->openable()
+                        ->downloadable()
                         ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                     Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
                         ->label('Foto — Retorno à Posição Normal')
@@ -625,6 +639,8 @@ class DailyRecordResource extends Resource
                         ->image()
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->openable()
+                        ->downloadable()
                         ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                 ]),
         ];
@@ -994,6 +1010,151 @@ class DailyRecordResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
+    {
+        return $infolist
+            ->schema([
+                \Filament\Infolists\Components\Tabs::make('Registo')
+                    ->tabs([
+                        \Filament\Infolists\Components\Tabs\Tab::make('Piscina & Estado')
+                            ->icon('heroicon-o-home')
+                            ->schema([
+                                \Filament\Infolists\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Infolists\Components\TextEntry::make('pool.name')
+                                            ->label('Piscina'),
+                                        \Filament\Infolists\Components\TextEntry::make('user.name')
+                                            ->label('Operador'),
+                                        \Filament\Infolists\Components\TextEntry::make('registado_em')
+                                            ->label('Data do Registo')
+                                            ->dateTime('d/m/Y H:i'),
+                                        \Filament\Infolists\Components\IconEntry::make('bomba_ferrada')
+                                            ->label('Bomba ferrada')
+                                            ->boolean(),
+                                    ]),
+                                \Filament\Infolists\Components\ImageEntry::make('bomba_foto')
+                                    ->label('Foto da Bomba')
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->visible(fn ($record) => filled($record?->bomba_foto)),
+                            ]),
+                        \Filament\Infolists\Components\Tabs\Tab::make('Contador & Água')
+                            ->icon('heroicon-o-calculator')
+                            ->schema([
+                                \Filament\Infolists\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Infolists\Components\TextEntry::make('contador_valor')
+                                            ->label('Leitura do Contador'),
+                                        \Filament\Infolists\Components\TextEntry::make('agua_modo')
+                                            ->label('Entrada de Água'),
+                                    ]),
+                                \Filament\Infolists\Components\ImageEntry::make('contador_foto')
+                                    ->label('Foto do Contador')
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->visible(fn ($record) => filled($record?->contador_foto)),
+                            ]),
+                        \Filament\Infolists\Components\Tabs\Tab::make('Tanque de Compensação')
+                            ->icon('heroicon-o-beaker')
+                            ->schema([
+                                \Filament\Infolists\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Infolists\Components\IconEntry::make('tanque_ok')
+                                            ->label('Tanque OK')
+                                            ->boolean(),
+                                        \Filament\Infolists\Components\TextEntry::make('tanque_observacoes')
+                                            ->label('Observações'),
+                                    ]),
+                                \Filament\Infolists\Components\ImageEntry::make('tanque_foto')
+                                    ->label('Foto do Tanque')
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->visible(fn ($record) => filled($record?->tanque_foto)),
+                            ]),
+                        \Filament\Infolists\Components\Tabs\Tab::make('Análises')
+                            ->icon('heroicon-o-eye')
+                            ->schema([
+                                \Filament\Infolists\Components\Section::make('Nadador-Salvador')
+                                    ->schema([
+                                        \Filament\Infolists\Components\Grid::make(2)
+                                            ->schema([
+                                                \Filament\Infolists\Components\TextEntry::make('ns_ph')->label('pH (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
+                                            ]),
+                                        \Filament\Infolists\Components\ImageEntry::make('ns_foto')
+                                            ->label('Foto da Análise NS')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->visible(fn ($record) => filled($record?->ns_foto)),
+                                    ]),
+                                \Filament\Infolists\Components\Section::make('Técnico')
+                                    ->schema([
+                                        \Filament\Infolists\Components\Grid::make(2)
+                                            ->schema([
+                                                \Filament\Infolists\Components\TextEntry::make('ph')->label('pH (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('cloro_livre')->label('Cloro Livre (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('cloro_total')->label('Cloro Total (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('temperatura')->label('Temperatura (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('transparencia')->label('Turbidez (FNU)'),
+                                            ]),
+                                        \Filament\Infolists\Components\ImageEntry::make('analises_fotos')
+                                            ->label('Fotos das Análises')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->multiple()
+                                            ->visible(fn ($record) => !empty($record?->analises_fotos)),
+                                    ]),
+                            ]),
+                        \Filament\Infolists\Components\Tabs\Tab::make('Filtros')
+                            ->icon('heroicon-o-funnel')
+                            ->schema([
+                                \Filament\Infolists\Components\IconEntry::make('filtro_faz_retrolavagem')
+                                    ->label('Retrolavagem Realizada')
+                                    ->boolean(),
+                                \Filament\Infolists\Components\Grid::make(3)
+                                    ->schema([
+                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_retrolavagem')
+                                            ->label('Posição Retrolavagem')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->visible(fn ($record) => filled($record?->filtro_foto_retrolavagem)),
+                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_enxaguamento')
+                                            ->label('Posição Enxaguamento')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->visible(fn ($record) => filled($record?->filtro_foto_enxaguamento)),
+                                        \Filament\Infolists\Components\ImageEntry::make('filtro_foto_posicao_normal')
+                                            ->label('Posição Normal')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->visible(fn ($record) => filled($record?->filtro_foto_posicao_normal)),
+                                    ]),
+                            ]),
+                        \Filament\Infolists\Components\Tabs\Tab::make('Químicos & Notas')
+                            ->icon('heroicon-o-sparkles')
+                            ->schema([
+                                \Filament\Infolists\Components\RepeatableEntry::make('adicoes')
+                                    ->label('Químicos Adicionados')
+                                    ->schema([
+                                        \Filament\Infolists\Components\Grid::make(2)
+                                            ->schema([
+                                                \Filament\Infolists\Components\TextEntry::make('product.name')->label('Produto'),
+                                                \Filament\Infolists\Components\TextEntry::make('quantity')->label('Quantidade'),
+                                            ]),
+                                    ]),
+                                \Filament\Infolists\Components\TextEntry::make('observacoes')
+                                    ->label('Observações'),
+                                \Filament\Infolists\Components\TextEntry::make('razao_correcao')
+                                    ->label('Razão da Correção')
+                                    ->visible(fn ($record) => (bool)$record?->e_correcao),
+                            ]),
+                    ])
+                    ->columnSpanFull()
             ]);
     }
 

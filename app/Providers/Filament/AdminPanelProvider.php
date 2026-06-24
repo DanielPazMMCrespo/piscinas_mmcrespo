@@ -84,22 +84,74 @@ class AdminPanelProvider extends PanelProvider
 <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    function initLightbox() {
-        document.querySelectorAll('.fi-in-image img, .fi-in-image a').forEach(function (el) {
-            if (el.dataset.glightboxInit) return;
-            el.dataset.glightboxInit = '1';
-            var src = el.tagName === 'IMG' ? el.src : el.href;
-            if (!src) return;
-            el.style.cursor = 'zoom-in';
-            el.addEventListener('click', function (e) {
-                e.preventDefault();
-                GLightbox({ elements: [{ href: src, type: 'image' }], touchNavigation: true, loop: false }).open();
-            });
-        });
-    }
-    initLightbox();
-    var observer = new MutationObserver(initLightbox);
-    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('click', function (e) {
+        // 1. Check if clicked element or parent is an image/link inside an infolist image entry
+        var infolistEl = e.target.closest('.fi-in-image img, .fi-in-image a, .fi-ta-image img');
+        if (infolistEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            var src = infolistEl.tagName === 'IMG' ? infolistEl.src : infolistEl.href;
+            if (src && typeof GLightbox !== 'undefined') {
+                GLightbox({ elements: [{ href: src, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+            }
+            return;
+        }
+
+        // 2. Check if clicked element or parent is a FilePond image preview canvas
+        var canvasContainer = e.target.closest('.filepond--image-preview-wrapper canvas, .filepond--image-preview');
+        if (canvasContainer) {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                var canvasEl = canvasContainer.tagName === 'CANVAS' ? canvasContainer : canvasContainer.querySelector('canvas');
+                if (canvasEl) {
+                    var dataUrl = canvasEl.toDataURL('image/jpeg', 0.95);
+                    if (typeof GLightbox !== 'undefined') {
+                        GLightbox({ elements: [{ href: dataUrl, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+                    } else {
+                        var win = window.open();
+                        if (win) {
+                            win.document.write('<img src="' + dataUrl + '" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error opening image preview:', err);
+            }
+            return;
+        }
+
+        // 3. Check if clicked element is an anchor link pointing to a storage image or image file
+        var anchor = e.target.closest('a');
+        if (anchor) {
+            var href = anchor.getAttribute('href');
+            if (href) {
+                var isImage = href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) || 
+                              href.includes('/storage/') || 
+                              href.includes('r2.dev') ||
+                              href.includes('/app/private/') ||
+                              anchor.closest('.filepond--file') !== null;
+                
+                if (isImage) {
+                    if (anchor.classList.contains('filepond--action-remove-item') || anchor.hasAttribute('download')) {
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof GLightbox !== 'undefined') {
+                        GLightbox({ elements: [{ href: href, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+                    } else {
+                        window.open(href, '_blank');
+                    }
+                }
+            }
+        }
+    });
+
+    var style = document.createElement('style');
+    style.innerHTML = '.fi-in-image img, .fi-in-image a, .fi-ta-image img, .filepond--image-preview-wrapper, .filepond--file-info { cursor: zoom-in !important; }';
+    document.head.appendChild(style);
 });
 </script>
 HTML,
