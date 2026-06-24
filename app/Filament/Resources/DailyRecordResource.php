@@ -247,8 +247,6 @@ class DailyRecordResource extends Resource
     {
         return $campo
             ->live(onBlur: true)
-            ->type('text')
-            ->inputMode('decimal')
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => self::conformidadeCampo($metrica, $get)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => self::corSemaforo(self::conformidadeCampo($metrica, $get)['estado']))
@@ -320,469 +318,493 @@ class DailyRecordResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                Forms\Components\Wizard::make([
+        $step1 = [
+            Forms\Components\Section::make('Informação Geral')
+                ->icon('heroicon-o-identification')
+                ->collapsible()
+                ->columns(3)
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    filled($get('pool_id')) && filled($get('registado_em'))
+                ))
+                ->schema([
+                    Forms\Components\Select::make('pool_id')
+                        ->label('Piscina')
+                        ->relationship('piscina', 'name')
+                        ->required()
+                        ->preload()
+                        ->searchable()
+                        ->default(fn (): ?int => request()->integer('pool')
+                            ?: DailyRecord::query()
+                                ->where('user_id', auth()->id())
+                                ->orderByDesc('registado_em')
+                                ->orderByDesc('id')
+                                ->value('pool_id'))
+                        ->live()
+                        ->afterStateUpdated(function (Set $set, $state): void {
+                            $ultimo = self::ultimoRegisto($state ? (int) $state : null);
+                            $set('bomba_ferrada', $ultimo?->bomba_ferrada);
+                            $set('agua_modo', $ultimo?->agua_modo);
+                            $set('tanque_ok', $ultimo?->tanque_ok);
+                        }),
+                    Forms\Components\Select::make('user_id')
+                        ->label('Técnico / Nadador-Salvador')
+                        ->relationship('utilizador', 'name')
+                        ->default(auth()->id())
+                        ->required()
+                        ->disabled()
+                        ->dehydrated(),
+                    Forms\Components\DateTimePicker::make('registado_em')
+                        ->label('Data e Hora do Registo')
+                        ->default(now())
+                        ->required()
+                        ->live(onBlur: true),
+                ]),
 
-                    Forms\Components\Wizard\Step::make('Piscina & Estado')
-                        ->icon('heroicon-o-home')
+            Forms\Components\Section::make('Bomba')
+                ->description('A bomba está ferrada?')
+                ->icon('heroicon-o-bolt')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->collapsible()
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    $get('bomba_ferrada') !== null
+                ))
+                ->schema([
+                    Forms\Components\Toggle::make('bomba_ferrada')
+                        ->label('Bomba ferrada')
+                        ->helperText('Liga se a bomba está a aspirar bem, sem ar.')
+                        ->onIcon('heroicon-m-check')
+                        ->offIcon('heroicon-m-x-mark')
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada)
+                        ->live(onBlur: true),
+                    Forms\Components\FileUpload::make('bomba_foto')
+                        ->label('Foto da Bomba')
+                        ->disk('public')->visibility('public')
+                        ->directory('bomba')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->helperText('Foto opcional da bomba para documentação')
+                        ->columnSpanFull(),
+                ]),
+
+            Forms\Components\Section::make('Contador & Água')
+                ->description(fn (Get $get): string => 'Leitura do contador e estado da entrada de água. '.self::progresso(['contador_valor', 'agua_modo'], $get))
+                ->icon('heroicon-o-calculator')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->collapsible()
+                ->columns(2)
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    filled($get('contador_valor')) && filled($get('agua_modo'))
+                ))
+                ->schema([
+                    Forms\Components\TextInput::make('contador_valor')
+                        ->label('Valor do Contador (m³)')
+                        ->numeric()
+                        ->step(0.01)
+                        ->minValue(0)
+                        ->suffix('m³')
+                        ->extraInputAttributes(['inputmode' => 'decimal'])
+                        ->helperText(fn (Get $get): string => 'O contador não anda para trás.'.self::lookback('contador_valor', $get))
+                        ->rules([
+                            fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                $ultimo = self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null);
+                                if (filled($value) && $ultimo && $ultimo->contador_valor !== null
+                                    && (float) $value < (float) $ultimo->contador_valor) {
+                                    $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
+                                }
+                            },
+                        ])
+                        ->live(onBlur: true),
+                    Forms\Components\Select::make('agua_modo')
+                        ->label('Estado da Entrada de Água')
+                        ->options([
+                            'auto_com_agua' => 'Automático — com água',
+                            'auto_sem_agua' => 'Automático — sem água',
+                            'on_com_agua' => 'ON — com água',
+                            'on_sem_agua' => 'ON — sem água',
+                            'off' => 'OFF — sem água na instalação',
+                        ])
+                        ->native(false)
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
+                        ->live(onBlur: true),
+                    Forms\Components\FileUpload::make('contador_foto')
+                        ->label('Foto do Contador')
+                        ->disk('public')->visibility('public')
+                        ->directory('contador')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->helperText('Evidência fotográfica da leitura do contador')
+                        ->columnSpanFull(),
+                ]),
+
+            Forms\Components\Section::make('Tanque de Compensação')
+                ->icon('heroicon-o-beaker')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->collapsible()
+                ->columns(2)
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    $get('tanque_ok') !== null
+                ))
+                ->schema([
+                    Forms\Components\Toggle::make('tanque_ok')
+                        ->label('Tanque OK')
+                        ->helperText('Nível e estado conformes.')
+                        ->onIcon('heroicon-m-check')
+                        ->offIcon('heroicon-m-x-mark')
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->tanque_ok)
+                        ->live(onBlur: true),
+                    Forms\Components\Textarea::make('tanque_observacoes')
+                        ->label('Observações do Tanque')
+                        ->rows(2)
+                        ->columnSpanFull(),
+                    Forms\Components\FileUpload::make('tanque_foto')
+                        ->label('Foto do Tanque')
+                        ->disk('public')->visibility('public')
+                        ->directory('tanque')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->helperText('Foto opcional do tanque de compensação para documentação')
+                        ->columnSpanFull(),
+                ]),
+        ];
+
+        $step2 = [
+            Forms\Components\Section::make('Análises — Nadador-Salvador')
+                ->description(fn (Get $get): string => 'Leituras feitas pelo Nadador-Salvador. '.self::progresso(['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'], $get))
+                ->icon('heroicon-o-eye')
+                ->collapsible()
+                ->columns(2)
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
+                ))
+                ->schema([
+                    Forms\Components\FileUpload::make('ns_foto')
+                        ->label('Foto da Análise NS')
+                        ->disk('public')->visibility('public')
+                        ->directory('ns-fotos')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->columnSpanFull(),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('ns_ph')
+                            ->label('pH (NS)')
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(14),
+                        'ns_ph'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('ns_cloro_livre')
+                            ->label('Cloro Livre — NS (mg/L)')
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                        'ns_cloro_livre'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('ns_cloro_total')
+                            ->label('Cloro Total — NS (mg/L)')
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                        'ns_cloro_total'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('ns_temperatura')
+                            ->label('Temperatura — NS (ºC)')
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(50),
+                        'ns_temperatura'
+                    ),
+                ]),
+
+            Forms\Components\Section::make('Nossas Análises')
+                ->description(fn (Get $get): string => 'Análises do técnico, com até 5 fotos de evidência. '.self::progresso(['ph', 'cloro_livre', 'cloro_total', 'temperatura', 'transparencia'], $get))
+                ->icon('heroicon-o-beaker')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->collapsible()
+                ->columns(2)
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    filled($get('ph'))
+                    && filled($get('cloro_livre'))
+                    && filled($get('cloro_total'))
+                    && filled($get('temperatura'))
+                    && filled($get('transparencia'))
+                ))
+                ->schema([
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('ph')
+                            ->label('pH')
+                            ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::PH_MIN.' a '.DailyRecord::PH_MAX.self::lookback('ph', $get))
+                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(14)
+                            ->rules(['between:0,14']),
+                        'ph'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('cloro_livre')
+                            ->label('Cloro Livre (mg/L)')
+                            ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::CLORO_LIVRE_MIN.' a '.DailyRecord::CLORO_LIVRE_MAX.' mg/L'.self::lookback('cloro_livre', $get))
+                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                        'cloro_livre'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('cloro_total')
+                            ->label('Cloro Total (mg/L)')
+                            ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::CLORO_COMBINADO_MAX.' mg/L'.self::lookback('cloro_total', $get))
+                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                            ->rules([
+                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
+                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                    }
+                                },
+                            ]),
+                        'cloro_total'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('temperatura')
+                            ->label('Temperatura (ºC)')
+                            ->helperText(fn (Get $get): string => 'Avaliada contra os limites próprios da piscina (temp. mín/máx).'.self::lookback('temperatura', $get))
+                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->numeric()->step(0.1)->minValue(0)->maxValue(50),
+                        'temperatura'
+                    ),
+                    self::comSemaforo(
+                        Forms\Components\TextInput::make('transparencia')
+                            ->label('Turbidez (FNU)')
+                            ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
+                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
+                        'transparencia'
+                    ),
+                    Forms\Components\FileUpload::make('analises_fotos')
+                        ->label('Fotos das análises (até 5)')
+                        ->disk('public')->visibility('public')
+                        ->directory('analises')
+                        ->image()
+                        ->multiple()
+                        ->maxFiles(5)
+                        ->reorderable()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->columnSpanFull(),
+                ]),
+        ];
+
+        $step3 = [
+            Forms\Components\Section::make('Filtros')
+                ->description(fn (Get $get): string => self::descricaoFiltros($get))
+                ->icon('heroicon-o-funnel')
+                ->collapsible()
+                ->extraAttributes(fn (): array => self::sectionRing(true))
+                ->schema([
+                    Forms\Components\Toggle::make('filtro_faz_retrolavagem')
+                        ->label('Vai ser feita uma retrolavagem?')
+                        ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
+                        ->default(false)
+                        ->live(),
+                    Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
+                        ->label('Foto — Posição Retrolavagem')
+                        ->disk('public')->visibility('public')
+                        ->directory('filtros')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
+                        ->label('Foto — Posição Enxaguamento')
+                        ->disk('public')->visibility('public')
+                        ->directory('filtros')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
+                        ->label('Foto — Retorno à Posição Normal')
+                        ->disk('public')->visibility('public')
+                        ->directory('filtros')
+                        ->image()
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                ]),
+        ];
+
+        $step4 = [
+            Forms\Components\Section::make('Adições de Químicos')
+                ->icon('heroicon-o-sparkles')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->collapsible()
+                ->extraAttributes(fn (): array => self::sectionRing(true))
+                ->schema([
+                    Forms\Components\Repeater::make('adicoes')
+                        ->relationship()
+                        ->label('')
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->addActionLabel('Adicionar produto')
                         ->schema([
-                            Forms\Components\Section::make('Informação Geral')
-                                ->icon('heroicon-o-identification')
-                                ->collapsible()
-                                ->columns(3)
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    filled($get('pool_id')) && filled($get('registado_em'))
-                                ))
-                                ->schema([
-                                    Forms\Components\Select::make('pool_id')
-                                        ->label('Piscina')
-                                        ->relationship('piscina', 'name')
-                                        ->required()
-                                        ->preload()
-                                        ->searchable()
-                                        ->default(fn (): ?int => request()->integer('pool')
-                                            ?: DailyRecord::query()
-                                                ->where('user_id', auth()->id())
-                                                ->orderByDesc('registado_em')
-                                                ->orderByDesc('id')
-                                                ->value('pool_id'))
-                                        ->live()
-                                        ->afterStateUpdated(function (Set $set, $state): void {
-                                            $ultimo = self::ultimoRegisto($state ? (int) $state : null);
-                                            $set('bomba_ferrada', $ultimo?->bomba_ferrada);
-                                            $set('agua_modo', $ultimo?->agua_modo);
-                                            $set('tanque_ok', $ultimo?->tanque_ok);
-                                        }),
-                                    Forms\Components\Select::make('user_id')
-                                        ->label('Técnico / Nadador-Salvador')
-                                        ->relationship('utilizador', 'name')
-                                        ->default(auth()->id())
-                                        ->required()
-                                        ->disabled()
-                                        ->dehydrated(),
-                                    Forms\Components\DateTimePicker::make('registado_em')
-                                        ->label('Data e Hora do Registo')
-                                        ->default(now())
-                                        ->required()
-                                        ->live(onBlur: true),
-                                ]),
-
-                            Forms\Components\Section::make('Bomba')
-                                ->description('A bomba está ferrada?')
-                                ->icon('heroicon-o-bolt')
-                                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                                ->collapsible()
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    $get('bomba_ferrada') !== null
-                                ))
-                                ->schema([
-                                    Forms\Components\Toggle::make('bomba_ferrada')
-                                        ->label('Bomba ferrada')
-                                        ->helperText('Liga se a bomba está a aspirar bem, sem ar.')
-                                        ->onIcon('heroicon-m-check')
-                                        ->offIcon('heroicon-m-x-mark')
-                                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada)
-                                        ->live(onBlur: true),
-                                    Forms\Components\FileUpload::make('bomba_foto')
-                                        ->label('Foto da Bomba')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('bomba')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->helperText('Foto opcional da bomba para documentação')
-                                        ->columnSpanFull(),
-                                ]),
-
-                            Forms\Components\Section::make('Contador & Água')
-                                ->description(fn (Get $get): string => 'Leitura do contador e estado da entrada de água. '.self::progresso(['contador_valor', 'agua_modo'], $get))
-                                ->icon('heroicon-o-calculator')
-                                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                                ->collapsible()
-                                ->columns(2)
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    filled($get('contador_valor')) && filled($get('agua_modo'))
-                                ))
-                                ->schema([
-                                    Forms\Components\TextInput::make('contador_valor')
-                                        ->label('Valor do Contador (m³)')
-                                        ->numeric()
-                                        ->step(0.01)
-                                        ->minValue(0)
-                                        ->suffix('m³')
-                                        ->type('text')
-                                        ->inputMode('decimal')
-                                        ->extraInputAttributes(['inputmode' => 'decimal'])
-                                        ->helperText(fn (Get $get): string => 'O contador não anda para trás.'.self::lookback('contador_valor', $get))
-                                        ->rules([
-                                            fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                                $ultimo = self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null);
-                                                if (filled($value) && $ultimo && $ultimo->contador_valor !== null
-                                                    && (float) $value < (float) $ultimo->contador_valor) {
-                                                    $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
-                                                }
-                                            },
-                                        ])
-                                        ->live(onBlur: true),
-                                    Forms\Components\Select::make('agua_modo')
-                                        ->label('Estado da Entrada de Água')
-                                        ->options([
-                                            'auto_com_agua' => 'Automático — com água',
-                                            'auto_sem_agua' => 'Automático — sem água',
-                                            'on_com_agua' => 'ON — com água',
-                                            'on_sem_agua' => 'ON — sem água',
-                                            'off' => 'OFF — sem água na instalação',
-                                        ])
-                                        ->native(false)
-                                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
-                                        ->live(onBlur: true),
-                                    Forms\Components\FileUpload::make('contador_foto')
-                                        ->label('Foto do Contador')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('contador')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->helperText('Evidência fotográfica da leitura do contador')
-                                        ->columnSpanFull(),
-                                ]),
-
-                            Forms\Components\Section::make('Tanque de Compensação')
-                                ->icon('heroicon-o-beaker')
-                                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                                ->collapsible()
-                                ->columns(2)
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    $get('tanque_ok') !== null
-                                ))
-                                ->schema([
-                                    Forms\Components\Toggle::make('tanque_ok')
-                                        ->label('Tanque OK')
-                                        ->helperText('Nível e estado conformes.')
-                                        ->onIcon('heroicon-m-check')
-                                        ->offIcon('heroicon-m-x-mark')
-                                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->tanque_ok)
-                                        ->live(onBlur: true),
-                                    Forms\Components\Textarea::make('tanque_observacoes')
-                                        ->label('Observações do Tanque')
-                                        ->rows(2)
-                                        ->columnSpanFull(),
-                                    Forms\Components\FileUpload::make('tanque_foto')
-                                        ->label('Foto do Tanque')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('tanque')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->helperText('Foto opcional do tanque de compensação para documentação')
-                                        ->columnSpanFull(),
-                                ]),
-                        ]),
-
-                    Forms\Components\Wizard\Step::make('Análises')
-                        ->icon('heroicon-o-beaker')
-                        ->schema([
-                            Forms\Components\Section::make('Análises — Nadador-Salvador')
-                                ->description(fn (Get $get): string => 'Leituras feitas pelo Nadador-Salvador. '.self::progresso(['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'], $get))
-                                ->icon('heroicon-o-eye')
-                                ->collapsible()
-                                ->columns(2)
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
-                                ))
-                                ->schema([
-                                    Forms\Components\FileUpload::make('ns_foto')
-                                        ->label('Foto da Análise NS')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('ns-fotos')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->columnSpanFull(),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('ns_ph')
-                                            ->label('pH (NS)')
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(14),
-                                        'ns_ph'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('ns_cloro_livre')
-                                            ->label('Cloro Livre — NS (mg/L)')
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
-                                        'ns_cloro_livre'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('ns_cloro_total')
-                                            ->label('Cloro Total — NS (mg/L)')
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
-                                        'ns_cloro_total'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('ns_temperatura')
-                                            ->label('Temperatura — NS (ºC)')
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(50),
-                                        'ns_temperatura'
-                                    ),
-                                ]),
-
-                            Forms\Components\Section::make('Nossas Análises')
-                                ->description(fn (Get $get): string => 'Análises do técnico, com até 5 fotos de evidência. '.self::progresso(['ph', 'cloro_livre', 'cloro_total', 'temperatura', 'transparencia'], $get))
-                                ->icon('heroicon-o-beaker')
-                                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                                ->collapsible()
-                                ->columns(2)
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    filled($get('ph'))
-                                    && filled($get('cloro_livre'))
-                                    && filled($get('cloro_total'))
-                                    && filled($get('temperatura'))
-                                    && filled($get('transparencia'))
-                                ))
-                                ->schema([
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('ph')
-                                            ->label('pH')
-                                            ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::PH_MIN.' a '.DailyRecord::PH_MAX.self::lookback('ph', $get))
-                                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(14)
-                                            ->rules(['between:0,14']),
-                                        'ph'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('cloro_livre')
-                                            ->label('Cloro Livre (mg/L)')
-                                            ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::CLORO_LIVRE_MIN.' a '.DailyRecord::CLORO_LIVRE_MAX.' mg/L'.self::lookback('cloro_livre', $get))
-                                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
-                                        'cloro_livre'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('cloro_total')
-                                            ->label('Cloro Total (mg/L)')
-                                            ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::CLORO_COMBINADO_MAX.' mg/L'.self::lookback('cloro_total', $get))
-                                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                                            ->rules([
-                                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                                    if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
-                                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                                    }
-                                                },
-                                            ]),
-                                        'cloro_total'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('temperatura')
-                                            ->label('Temperatura (ºC)')
-                                            ->helperText(fn (Get $get): string => 'Avaliada contra os limites próprios da piscina (temp. mín/máx).'.self::lookback('temperatura', $get))
-                                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                            ->numeric()->step(0.1)->minValue(0)->maxValue(50),
-                                        'temperatura'
-                                    ),
-                                    self::comSemaforo(
-                                        Forms\Components\TextInput::make('transparencia')
-                                            ->label('Turbidez (FNU)')
-                                            ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
-                                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
-                                            ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
-                                        'transparencia'
-                                    ),
-                                    Forms\Components\FileUpload::make('analises_fotos')
-                                        ->label(fn (): string => 'Fotos das análises (até ' . app(\App\Services\SettingsService::class)->getInt('max_fotos_analise', 5) . ')')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('analises')
-                                        ->image()
-                                        ->multiple()
-                                        ->maxFiles(fn (): int => app(\App\Services\SettingsService::class)->getInt('max_fotos_analise', 5))
-                                        ->reorderable()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->columnSpanFull(),
-                                ]),
-                        ]),
-
-                    Forms\Components\Wizard\Step::make('Filtros')
-                        ->icon('heroicon-o-funnel')
-                        ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                        ->schema([
-                            Forms\Components\Section::make('Filtros')
-                                ->description(fn (Get $get): string => self::descricaoFiltros($get))
-                                ->icon('heroicon-o-funnel')
-                                ->collapsible()
-                                ->extraAttributes(fn (): array => self::sectionRing(true))
-                                ->schema([
-                                    Forms\Components\Toggle::make('filtro_faz_retrolavagem')
-                                        ->label('Vai ser feita uma retrolavagem?')
-                                        ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
-                                        ->default(false)
-                                        ->live(),
-                                    Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
-                                        ->label('Foto — Posição Retrolavagem')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('filtros')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                                    Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
-                                        ->label('Foto — Posição Enxaguamento')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('filtros')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                                    Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
-                                        ->label('Foto — Retorno à Posição Normal')
-                                        ->disk('public')->visibility('public')
-                                        ->directory('filtros')
-                                        ->image()
-                                        ->maxSize(5120)
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                                ]),
-                        ]),
-
-                    Forms\Components\Wizard\Step::make('Químicos & Notas')
-                        ->icon('heroicon-o-sparkles')
-                        ->schema([
-                            Forms\Components\Section::make('Adições de Químicos')
-                                ->icon('heroicon-o-sparkles')
-                                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                                ->collapsible()
-                                ->extraAttributes(fn (): array => self::sectionRing(true))
-                                ->schema([
-                                    Forms\Components\Repeater::make('adicoes')
-                                        ->relationship()
-                                        ->label('')
-                                        ->columns(2)
-                                        ->defaultItems(0)
-                                        ->addActionLabel('Adicionar produto')
-                                        ->schema([
-                                            Forms\Components\Select::make('product_id')
-                                                ->label('Produto')
-                                                ->relationship('produto', 'name')
-                                                ->required()
-                                                ->searchable()
-                                                ->preload()
-                                                ->live(),
-                                            Forms\Components\TextInput::make('quantity')
-                                                ->label('Quantidade')
-                                                ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
+                            Forms\Components\Select::make('product_id')
+                                ->label('Produto')
+                                ->relationship('produto', 'name')
+                                ->required()
+                                ->searchable()
+                                ->preload()
+                                ->live(),
+                            Forms\Components\TextInput::make('quantity')
+                                ->label('Quantidade')
+                                ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
+                                ->numeric()
+                                ->required()
+                                ->minValue(0)
+                                ->step(0.001)
+                                ->rules([
+                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                        $disponivel = self::quantidadeDisponivel($get);
+                                        if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
+                                            $productId = $get('product_id');
+                                            $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
+                                            $fail("Quantidade insuficiente. Disponível: {$disponivel} {$unidade}.");
+                                        }
+                                    },
+                                ])
+                                ->suffixAction(
+                                    Forms\Components\Actions\Action::make('calcular_dose')
+                                        ->icon('heroicon-m-calculator')
+                                        ->tooltip('Calculadora de dosagem de cloro')
+                                        ->mountUsing(function (Forms\Form $form, Get $get): void {
+                                            $cloroAtual = (float) ($get('../../cloro_livre') ?? 0);
+                                            $deficit = max(0.0, round(1.7 - $cloroAtual, 3));
+                                            $productId = $get('product_id');
+                                            $concentracao = $productId
+                                                ? (\App\Models\Product::find($productId)?->concentracao_cl)
+                                                : null;
+                                            $form->fill([
+                                                'dosagem' => $deficit > 0 ? $deficit : null,
+                                                'concentracao' => $concentracao,
+                                            ]);
+                                        })
+                                        ->form([
+                                            Forms\Components\TextInput::make('dosagem')
+                                                ->label('Dosagem em falta (mg/L)')
+                                                ->helperText('Défice até ao alvo de 1,7 mg/L de cloro livre.')
                                                 ->numeric()
                                                 ->required()
-                                                ->minValue(0)
                                                 ->step(0.001)
-                                                ->rules([
-                                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                                        $disponivel = self::quantidadeDisponivel($get);
-                                                        if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
-                                                            $productId = $get('product_id');
-                                                            $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
-                                                            $fail("Quantidade insuficiente. Disponível: {$disponivel} {$unidade}.");
-                                                        }
-                                                    },
-                                                ])
-                                                ->suffixAction(
-                                                    Forms\Components\Actions\Action::make('calcular_dose')
-                                                        ->icon('heroicon-m-calculator')
-                                                        ->tooltip('Calculadora de dosagem de cloro')
-                                                        ->mountUsing(function (Forms\Form $form, Get $get): void {
-                                                            $cloroAtual = (float) ($get('../../cloro_livre') ?? 0);
-                                                            $deficit = max(0.0, round(1.7 - $cloroAtual, 3));
-                                                            $productId = $get('product_id');
-                                                            $concentracao = $productId
-                                                                ? (\App\Models\Product::find($productId)?->concentracao_cl)
-                                                                : null;
-                                                            $form->fill([
-                                                                'dosagem' => $deficit > 0 ? $deficit : null,
-                                                                'concentracao' => $concentracao,
-                                                            ]);
-                                                        })
-                                                        ->form([
-                                                            Forms\Components\TextInput::make('dosagem')
-                                                                ->label('Dosagem em falta (mg/L)')
-                                                                ->helperText('Défice até ao alvo de 1,7 mg/L de cloro livre.')
-                                                                ->numeric()
-                                                                ->required()
-                                                                ->step(0.001)
-                                                                ->minValue(0),
-                                                            Forms\Components\TextInput::make('concentracao')
-                                                                ->label('Concentração de cloro ativo (%)')
-                                                                ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio.')
-                                                                ->numeric()
-                                                                ->required()
-                                                                ->step(0.01)
-                                                                ->minValue(0.01)
-                                                                ->maxValue(100.00)
-                                                                ->suffix('%'),
-                                                        ])
-                                                        ->action(function (array $data, Set $set, Get $get): void {
-                                                            $poolId = $get('../../pool_id');
-                                                            $pool = Pool::find($poolId);
+                                                ->minValue(0),
+                                            Forms\Components\TextInput::make('concentracao')
+                                                ->label('Concentração de cloro ativo (%)')
+                                                ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio.')
+                                                ->numeric()
+                                                ->required()
+                                                ->step(0.01)
+                                                ->minValue(0.01)
+                                                ->maxValue(100.00)
+                                                ->suffix('%'),
+                                        ])
+                                        ->action(function (array $data, Set $set, Get $get): void {
+                                            $poolId = $get('../../pool_id');
+                                            $pool = Pool::find($poolId);
 
-                                                            if (! $pool || ! $pool->volume || (float) $data['concentracao'] <= 0) {
-                                                                Notification::make()
-                                                                    ->warning()
-                                                                    ->title('Cálculo impossível')
-                                                                    ->body('O volume da piscina não está definido ou a concentração é inválida.')
-                                                                    ->send();
+                                            if (! $pool || ! $pool->volume || (float) $data['concentracao'] <= 0) {
+                                                Notification::make()
+                                                    ->warning()
+                                                    ->title('Cálculo impossível')
+                                                    ->body('O volume da piscina não está definido ou a concentração é inválida.')
+                                                    ->send();
 
-                                                                return;
-                                                            }
+                                                return;
+                                            }
 
-                                                            $resultado = round(
-                                                                ((float) $pool->volume * (float) $data['dosagem'])
-                                                                / ((float) $data['concentracao'] * 10),
-                                                                3
-                                                            );
-                                                            $set('quantity', $resultado);
-                                                        })
-                                                ),
-                                            Forms\Components\Textarea::make('acao_corretiva')
-                                                ->label('Ação corretiva tomada (opcional)')
-                                                ->helperText('Descreva a correção ou medida aplicada (ex.: dose de ácido, reforço de cloro, pausa de funcionamento).')
-                                                ->rows(2)
-                                                ->columnSpanFull(),
-                                        ]),
-                                ]),
-
-                            Forms\Components\Section::make('Observações')
-                                ->icon('heroicon-o-chat-bubble-bottom-center-text')
-                                ->collapsible()
-                                ->extraAttributes(fn (): array => self::sectionRing(true))
-                                ->schema([
-                                    Forms\Components\Textarea::make('observacoes')
-                                        ->label('Observações')
-                                        ->rows(3)
-                                        ->columnSpanFull(),
-                                ]),
-
-                            Forms\Components\Section::make('Informação de Correção')
-                                ->icon('heroicon-o-exclamation-triangle')
-                                ->collapsible()
-                                ->visible(fn (Get $get): bool => (bool) $get('e_correcao'))
-                                ->extraAttributes(fn (Get $get): array => self::sectionRing(
-                                    ! $get('e_correcao') || filled($get('razao_correcao'))
-                                ))
-                                ->schema([
-                                    Forms\Components\Placeholder::make('aviso_correcao')
-                                        ->label('')
-                                        ->content('Este registo é uma correção. O original mantém-se inalterado no livro sanitário.'),
-                                    Forms\Components\Textarea::make('razao_correcao')
-                                        ->label('Razão da Correção')
-                                        ->required()
-                                        ->minLength(5)
-                                        ->live(onBlur: true)
-                                        ->columnSpanFull(),
-                                ]),
+                                            $resultado = round(
+                                                ((float) $pool->volume * (float) $data['dosagem'])
+                                                / ((float) $data['concentracao'] * 10),
+                                                3
+                                            );
+                                            $set('quantity', $resultado);
+                                        })
+                                ),
+                            Forms\Components\Textarea::make('acao_corretiva')
+                                ->label('Ação corretiva tomada (opcional)')
+                                ->helperText('Descreva a correção ou medida aplicada (ex.: dose de ácido, reforço de cloro, pausa de funcionamento).')
+                                ->rows(2)
+                                ->columnSpanFull(),
                         ]),
+                ]),
 
-                ])
-                ->skippable()
-                ->columnSpanFull()
-                ->persistStepInQueryString('registo-step'),
+            Forms\Components\Section::make('Observações')
+                ->icon('heroicon-o-chat-bubble-bottom-center-text')
+                ->collapsible()
+                ->extraAttributes(fn (): array => self::sectionRing(true))
+                ->schema([
+                    Forms\Components\Textarea::make('observacoes')
+                        ->label('Observações')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ]),
+
+            Forms\Components\Section::make('Informação de Correção')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->collapsible()
+                ->visible(fn (Get $get): bool => (bool) $get('e_correcao'))
+                ->extraAttributes(fn (Get $get): array => self::sectionRing(
+                    ! $get('e_correcao') || filled($get('razao_correcao'))
+                ))
+                ->schema([
+                    Forms\Components\Placeholder::make('aviso_correcao')
+                        ->label('')
+                        ->content('Este registo é uma correção. O original mantém-se inalterado no livro sanitário.'),
+                    Forms\Components\Textarea::make('razao_correcao')
+                        ->label('Razão da Correção')
+                        ->required()
+                        ->minLength(5)
+                        ->live(onBlur: true)
+                        ->columnSpanFull(),
+                ]),
+        ];
+
+        if ($form->getOperation() === 'create') {
+            return $form
+                ->schema([
+                    Forms\Components\Wizard::make([
+                        Forms\Components\Wizard\Step::make('Piscina & Estado')
+                            ->icon('heroicon-o-home')
+                            ->schema($step1),
+                        Forms\Components\Wizard\Step::make('Análises')
+                            ->icon('heroicon-o-beaker')
+                            ->schema($step2),
+                        Forms\Components\Wizard\Step::make('Filtros')
+                            ->icon('heroicon-o-funnel')
+                            ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                            ->schema($step3),
+                        Forms\Components\Wizard\Step::make('Químicos & Notas')
+                            ->icon('heroicon-o-sparkles')
+                            ->schema($step4),
+                    ])
+                    ->skippable()
+                    ->columnSpanFull()
+                    ->persistStepInQueryString('registo-step'),
+                ]);
+        }
+
+        return $form
+            ->schema([
+                Forms\Components\Tabs::make('Registo')
+                    ->tabs([
+                        Forms\Components\Tabs\Tab::make('Piscina & Estado')
+                            ->icon('heroicon-o-home')
+                            ->schema($step1),
+                        Forms\Components\Tabs\Tab::make('Análises')
+                            ->icon('heroicon-o-beaker')
+                            ->schema($step2),
+                        Forms\Components\Tabs\Tab::make('Filtros')
+                            ->icon('heroicon-o-funnel')
+                            ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                            ->schema($step3),
+                        Forms\Components\Tabs\Tab::make('Químicos & Notas')
+                            ->icon('heroicon-o-sparkles')
+                            ->schema($step4),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -840,14 +862,6 @@ class DailyRecordResource extends Resource
                             ->color('info'),
                     ])->space(1),
 
-                    Tables\Columns\IconColumn::make('filtro_faz_retrolavagem')
-                        ->label('Retrolavagem')
-                        ->boolean()
-                        ->trueIcon('heroicon-o-check-circle')
-                        ->falseIcon('heroicon-o-x-circle')
-                        ->trueColor('success')
-                        ->falseColor('gray'),
-
                     Tables\Columns\TextColumn::make('estado')
                         ->label('Estado')
                         ->badge()
@@ -904,6 +918,7 @@ class DailyRecordResource extends Resource
                     ->falseLabel('Apenas registos originais'),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('corrigir')
                     ->label('Corrigir')
@@ -922,16 +937,13 @@ class DailyRecordResource extends Resource
                     ->form([
                         Forms\Components\TextInput::make('ph')
                             ->label('pH')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14)
-                            ->type('text')->inputMode('decimal'),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                            ->type('text')->inputMode('decimal'),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                         Forms\Components\TextInput::make('cloro_total')
                             ->label('Cloro Total (mg/L)')
                             ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                            ->type('text')->inputMode('decimal')
                             ->rules([
                                 fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                     if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
@@ -941,8 +953,7 @@ class DailyRecordResource extends Resource
                             ]),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX)
-                            ->type('text')->inputMode('decimal'),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()
