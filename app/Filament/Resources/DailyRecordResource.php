@@ -86,7 +86,7 @@ class DailyRecordResource extends Resource
     {
         return Forms\Components\Placeholder::make($field . '_preview')
             ->label($label)
-            ->visible(fn ($record, Get $get) => $record !== null && filled($record->{$field}) && ($field === 'filtro_foto_retrolavagem' || $field === 'filtro_foto_enxaguamento' || $field === 'filtro_foto_posicao_normal' ? (bool)$get('filtro_faz_retrolavagem') : true))
+            ->visible(fn ($record, Get $get) => $record !== null && filled($record->{$field}) && !((bool)$get('substituir_' . $field)) && ($field === 'filtro_foto_retrolavagem' || $field === 'filtro_foto_enxaguamento' || $field === 'filtro_foto_posicao_normal' ? (bool)$get('filtro_faz_retrolavagem') : true))
             ->content(function ($record) use ($field) {
                 $val = $record->{$field};
                 if (empty($val)) {
@@ -105,6 +105,51 @@ class DailyRecordResource extends Resource
                 $html .= '</div>';
                 return new \Illuminate\Support\HtmlString($html);
             });
+    }
+
+    private static function fotoField(
+        string $field,
+        string $label,
+        string $directory,
+        bool $multiple = false,
+        int $maxFiles = 5,
+        ?Closure $extraVisible = null,
+        ?string $helperText = null
+    ): array {
+        $toggleName = 'substituir_' . $field;
+
+        return [
+            Forms\Components\Toggle::make($toggleName)
+                ->label('Substituir foto existente')
+                ->visible(fn ($record, Get $get) =>
+                    $record !== null &&
+                    filled($record->{$field}) &&
+                    ($extraVisible ? $extraVisible($record, $get) : true)
+                )
+                ->dehydrated(false)
+                ->live(),
+
+            self::fotoPreview($field, 'Visualização da Foto'),
+
+            Forms\Components\FileUpload::make($field)
+                ->label($label)
+                ->disk('public')->visibility('public')
+                ->directory($directory)
+                ->image()
+                ->multiple($multiple)
+                ->maxFiles($multiple ? $maxFiles : null)
+                ->reorderable($multiple)
+                ->maxSize(5120)
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                ->openable()
+                ->downloadable()
+                ->helperText($helperText)
+                ->visible(fn ($record, Get $get) =>
+                    ($record === null || !filled($record->{$field}) || (bool)$get($toggleName)) &&
+                    ($extraVisible ? $extraVisible($record, $get) : true)
+                )
+                ->columnSpanFull(),
+        ];
     }
 
     private static function ultimoRegisto(?int $poolId): ?DailyRecord
@@ -401,18 +446,7 @@ class DailyRecordResource extends Resource
                         ->offIcon('heroicon-m-x-mark')
                         ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada)
                         ->live(onBlur: true),
-                    self::fotoPreview('bomba_foto', 'Visualização da Foto da Bomba'),
-                    Forms\Components\FileUpload::make('bomba_foto')
-                        ->label('Foto da Bomba')
-                        ->disk('public')->visibility('public')
-                        ->directory('bomba')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->helperText('Foto opcional da bomba para documentação')
-                        ->openable()
-                        ->downloadable()
-                        ->columnSpanFull(),
+                    ...self::fotoField('bomba_foto', 'Foto da Bomba', 'bomba', false, 5, null, 'Foto opcional da bomba para documentação'),
                 ]),
 
             Forms\Components\Section::make('Contador & Água')
@@ -455,18 +489,7 @@ class DailyRecordResource extends Resource
                         ->native(false)
                         ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
                         ->live(onBlur: true),
-                    self::fotoPreview('contador_foto', 'Visualização da Foto do Contador'),
-                    Forms\Components\FileUpload::make('contador_foto')
-                        ->label('Foto do Contador')
-                        ->disk('public')->visibility('public')
-                        ->directory('contador')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->helperText('Evidência fotográfica da leitura do contador')
-                        ->openable()
-                        ->downloadable()
-                        ->columnSpanFull(),
+                    ...self::fotoField('contador_foto', 'Foto do Contador', 'contador', false, 5, null, 'Evidência fotográfica da leitura do contador'),
                 ]),
 
             Forms\Components\Section::make('Tanque de Compensação')
@@ -489,18 +512,7 @@ class DailyRecordResource extends Resource
                         ->label('Observações do Tanque')
                         ->rows(2)
                         ->columnSpanFull(),
-                    self::fotoPreview('tanque_foto', 'Visualização da Foto do Tanque'),
-                    Forms\Components\FileUpload::make('tanque_foto')
-                        ->label('Foto do Tanque')
-                        ->disk('public')->visibility('public')
-                        ->directory('tanque')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->helperText('Foto opcional do tanque de compensação para documentação')
-                        ->openable()
-                        ->downloadable()
-                        ->columnSpanFull(),
+                    ...self::fotoField('tanque_foto', 'Foto do Tanque', 'tanque', false, 5, null, 'Foto opcional do tanque de compensação para documentação'),
                 ]),
         ];
 
@@ -514,17 +526,7 @@ class DailyRecordResource extends Resource
                     filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
                 ))
                 ->schema([
-                    self::fotoPreview('ns_foto', 'Visualização da Foto da Análise NS'),
-                    Forms\Components\FileUpload::make('ns_foto')
-                        ->label('Foto da Análise NS')
-                        ->disk('public')->visibility('public')
-                        ->directory('ns-fotos')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->openable()
-                        ->downloadable()
-                        ->columnSpanFull(),
+                    ...self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos'),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_ph')
                             ->label('pH (NS)')
@@ -613,20 +615,7 @@ class DailyRecordResource extends Resource
                             ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         'transparencia'
                     ),
-                    self::fotoPreview('analises_fotos', 'Visualização das Fotos das Análises'),
-                    Forms\Components\FileUpload::make('analises_fotos')
-                        ->label('Fotos das análises (até 5)')
-                        ->disk('public')->visibility('public')
-                        ->directory('analises')
-                        ->image()
-                        ->multiple()
-                        ->maxFiles(5)
-                        ->reorderable()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->openable()
-                        ->downloadable()
-                        ->columnSpanFull(),
+                    ...self::fotoField('analises_fotos', 'Fotos das análises (até 5)', 'analises', true, 5),
                 ]),
         ];
 
@@ -642,39 +631,9 @@ class DailyRecordResource extends Resource
                         ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
                         ->default(false)
                         ->live(),
-                    self::fotoPreview('filtro_foto_retrolavagem', 'Visualização — Posição Retrolavagem'),
-                    Forms\Components\FileUpload::make('filtro_foto_retrolavagem')
-                        ->label('Foto — Posição Retrolavagem')
-                        ->disk('public')->visibility('public')
-                        ->directory('filtros')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->openable()
-                        ->downloadable()
-                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                    self::fotoPreview('filtro_foto_enxaguamento', 'Visualização — Posição Enxaguamento'),
-                    Forms\Components\FileUpload::make('filtro_foto_enxaguamento')
-                        ->label('Foto — Posição Enxaguamento')
-                        ->disk('public')->visibility('public')
-                        ->directory('filtros')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->openable()
-                        ->downloadable()
-                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                    self::fotoPreview('filtro_foto_posicao_normal', 'Visualização — Retorno à Posição Normal'),
-                    Forms\Components\FileUpload::make('filtro_foto_posicao_normal')
-                        ->label('Foto — Retorno à Posição Normal')
-                        ->disk('public')->visibility('public')
-                        ->directory('filtros')
-                        ->image()
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
-                        ->openable()
-                        ->downloadable()
-                        ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    ...self::fotoField('filtro_foto_retrolavagem', 'Foto — Posição Retrolavagem', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    ...self::fotoField('filtro_foto_enxaguamento', 'Foto — Posição Enxaguamento', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    ...self::fotoField('filtro_foto_posicao_normal', 'Foto — Retorno à Posição Normal', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                 ]),
         ];
 
