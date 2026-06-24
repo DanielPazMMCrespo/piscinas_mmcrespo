@@ -260,6 +260,14 @@ document.addEventListener('alpine:init', () => {
                     delayOnTouchOnly: true,
                     filter: '.mmc-kb-btn, a',
                     preventOnFilter: false,
+                    onMove: (evt) => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                        evt.to?.closest('.mmc-kb-col')?.classList.add('mmc-kb-col--over');
+                        return true;
+                    },
+                    onEnd: () => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                    },
                     onAdd: (evt) => {
                         const key = evt.item?.dataset?.key;
                         const status = evt.to?.dataset?.status;

@@ -39,7 +39,7 @@ class DailyRecordObserver
     private function invalidateCache(DailyRecord $record): void
     {
         // Invalida gráficos da piscina afetada.
-        $this->cacheService->invalidateGraphCache($record->pool_id);
+        $this->cacheService->invalidateGraphCache((int) $record->pool_id);
 
         // Invalida alertas (para todos os utilizadores — conformidade pode ter mudado).
         $this->cacheService->invalidateAllAlerts();

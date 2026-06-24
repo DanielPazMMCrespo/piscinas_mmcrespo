@@ -20,6 +20,13 @@ RUN apt-get update && apt-get install -y \
 # PHP extensions required by the app
 RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache
 
+# Upload limits
+RUN { \
+    echo 'upload_max_filesize = 25M'; \
+    echo 'post_max_size = 100M'; \
+    echo 'memory_limit = 256M'; \
+} > /usr/local/etc/php/conf.d/uploads.ini
+
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

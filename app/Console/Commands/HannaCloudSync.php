@@ -4,10 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
+use App\Models\User;
+use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCloudService;
+use App\Constants\UserRole;
+use App\Models\DailyRecord;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Sincroniza as últimas leituras de todos os dispositivos Hanna Cloud ativos.
@@ -117,6 +122,7 @@ class HannaCloudSync extends Command
                 if ($affected > 0) {
                     $sincronizados++;
                     $this->line("  ✓ {$device->name}: pH={$reading['ph']} ORP={$reading['orp']}mV T={$reading['temperatura_agua']}°C");
+                    $this->notificarThresholds($device, $reading);
                 } else {
                     $this->line("  – {$device->name}: leitura já existe ({$lida_em})");
                 }
@@ -129,6 +135,27 @@ class HannaCloudSync extends Command
         $this->info("Sync concluído: {$sincronizados} leitura(s) novas.");
 
         return self::SUCCESS;
+    }
+
+    /** @param array<string, mixed> $reading */
+    private function notificarThresholds(HannaDevice $device, array $reading): void
+    {
+        $violacoes = [];
+        $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
+
+        if ($ph !== null && ($ph < DailyRecord::PH_MIN || $ph > DailyRecord::PH_MAX)) {
+            $fmt = number_format($ph, 2, ',', '');
+            $violacoes[] = $ph < DailyRecord::PH_MIN
+                ? "pH {$fmt} abaixo do mínimo (".number_format(DailyRecord::PH_MIN, 1, ',', '').')'
+                : "pH {$fmt} acima do máximo (".number_format(DailyRecord::PH_MAX, 1, ',', '').')';
+        }
+
+        if (empty($violacoes)) {
+            return;
+        }
+
+        $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+        Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
     }
 
     private function discover(HannaCloudService $hanna): int

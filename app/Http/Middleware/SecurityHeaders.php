@@ -33,9 +33,9 @@ class SecurityHeaders
 
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: blob:",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+            "img-src 'self' data: blob: https://*.r2.dev",
             "font-src 'self' data:",
             "connect-src 'self'",
             "frame-ancestors 'none'",
@@ -48,7 +48,7 @@ class SecurityHeaders
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",
             "style-src 'self' 'nonce-{$nonce}'",
-            "img-src 'self' data: blob:",
+            "img-src 'self' data: blob: https://*.r2.dev",
             "font-src 'self' data:",
             "connect-src 'self'",
             "frame-ancestors 'none'",

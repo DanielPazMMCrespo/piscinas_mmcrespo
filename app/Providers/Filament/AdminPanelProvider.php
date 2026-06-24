@@ -62,6 +62,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
+                fn (): string => session('mmc_sem_cargo')
+                    ? '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4">A sua conta não tem um cargo atribuído. Contacte o administrador.</div>'
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render("@vite('resources/js/app.js')"),
             )
@@ -69,6 +75,33 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.pwa-head')->render(),
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function initLightbox() {
+        document.querySelectorAll('.fi-in-image img, .fi-in-image a').forEach(function (el) {
+            if (el.dataset.glightboxInit) return;
+            el.dataset.glightboxInit = '1';
+            var src = el.tagName === 'IMG' ? el.src : el.href;
+            if (!src) return;
+            el.style.cursor = 'zoom-in';
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                GLightbox({ elements: [{ href: src, type: 'image' }], touchNavigation: true, loop: false }).open();
+            });
+        });
+    }
+    initLightbox();
+    var observer = new MutationObserver(initLightbox);
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>
+HTML,
             )
             ->middleware([
                 EncryptCookies::class,
