@@ -840,6 +840,14 @@ class DailyRecordResource extends Resource
                             ->color('info'),
                     ])->space(1),
 
+                    Tables\Columns\IconColumn::make('filtro_faz_retrolavagem')
+                        ->label('Retrolavagem')
+                        ->boolean()
+                        ->trueIcon('heroicon-o-check-circle')
+                        ->falseIcon('heroicon-o-x-circle')
+                        ->trueColor('success')
+                        ->falseColor('gray'),
+
                     Tables\Columns\TextColumn::make('estado')
                         ->label('Estado')
                         ->badge()
