@@ -38,9 +38,25 @@ class ProductResource extends Resource
                     ->label('Unidade de Medida (ex: kg, L)')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('categoria')
+                Select::make('categoria')
                     ->label('Categoria')
-                    ->maxLength(50),
+                    ->options(function (): array {
+                        $categorias = Product::query()
+                            ->distinct()
+                            ->whereNotNull('categoria')
+                            ->pluck('categoria')
+                            ->sort()
+                            ->mapWithKeys(fn ($cat) => [$cat => $cat])
+                            ->all();
+                        $categorias['outro'] = 'Outro';
+                        return $categorias;
+                    })
+                    ->live(),
+                TextInput::make('categoria_custom')
+                    ->label('Especificar Categoria')
+                    ->maxLength(50)
+                    ->visible(fn (Get $get) => $get('categoria') === 'outro')
+                    ->dehydrated(false),
                 Forms\Components\TextInput::make('concentracao_cl')
                     ->label('Concentração de cloro ativo (%)')
                     ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio. Usado na calculadora de dosagem.')
