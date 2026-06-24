@@ -5,6 +5,8 @@ namespace App\Filament\Widgets;
 use App\Models\AlertState;
 use App\Services\AlertasService;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\RateLimiter;
+use Filament\Notifications\Notification;
 
 /**
  * Quadro Kanban operacional (topo do dashboard): os alertas exception-first
@@ -38,18 +40,33 @@ class QuadroOperacionalWidget extends Widget
             return;
         }
 
-        $ativos = app(AlertasService::class)->calcular(auth()->user())['alertas'];
+        $executed = RateLimiter::attempt(
+            'move_alert_' . auth()->id(),
+            30, // 30 movimentos
+            function () use ($key, $status) {
+                $ativos = app(AlertasService::class)->calcular(auth()->user())['alertas'];
 
-        AlertState::updateOrCreate(
-            ['alert_key' => $key],
-            [
-                'status' => $status,
-                // Snapshot para o cartão continuar legível depois de a condição sumir.
-                'payload' => $ativos[$key] ?? null,
-                'moved_by' => auth()->id(),
-                'moved_at' => now(),
-            ],
+                AlertState::updateOrCreate(
+                    ['alert_key' => $key],
+                    [
+                        'status' => $status,
+                        // Snapshot para o cartão continuar legível depois de a condição sumir.
+                        'payload' => $ativos[$key] ?? null,
+                        'moved_by' => auth()->id(),
+                        'moved_at' => now(),
+                    ],
+                );
+            },
+            60 // por minuto
         );
+
+        if (! $executed) {
+            Notification::make()
+                ->title('Muitos movimentos')
+                ->body('Aguarde um momento antes de mover mais cartões.')
+                ->warning()
+                ->send();
+        }
     }
 
     protected function getViewData(): array

@@ -100,7 +100,7 @@ class DailyRecordResource extends Resource
                     if (str_starts_with($url, 'http://') && !str_contains($url, 'localhost') && !str_contains($url, '127.0.0.1')) {
                         $url = str_replace('http://', 'https://', $url);
                     }
-                    $html .= "<div class='relative'><a href='{$url}' class='glightbox-trigger'><img src='{$url}' class='max-w-[200px] h-auto rounded-lg shadow cursor-zoom-in border border-gray-200 dark:border-gray-700' /></a></div>";
+                    $html .= "<div class='relative group'><a href='{$url}' class='glightbox-trigger block overflow-hidden rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:ring-2 hover:ring-primary-500 hover:shadow-md transition-all duration-200'><img src='{$url}' class='object-cover h-40 w-56 group-hover:scale-105 transition-transform duration-300 cursor-zoom-in' alt='Preview da foto' /></a></div>";
                 }
                 $html .= '</div>';
                 return new \Illuminate\Support\HtmlString($html);

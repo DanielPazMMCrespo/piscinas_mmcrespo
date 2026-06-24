@@ -126,7 +126,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (anchor) {
             var href = anchor.getAttribute('href');
             if (href) {
-                var isImage = href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) || 
+                var isImage = anchor.classList.contains('glightbox-trigger') ||
+                              href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) || 
                               href.includes('/storage/') || 
                               href.includes('r2.dev') ||
                               href.includes('/app/private/') ||
