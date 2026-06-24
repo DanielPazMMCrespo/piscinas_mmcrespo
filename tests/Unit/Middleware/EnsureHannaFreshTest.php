@@ -11,81 +11,96 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class EnsureHannaFreshTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function handle(string $method = 'GET'): void
+    private function handle(Request $request): void
     {
-        $request = Request::create('/admin', $method);
         $middleware = new EnsureHannaReadingsAreFresh();
         $middleware->handle($request, fn ($r) => response('ok'));
 
-        // afterResponse() defers dispatch via app()->terminating().
-        // Calling terminate() here simulates the end-of-response lifecycle.
+        // afterResponse() registers a terminating callback on the Application.
+        // trigger it here to simulate the end-of-request lifecycle.
         app()->terminate();
     }
 
-    private function pool(): Pool
+    private function createReading(int $minutesAgo): SensorReading
     {
-        $installation = Installation::create(['name' => 'L', 'morada' => 'R', 'active' => true]);
+        $installation = Installation::create([
+            'name'   => 'Leiria',
+            'morada' => 'Rua Teste',
+            'active' => true,
+        ]);
 
-        return Pool::create([
+        $pool = Pool::create([
             'installation_id' => $installation->id,
-            'name' => 'P', 'type' => 'competition',
-            'temp_min' => 26.0, 'temp_max' => 27.0, 'volume' => 900.0, 'active' => true,
+            'name'            => 'Competição',
+            'type'            => 'competition',
+            'temp_min'        => 26.0,
+            'temp_max'        => 27.0,
+            'volume'          => 900.00,
+            'active'          => true,
+        ]);
+
+        return SensorReading::create([
+            'pool_id'         => $pool->id,
+            'hanna_device_id' => 'DEV-001',
+            'lida_em'         => now()->subMinutes($minutesAgo),
         ]);
     }
 
     public function test_dispatches_job_when_no_readings_exist(): void
     {
-        Bus::fake();
+        Queue::fake();
 
-        $this->handle();
+        $this->handle(Request::create('/admin', 'GET'));
 
-        Bus::assertDispatched(ProcessHannaSync::class);
+        Queue::assertPushed(ProcessHannaSync::class);
+    }
+
+    public function test_dispatches_job_when_reading_is_stale(): void
+    {
+        Queue::fake();
+
+        $this->createReading(31);
+
+        $this->handle(Request::create('/admin', 'GET'));
+
+        Queue::assertPushed(ProcessHannaSync::class);
     }
 
     public function test_does_not_dispatch_job_when_reading_is_fresh(): void
     {
-        Bus::fake();
+        Queue::fake();
 
-        SensorReading::create([
-            'pool_id' => $this->pool()->id,
-            'hanna_device_id' => 'DEV-001',
-            'lida_em' => now()->subMinutes(10),
-        ]);
+        $this->createReading(10);
 
-        $this->handle();
+        $this->handle(Request::create('/admin', 'GET'));
 
-        Bus::assertNotDispatched(ProcessHannaSync::class);
+        Queue::assertNotPushed(ProcessHannaSync::class);
     }
 
     public function test_does_not_dispatch_on_non_get_requests(): void
     {
-        Bus::fake();
+        Queue::fake();
 
-        $this->handle('POST');
+        $this->handle(Request::create('/admin/registos-diarios', 'POST'));
 
-        Bus::assertNotDispatched(ProcessHannaSync::class);
+        Queue::assertNotPushed(ProcessHannaSync::class);
     }
 
     public function test_reading_exactly_at_30_minutes_is_not_stale(): void
     {
-        Bus::fake();
+        Queue::fake();
 
-        SensorReading::create([
-            'pool_id' => $this->pool()->id,
-            'hanna_device_id' => 'DEV-001',
-            'lida_em' => now()->subMinutes(30),
-        ]);
+        $this->createReading(30);
 
-        $this->handle();
+        $this->handle(Request::create('/admin', 'GET'));
 
-        Bus::assertNotDispatched(ProcessHannaSync::class);
+        Queue::assertNotPushed(ProcessHannaSync::class);
     }
-
 }

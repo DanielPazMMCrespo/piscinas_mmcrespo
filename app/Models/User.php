@@ -30,9 +30,11 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         $hasRole = $this->hasAnyRole(UserRole::all());
+
         if (! $hasRole) {
             session()->flash('mmc_sem_cargo', true);
         }
+
         return $hasRole;
     }
 

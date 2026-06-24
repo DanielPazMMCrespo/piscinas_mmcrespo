@@ -44,24 +44,21 @@ class AlertStateKanbanTest extends TestCase
         return 'sem_registo|1|'.now()->toDateString();
     }
 
-    private function fullPayload(): array
-    {
-        return [
-            'nivel'  => AlertLevel::VERMELHO,
-            'icone'  => 'heroicon-o-clipboard',
-            'titulo' => 'Teste',
-            'detalhe' => 'detalhe teste',
-            'url'    => '/admin',
-            'acao'   => 'Ver',
-        ];
-    }
-
     private function mockAlertasWithKey(string $key): void
     {
         $this->mock(AlertasService::class)
             ->shouldReceive('calcular')
             ->andReturn([
-                'alertas'       => [$key => $this->fullPayload()],
+                'alertas' => [
+                    $key => [
+                        'nivel'  => AlertLevel::VERMELHO,
+                        'icone'  => 'heroicon-o-clipboard',
+                        'titulo' => 'Teste',
+                        'detalhe' => 'detalhe',
+                        'url'    => '/admin',
+                        'acao'   => 'Ver',
+                    ],
+                ],
                 'totalPiscinas' => 1,
                 'conformesHoje' => 0,
             ]);
@@ -137,7 +134,7 @@ class AlertStateKanbanTest extends TestCase
             'status'    => 'em_curso',
             'moved_by'  => $admin->id,
             'moved_at'  => now(),
-            'payload'   => $this->fullPayload(),
+            'payload'   => ['titulo' => 'Teste'],
         ]);
 
         // Alertas vazios: condição desapareceu

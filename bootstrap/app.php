@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Railway (e qualquer reverse proxy) envia X-Forwarded-Proto: https.
         // Sem isto, o Laravel gera URLs http:// e o browser bloqueia como mixed content.
         $middleware->trustProxies(at: '*');
+        // Valida o tamanho dos uploads (máx 5MB) server-side.
+        $middleware->append(\App\Http\Middleware\ValidateUploadSize::class);
         // Cabecalhos de seguranca globais aplicados a todas as respostas.
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Auto-sincroniza sensores Hanna se leitura > 30 min stale.

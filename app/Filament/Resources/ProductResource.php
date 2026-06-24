@@ -4,10 +4,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
 use Filament\Forms;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
-use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -41,26 +38,18 @@ class ProductResource extends Resource
                     ->label('Unidade de Medida (ex: kg, L)')
                     ->required()
                     ->maxLength(255),
-                Select::make('categoria')
+                Forms\Components\TextInput::make('categoria')
                     ->label('Categoria')
-                    ->options(function (): array {
-                        $categorias = Product::query()
-                            ->distinct()
-                            ->whereNotNull('categoria')
-                            ->pluck('categoria')
-                            ->sort()
-                            ->mapWithKeys(fn ($cat) => [$cat => $cat])
-                            ->all();
-                        $categorias['outro'] = 'Outro';
-                        return $categorias;
-                    })
-                    ->live(),
-
-                TextInput::make('categoria_custom')
-                    ->label('Especificar Categoria')
-                    ->maxLength(50)
-                    ->visible(fn (Get $get) => $get('categoria') === 'outro')
-                    ->dehydrated(false),
+                    ->maxLength(50),
+                Forms\Components\TextInput::make('concentracao_cl')
+                    ->label('Concentração de cloro ativo (%)')
+                    ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio. Usado na calculadora de dosagem.')
+                    ->numeric()
+                    ->step(0.01)
+                    ->minValue(0.01)
+                    ->maxValue(100)
+                    ->suffix('%')
+                    ->nullable(),
                 Forms\Components\Toggle::make('active')
                     ->label('Ativo')
                     ->default(true)
