@@ -25,6 +25,12 @@ h1, h2, h3, h4, h5, h6,
     letter-spacing: -0.02em;
 }
 
+/* Tabs: wrap instead of overflow on narrow screens */
+.fi-tabs-list {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+}
+
 /* FilePond Success Upload Feedback */
 .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file {
     border: 2px solid #76b82a !important; /* MMCrespo success green */

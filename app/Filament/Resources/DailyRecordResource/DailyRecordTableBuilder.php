@@ -26,7 +26,7 @@ class DailyRecordTableBuilder
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
-            ->recordUrl(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record]))
+            ->recordAction(Tables\Actions\ViewAction::class)
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
@@ -128,7 +128,14 @@ class DailyRecordTableBuilder
                     ->falseLabel('Apenas registos originais'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->extraModalFooterActions([
+                        Tables\Actions\Action::make('ir_para_edicao')
+                            ->label('Editar')
+                            ->icon('heroicon-o-pencil')
+                            ->color('gray')
+                            ->url(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record])),
+                    ]),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('corrigir')
                     ->label('Corrigir')
