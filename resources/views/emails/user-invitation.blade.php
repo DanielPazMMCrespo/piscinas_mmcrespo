@@ -28,12 +28,11 @@
     <p>Plataforma de gestão operacional</p>
   </div>
   <div class="body">
-    <p>Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo.</p>
+    <p>{{ $mensagem }}</p>
     <div class="meta">
       <div><strong>Email:</strong> {{ $email }}</div>
       <div><strong>Cargo:</strong> <span class="badge">{{ $role }}</span></div>
     </div>
-    <p>Clique no botão abaixo para completar o seu registo e ativar a conta:</p>
     <div class="btn-wrap">
       <a href="{{ $url }}" class="btn">Aceitar Convite</a>
     </div>

@@ -20,13 +20,15 @@ class UserInvitationMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $subject = app(\App\Services\SettingsService::class)->get('email_convite_assunto', 'Convite — Piscinas MMCrespo');
         return new Envelope(
-            subject: 'Convite — Piscinas MMCrespo',
+            subject: $subject,
         );
     }
 
     public function content(): Content
     {
+        $mensagem = app(\App\Services\SettingsService::class)->get('email_convite_mensagem', 'Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:');
         return new Content(
             view: 'emails.user-invitation',
             with: [
@@ -34,6 +36,7 @@ class UserInvitationMail extends Mailable
                 'role'      => $this->invitation->role,
                 'email'     => $this->invitation->email,
                 'expiresAt' => $this->invitation->expires_at->format('d/m/Y \à\s H:i'),
+                'mensagem'  => $mensagem,
             ],
         );
     }

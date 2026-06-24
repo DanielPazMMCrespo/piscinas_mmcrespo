@@ -104,102 +104,8 @@ class DefinicoesSistema extends Page
                             ->helperText('Aproximação do limite (Padrão: 10%)'),
                     ])->columns(2),
 
-                Section::make('Opções de Dropdowns')
-                    ->description('Personalize as opções disponíveis nos formulários da aplicação.')
-                    ->icon('heroicon-o-list-bullet')
-                    ->collapsible()
-                    ->schema([
-                        KeyValue::make('tipos_incidente')
-                            ->label('Tipos de Incidente')
-                            ->keyLabel('Chave (DB)')
-                            ->valueLabel('Nome (Visual)')
-                            ->helperText('Opções do dropdown de incidentes')
-                            ->columnSpanFull(),
-                        KeyValue::make('modos_agua')
-                            ->label('Modos de Entrada de Água')
-                            ->keyLabel('Chave (DB)')
-                            ->valueLabel('Nome (Visual)')
-                            ->helperText('Opções para o estado da entrada de água')
-                            ->columnSpanFull(),
-                        KeyValue::make('tipos_operacao_filtro')
-                            ->label('Operações do Filtro')
-                            ->keyLabel('Chave (DB)')
-                            ->valueLabel('Nome (Visual)')
-                            ->helperText('Opções de verificação de filtros')
-                            ->columnSpanFull(),
-                    ]),
-
-                Section::make('Alertas e Quadro Kanban')
-                    ->description('Configuração do comportamento dos alertas e visualização no Dashboard.')
-                    ->icon('heroicon-o-bell')
-                    ->collapsible()
-                    ->schema([
-                        TextInput::make('sensor_stale_threshold')
-                            ->label('Stale Threshold (minutos)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('min')
-                            ->helperText('Tempo máximo sem leituras antes do sensor alertar inativo (Padrão: 15)'),
-                        TextInput::make('hora_escalacao_sem_registo')
-                            ->label('Hora Escalação "Sem Registo"')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->maxValue(23)
-                            ->suffix(':00')
-                            ->helperText('Hora a partir da qual o alerta vira vermelho (Padrão: 12)'),
-                        TextInput::make('lookback_incidentes')
-                            ->label('Dias Lookback Incidentes')
-                            ->numeric()
-                            ->required()
-                            ->suffix('dias')
-                            ->helperText('Pesquisar incidentes não resolvidos destes dias (Padrão: 30)'),
-                        TextInput::make('max_incidentes_kanban')
-                            ->label('Máx. Incidentes no Kanban')
-                            ->numeric()
-                            ->required()
-                            ->helperText('Limite de cartões na coluna incidentes (Padrão: 10)'),
-                        TextInput::make('dias_pruning_alert_states')
-                            ->label('Dias Pruning Alert States')
-                            ->numeric()
-                            ->required()
-                            ->suffix('dias')
-                            ->helperText('Limpar históricos de alertas antigos após estes dias (Padrão: 7)'),
-                    ])->columns(2),
-
-                Section::make('Frequência e Performance (Polling / Cache)')
-                    ->description('Ajustes de tempo real e otimização de cache.')
-                    ->icon('heroicon-o-clock')
-                    ->collapsible()
-                    ->schema([
-                        TextInput::make('polling_painel_piscinas')
-                            ->label('Intervalo Polling Painel (segundos)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('seg')
-                            ->helperText('Atualização do painel de piscinas (0 para desativar. Padrão: 15)'),
-                        TextInput::make('polling_kanban')
-                            ->label('Intervalo Polling Kanban (segundos)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('seg')
-                            ->helperText('Atualização do Quadro Operacional (0 para desativar. Padrão: 60)'),
-                        TextInput::make('cache_ttl_painel')
-                            ->label('Cache TTL Painel (minutos)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('min')
-                            ->helperText('Tempo de cache dos dados de piscinas (Padrão: 10)'),
-                        TextInput::make('cache_ttl_alertas')
-                            ->label('Cache TTL Alertas (minutos)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('min')
-                            ->helperText('Tempo de cache do cálculo de alertas (Padrão: 5)'),
-                    ])->columns(2),
-
                 Section::make('Limitações de Uploads')
-                    ->description('Tamanhos máximos de ficheiros e limites de ficheiros.')
+                    ->description('Definições para fotos e ficheiros.')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->collapsible()
                     ->schema([
@@ -208,19 +114,7 @@ class DefinicoesSistema extends Page
                             ->numeric()
                             ->required()
                             ->helperText('Número máximo de fotos num registo diário (Padrão: 5)'),
-                        TextInput::make('max_filesize_analises')
-                            ->label('Tamanho Máx. Foto Análises (KB)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('KB')
-                            ->helperText('Tamanho limite de upload para análises (Padrão: 5120)'),
-                        TextInput::make('max_filesize_filtros')
-                            ->label('Tamanho Máx. Foto Filtros (KB)')
-                            ->numeric()
-                            ->required()
-                            ->suffix('KB')
-                            ->helperText('Tamanho limite de upload para fotos de filtros (Padrão: 10240)'),
-                    ])->columns(3),
+                    ]),
 
                 Section::make('Templates de Email')
                     ->description('Personalize o assunto e corpo dos emails automáticos enviados pela aplicação.')
@@ -230,11 +124,15 @@ class DefinicoesSistema extends Page
                         TextInput::make('email_convite_assunto')
                             ->label('Assunto do Email (Convite)')
                             ->required()
+                            ->placeholder('Convite — Piscinas MMCrespo')
+                            ->helperText('Predefinição: Convite — Piscinas MMCrespo')
                             ->columnSpanFull(),
                         \Filament\Forms\Components\Textarea::make('email_convite_mensagem')
                             ->label('Mensagem do Corpo (Convite)')
                             ->required()
                             ->rows(3)
+                            ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
+                            ->helperText('Predefinição: Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
                             ->columnSpanFull(),
                     ]),
             ])

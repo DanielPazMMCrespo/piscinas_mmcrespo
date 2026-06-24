@@ -178,7 +178,10 @@ class DailyRecord extends Model
             return true; // sem leitura não é violação
         }
 
-        return (float) $this->ph >= self::PH_MIN && (float) $this->ph <= self::PH_MAX;
+        $min = app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN);
+        $max = app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX);
+
+        return (float) $this->ph >= $min && (float) $this->ph <= $max;
     }
 
     public function cloroLivreConforme(): bool
@@ -187,7 +190,10 @@ class DailyRecord extends Model
             return true; // sem leitura não é violação
         }
 
-        return (float) $this->cloro_livre >= self::CLORO_LIVRE_MIN && (float) $this->cloro_livre <= self::CLORO_LIVRE_MAX;
+        $min = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
+        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+
+        return (float) $this->cloro_livre >= $min && (float) $this->cloro_livre <= $max;
     }
 
     public function cloroCombinadoConforme(): bool
@@ -197,7 +203,9 @@ class DailyRecord extends Model
             return true;
         }
 
-        return $this->cloro_combinado <= self::CLORO_COMBINADO_MAX;
+        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+
+        return $this->cloro_combinado <= $max;
     }
 
     /**

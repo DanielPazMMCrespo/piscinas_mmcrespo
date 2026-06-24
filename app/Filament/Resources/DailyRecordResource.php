@@ -585,12 +585,12 @@ class DailyRecordResource extends Resource
                                         'transparencia'
                                     ),
                                     Forms\Components\FileUpload::make('analises_fotos')
-                                        ->label('Fotos das análises (até 5)')
+                                        ->label(fn (): string => 'Fotos das análises (até ' . app(\App\Services\SettingsService::class)->getInt('max_fotos_analise', 5) . ')')
                                         ->disk('public')->visibility('public')
                                         ->directory('analises')
                                         ->image()
                                         ->multiple()
-                                        ->maxFiles(5)
+                                        ->maxFiles(fn (): int => app(\App\Services\SettingsService::class)->getInt('max_fotos_analise', 5))
                                         ->reorderable()
                                         ->maxSize(5120)
                                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
