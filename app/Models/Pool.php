@@ -31,6 +31,16 @@ class Pool extends Model
         'volume' => 'decimal:2',
     ];
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::deleting(function (Pool $pool): void {
+            \Illuminate\Support\Facades\DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
+            \Illuminate\Support\Facades\DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
+        });
+    }
+
     public function instalacao(): BelongsTo
     {
         return $this->belongsTo(Installation::class, 'installation_id');
