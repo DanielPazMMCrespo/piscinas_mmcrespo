@@ -243,7 +243,7 @@ class DailyRecordTableBuilder
             ->schema([
                 \Filament\Infolists\Components\Tabs::make('Registo')
                     ->tabs([
-                        \Filament\Infolists\Components\Tabs\Tab::make('Piscina & Estado')
+                        \Filament\Infolists\Components\Tabs\Tab::make('Estado')
                             ->icon('heroicon-o-home')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
@@ -261,7 +261,7 @@ class DailyRecordTableBuilder
                                     ]),
                                 self::fotoEntry('bomba_foto', 'Foto da Bomba'),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Contador & Água')
+                        \Filament\Infolists\Components\Tabs\Tab::make('Contador')
                             ->icon('heroicon-o-calculator')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
@@ -273,7 +273,7 @@ class DailyRecordTableBuilder
                                     ]),
                                 self::fotoEntry('contador_foto', 'Foto do Contador'),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Tanque de Compensação')
+                        \Filament\Infolists\Components\Tabs\Tab::make('Tanque')
                             ->icon('heroicon-o-beaker')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
@@ -326,7 +326,7 @@ class DailyRecordTableBuilder
                                         self::fotoEntry('filtro_foto_posicao_normal', 'Posição Normal'),
                                     ]),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Químicos & Notas')
+                        \Filament\Infolists\Components\Tabs\Tab::make('Químicos')
                             ->icon('heroicon-o-sparkles')
                             ->schema([
                                 \Filament\Infolists\Components\RepeatableEntry::make('adicoes')

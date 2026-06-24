@@ -751,7 +751,7 @@ class DailyRecordFormBuilder
             ->schema([
                 Forms\Components\Tabs::make('Registo')
                     ->tabs([
-                        Forms\Components\Tabs\Tab::make('Checklist Operacional')
+                        Forms\Components\Tabs\Tab::make('Operacional')
                             ->icon('heroicon-o-clipboard-document-check')
                             ->schema($step1),
                         Forms\Components\Tabs\Tab::make('Química')
@@ -761,7 +761,7 @@ class DailyRecordFormBuilder
                             ->icon('heroicon-o-funnel')
                             ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                             ->schema($step3),
-                        Forms\Components\Tabs\Tab::make('Intervenções & Obs.')
+                        Forms\Components\Tabs\Tab::make('Notas')
                             ->icon('heroicon-o-wrench-screwdriver')
                             ->schema($step4),
                     ])
