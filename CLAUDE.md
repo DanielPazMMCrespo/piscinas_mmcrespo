@@ -37,6 +37,15 @@ Return exactly:
 # Contexto Completo — Projeto Piscinas MMCrespo
 > Última atualização: 2026-06-23 (Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks)
 
+## Sessão 17 — Fotos R2 + Upload Mobile + Lightbox (resumo)
+- **Cloudflare R2 para fotos persistentes**: Railway tem filesystem efémero — ficheiros perdem-se no deploy. Integrado R2 (S3-compatible) via `league/flysystem-aws-s3-v3`. Disco `r2` configurado em `config/filesystems.php`. Todos os 8 campos `FileUpload` e `ImageEntry` do `DailyRecordResource` usam `->disk('r2')`.
+- **Fixes de upload**: corrigido `TypeError` no `DailyRecordObserver` (`pool_id` string→int); criado diretório `livewire-tmp` no `docker-entrypoint.sh`; `LIVEWIRE_TMP_DISK` mantido em `local` (R2 não suporta mime_type durante validação Livewire).
+- **CSP atualizada**: `img-src` inclui `https://*.r2.dev`; `script-src`/`style-src` incluem `https://cdn.jsdelivr.net` (para GLightbox).
+- **Limites de upload para mobile/iPhone HEIC**: `upload_max_filesize=25M` no Dockerfile e `.user.ini`; nginx `client_max_body_size=100M`; `maxSize(20480)` nos FileUpload.
+- **Lightbox (GLightbox)**: carregado via CDN no `AdminPanelProvider` (render hook `HEAD_END`). Ao clicar numa foto abre lightbox a ecrã inteiro com pinch-to-zoom mobile. Auto-wired a todas as `ImageEntry` do painel via MutationObserver.
+- **Vista do registo**: row click na tabela abre modal com infolist completo (todos os campos + fotos); botão "Editar" no header abre página de edição.
+- **Commits**: `2c238ba`, `7ae5f95`, `6f7cba7`, `e3246e4`.
+
 ## Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks (resumo)
 - **Correção de Cache Locks (Bug de Produção)**: Corrigido o erro `relation "cache_locks" does not exist` em produção adicionando a migração `2026_06_23_000006_ensure_cache_locks_table_exists.php`. Esta migração garante a criação da tabela `cache_locks` necessária para locks atómicos do cache em PostgreSQL.
 - **Arquivamento em Cascata (Batch 4)**: Atualizado o comando `archive:daily-records` para realizar cópia dos registos de `record_additions` e `record_photos` para as novas tabelas de arquivo antes de remover os registos originais. Adicionada a migração `2026_06_23_000004_create_record_additions_and_photos_archives.php` e o teste unitário robusto `ArchiveDailyRecordsTest.php` (com correção de compatibilidade de `agua_modo` nulo no SQLite via migração `2026_06_23_000005_make_agua_modo_nullable_in_archive.php`).
