@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Installation;
 use App\Models\Pool;
+use App\Models\SensorReading;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -59,7 +60,7 @@ class RelatorioPdf extends Page implements HasForms
 
     public function mount(): void
     {
-        // Defaults: primeiro dia do mês corrente até hoje.
+        // Defaults: primeiro dia do mês corrente até ontem.
         $this->form->fill([
             'installation_id' => null,
             'pool_id' => 'todas',
@@ -163,7 +164,7 @@ class RelatorioPdf extends Page implements HasForms
 
         $piscinas = $instalacao->piscinas()
             ->when(! $todas, fn ($query) => $query->whereKey((int) $estado['pool_id']))
-            ->orderBy('name')
+                ->orderBy('name')
             ->get();
 
         if ($piscinas->isEmpty()) {
@@ -176,9 +177,21 @@ class RelatorioPdf extends Page implements HasForms
             return null;
         }
 
+        // Leituras do controlador agregadas por dia (média, min, max por piscina).
+        // Agrupadas por pool_id para acesso O(1) na montagem das secções.
+        $leiturasControlador = SensorReading::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('lida_em', [$inicio, $fim])
+            ->selectRaw('pool_id, DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
+            ->whereNotNull('ph')
+            ->groupByRaw('pool_id, DATE(lida_em)')
+            ->orderByRaw('DATE(lida_em)')
+            ->get()
+            ->groupBy('pool_id');
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim): array {
+        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina'])
                 ->whereBetween('registado_em', [$inicio, $fim])
@@ -189,6 +202,7 @@ class RelatorioPdf extends Page implements HasForms
             return [
                 'piscina' => $piscina,
                 'registos' => $registos,
+                'controlador' => $leiturasControlador->get($piscina->id) ?? collect(),
             ];
         })->all();
 

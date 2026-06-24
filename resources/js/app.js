@@ -103,6 +103,8 @@ document.addEventListener('alpine:init', () => {
             // no dataset para o callback do tooltip os poder ler diretamente.
             if (s.dataReal !== undefined) ds.dataReal = s.dataReal;
             if (s.unidade !== undefined) ds.unidade = s.unidade;
+            // Métricas do controlador renderizam a tracejado para distinguir do registo manual.
+            if (s.dashed) ds.borderDash = [5, 5];
             return ds;
         },
 
