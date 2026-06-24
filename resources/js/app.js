@@ -290,55 +290,96 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 
-// Bloqueio global de vírgula em campos numéricos.
+// Conversão e sanitização de vírgula para ponto em campos decimais.
 // Delegado no document (capture) para cobrir inputs do Livewire e modais do Filament.
 const setupDecimalInputs = () => {
-    // 1) Tecla vírgula → bloqueada
+    // 1) Tecla vírgula -> converte para ponto em tempo real (apenas se for type="text")
     document.addEventListener('keydown', (e) => {
         if (e.key !== ',') return;
         const el = e.target;
         if (el.tagName !== 'INPUT') return;
-        if (el.type === 'number' || el.getAttribute('inputmode') === 'decimal') {
+        
+        const isDecimalInput = el.getAttribute('inputmode') === 'decimal' || el.type === 'number';
+        if (!isDecimalInput) return;
+
+        if (el.type === 'text') {
             e.preventDefault();
+            const start = el.selectionStart ?? 0;
+            const end = el.selectionEnd ?? 0;
+            const val = el.value;
+            
+            // Se já existir um ponto e tentarem inserir outro na mesma posição, ignoramos
+            if (val.includes('.') && start === end) {
+                return;
+            }
+            
+            el.value = val.slice(0, start) + '.' + val.slice(end);
+            el.setSelectionRange(start + 1, start + 1);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }, { capture: true, passive: false });
 
-    // 2) Colar texto com vírgulas → converte para pontos
+    // 2) Evento input -> sanitiza o texto digitado (apenas números e no máximo um ponto)
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (el.tagName !== 'INPUT') return;
+        
+        const isDecimalInput = el.getAttribute('inputmode') === 'decimal';
+        if (!isDecimalInput || el.type !== 'text') return;
+
+        const start = el.selectionStart ?? 0;
+        const originalValue = el.value;
+
+        // Substituir qualquer vírgula por ponto
+        let newValue = originalValue.replace(/,/g, '.');
+
+        // Remover qualquer caracter que não seja número ou ponto
+        newValue = newValue.replace(/[^0-9.]/g, '');
+
+        // Garantir que existe no máximo um ponto
+        const parts = newValue.split('.');
+        if (parts.length > 2) {
+            newValue = parts[0] + '.' + parts.slice(1).join('');
+        }
+
+        if (originalValue !== newValue) {
+            el.value = newValue;
+            const diff = originalValue.length - newValue.length;
+            const newPos = Math.max(0, start - diff);
+            el.setSelectionRange(newPos, newPos);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }, { capture: true });
+
+    // 3) Colar texto -> converte vírgulas para pontos e sanitiza
     document.addEventListener('paste', (e) => {
         const el = e.target;
         if (el.tagName !== 'INPUT') return;
-        if (el.type !== 'number' && el.getAttribute('inputmode') !== 'decimal') return;
+        if (el.getAttribute('inputmode') !== 'decimal' || el.type !== 'text') return;
 
         const texto = (e.clipboardData ?? window.clipboardData)?.getData('text') ?? '';
-        if (!texto.includes(',')) return;
+        if (!texto) return;
 
         e.preventDefault();
-        const corrigido = texto.replace(/,/g, '.');
-
-        if (el.type === 'number') {
-            el.value = corrigido;
-        } else {
-            const s = el.selectionStart ?? 0;
-            const f = el.selectionEnd ?? 0;
-            el.value = el.value.slice(0, s) + corrigido + el.value.slice(f);
-            el.setSelectionRange(s + corrigido.length, s + corrigido.length);
+        const corrigido = texto.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+        
+        const start = el.selectionStart ?? 0;
+        const end = el.selectionEnd ?? 0;
+        const val = el.value;
+        
+        let newValue = val.slice(0, start) + corrigido + val.slice(end);
+        
+        // Garantir no máximo um ponto
+        const parts = newValue.split('.');
+        if (parts.length > 2) {
+            newValue = parts[0] + '.' + parts.slice(1).join('');
         }
+        
+        el.value = newValue;
+        const newPos = start + corrigido.length;
+        el.setSelectionRange(newPos, newPos);
         el.dispatchEvent(new Event('input', { bubbles: true }));
     }, { capture: true, passive: false });
-
-    // 3) Fallback para teclados móveis que insiram vírgula via IME
-    //    (só afeta type="text"; type="number" o browser já valida internamente)
-    document.addEventListener('input', (e) => {
-        const el = e.target;
-        if (el.tagName !== 'INPUT' || el.type === 'number') return;
-        if (el.getAttribute('inputmode') !== 'decimal') return;
-        if (!el.value.includes(',')) return;
-
-        const pos = el.selectionStart ?? el.value.length;
-        el.value = el.value.replace(/,/g, '.');
-        el.setSelectionRange(pos, pos);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-    }, { capture: true });
 };
 
 // Logótipo e layout do header: reorganizar quando a barra lateral recolhe

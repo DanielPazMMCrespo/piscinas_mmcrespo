@@ -247,6 +247,8 @@ class DailyRecordResource extends Resource
     {
         return $campo
             ->live(onBlur: true)
+            ->type('text')
+            ->inputMode('decimal')
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => self::conformidadeCampo($metrica, $get)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => self::corSemaforo(self::conformidadeCampo($metrica, $get)['estado']))
@@ -409,6 +411,8 @@ class DailyRecordResource extends Resource
                                         ->step(0.01)
                                         ->minValue(0)
                                         ->suffix('m³')
+                                        ->type('text')
+                                        ->inputMode('decimal')
                                         ->extraInputAttributes(['inputmode' => 'decimal'])
                                         ->helperText(fn (Get $get): string => 'O contador não anda para trás.'.self::lookback('contador_valor', $get))
                                         ->rules([
@@ -910,13 +914,16 @@ class DailyRecordResource extends Resource
                     ->form([
                         Forms\Components\TextInput::make('ph')
                             ->label('pH')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14)
+                            ->type('text')->inputMode('decimal'),
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                            ->type('text')->inputMode('decimal'),
                         Forms\Components\TextInput::make('cloro_total')
                             ->label('Cloro Total (mg/L)')
                             ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                            ->type('text')->inputMode('decimal')
                             ->rules([
                                 fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                     if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
@@ -926,7 +933,8 @@ class DailyRecordResource extends Resource
                             ]),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX)
+                            ->type('text')->inputMode('decimal'),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()
