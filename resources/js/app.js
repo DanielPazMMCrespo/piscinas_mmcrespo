@@ -306,30 +306,38 @@ document.addEventListener('alpine:init', () => {
 // Conversão e sanitização de vírgula para ponto em campos decimais.
 // Delegado no document (capture) para cobrir inputs do Livewire e modais do Filament.
 const setupDecimalInputs = () => {
-    // 1) Tecla vírgula -> converte para ponto em tempo real (apenas se for type="text")
+    const isDecimalEl = (el) =>
+        el.tagName === 'INPUT' &&
+        (el.getAttribute('inputmode') === 'decimal' || el.type === 'number');
+
+    // 1) beforeinput — fiável em iOS (keydown em teclado virtual é 'Unidentified')
+    document.addEventListener('beforeinput', (e) => {
+        if (e.data !== ',') return;
+        const el = e.target;
+        if (!isDecimalEl(el) || el.type !== 'text') return;
+
+        e.preventDefault();
+        const start = el.selectionStart ?? 0;
+        const end = el.selectionEnd ?? 0;
+        if (el.value.includes('.') && start === end) return;
+        el.value = el.value.slice(0, start) + '.' + el.value.slice(end);
+        el.setSelectionRange(start + 1, start + 1);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { capture: true });
+
+    // 2) keydown — fallback para teclado físico (desktop/Android com teclado externo)
     document.addEventListener('keydown', (e) => {
         if (e.key !== ',') return;
         const el = e.target;
-        if (el.tagName !== 'INPUT') return;
-        
-        const isDecimalInput = el.getAttribute('inputmode') === 'decimal' || el.type === 'number';
-        if (!isDecimalInput) return;
+        if (!isDecimalEl(el) || el.type !== 'text') return;
 
-        if (el.type === 'text') {
-            e.preventDefault();
-            const start = el.selectionStart ?? 0;
-            const end = el.selectionEnd ?? 0;
-            const val = el.value;
-            
-            // Se já existir um ponto e tentarem inserir outro na mesma posição, ignoramos
-            if (val.includes('.') && start === end) {
-                return;
-            }
-            
-            el.value = val.slice(0, start) + '.' + val.slice(end);
-            el.setSelectionRange(start + 1, start + 1);
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        e.preventDefault();
+        const start = el.selectionStart ?? 0;
+        const end = el.selectionEnd ?? 0;
+        if (el.value.includes('.') && start === end) return;
+        el.value = el.value.slice(0, start) + '.' + el.value.slice(end);
+        el.setSelectionRange(start + 1, start + 1);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
     }, { capture: true, passive: false });
 
     // 2) Evento input -> sanitiza o texto digitado (apenas números e no máximo um ponto)
