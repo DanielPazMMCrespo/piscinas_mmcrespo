@@ -300,7 +300,6 @@ class DailyRecordTableBuilder
                                             ->label('Fotos das Análises')
                                             ->disk(DailyRecord::getStorageDisk())
                                             ->visibility('public')
-                                            ->multiple()
                                             ->visible(fn ($record) => !empty($record?->analises_fotos)),
                                     ]),
                             ]),
