@@ -101,8 +101,14 @@ class QuadroOperacionalWidget extends Widget
                 continue;
             }
 
-            $colunas['resolvido'][] = $estado->payload + [
+            $colunas['resolvido'][] = ($estado->payload ?? []) + [
                 'key' => $key,
+                'nivel' => $estado->payload['nivel'] ?? \App\Constants\AlertLevel::NEUTRO,
+                'icone' => $estado->payload['icone'] ?? 'heroicon-o-check-circle',
+                'titulo' => $estado->payload['titulo'] ?? 'Alerta resolvido',
+                'detalhe' => $estado->payload['detalhe'] ?? 'A condição de alerta foi resolvida.',
+                'url' => $estado->payload['url'] ?? '#',
+                'acao' => $estado->payload['acao'] ?? '',
                 'auto' => $estado->status === 'resolvido_auto',
                 'movido_em' => $estado->moved_at->format('H:i'),
             ];

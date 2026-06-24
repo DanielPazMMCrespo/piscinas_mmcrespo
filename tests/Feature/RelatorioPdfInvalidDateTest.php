@@ -79,7 +79,7 @@ class RelatorioPdfInvalidDateTest extends TestCase
                 'installation_id' => $this->installation->id,
                 'pool_id' => 'todas',
                 'data_inicio' => now()->startOfMonth()->toDateString(),
-                'data_fim' => now()->toDateString(),
+                'data_fim' => now()->subDay()->toDateString(),
             ])
             ->call('exportar')
             ->assertHasNoFormErrors();

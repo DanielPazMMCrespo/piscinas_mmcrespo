@@ -28,7 +28,7 @@ class EnsureHannaReadingsAreFresh
 
         if (
             $ultimaLeitura === null
-            || now()->diffInMinutes($ultimaLeitura) > 30
+            || abs((int) now()->diffInMinutes($ultimaLeitura)) > 30
         ) {
             // Leituras ausentes ou stale — sincroniza silenciosamente em background após a resposta.
             try {

@@ -51,7 +51,7 @@ class PinLoginTest extends TestCase
         Livewire::test(\App\Filament\Pages\Auth\Login::class)
             ->fillForm(['email' => 'tecnico@test.pt', 'password' => '9999'])
             ->call('authenticate')
-            ->assertHasFormErrors(['data.email']);
+            ->assertHasFormErrors(['email']);
 
         $this->assertGuest();
     }
@@ -72,7 +72,7 @@ class PinLoginTest extends TestCase
         Livewire::test(\App\Filament\Pages\Auth\Login::class)
             ->fillForm(['email' => 'a@test.pt', 'password' => '2222'])
             ->call('authenticate')
-            ->assertHasFormErrors(['data.email']);
+            ->assertHasFormErrors(['email']);
 
         $this->assertGuest();
     }
@@ -87,7 +87,7 @@ class PinLoginTest extends TestCase
         Livewire::test(\App\Filament\Pages\Auth\Login::class)
             ->fillForm(['email' => 'nopn@test.pt', 'password' => '1234'])
             ->call('authenticate')
-            ->assertHasFormErrors(['data.email']);
+            ->assertHasFormErrors(['email']);
 
         $this->assertGuest();
     }
