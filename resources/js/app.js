@@ -586,16 +586,16 @@ const setupFormDraft = () => {
 };
 
 const setupHapticFeedback = () => {
-    // Clique com vibração suave nos botões e elementos interativos principais
-    document.body.addEventListener('click', (e) => {
+    // Usar pointerdown em vez de click para resposta tátil instantânea (sem lag de 300ms em mobile)
+    document.body.addEventListener('pointerdown', (e) => {
         if (localStorage.getItem('mmcrespo_haptic_disabled') === 'true') {
             return;
         }
         const target = e.target.closest('button, a.fi-btn, .fi-fo-wizard-header-step, .mmc-kb-card, .fi-modal-close-button, .fi-ta-action');
         if (target && navigator.vibrate) {
-            navigator.vibrate(10); // toque suave de 10ms
+            navigator.vibrate(12); // toque tátil suave
         }
-    });
+    }, { passive: true });
 
     // Integração com eventos Livewire e notificações do Filament
     if (window.Livewire) {
