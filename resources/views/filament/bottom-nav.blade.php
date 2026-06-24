@@ -9,9 +9,9 @@
         </div>
         <span class="text-[10px] font-medium tracking-wide mt-6">Registar</span>
     </a>
-    <a href="/admin/pools" class="flex flex-col items-center justify-center w-full text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400">
-        <x-heroicon-o-swatch class="w-6 h-6 mb-1" />
-        <span class="text-[10px] font-medium tracking-wide">Piscinas</span>
+    <a href="/admin/analise-parametros" class="flex flex-col items-center justify-center w-full text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400">
+        <x-heroicon-o-chart-bar class="w-6 h-6 mb-1" />
+        <span class="text-[10px] font-medium tracking-wide">Análise</span>
     </a>
 </div>
 
