@@ -11,8 +11,7 @@ class ValidateUploadSize
 
     public function handle(Request $request, Closure $next): Response
     {
-        // Apenas valida uploads (POST/PUT multipart)
-        if ($request->isMethod(['post', 'put']) && $request->isMultipart()) {
+        if (($request->isMethod('POST') || $request->isMethod('PUT')) && $this->isMultipartFormData($request)) {
             $contentLength = (int) $request->header('Content-Length', 0);
 
             if ($contentLength > self::MAX_UPLOAD_BYTES) {
@@ -24,5 +23,11 @@ class ValidateUploadSize
         }
 
         return $next($request);
+    }
+
+    private function isMultipartFormData(Request $request): bool
+    {
+        $contentType = (string) $request->header('Content-Type');
+        return str_contains($contentType, 'multipart/form-data');
     }
 }
