@@ -31,9 +31,9 @@ class PainelPiscinasWidget extends Widget
     /** 15s de polling garante que os dados aparecem logo após um sync manual. */
     protected static ?string $pollingInterval = '15s';
 
-    /** Range operacional do controlador BL132 — não é limite legal CN 14/DA. */
-    private const ORP_MIN = 650;
-    private const ORP_MAX = 800;
+    /** Range operacional do controlador BL132 — mínimo comum a todas as piscinas (660 mV). */
+    private const ORP_MIN = 660;
+    private const ORP_MAX = 750;
 
     protected function getViewData(): array
     {

@@ -80,8 +80,8 @@ class CloroPhChartWidget extends Widget implements HasForms
         ],
         'controlador_orp' => [
             'label' => 'Controlador — ORP', 'unidade' => 'mV', 'casas' => 0,
-            'min' => 500, 'max' => 900, 'cor' => '#d97706',
-            'banda' => null,
+            'min' => 580, 'max' => 820, 'cor' => '#d97706',
+            'banda' => ['min' => 660, 'max' => 750],
             'sensor_campo' => 'orp',
         ],
         'controlador_temp' => [
