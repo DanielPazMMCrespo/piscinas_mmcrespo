@@ -244,7 +244,6 @@ class DailyRecordTableBuilder
                 \Filament\Infolists\Components\Tabs::make('Registo')
                     ->tabs([
                         \Filament\Infolists\Components\Tabs\Tab::make('Estado')
-                            ->icon('heroicon-o-home')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
@@ -262,7 +261,6 @@ class DailyRecordTableBuilder
                                 self::fotoEntry('bomba_foto', 'Foto da Bomba'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Contador')
-                            ->icon('heroicon-o-calculator')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
@@ -274,7 +272,6 @@ class DailyRecordTableBuilder
                                 self::fotoEntry('contador_foto', 'Foto do Contador'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Tanque')
-                            ->icon('heroicon-o-beaker')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
@@ -287,7 +284,6 @@ class DailyRecordTableBuilder
                                 self::fotoEntry('tanque_foto', 'Foto do Tanque'),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Análises')
-                            ->icon('heroicon-o-eye')
                             ->schema([
                                 \Filament\Infolists\Components\Section::make('Nadador-Salvador')
                                     ->schema([
@@ -314,7 +310,6 @@ class DailyRecordTableBuilder
                                     ]),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Filtros')
-                            ->icon('heroicon-o-funnel')
                             ->schema([
                                 \Filament\Infolists\Components\IconEntry::make('filtro_faz_retrolavagem')
                                     ->label('Retrolavagem Realizada')
@@ -327,7 +322,6 @@ class DailyRecordTableBuilder
                                     ]),
                             ]),
                         \Filament\Infolists\Components\Tabs\Tab::make('Químicos')
-                            ->icon('heroicon-o-sparkles')
                             ->schema([
                                 \Filament\Infolists\Components\RepeatableEntry::make('adicoes')
                                     ->label('Químicos Adicionados')
