@@ -69,7 +69,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => Blade::render("@vite('resources/js/app.js')"),
+                fn (): string => Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])"),
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
