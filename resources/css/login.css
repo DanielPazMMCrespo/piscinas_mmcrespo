@@ -1,0 +1,95 @@
+/* =====================================================================
+ * Premium Auth Layout (Split Screen)
+ * Aplicado via classes do Filament Simple Layout
+ * ===================================================================== */
+
+body.fi-simple-layout {
+    background-color: var(--mmc-card-bg) !important;
+}
+
+body.fi-simple-layout > .fi-simple-main {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    min-height: 100vh;
+}
+
+/* O contentor do form (esq) */
+.fi-simple-main-ctn {
+    width: 100% !important;
+    max-width: 500px !important;
+    margin: 0 auto !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 3rem !important;
+    z-index: 10;
+}
+
+/* Ajustes dentro do card do form para retirar bordas e sombras num layout limpo */
+.fi-simple-main-ctn .fi-simple-page {
+    box-shadow: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+@media (min-width: 1024px) {
+    body.fi-simple-layout > .fi-simple-main {
+        flex-direction: row;
+        align-items: stretch;
+    }
+    
+    .fi-simple-main-ctn {
+        margin: 0 !important;
+        flex: 0 0 500px !important;
+        padding: 4rem 5rem !important;
+    }
+
+    /* O painel de marca (dir) - Injetado via ::after no main */
+    body.fi-simple-layout > .fi-simple-main::after {
+        content: "";
+        flex: 1;
+        background-color: #1573a8;
+        background-image: 
+            radial-gradient(at 0% 0%, hsla(199,84%,58%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(81,63%,44%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(199,84%,58%,1) 0, transparent 50%);
+        border-top-left-radius: 2.5rem;
+        border-bottom-left-radius: 2.5rem;
+        box-shadow: -15px 0 40px rgba(0,0,0,0.08);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 4rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Overlay message on the right panel */
+    body.fi-simple-layout > .fi-simple-main::before {
+        content: "Gestão inteligente de piscinas.";
+        position: absolute;
+        bottom: 5rem;
+        right: 4rem;
+        z-index: 20;
+        font-family: var(--font-heading);
+        font-size: 3rem;
+        font-weight: 700;
+        color: white;
+        max-width: 400px;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+        text-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+}
+
+/* Micro-animação nos botões */
+.fi-btn {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+}
+.fi-btn:active {
+    transform: scale(0.97) !important;
+}

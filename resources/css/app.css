@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+@import 'widgets.css';
+@import 'login.css';
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,8 +9,20 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'DM Sans', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-heading: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Tipografia Avançada: Headings */
+h1, h2, h3, h4, h5, h6, 
+.fi-header-heading, 
+.fi-ta-header-heading, 
+.fi-section-header-heading,
+.mmc-pool-name,
+.mmc-kb-col-title,
+.mmc-kb-card-title {
+    font-family: var(--font-heading) !important;
+    letter-spacing: -0.02em;
 }
 
 /* FilePond Success Upload Feedback */
@@ -41,6 +56,10 @@
 }
 
 /* Cursor helper for zoom preview */
-.filepond--image-preview-wrapper {
+.filepond--image-preview-wrapper,
+.fi-in-image img,
+.fi-in-image a,
+.fi-ta-image img,
+.filepond--file-info {
     cursor: zoom-in !important;
 }

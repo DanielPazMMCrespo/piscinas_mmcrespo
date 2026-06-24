@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -115,17 +116,17 @@ class DailyRecord extends Model
      * Fonte única usada pelos hints reativos do DailyRecordResource.
      *
      * @return array{estado: string, mensagem: string}
-     *   estado: 'verde' (conforme) | 'amarelo' (perto do limite) | 'vermelho' (fora) | 'neutro' (vazio/sem base)
+     *   estado: \App\Enums\EstadoConformidade (verde|amarelo|vermelho|neutro)
      */
     public static function avaliarConformidade(string $campo, mixed $valor, ?Pool $piscina = null): array
     {
         if ($valor === null || $valor === '') {
-            return ['estado' => 'neutro', 'mensagem' => ''];
+            return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
         $meta = self::METRICAS[$campo] ?? null;
         if ($meta === null) {
-            return ['estado' => 'neutro', 'mensagem' => ''];
+            return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
         $valor = (float) $valor;
@@ -134,10 +135,9 @@ class DailyRecord extends Model
         $label = $meta['label'];
         $unidade = $meta['unidade'] !== '' ? ' '.$meta['unidade'] : '';
 
-        // A temperatura não tem limite legal fixo — usa a gama própria da piscina.
         if ($campo === 'temperatura') {
             if (! $piscina || $piscina->temp_min === null || $piscina->temp_max === null) {
-                return ['estado' => 'neutro', 'mensagem' => 'Sem gama definida para esta piscina'];
+                return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => 'Sem gama definida para esta piscina'];
             }
             $min = (float) $piscina->temp_min;
             $max = (float) $piscina->temp_max;
@@ -146,15 +146,13 @@ class DailyRecord extends Model
         $fmt = static fn (float $v): string => rtrim(rtrim(number_format($v, 2, ',', ''), '0'), ',');
 
         if ($min !== null && $valor < (float) $min) {
-            return ['estado' => 'vermelho', 'mensagem' => $label.' '.$fmt($valor).$unidade.' — abaixo do mínimo ('.$fmt((float) $min).')'];
+            return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — abaixo do mínimo ('.$fmt((float) $min).')'];
         }
 
         if ($max !== null && $valor > (float) $max) {
-            return ['estado' => 'vermelho', 'mensagem' => $label.' '.$fmt($valor).$unidade.' — acima do máximo ('.$fmt((float) $max).')'];
+            return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — acima do máximo ('.$fmt((float) $max).')'];
         }
 
-        // Margem de aviso: a 10% do intervalo de cada fronteira (ou de uma só, se
-        // o limite for unilateral). Sinaliza que o parâmetro se está a aproximar do limite.
         $referencia = ($min !== null && $max !== null)
             ? (float) $max - (float) $min
             : (float) ($max ?? $min);
@@ -162,14 +160,14 @@ class DailyRecord extends Model
 
         if ($margem > 0.0) {
             if ($min !== null && $valor < (float) $min + $margem) {
-                return ['estado' => 'amarelo', 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do mínimo ('.$fmt((float) $min).')'];
+                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do mínimo ('.$fmt((float) $min).')'];
             }
             if ($max !== null && $valor > (float) $max - $margem) {
-                return ['estado' => 'amarelo', 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do máximo ('.$fmt((float) $max).')'];
+                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do máximo ('.$fmt((float) $max).')'];
             }
         }
 
-        return ['estado' => 'verde', 'mensagem' => '✓ Conforme'];
+        return ['estado' => \App\Enums\EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];
     }
 
     public function phConforme(): bool
@@ -270,5 +268,55 @@ class DailyRecord extends Model
     public function registoOriginal(): BelongsTo
     {
         return $this->belongsTo(DailyRecord::class, 'corrige_registo_id');
+    }
+
+    /**
+     * Obter apenas o último registo válido de cada piscina.
+     * Utiliza uma sub-query window function para performance (evita N+1 queries).
+     *
+     * @param Builder $query
+     * @return Builder
+     */
+    public function scopeLatestPerPool(Builder $query): Builder
+    {
+        return $query->fromSub(
+            static::query()
+                ->selectRaw('*, ROW_NUMBER() OVER (PARTITION BY pool_id ORDER BY registado_em DESC, id DESC) as rn')
+                ->whereDoesntHave('correcoes'),
+            'sub'
+        )->where('rn', 1);
+    }
+
+    /**
+     * Obter o disco de armazenamento dinamicamente.
+     */
+    public static function getStorageDisk(): string
+    {
+        $default = config('filesystems.default', 'public');
+        return $default === 'local' ? 'public' : $default;
+    }
+
+    /**
+     * Obter o URL de armazenamento dinamicamente, tornando caminhos locais relativos.
+     */
+    public static function getStorageUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        $disk = self::getStorageDisk();
+        $url = \Illuminate\Support\Facades\Storage::disk($disk)->url($path);
+
+        if (str_starts_with($url, 'http://localhost') || str_starts_with($url, 'http://127.0.0.1')) {
+            $parsed = parse_url($url);
+            return ($parsed['path'] ?? '') . (isset($parsed['query']) ? '?' . $parsed['query'] : '');
+        }
+
+        if (str_starts_with($url, 'http://') && !str_contains($url, 'localhost') && !str_contains($url, '127.0.0.1')) {
+            $url = str_replace('http://', 'https://', $url);
+        }
+
+        return $url;
     }
 }

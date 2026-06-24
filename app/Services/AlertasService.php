@@ -82,19 +82,11 @@ class AlertasService
             ? DB::table('tap_alerts')->whereNull('resolved_at')->get()->groupBy('pool_id')
             : collect();
 
-        // Otimização: obter apenas o último registo válido de cada piscina (evita carregar tudo sem LIMIT).
-        $ultimosRegistos = collect();
-        foreach ($piscinas->pluck('id') as $poolId) {
-            $registo = DailyRecord::query()
-                ->where('pool_id', $poolId)
-                ->whereDoesntHave('correcoes')
-                ->latest('registado_em')
-                ->latest('id')
-                ->first();
-            if ($registo) {
-                $ultimosRegistos->put($poolId, $registo);
-            }
-        }
+        // Otimização: obter apenas o último registo válido de cada piscina numa só query.
+        $ultimosRegistos = DailyRecord::latestPerPool()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->get()
+            ->keyBy('pool_id');
 
         foreach ($piscinas as $piscina) {
             $nome = $piscina->instalacao?->name

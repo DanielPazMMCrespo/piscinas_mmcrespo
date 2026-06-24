@@ -82,8 +82,8 @@ class SecurityHeadersTest extends TestCase
 
         $policy = $response->headers->get('Permissions-Policy');
 
-        // Deve bloquear câmara, microfone e geolocalização
-        $this->assertStringContainsString('camera=()', $policy);
+        // Deve bloquear câmara (apenas self permitido), microfone e geolocalização
+        $this->assertStringContainsString('camera=(self)', $policy);
         $this->assertStringContainsString('microphone=()', $policy);
         $this->assertStringContainsString('geolocation=()', $policy);
     }

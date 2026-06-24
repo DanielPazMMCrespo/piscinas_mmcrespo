@@ -48,14 +48,14 @@ class DailyRecordTest extends TestCase
 
         // Todos os valores dentro dos limites
         $phResult = DailyRecord::avaliarConformidade('ph', 7.4, $pool);
-        $this->assertEquals('verde', $phResult['estado']);
+        $this->assertEquals('verde', $phResult['estado']->value);
         $this->assertStringContainsString('Conforme', $phResult['mensagem']);
 
         $cloroResult = DailyRecord::avaliarConformidade('cloro_livre', 1.0, $pool);
-        $this->assertEquals('verde', $cloroResult['estado']);
+        $this->assertEquals('verde', $cloroResult['estado']->value);
 
         $tempResult = DailyRecord::avaliarConformidade('temperatura', 26.5, $pool);
-        $this->assertEquals('verde', $tempResult['estado']);
+        $this->assertEquals('verde', $tempResult['estado']->value);
     }
 
     public function test_avaliar_conformidade_amarelo_warning_range(): void
@@ -66,13 +66,13 @@ class DailyRecordTest extends TestCase
         // Margem = (8.0 - 6.9) * 0.10 = 0.11
         // Aviso se pH < 6.9 + 0.11 = 7.01
         $resultBaixo = DailyRecord::avaliarConformidade('ph', 7.00, $pool);
-        $this->assertEquals('amarelo', $resultBaixo['estado']);
+        $this->assertEquals('amarelo', $resultBaixo['estado']->value);
         $this->assertStringContainsString('perto do mínimo', $resultBaixo['mensagem']);
 
         // pH perto do máximo (8.0)
         // Aviso se pH > 8.0 - 0.11 = 7.89
         $resultAlto = DailyRecord::avaliarConformidade('ph', 7.95, $pool);
-        $this->assertEquals('amarelo', $resultAlto['estado']);
+        $this->assertEquals('amarelo', $resultAlto['estado']->value);
         $this->assertStringContainsString('perto do máximo', $resultAlto['mensagem']);
     }
 
@@ -82,17 +82,17 @@ class DailyRecordTest extends TestCase
 
         // pH abaixo do mínimo
         $resultBaixo = DailyRecord::avaliarConformidade('ph', 6.5, $pool);
-        $this->assertEquals('vermelho', $resultBaixo['estado']);
+        $this->assertEquals('vermelho', $resultBaixo['estado']->value);
         $this->assertStringContainsString('abaixo do mínimo', $resultBaixo['mensagem']);
 
         // pH acima do máximo
         $resultAlto = DailyRecord::avaliarConformidade('ph', 8.5, $pool);
-        $this->assertEquals('vermelho', $resultAlto['estado']);
+        $this->assertEquals('vermelho', $resultAlto['estado']->value);
         $this->assertStringContainsString('acima do máximo', $resultAlto['mensagem']);
 
         // Temperatura acima do máximo da piscina
         $resultTemp = DailyRecord::avaliarConformidade('temperatura', 28.0, $pool);
-        $this->assertEquals('vermelho', $resultTemp['estado']);
+        $this->assertEquals('vermelho', $resultTemp['estado']->value);
     }
 
     public function test_cloro_combinado_calculates_from_total_and_livre(): void
@@ -120,12 +120,12 @@ class DailyRecordTest extends TestCase
 
         // Valor nulo
         $resultNull = DailyRecord::avaliarConformidade('ph', null, $pool);
-        $this->assertEquals('neutro', $resultNull['estado']);
+        $this->assertEquals('neutro', $resultNull['estado']->value);
         $this->assertEquals('', $resultNull['mensagem']);
 
         // String vazia
         $resultEmpty = DailyRecord::avaliarConformidade('ph', '', $pool);
-        $this->assertEquals('neutro', $resultEmpty['estado']);
+        $this->assertEquals('neutro', $resultEmpty['estado']->value);
     }
 
     public function test_cloro_combinado_null_when_missing_readings(): void

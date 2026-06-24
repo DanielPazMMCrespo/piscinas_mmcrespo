@@ -1,20 +1,5 @@
 import './bootstrap';
 
-import {
-    Chart,
-    LineController,
-    LineElement,
-    PointElement,
-    LinearScale,
-    CategoryScale,
-    Filler,
-    Legend,
-    Tooltip,
-} from 'chart.js';
-
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Legend, Tooltip);
-import { gsap } from 'gsap';
-import Sortable from 'sortablejs';
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -38,8 +23,25 @@ document.addEventListener('alpine:init', () => {
         chart: null,
         resizeObserver: null,
         resizeTimer: null,
+        ChartClass: null,
 
-        init() {
+        async init() {
+            // Carregamento dinâmico do Chart.js apenas quando necessário (code splitting)
+            if (!this.ChartClass) {
+                const chartJs = await import('chart.js');
+                this.ChartClass = chartJs.Chart;
+                this.ChartClass.register(
+                    chartJs.LineController,
+                    chartJs.LineElement,
+                    chartJs.PointElement,
+                    chartJs.LinearScale,
+                    chartJs.CategoryScale,
+                    chartJs.Filler,
+                    chartJs.Legend,
+                    chartJs.Tooltip
+                );
+            }
+
             this.render();
 
             Livewire.on('mmc-chart-updated', () => {
@@ -191,7 +193,7 @@ document.addEventListener('alpine:init', () => {
                 };
             }
 
-            this.chart = new Chart(this.$refs.canvas, {
+            this.chart = new this.ChartClass(this.$refs.canvas, {
                 type: 'line',
                 data: { labels: config.labels, datasets },
                 options: {
@@ -226,8 +228,19 @@ document.addEventListener('alpine:init', () => {
      */
     window.Alpine.data('mmcKanban', () => ({
         sortables: [],
+        SortableClass: null,
+        gsapObj: null,
 
-        init() {
+        async init() {
+            if (!this.SortableClass || !this.gsapObj) {
+                const [sortableModule, gsapModule] = await Promise.all([
+                    import('sortablejs'),
+                    import('gsap')
+                ]);
+                this.SortableClass = sortableModule.default;
+                this.gsapObj = gsapModule.gsap;
+            }
+
             this.montar();
 
             // O Livewire substitui o DOM das listas após cada movimento/polling —
@@ -240,7 +253,7 @@ document.addEventListener('alpine:init', () => {
             });
 
             if (!reduzMovimento) {
-                gsap.from(this.$el.querySelectorAll('.mmc-kb-card'), {
+                this.gsapObj.from(this.$el.querySelectorAll('.mmc-kb-card'), {
                     y: 14, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'all',
                 });
             }
@@ -251,7 +264,7 @@ document.addEventListener('alpine:init', () => {
             this.sortables = [];
 
             this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
-                this.sortables.push(Sortable.create(lista, {
+                this.sortables.push(this.SortableClass.create(lista, {
                     group: 'mmc-kanban',
                     animation: 150,
                     ghostClass: 'mmc-kb-ghost',
@@ -275,7 +288,7 @@ document.addEventListener('alpine:init', () => {
                         const status = evt.to?.dataset?.status;
                         if (key && status) {
                             if (!reduzMovimento) {
-                                gsap.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
+                                this.gsapObj.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
                             }
                             this.$wire.moverAlerta(key, status);
                         }
@@ -585,35 +598,70 @@ const setupFormDraft = () => {
     }
 };
 
-const setupFilePondPreviewLightbox = () => {
+const setupGlobalImageLightbox = () => {
     document.addEventListener('click', (e) => {
-        const canvas = e.target.closest('.filepond--image-preview-wrapper canvas, .filepond--image-preview');
-        if (!canvas) return;
+        // 1. Check if clicked element or parent is an image/link inside an infolist image entry
+        const infolistEl = e.target.closest('.fi-in-image img, .fi-in-image a, .fi-ta-image img');
+        if (infolistEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            const src = infolistEl.tagName === 'IMG' ? infolistEl.src : infolistEl.href;
+            if (src && typeof window.GLightbox !== 'undefined') {
+                window.GLightbox({ elements: [{ href: src, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+            }
+            return;
+        }
 
-        e.preventDefault();
-        e.stopPropagation();
+        // 2. Check if clicked element or parent is a FilePond image preview canvas
+        const canvasContainer = e.target.closest('.filepond--image-preview-wrapper canvas, .filepond--image-preview');
+        if (canvasContainer) {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                const canvasEl = canvasContainer.tagName === 'CANVAS' ? canvasContainer : canvasContainer.querySelector('canvas');
+                if (canvasEl) {
+                    const dataUrl = canvasEl.toDataURL('image/jpeg', 0.95);
+                    if (typeof window.GLightbox !== 'undefined') {
+                        window.GLightbox({ elements: [{ href: dataUrl, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+                    } else {
+                        const win = window.open();
+                        if (win) {
+                            win.document.write(`<img src="${dataUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error opening image preview:', err);
+            }
+            return;
+        }
 
-        try {
-            const canvasEl = canvas.tagName === 'CANVAS' ? canvas : canvas.querySelector('canvas');
-            if (!canvasEl) return;
-
-            const dataUrl = canvasEl.toDataURL('image/jpeg', 0.95);
-
-            if (typeof window.GLightbox !== 'undefined') {
-                window.GLightbox({
-                    elements: [{ href: dataUrl, type: 'image' }],
-                    touchNavigation: true,
-                    zoomable: true,
-                    draggable: true
-                }).open();
-            } else {
-                const win = window.open();
-                if (win) {
-                    win.document.write(`<img src="${dataUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
+        // 3. Check if clicked element is an anchor link pointing to a storage image or image file
+        const anchor = e.target.closest('a');
+        if (anchor) {
+            const href = anchor.getAttribute('href');
+            if (href) {
+                const isImage = anchor.classList.contains('glightbox-trigger') ||
+                              href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) || 
+                              href.includes('/storage/') || 
+                              href.includes('r2.dev') ||
+                              href.includes('/app/private/') ||
+                              anchor.closest('.filepond--file') !== null;
+                
+                if (isImage) {
+                    if (anchor.classList.contains('filepond--action-remove-item') || anchor.hasAttribute('download')) {
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof window.GLightbox !== 'undefined') {
+                        window.GLightbox({ elements: [{ href: href, type: 'image' }], touchNavigation: true, loop: false, zoomable: true, draggable: true }).open();
+                    } else {
+                        window.open(href, '_blank');
+                    }
                 }
             }
-        } catch (err) {
-            console.error('Error opening image preview:', err);
         }
     });
 };
@@ -622,13 +670,34 @@ const setupFilePondPreviewLightbox = () => {
 // e o ramo readyState dispararem ambos, ou se o bundle reexecutar.
 let mmcSetupDone = false;
 const mmcSetup = () => {
+    if (!document.documentElement.classList.contains('mmc-loaded')) {
+        document.documentElement.classList.add('mmc-loaded');
+        
+        // Carrega GSAP dinamicamente para animação global de entrada se necessário
+        const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reduzMovimento) {
+            import('gsap').then(({ gsap }) => {
+                const pageContent = document.querySelector('.fi-main');
+                if (pageContent) {
+                    gsap.from(pageContent, { 
+                        opacity: 0, 
+                        y: 10, 
+                        duration: 0.4, 
+                        ease: 'power2.out',
+                        clearProps: 'all'
+                    });
+                }
+            });
+        }
+    }
+
     if (mmcSetupDone) return;
     mmcSetupDone = true;
     setupDecimalInputs();
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
-    setupFilePondPreviewLightbox();
+    setupGlobalImageLightbox();
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);
