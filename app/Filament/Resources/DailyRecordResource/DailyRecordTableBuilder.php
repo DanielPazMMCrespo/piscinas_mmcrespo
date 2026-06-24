@@ -243,7 +243,7 @@ class DailyRecordTableBuilder
             ->schema([
                 \Filament\Infolists\Components\Tabs::make('Registo')
                     ->tabs([
-                        \Filament\Infolists\Components\Tabs\Tab::make('Estado')
+                        \Filament\Infolists\Components\Tabs\Tab::make('Geral')
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
@@ -259,9 +259,6 @@ class DailyRecordTableBuilder
                                             ->boolean(),
                                     ]),
                                 self::fotoEntry('bomba_foto', 'Foto da Bomba'),
-                            ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Contador')
-                            ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
                                         \Filament\Infolists\Components\TextEntry::make('contador_valor')
@@ -270,16 +267,13 @@ class DailyRecordTableBuilder
                                             ->label('Entrada de Água'),
                                     ]),
                                 self::fotoEntry('contador_foto', 'Foto do Contador'),
-                            ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Tanque')
-                            ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
                                         \Filament\Infolists\Components\IconEntry::make('tanque_ok')
                                             ->label('Tanque OK')
                                             ->boolean(),
                                         \Filament\Infolists\Components\TextEntry::make('tanque_observacoes')
-                                            ->label('Observações'),
+                                            ->label('Obs. Tanque'),
                                     ]),
                                 self::fotoEntry('tanque_foto', 'Foto do Tanque'),
                             ]),
