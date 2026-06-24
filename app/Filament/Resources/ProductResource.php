@@ -41,6 +41,15 @@ class ProductResource extends Resource
                 Forms\Components\TextInput::make('categoria')
                     ->label('Categoria')
                     ->maxLength(50),
+                Forms\Components\TextInput::make('concentracao_cl')
+                    ->label('Concentração de cloro ativo (%)')
+                    ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio. Usado na calculadora de dosagem.')
+                    ->numeric()
+                    ->step(0.01)
+                    ->minValue(0.01)
+                    ->maxValue(100)
+                    ->suffix('%')
+                    ->nullable(),
                 Forms\Components\Toggle::make('active')
                     ->label('Ativo')
                     ->default(true)

@@ -11,9 +11,12 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'unidade', 'categoria', 'active'];
+    protected $fillable = ['name', 'unidade', 'categoria', 'concentracao_cl', 'active'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = [
+        'active' => 'boolean',
+        'concentracao_cl' => 'decimal:2',
+    ];
 
     public function stockArmazem(): HasOne
     {
