@@ -64,7 +64,7 @@ class RelatorioPdf extends Page implements HasForms
             'installation_id' => null,
             'pool_id' => 'todas',
             'data_inicio' => now()->startOfMonth()->toDateString(),
-            'data_fim' => now()->toDateString(),
+            'data_fim' => now()->subDay()->toDateString(),
         ]);
     }
 
@@ -116,7 +116,7 @@ class RelatorioPdf extends Page implements HasForms
                         DatePicker::make('data_fim')
                             ->label('Data fim')
                             ->required()
-                            ->maxDate(now())
+                            ->maxDate(now()->subDay())
                             ->afterOrEqual('data_inicio')
                             ->displayFormat('d/m/Y')
                             ->native(false)

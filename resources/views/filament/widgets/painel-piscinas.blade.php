@@ -39,13 +39,44 @@
                         <span class="mmc-pool-inst">{{ $item['piscina']->instalacao?->name }}</span>
                     </div>
 
-                    @if ($item['registo'])
-                        <div class="mmc-card-time {{ $item['sem_hoje'] ? 'mmc-warn' : '' }}">
-                            @if ($item['sem_hoje'])
-                                ⚠ Sem registo hoje — último em {{ $item['registo']->registado_em->format('d/m H:i') }}
-                            @else
-                                Registado às {{ $item['registo']->registado_em->format('H:i') }} · {{ $item['ha_quanto'] }}
+                    {{-- Controlador Hanna (BL132): leitura automática em tempo real. --}}
+                    @if ($item['controlador'])
+                        <div class="mmc-section-divider">
+                            <span class="mmc-controlador-tag {{ $item['controlador']['stale'] ? 'mmc-controlador-tag--stale' : '' }}">Controlador</span>
+                            <span class="mmc-controlador-age {{ $item['controlador']['stale'] ? 'mmc-controlador-age--stale' : '' }}">{{ $item['controlador']['idade_txt'] }}</span>
+                        </div>
+                        <div class="mmc-metrics">
+                            @if ($item['controlador']['ph'] !== null)
+                                <div class="mmc-metric">
+                                    <span class="mmc-metric-label">pH</span>
+                                    <span class="mmc-metric-value {{ $item['controlador']['ph_ok'] === null ? 'mmc-na' : ($item['controlador']['ph_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['ph'] }}</span>
+                                </div>
                             @endif
+                            @if ($item['controlador']['orp'] !== null)
+                                <div class="mmc-metric">
+                                    <span class="mmc-metric-label">ORP</span>
+                                    <span class="mmc-metric-value {{ $item['controlador']['orp_ok'] === null ? 'mmc-na' : ($item['controlador']['orp_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['orp'] }} mV</span>
+                                </div>
+                            @endif
+                            @if ($item['controlador']['temp'] !== null)
+                                <div class="mmc-metric">
+                                    <span class="mmc-metric-label">Temp. Água</span>
+                                    <span class="mmc-metric-value {{ $item['controlador']['temp_ok'] === null ? 'mmc-na' : ($item['controlador']['temp_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['temp'] }} °C</span>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
+                    @if ($item['registo'])
+                        <div class="mmc-section-divider">
+                            <span class="mmc-registo-tag">Registo Manual</span>
+                            <span class="mmc-card-time {{ $item['sem_hoje'] ? 'mmc-warn' : '' }}">
+                                @if ($item['sem_hoje'])
+                                    ⚠ último em {{ $item['registo']->registado_em->format('d/m H:i') }}
+                                @else
+                                    {{ $item['registo']->registado_em->format('H:i') }} · {{ $item['ha_quanto'] }}
+                                @endif
+                            </span>
                         </div>
 
                         <div class="mmc-metrics">
@@ -56,25 +87,13 @@
                                 </div>
                             @endforeach
                         </div>
-                    @else
+                    @elseif (!$item['controlador'])
                         <div class="mmc-empty">Sem registos</div>
-                    @endif
-
-                    {{-- Sonda Hanna (BL132): leitura automática, complementa a análise manual. --}}
-                    @if ($item['sonda'])
-                        <div class="mmc-sonda {{ $item['sonda']['stale'] ? 'mmc-sonda--stale' : '' }}">
-                            <span class="mmc-sonda-tag">Sonda</span>
-                            @if ($item['sonda']['ph'] !== null)
-                                <span class="mmc-sonda-val {{ $item['sonda']['ph_ok'] === false ? 'mmc-bad' : '' }}">pH {{ $item['sonda']['ph'] }}</span>
-                            @endif
-                            @if ($item['sonda']['orp'] !== null)
-                                <span class="mmc-sonda-val">{{ $item['sonda']['orp'] }} mV</span>
-                            @endif
-                            @if ($item['sonda']['temp'] !== null)
-                                <span class="mmc-sonda-val">{{ $item['sonda']['temp'] }} °C</span>
-                            @endif
-                            <span class="mmc-sonda-age">{{ $item['sonda']['idade_txt'] }}</span>
+                    @else
+                        <div class="mmc-section-divider">
+                            <span class="mmc-registo-tag">Registo Manual</span>
                         </div>
+                        <div class="mmc-empty">Sem registos manuais</div>
                     @endif
 
                     <a href="{{ $item['url_registar'] }}" class="mmc-card-cta">
@@ -92,27 +111,37 @@
         :root {
             --mmc-card-border: #e5e7eb;
             --mmc-card-bg: #ffffff;
-            --mmc-sonda-border: #e5e7eb;
             --mmc-cta-bg: #f2f9fd;
             --mmc-cta-border: #d3e9f6;
             --mmc-cta-color: #1573a8;
             --mmc-cta-hover-bg: #e2f1fa;
             --mmc-bad-color: #dc2626;
+            --mmc-ok-color: #16a34a;
             --mmc-metric-label-opacity: 0.72;
             --mmc-progress-bg: #e5e7eb;
+            --mmc-divider-color: #e5e7eb;
+            --mmc-controlador-tag-color: #1573a8;
+            --mmc-controlador-tag-bg: #e8f4fd;
+            --mmc-registo-tag-color: #6b7280;
+            --mmc-registo-tag-bg: #f3f4f6;
         }
 
         .dark {
             --mmc-card-border: #3f3f46;
             --mmc-card-bg: rgba(255, 255, 255, 0.02);
-            --mmc-sonda-border: #3f3f46;
             --mmc-cta-bg: rgba(43, 156, 216, 0.12);
             --mmc-cta-border: rgba(43, 156, 216, 0.3);
             --mmc-cta-color: #7cc4e8;
             --mmc-cta-hover-bg: rgba(43, 156, 216, 0.2);
             --mmc-bad-color: #f87171;
+            --mmc-ok-color: #4ade80;
             --mmc-metric-label-opacity: 0.8;
             --mmc-progress-bg: #3f3f46;
+            --mmc-divider-color: #3f3f46;
+            --mmc-controlador-tag-color: #7cc4e8;
+            --mmc-controlador-tag-bg: rgba(43, 156, 216, 0.15);
+            --mmc-registo-tag-color: #9ca3af;
+            --mmc-registo-tag-bg: rgba(255, 255, 255, 0.06);
         }
 
         /* Progress Bar Styles */
@@ -171,8 +200,6 @@
         /* General styles */
         .mmc-piscinas-grid {
             display: grid;
-            /* min(100%, 240px) garante que em telemóvel estreito o cartão ocupa
-               a largura toda em vez de transbordar. */
             grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
             gap: 0.75rem;
         }
@@ -190,50 +217,80 @@
             justify-content: space-between;
             align-items: baseline;
             gap: 0.5rem;
+            margin-bottom: 0.5rem;
         }
         .mmc-pool-name { font-weight: 700; font-size: 0.95rem; }
         .mmc-pool-inst { font-size: 0.75rem; opacity: 0.6; }
-        .mmc-card-time { font-size: 0.72rem; opacity: 0.6; margin-top: 0.15rem; }
+
+        /* Divisor de secção (Controlador / Registo Manual) */
+        .mmc-section-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            margin-bottom: 0.4rem;
+        }
+        .mmc-controlador-tag {
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--mmc-controlador-tag-color);
+            background: var(--mmc-controlador-tag-bg);
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            white-space: nowrap;
+        }
+        .mmc-controlador-tag--stale {
+            color: #d97706;
+            background: rgba(217, 119, 6, 0.1);
+        }
+        .mmc-controlador-age {
+            font-size: 0.68rem;
+            opacity: 0.5;
+            margin-left: auto;
+        }
+        .mmc-controlador-age--stale {
+            color: #d97706;
+            opacity: 1;
+            font-weight: 600;
+        }
+        .mmc-registo-tag {
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--mmc-registo-tag-color);
+            background: var(--mmc-registo-tag-bg);
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            white-space: nowrap;
+        }
+        .mmc-card-time {
+            font-size: 0.68rem;
+            opacity: 0.55;
+            margin-left: auto;
+        }
         .mmc-card-time.mmc-warn { color: #d97706; opacity: 1; font-weight: 600; }
+
         .mmc-metrics {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.5rem 0.75rem;
-            margin-top: 0.75rem;
+            gap: 0.4rem 0.75rem;
         }
         .mmc-metric { display: flex; flex-direction: column; }
         .mmc-metric-label { font-size: 0.7rem; opacity: var(--mmc-metric-label-opacity); }
         .mmc-metric-value { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
-        /* Disciplina de cor anti alarm-fatigue: valores conformes em tom neutro
-           (não saltam à vista); só o que está fora de limite fica a vermelho. */
+
+        /* Valores do registo manual: conformes em tom neutro (anti alarm-fatigue). */
         .mmc-ok { color: inherit; opacity: 0.85; }
+        /* Valores do controlador: conformes a verde real (é em tempo real, interessa ver). */
+        .mmc-sensor-ok { color: var(--mmc-ok-color); }
         .mmc-na { color: inherit; opacity: 0.35; }
         .mmc-bad { color: var(--mmc-bad-color); }
-        .mmc-empty { opacity: 0.5; font-size: 0.85rem; padding: 0.5rem 0; }
+        .mmc-empty { opacity: 0.5; font-size: 0.85rem; padding: 0.3rem 0; }
 
-        /* Linha da sonda: discreta, separada da análise manual. */
-        .mmc-sonda {
-            display: flex;
-            align-items: baseline;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-            margin-top: 0.75rem;
-            padding-top: 0.6rem;
-            border-top: 1px dashed var(--mmc-sonda-border);
-            font-size: 0.74rem;
-        }
-        .mmc-sonda-tag {
-            font-size: 0.62rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: #2b9cd8;
-        }
-        .mmc-sonda-val { font-weight: 600; opacity: 0.85; }
-        .mmc-sonda-age { margin-left: auto; opacity: 0.5; font-size: 0.68rem; }
-        .mmc-sonda--stale .mmc-sonda-age { color: #d97706; opacity: 1; font-weight: 600; }
-
-        /* CTA por piscina: alvo tátil ≥40px, encostado ao fundo do cartão. */
+        /* CTA por piscina */
         .mmc-card-cta {
             display: inline-flex;
             align-items: center;
