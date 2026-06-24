@@ -9,6 +9,7 @@ use App\Models\UserInvitation;
 use App\Services\InvitationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -124,18 +125,18 @@ class InvitationFlowTest extends TestCase
         $service    = app(InvitationService::class);
         $invitation = $service->send('novo@test.pt', 'tecnico', $admin);
 
-        $service->accept($invitation, [
+        $user = $service->accept($invitation, [
             'first_name' => 'Ana',
             'last_name'  => 'Silva',
             'password'   => 'password123',
         ]);
 
-        $response = $this->post('/admin/login', [
-            'email'    => 'novo@test.pt',
-            'password' => 'password123',
-        ]);
+        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+            ->fillForm(['email' => 'novo@test.pt', 'password' => 'password123'])
+            ->call('authenticate')
+            ->assertHasNoFormErrors();
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_findValid_returns_null_for_expired_token(): void

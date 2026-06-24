@@ -47,20 +47,23 @@ class InvitationService
         $firstName = $data['first_name'];
         $lastName  = $data['last_name'];
 
+        $password = isset($data['password']) && $data['password'] !== ''
+            ? Hash::make($data['password'])
+            : Hash::make(Str::random(32));
+
         $user = User::create([
             'name'       => trim("{$firstName} {$lastName}"),
             'first_name' => $firstName,
             'last_name'  => $lastName,
             'email'      => $invitation->email,
             'phone'      => $data['phone'] ?? null,
-            'password'   => isset($data['password']) && $data['password'] !== ''
-                ? Hash::make($data['password'])
-                : null,
+            'password'   => $password,
             'pin'        => isset($data['pin']) && $data['pin'] !== ''
                 ? $data['pin']
                 : null,
-            'email_verified_at' => now(),
         ]);
+
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         $user->assignRole($invitation->role);
 

@@ -256,7 +256,7 @@ class AlertasService
                     'titulo' => "{$nome}: parâmetros fora dos limites CN 14/DA",
                     'detalhe' => implode(' · ', $violacoes)
                         .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                    'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
+                    'url' => DailyRecordResource::getUrl('edit', ['record' => $registo]),
                     'acao' => 'Ver registo',
                 ];
             }
@@ -268,7 +268,7 @@ class AlertasService
                     'titulo' => "{$nome}: temperatura fora da gama da piscina",
                     'detalhe' => $violacaoTemp
                         .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                    'url' => DailyRecordResource::getUrl('view', ['record' => $registo]),
+                    'url' => DailyRecordResource::getUrl('edit', ['record' => $registo]),
                     'acao' => 'Ver registo',
                 ];
             }
