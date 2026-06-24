@@ -11,6 +11,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -75,6 +76,11 @@ class DailyRecordResource extends Resource
     public static function form(Form $form): Form
     {
         return DailyRecordResource\DailyRecordFormBuilder::form($form);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return DailyRecordResource\DailyRecordTableBuilder::infolist($infolist);
     }
 
     public static function table(Table $table): Table
