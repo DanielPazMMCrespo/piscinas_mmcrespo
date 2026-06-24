@@ -23,8 +23,28 @@ class EditDailyRecord extends EditRecord
         return [
             $this->getSaveFormAction()
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar alteração')
-                ->modalDescription('Confirme que pretende guardar as alterações a este registo.')
+                ->modalHeading('Confirmar alterações')
+                ->modalContent(function () {
+                    $data = $this->data;
+                    $pool = \App\Models\Pool::find($data['pool_id'] ?? null);
+                    $problemas = [];
+                    foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
+                        if (isset($data[$campo]) && $data[$campo] !== '') {
+                            $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $data[$campo], $pool);
+                            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                                $problemas[] = $estado['mensagem'];
+                            }
+                        }
+                    }
+                    if (isset($data['cloro_livre'], $data['cloro_total']) && $data['cloro_livre'] !== '' && $data['cloro_total'] !== '') {
+                        $combinado = (float)$data['cloro_total'] - (float)$data['cloro_livre'];
+                        $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
+                        if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                            $problemas[] = $estado['mensagem'];
+                        }
+                    }
+                    return view('filament.daily-record-modal-summary', ['problemas' => $problemas]);
+                })
                 ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),
         ];
