@@ -5,16 +5,9 @@ namespace App\Filament\Resources;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
-use App\Models\Pool;
-use Closure;
-use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Infolists\Infolist;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
