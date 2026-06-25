@@ -87,7 +87,7 @@ class SentryContextMiddleware
      */
     private function sanitizeQuery(array $query): array
     {
-        $sensitive = ['password', 'token', 'secret', 'api_key', 'gemini_key', 'hanna_password'];
+        $sensitive = ['password', 'token', 'secret', 'api_key', 'gemini_key', 'hanna_password', 'pin', 'email', 'current_password'];
 
         foreach ($sensitive as $key) {
             if (isset($query[$key])) {

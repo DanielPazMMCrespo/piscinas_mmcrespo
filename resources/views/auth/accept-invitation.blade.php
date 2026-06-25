@@ -140,8 +140,9 @@
       </div>
     @endif
 
-    <form method="POST" action="{{ route('invitation.store', $invitation->token) }}">
+    <form method="POST" action="{{ route('invitation.store') }}">
       @csrf
+      <input type="hidden" name="token" value="{{ $token }}">
 
       <label>Primeiro nome *</label>
       <input type="text" name="first_name" value="{{ old('first_name') }}" required autocomplete="given-name" placeholder="Ex: João">

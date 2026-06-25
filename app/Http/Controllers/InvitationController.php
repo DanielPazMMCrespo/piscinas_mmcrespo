@@ -11,22 +11,44 @@ use Illuminate\View\View;
 
 class InvitationController extends Controller
 {
-    public function show(string $token): View
+    public function handleRedirect(string $token): RedirectResponse
     {
         $invitation = UserInvitation::findValid($token);
+        if (!$invitation) {
+            session()->flash('invitation_error', 'Este convite expirou ou já foi utilizado.');
+        } else {
+            session(['invitation_token' => $token]);
+        }
+
+        return redirect()->route('invitation.form');
+    }
+
+    public function show(Request $request): View
+    {
+        $token = session('invitation_token');
+        $invitation = $token ? UserInvitation::findValid($token) : null;
+        $error = session('invitation_error');
 
         return view('auth.accept-invitation', [
             'invitation' => $invitation,
             'expired'    => $invitation === null,
+            'token'      => $token,
+            'error'      => $error,
         ]);
     }
 
-    public function store(Request $request, string $token, InvitationService $service): RedirectResponse
+    public function store(Request $request, InvitationService $service): RedirectResponse
     {
+        $token = $request->input('token') ?: session('invitation_token');
+
+        if (!$token) {
+            return redirect()->route('invitation.form')->withErrors(['token' => 'Token de convite em falta.']);
+        }
+
         $invitation = UserInvitation::findValid($token);
 
         if (! $invitation) {
-            return back()->withErrors(['token' => 'Este convite expirou ou já foi utilizado.']);
+            return redirect()->route('invitation.form')->withErrors(['token' => 'Este convite expirou ou já foi utilizado.']);
         }
 
         $validated = $request->validate([
@@ -49,6 +71,8 @@ class InvitationController extends Controller
         }
 
         $user = $service->accept($invitation, $validated);
+
+        session()->forget('invitation_token');
 
         Auth::login($user);
 
