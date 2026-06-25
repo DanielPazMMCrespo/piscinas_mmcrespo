@@ -47,6 +47,25 @@ class User extends Authenticatable implements FilamentUser
         return $this->name;
     }
 
+    protected function setFirstNameAttribute(?string $value): void
+    {
+        $this->attributes['first_name'] = $value;
+        $this->syncNameField();
+    }
+
+    protected function setLastNameAttribute(?string $value): void
+    {
+        $this->attributes['last_name'] = $value;
+        $this->syncNameField();
+    }
+
+    private function syncNameField(): void
+    {
+        $firstName = $this->attributes['first_name'] ?? null;
+        $lastName = $this->attributes['last_name'] ?? null;
+        $this->attributes['name'] = trim("{$firstName} {$lastName}");
+    }
+
     public function hasPin(): bool
     {
         return $this->pin !== null;

@@ -56,15 +56,13 @@ class UserResource extends Resource
                 Forms\Components\Grid::make(2)->schema([
                     Forms\Components\TextInput::make('first_name')
                         ->label('Primeiro nome')
+                        ->required()
                         ->maxLength(100),
                     Forms\Components\TextInput::make('last_name')
                         ->label('Último nome')
+                        ->required()
                         ->maxLength(100),
                 ]),
-                Forms\Components\TextInput::make('name')
-                    ->label('Nome completo')
-                    ->required()
-                    ->maxLength(255),
                 Forms\Components\TextInput::make('phone')
                     ->label('Telefone')
                     ->tel()
@@ -74,13 +72,14 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('password')
-                    ->label('Palavra-passe')
+                Forms\Components\TextInput::make('pin')
+                    ->label('PIN')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
                     ->dehydrated(fn (?string $state) => filled($state))
-                    ->minLength(8)
-                    ->maxLength(255),
+                    ->minLength(4)
+                    ->maxLength(255)
+                    ->helperText('Insira um PIN que se lembrará facilmente. Este PIN será utilizado em todos os logins.'),
                 Forms\Components\Select::make('roles')
                     ->label('Cargo')
                     ->relationship('roles', 'name')
