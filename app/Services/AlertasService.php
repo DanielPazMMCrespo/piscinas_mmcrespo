@@ -13,6 +13,7 @@ use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\Pool;
 use App\Models\StockInstallation;
+use App\Models\TapAlert;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +80,7 @@ class AlertasService
 
         // Torneiras abertas: uma query única fora do loop.
         $taps = Schema::hasTable('tap_alerts')
-            ? DB::table('tap_alerts')->whereNull('resolved_at')->get()->groupBy('pool_id')
+            ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
             : collect();
 
         // Otimização: obter apenas o último registo válido de cada piscina numa só query.

@@ -26,4 +26,10 @@ class AppSetting extends Model
     protected $casts = [
         'value' => 'json',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
+    }
 }

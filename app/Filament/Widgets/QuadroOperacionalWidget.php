@@ -29,8 +29,8 @@ class QuadroOperacionalWidget extends Widget
 
     protected static string $view = 'filament.widgets.quadro-operacional';
 
-    /** O estado muda ao longo da manhã (regra das 12h) — refresca a cada 60s. */
-    protected static ?string $pollingInterval = '60s';
+    /** O estado muda ao longo da manhã (regra das 12h) — refresca a cada 30s. */
+    protected static ?string $pollingInterval = '30s';
 
     public static function canView(): bool
     {
@@ -50,18 +50,24 @@ class QuadroOperacionalWidget extends Widget
             'move_alert_' . auth()->id(),
             30, // 30 movimentos
             function () use ($key, $status) {
-                $ativos = app(AlertasService::class)->calcular(auth()->user())['alertas'];
+                $ativos = \Illuminate\Support\Facades\Cache::remember(
+                    'alertas_' . auth()->id(),
+                    30,
+                    fn () => app(AlertasService::class)->calcular(auth()->user())
+                )['alertas'];
 
-                AlertState::updateOrCreate(
-                    ['alert_key' => $key],
-                    [
-                        'status' => $status,
-                        // Snapshot para o cartão continuar legível depois de a condição sumir.
-                        'payload' => $ativos[$key] ?? null,
-                        'moved_by' => auth()->id(),
-                        'moved_at' => now(),
-                    ],
-                );
+                \Illuminate\Support\Facades\DB::transaction(function () use ($key, $status, $ativos) {
+                    AlertState::updateOrCreate(
+                        ['alert_key' => $key],
+                        [
+                            'status' => $status,
+                            // Snapshot para o cartão continuar legível depois de a condição sumir.
+                            'payload' => $ativos[$key] ?? null,
+                            'moved_by' => auth()->id(),
+                            'moved_at' => now(),
+                        ],
+                    );
+                });
             },
             60 // por minuto
         );
@@ -77,7 +83,11 @@ class QuadroOperacionalWidget extends Widget
 
     protected function getViewData(): array
     {
-        $resultado = app(AlertasService::class)->calcular(auth()->user());
+        $resultado = \Illuminate\Support\Facades\Cache::remember(
+            'alertas_' . auth()->id(),
+            30,
+            fn () => app(AlertasService::class)->calcular(auth()->user())
+        );
         $ativos = $resultado['alertas'];
 
         // Poda: estados com mais de 7 dias já não interessam ao quadro (corre no máximo 1x por hora).
@@ -111,13 +121,21 @@ class QuadroOperacionalWidget extends Widget
         }
 
         // Estados cuja condição desapareceu: resolvidos automáticos de hoje.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($estados, $ativos) {
+            foreach ($estados as $key => $estado) {
+                if (isset($ativos[$key])) {
+                    continue;
+                }
+
+                if (in_array($estado->status, ['pendente', 'em_curso'], true)) {
+                    $estado->update(['status' => 'resolvido_auto', 'moved_at' => now()]);
+                }
+            }
+        });
+
         foreach ($estados as $key => $estado) {
             if (isset($ativos[$key])) {
                 continue;
-            }
-
-            if (in_array($estado->status, ['pendente', 'em_curso'], true)) {
-                $estado->update(['status' => 'resolvido_auto', 'moved_at' => now()]);
             }
 
             if (! $estado->moved_at->isToday() || ! is_array($estado->payload)) {

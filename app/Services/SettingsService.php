@@ -19,8 +19,12 @@ class SettingsService
         self::$settings = Cache::remember('app_settings_all', 900, function () {
             try {
                 return AppSetting::all()->pluck('value', 'key')->toArray();
-            } catch (\Throwable $e) {
-                // If table doesn't exist yet (e.g. during migration/testing setup)
+            } catch (\Illuminate\Database\QueryException $e) {
+                $msg = $e->getMessage();
+                if (str_contains($msg, 'does not exist') || str_contains($msg, 'no such table')) {
+                    return [];
+                }
+                \Illuminate\Support\Facades\Log::error('SettingsService database query failed', ['err' => $msg]);
                 return [];
             }
         });

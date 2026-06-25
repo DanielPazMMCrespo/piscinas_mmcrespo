@@ -44,6 +44,11 @@ class DailyRecordObserver
         // Invalida alertas (para todos os utilizadores — conformidade pode ter mudado).
         $this->cacheService->invalidateAllAlerts();
 
+        // Invalida o cache local temporário do utilizador autenticado
+        if (auth()->check()) {
+            \Illuminate\Support\Facades\Cache::forget('alertas_' . auth()->id());
+        }
+
         // Invalida painel de piscinas (valores atualizados).
         $this->cacheService->invalidatePoolData();
     }
