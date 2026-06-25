@@ -55,7 +55,9 @@ document.addEventListener('alpine:init', () => {
                 );
             }
 
-            this.render();
+            this.$nextTick(() => {
+                if (!this._destroyed) this.render();
+            });
 
             // Reage a mudanças de dark mode — skip na primeira execução (já renderizámos acima)
             let themeEffectFirst = true;
