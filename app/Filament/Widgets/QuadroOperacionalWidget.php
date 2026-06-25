@@ -2,6 +2,7 @@
 namespace App\Filament\Widgets;
 
 
+use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Services\AlertasService;
 use Filament\Widgets\Widget;
@@ -31,9 +32,9 @@ class QuadroOperacionalWidget extends Widget
     /** O estado muda ao longo da manhã (regra das 12h) — refresca a cada 60s. */
     protected static ?string $pollingInterval = '60s';
 
-    public static function isVisible(): bool
+    public static function canView(): bool
     {
-        return auth()->user()?->hasRole('nadador_salvador') === false;
+        return ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR);
     }
 
     /**

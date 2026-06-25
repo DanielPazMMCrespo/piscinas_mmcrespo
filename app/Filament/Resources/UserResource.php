@@ -31,12 +31,21 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        $user = auth()->user();
+        if ($user?->hasRole(UserRole::ADMIN)) {
+            return true;
+        }
+        // gestor só pode editar utilizadores NS (não pode editar admin/gestor/tecnico)
+        if ($user?->hasRole(UserRole::GESTOR) && $record !== null) {
+            return $record->hasRole(UserRole::NADADOR_SALVADOR)
+                && ! $record->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]);
+        }
+        return false;
     }
 
     public static function canDelete($record): bool
@@ -72,6 +81,14 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
+                Forms\Components\TextInput::make('password')
+                    ->label('Palavra-passe')
+                    ->password()
+                    ->required(fn (string $context): bool => $context === 'create')
+                    ->dehydrated(fn (?string $state) => filled($state))
+                    ->dehydrateStateUsing(fn (string $state) => \Illuminate\Support\Facades\Hash::make($state))
+                    ->minLength(8)
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('pin')
                     ->label('PIN')
                     ->password()
@@ -85,9 +102,32 @@ class UserResource extends Resource
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload()
-                    ->required()
-                    ->disabled(fn ($record): bool => !auth()->user()?->hasRole('admin') || ($record !== null && $record->id === auth()->id()))
+                    ->required(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
+                    ->live()
+                    ->visible(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
+                    ->disabled(fn ($record): bool =>
+                        $record !== null && $record->id === auth()->id()
+                    )
                     ->dehydrated(fn ($record): bool => $record === null || $record->id !== auth()->id()),
+                Forms\Components\Select::make('piscinas')
+                    ->label('Piscinas Atribuídas')
+                    ->relationship('piscinas', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->visible(function (Forms\Get $get): bool {
+                        $user = auth()->user();
+                        if ($user?->hasRole(UserRole::GESTOR)) {
+                            return true;
+                        }
+                        $roleIds = (array) ($get('roles') ?? []);
+                        if (empty($roleIds)) {
+                            return false;
+                        }
+                        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
+                            ->where('name', UserRole::NADADOR_SALVADOR)
+                            ->exists();
+                    })
+                    ->helperText('Piscinas às quais o nadador salvador tem acesso.'),
             ]);
     }
 
@@ -109,6 +149,10 @@ class UserResource extends Resource
                     ->label('Perfis')
                     ->badge()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('piscinas.name')
+                    ->label('Piscinas')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
@@ -165,4 +209,3 @@ class UserResource extends Resource
         ];
     }
 }
-

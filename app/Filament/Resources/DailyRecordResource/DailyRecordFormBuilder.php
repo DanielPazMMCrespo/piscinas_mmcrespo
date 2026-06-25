@@ -352,16 +352,41 @@ class DailyRecordFormBuilder
                 ->schema([
                     Forms\Components\Select::make('pool_id')
                         ->label('Piscina')
-                        ->relationship('piscina', 'name')
+                        ->relationship('piscina', 'name', function ($query) {
+                            $user = auth()->user();
+                            if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
+                                return $query->whereIn('id', $user->piscinas()->pluck('pools.id'));
+                            }
+                            return $query;
+                        })
                         ->required()
                         ->preload()
                         ->searchable()
-                        ->default(fn (): ?int => request()->integer('pool')
-                            ?: DailyRecord::query()
-                                ->where('user_id', auth()->id())
-                                ->orderByDesc('registado_em')
-                                ->orderByDesc('id')
-                                ->value('pool_id'))
+                        ->default(function (): ?int {
+                            $user = auth()->user();
+                            $requested = request()->integer('pool') ?: null;
+
+                            if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
+                                $allowedIds = $user->piscinas()->pluck('pools.id');
+                                if ($requested && $allowedIds->contains($requested)) {
+                                    return $requested;
+                                }
+                                $last = DailyRecord::query()
+                                    ->where('user_id', $user->id)
+                                    ->whereIn('pool_id', $allowedIds)
+                                    ->orderByDesc('registado_em')
+                                    ->orderByDesc('id')
+                                    ->value('pool_id');
+                                return $last ?? $allowedIds->first();
+                            }
+
+                            return $requested
+                                ?: DailyRecord::query()
+                                    ->where('user_id', $user->id)
+                                    ->orderByDesc('registado_em')
+                                    ->orderByDesc('id')
+                                    ->value('pool_id');
+                        })
                         ->live()
                         ->afterStateUpdated(function (Set $set, $state): void {
                             $ultimo = self::ultimoRegisto($state ? (int) $state : null);

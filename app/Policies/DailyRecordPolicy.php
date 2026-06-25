@@ -21,13 +21,19 @@ class DailyRecordPolicy
             return true;
         }
 
-        // Nadador-Salvador só pode ver os seus próprios registos.
-        return $user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id;
+        return $user->hasRole(UserRole::NADADOR_SALVADOR)
+            && $user->piscinas()->where('pools.id', $record->pool_id)->exists();
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::NADADOR_SALVADOR]);
+        if ($user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+            return true;
+        }
+        if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
+            return $user->piscinas()->exists();
+        }
+        return false;
     }
 
     public function update(User $user, DailyRecord $record): bool

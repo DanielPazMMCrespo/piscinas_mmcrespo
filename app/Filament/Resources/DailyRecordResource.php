@@ -28,7 +28,7 @@ class DailyRecordResource extends Resource
         $query = parent::getEloquentQuery();
 
         if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $query->where('user_id', auth()->id());
+            $query->whereIn('pool_id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
         return $query;
@@ -38,17 +38,16 @@ class DailyRecordResource extends Resource
      * Livro de registo sanitário é append-only (CN 14/DA).
      * Técnicos e NS criam e corrigem; apenas o admin pode editar/eliminar.
      */
-    /**
-     * Apenas admin, técnico e nadador_salvador criam registos.
-     * O gestor é só-leitura (vê a lista mas não cria).
-     */
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasAnyRole([
-            UserRole::ADMIN,
-            UserRole::TECNICO,
-            UserRole::NADADOR_SALVADOR,
-        ]) ?? false;
+        $user = auth()->user();
+        if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+            return true;
+        }
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            return $user->piscinas()->exists();
+        }
+        return false;
     }
 
     public static function canEdit($record): bool

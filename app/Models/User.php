@@ -13,6 +13,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 use App\Constants\UserRole;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -69,6 +70,11 @@ class User extends Authenticatable implements FilamentUser
     public function hasPin(): bool
     {
         return $this->pin !== null;
+    }
+
+    public function piscinas(): BelongsToMany
+    {
+        return $this->belongsToMany(Pool::class, 'user_pools');
     }
 
     /**
