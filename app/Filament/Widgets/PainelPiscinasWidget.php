@@ -2,6 +2,7 @@
 namespace App\Filament\Widgets;
 
 
+use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use App\Models\HannaDevice;
@@ -58,9 +59,15 @@ class PainelPiscinasWidget extends Widget
                 ->get()
                 ->keyBy('pool_id');
 
-            $piscinas = Pool::query()
+            $query = Pool::query()
                 ->where('active', true)
-                ->with('instalacao')
+                ->with('instalacao');
+
+            if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+                $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
+            }
+
+            $piscinas = $query
                 ->orderBy('installation_id')
                 ->orderBy('name')
                 ->get();

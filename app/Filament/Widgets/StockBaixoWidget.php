@@ -2,6 +2,8 @@
 namespace App\Filament\Widgets;
 
 
+use App\Constants\UserRole;
+use App\Models\Pool;
 use App\Models\StockInstallation;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,10 +20,18 @@ class StockBaixoWidget extends BaseWidget
     public function table(Table $table): Table
     {
         $ids = \Illuminate\Support\Facades\Cache::remember('cache_low_stock_ids', 300, function () {
-            return StockInstallation::query()
-                ->whereColumn('quantity', '<=', 'limite_minimo')
-                ->pluck('id')
-                ->toArray();
+            $query = StockInstallation::query()
+                ->whereColumn('quantity', '<=', 'limite_minimo');
+
+            if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+                $instalacaoIds = Pool::query()
+                    ->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'))
+                    ->pluck('installation_id')
+                    ->unique();
+                $query->whereIn('installation_id', $instalacaoIds);
+            }
+
+            return $query->pluck('id')->toArray();
         });
 
         return $table

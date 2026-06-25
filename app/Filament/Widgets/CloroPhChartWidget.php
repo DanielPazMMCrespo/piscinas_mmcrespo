@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Widgets;
 
+use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Pool;
 use App\Models\SensorReading;
@@ -29,6 +30,17 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d'];
     private const TABS_VALIDAS = ['graph', 'table'];
+
+    private function poolsQuery()
+    {
+        $query = Pool::query()->where('active', true);
+
+        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
+        }
+
+        return $query;
+    }
 
     private const METRICAS = [
         'cloro_livre' => [
@@ -78,8 +90,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public function mount(): void
     {
-        $primeiraPool = Pool::query()
-            ->where('active', true)
+        $primeiraPool = $this->poolsQuery()
             ->orderBy('installation_id')->orderBy('name')
             ->value('id');
 
@@ -94,8 +105,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     protected function getFormSchema(): array
     {
-        $opcoesPiscinas = Pool::query()
-            ->where('active', true)->with('instalacao')
+        $opcoesPiscinas = $this->poolsQuery()->with('instalacao')
             ->orderBy('installation_id')->orderBy('name')
             ->get()
             ->mapWithKeys(fn (Pool $p) => [
