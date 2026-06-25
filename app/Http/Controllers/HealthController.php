@@ -12,14 +12,20 @@ class HealthController extends Controller
     public function check(): JsonResponse
     {
         try {
+            $isInternal = in_array(request()->ip(), ['127.0.0.1', '::1', '169.155.0.0/16'], true);
+
             $checks = [
                 'database' => $this->checkDatabase(),
                 'cache' => $this->checkCache(),
                 'timestamp' => now()->toIso8601String(),
             ];
 
+            if ($isInternal) {
+                $checks['version'] = app()->version();
+            }
+
             $status = collect($checks)
-                ->except(['timestamp'])
+                ->except(['timestamp', 'version'])
                 ->every(fn ($value) => $value === 'connected')
                 ? 'ok'
                 : 'degraded';
@@ -29,7 +35,7 @@ class HealthController extends Controller
                 'database' => $checks['database'],
                 'cache' => $checks['cache'],
                 'timestamp' => $checks['timestamp'],
-            ]);
+            ] + ($isInternal ? ['version' => $checks['version']] : []));
         } catch (\Throwable $e) {
             Log::error('Health check failed', ['error' => $e->getMessage()]);
 

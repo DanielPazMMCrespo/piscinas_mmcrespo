@@ -86,6 +86,7 @@ class StockWarehouseResource extends Resource
                     ->label('Entrada')
                     ->icon('heroicon-o-plus-circle')
                     ->color('success')
+                    ->authorize(fn ($record) => auth()->user()->can('updateStock', $record))
                     ->visible(fn ($record) => auth()->user()->can('updateStock', $record))
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
@@ -116,6 +117,7 @@ class StockWarehouseResource extends Resource
                      ->label('Transferir p/ Instalação')
                      ->icon('heroicon-o-arrow-right-circle')
                      ->color('primary')
+                     ->authorize(fn ($record) => auth()->user()->can('transferStock', $record))
                      ->visible(fn ($record) => auth()->user()->can('transferStock', $record))
                     ->form([
                         Forms\Components\Select::make('installation_id')

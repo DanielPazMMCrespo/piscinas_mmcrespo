@@ -37,13 +37,20 @@ echo "[entrypoint] php-fpm forced to 127.0.0.1:9001 (via zz-docker.conf)"
 # --- 3. Ensure writable storage structure + permissions ---
 mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs storage/app/private/livewire-tmp storage/app/public
 chown -R www-data:www-data storage bootstrap/cache || true
+chmod -R 777 storage/logs storage/framework || true
 
 # --- 4. Laravel runtime setup ---
 php artisan package:discover --ansi || true
 php artisan storage:link || true
 mkdir -p storage/logs bootstrap/cache
 chown -R www-data:www-data storage bootstrap
-chmod -R 775 storage bootstrap
+chmod -R 777 storage bootstrap
+# Verify storage/logs is writable
+if [ ! -w storage/logs ]; then
+    echo "[entrypoint] ERROR: storage/logs is not writable after chmod — this will cause logging failures"
+    ls -la storage/ | head -20
+    exit 1
+fi
 php artisan migrate --force || echo "[entrypoint] WARNING: migrate failed (continuing)"
 php artisan db:seed --force || echo "[entrypoint] WARNING: db:seed failed (continuing)"
 php artisan filament:assets || true
