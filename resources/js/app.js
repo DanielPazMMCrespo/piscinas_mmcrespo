@@ -26,7 +26,32 @@ document.addEventListener('alpine:init', () => {
         resizeObserver: null,
         resizeTimer: null,
         _destroyed: false,
+        _rafId: null,
         chartConfig: config,
+
+        /**
+         * Aguarda até que $refs.canvas e $refs.payload estejam no DOM.
+         * Livewire pode não ter terminado o morphing quando Alpine.init() dispara,
+         * especialmente quando ChartWithPlugins já está em cache (sem await de imports).
+         * Usa requestAnimationFrame com timeout máximo de 2s.
+         */
+        _waitForRefs(callback, maxWait = 2000) {
+            const start = performance.now();
+            const poll = () => {
+                if (this._destroyed) return;
+                if (this.$refs.canvas && this.$refs.payload) {
+                    callback();
+                    return;
+                }
+                if (performance.now() - start > maxWait) {
+                    // Timeout: tenta render mesmo assim (render() já tem null guards)
+                    callback();
+                    return;
+                }
+                this._rafId = requestAnimationFrame(poll);
+            };
+            this._rafId = requestAnimationFrame(poll);
+        },
 
         async init() {
             if (!ChartWithPlugins) {
@@ -56,7 +81,7 @@ document.addEventListener('alpine:init', () => {
                 );
             }
 
-            this.$nextTick(() => {
+            this._waitForRefs(() => {
                 if (!this._destroyed) this.render();
             });
 
@@ -65,7 +90,7 @@ document.addEventListener('alpine:init', () => {
             Alpine.effect(() => {
                 Alpine.store('theme');
                 if (themeEffectFirst) { themeEffectFirst = false; return; }
-                this.$nextTick(() => { if (!this._destroyed) this.render(); });
+                this._waitForRefs(() => { if (!this._destroyed) this.render(); });
             });
 
             this.resizeObserver = new ResizeObserver(() => {
@@ -77,6 +102,10 @@ document.addEventListener('alpine:init', () => {
 
         destroy() {
             this._destroyed = true;
+            if (this._rafId) {
+                cancelAnimationFrame(this._rafId);
+                this._rafId = null;
+            }
             this.resizeObserver?.disconnect();
             if (this.chart) {
                 this.chart.destroy();
