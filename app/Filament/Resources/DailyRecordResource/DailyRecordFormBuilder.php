@@ -56,7 +56,8 @@ class DailyRecordFormBuilder
         bool $multiple = false,
         int $maxFiles = 5,
         ?Closure $extraVisible = null,
-        ?string $helperText = null
+        ?string $helperText = null,
+        bool $required = false
     ): array {
         $toggleName = 'substituir_' . $field;
 
@@ -86,6 +87,7 @@ class DailyRecordFormBuilder
                 ->openable()
                 ->downloadable()
                 ->helperText($helperText)
+                ->required($required)
                 ->visible(fn ($record, Get $get) =>
                     ($record === null || !filled($record->{$field}) || (bool)$get($toggleName)) &&
                     ($extraVisible ? $extraVisible($record, $get) : true)
@@ -405,6 +407,8 @@ class DailyRecordFormBuilder
                         ->label('Data e Hora do Registo')
                         ->default(now())
                         ->required()
+                        ->disabled(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                        ->dehydrated()
                         ->live(onBlur: true),
                 ]),
 
@@ -504,28 +508,32 @@ class DailyRecordFormBuilder
                     filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
                 ))
                 ->schema([
-                    ...self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos'),
+                    ...self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos', required: true),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_ph')
                             ->label('pH (NS)')
+                            ->required()
                             ->numeric()->step(0.01)->minValue(0)->maxValue(14),
                         'ns_ph'
                     ),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_cloro_livre')
                             ->label('Cloro Livre — NS (mg/L)')
+                            ->required()
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20),
                         'ns_cloro_livre'
                     ),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_cloro_total')
                             ->label('Cloro Total — NS (mg/L)')
+                            ->required()
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20),
                         'ns_cloro_total'
                     ),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_temperatura')
                             ->label('Temperatura — NS (ºC)')
+                            ->required()
                             ->numeric()->step(0.01)->minValue(0)->maxValue(50),
                         'ns_temperatura'
                     ),

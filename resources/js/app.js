@@ -3,62 +3,64 @@ import './bootstrap';
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Shared Chart.js class (with plugins) across all mmcChart instances on the page.
+// Avoids duplicate plugin registration and duplicate dynamic imports.
+let ChartWithPlugins = null;
+
 /**
- * Componente Alpine para os gráficos do painel de parâmetros.
+ * Componente Alpine para os gráficos de parâmetros (dual Y-axis, zoom/pan, time scale).
  *
- * Dois modos:
- *  - 'mono-metrica'  : um parâmetro, várias piscinas (cor por piscina) + banda CN 14/DA.
- *                      Eixo Y com valores reais (mg/L, °C, etc.).
- *  - 'multi-metrica' : uma piscina, vários parâmetros (cor por parâmetro).
- *                      Eixo Y único normalizado 0-100% do intervalo legal (CN 14/DA).
- *                      A banda verde cobre exatamente 0-100. suggestedMin:-20 /
- *                      suggestedMax:120 para linhas fora de gama ficarem visíveis.
- *                      O tooltip mostra os valores REAIS (ex: "pH 7,42", "Cloro Livre 1,20 mg/L")
- *                      lidos de dataset.dataReal[dataIndex].
+ * Recebe um payload com a estrutura:
+ *   { titulo, period, left: { key, label, unidade, casas, yMin, yMax, cor, banda, datasets },
+ *                     right: { ... } }
  *
- * Registado no Alpine do Filament via o evento global `alpine:init`.
+ * Plugins carregados dinamicamente (code splitting):
+ *   - chartjs-plugin-zoom  (scroll zoom + drag pan + pinch mobile)
+ *   - chartjs-plugin-annotation  (bandas de conformidade CN 14/DA como box annotations)
+ *   - chartjs-adapter-luxon  (time scale com timestamps ISO)
+ *   - hammerjs  (peer dep do zoom plugin para pinch/touch)
  */
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('mmcChart', (config) => ({
         chart: null,
         resizeObserver: null,
         resizeTimer: null,
-        ChartClass: null,
 
         async init() {
-            // Carregamento dinâmico do Chart.js apenas quando necessário (code splitting)
-            if (!this.ChartClass) {
-                const chartJs = await import('chart.js');
-                this.ChartClass = chartJs.Chart;
-                this.ChartClass.register(
+            if (!ChartWithPlugins) {
+                // hammerjs precisa de estar em window.Hammer antes do zoom plugin tratar eventos táteis
+                const hammerMod = await import('hammerjs');
+                window.Hammer = hammerMod.default ?? hammerMod;
+
+                const [chartJs, zoomMod, annotMod] = await Promise.all([
+                    import('chart.js'),
+                    import('chartjs-plugin-zoom'),
+                    import('chartjs-plugin-annotation'),
+                ]);
+                await import('chartjs-adapter-luxon');
+
+                ChartWithPlugins = chartJs.Chart;
+                ChartWithPlugins.register(
                     chartJs.LineController,
                     chartJs.LineElement,
                     chartJs.PointElement,
                     chartJs.LinearScale,
-                    chartJs.CategoryScale,
+                    chartJs.TimeScale,
                     chartJs.Filler,
                     chartJs.Legend,
-                    chartJs.Tooltip
+                    chartJs.Tooltip,
+                    zoomMod.default,
+                    annotMod.default,
                 );
             }
 
             this.render();
-
-            Livewire.on('mmc-chart-updated', () => {
-                this.$nextTick(() => {
-                    if (this.$refs.payload) {
-                        this.render(JSON.parse(this.$refs.payload.textContent));
-                    }
-                });
-            });
 
             Alpine.effect(() => {
                 Alpine.store('theme');
                 this.$nextTick(() => this.render());
             });
 
-            // Rotação/redimensionamento em mobile: o canvas não acompanha o
-            // contentor sem um resize explícito. Debounce de 100ms.
             this.resizeObserver = new ResizeObserver(() => {
                 clearTimeout(this.resizeTimer);
                 this.resizeTimer = setTimeout(() => this.chart?.resize(), 100);
@@ -71,152 +73,156 @@ document.addEventListener('alpine:init', () => {
             this.chart?.destroy();
         },
 
+        resetZoom() {
+            this.chart?.resetZoom();
+        },
+
         cores() {
             const escuro = document.documentElement.classList.contains('dark');
             return {
-                texto: escuro ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)',
+                texto:  escuro ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)',
                 grelha: escuro ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
-                banda: escuro ? 'rgba(118,184,42,0.12)' : 'rgba(118,184,42,0.14)',
+                banda:  escuro ? 'rgba(118,184,42,0.12)'  : 'rgba(118,184,42,0.14)',
             };
         },
 
-        // Datasets da banda de conformidade (faixa verde) para um dado eixo.
-        bandaDatasets(banda, eixoId, nLabels, corBanda) {
-            return [
-                {
-                    label: '__banda_max_' + eixoId,
-                    data: Array(nLabels).fill(banda.max),
-                    yAxisID: eixoId,
-                    borderWidth: 0, pointRadius: 0,
-                    fill: '+1', backgroundColor: corBanda, order: 99,
-                },
-                {
-                    label: '__banda_min_' + eixoId,
-                    data: Array(nLabels).fill(banda.min),
-                    yAxisID: eixoId,
-                    borderWidth: 0, pointRadius: 0, fill: false, order: 99,
-                },
-            ];
-        },
-
-        linhaDataset(s, eixoId) {
-            const ds = {
-                label: s.label,
-                data: s.data,
-                yAxisID: eixoId,
-                borderColor: s.cor,
-                backgroundColor: s.cor,
-                borderWidth: 2.5,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.35,
-                spanGaps: false,
-                order: 1,
-            };
-            // No modo multi-metrica os arrays dataReal e unidade são transportados
-            // no dataset para o callback do tooltip os poder ler diretamente.
-            if (s.dataReal !== undefined) ds.dataReal = s.dataReal;
-            if (s.unidade !== undefined) ds.unidade = s.unidade;
-            // Métricas do controlador renderizam a tracejado para distinguir do registo manual.
-            if (s.dashed) ds.borderDash = [5, 5];
-            return ds;
-        },
-
-        render(novoConfig = null) {
-            if (novoConfig) config = novoConfig;
-            if (this.chart) this.chart.destroy();
-
+        buildAnnotations(left, right) {
             const c = this.cores();
-            const n = config.labels.length;
-            const datasets = [];
-            let scales = {};
-            // Callback de tooltip — definido por modo abaixo.
-            let tooltipLabel = null;
-
-            if (config.modo === 'multi-metrica') {
-                // Eixo Y único normalizado 0-100% do intervalo legal CN 14/DA.
-                // bandaNormalizada = {min:0, max:100} (a banda "conforme" cobre todo o eixo).
-                // suggestedMin:-20 / suggestedMax:120 para ver valores fora de gama.
-                if (config.bandaNormalizada) {
-                    datasets.push(...this.bandaDatasets(config.bandaNormalizada, 'y', n, c.banda));
-                }
-
-                config.series.forEach((s) => {
-                    datasets.push(this.linhaDataset(s, 'y'));
-                });
-
-                scales = {
-                    x: { grid: { display: false }, ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 } },
-                    y: {
-                        suggestedMin: -20,
-                        suggestedMax: 120,
-                        grid: { color: c.grelha },
-                        ticks: {
-                            color: c.texto,
-                            callback: (v) => v + '%',
-                        },
-                        title: { display: true, text: '% do intervalo legal', color: c.texto },
-                    },
-                };
-
-                // Tooltip mostra o valor REAL da série (dataset.dataReal[dataIndex])
-                // em vez do valor normalizado. Ex: "pH: 7,42" ou "Cloro Livre: 1,20 mg/L".
-                tooltipLabel = (ctx) => {
-                    if (ctx.dataset.label.startsWith('__banda')) return null;
-                    const real = ctx.dataset.dataReal ? ctx.dataset.dataReal[ctx.dataIndex] : null;
-                    if (real === null || real === undefined) return `${ctx.dataset.label}: —`;
-                    const unidade = ctx.dataset.unidade || '';
-                    // dataReal já inclui a unidade formatada (feito no PHP).
-                    return `${ctx.dataset.label}: ${real}`;
-                };
-            } else {
-                // mono-metrica: um parâmetro, várias piscinas — sem normalização.
-                if (config.banda) {
-                    datasets.push(...this.bandaDatasets(config.banda, 'y', n, c.banda));
-                }
-                config.series.forEach((s) => datasets.push(this.linhaDataset(s, 'y')));
-
-                scales = {
-                    x: { grid: { display: false }, ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 } },
-                    y: {
-                        min: config.min, max: config.max,
-                        grid: { color: c.grelha },
-                        ticks: { color: c.texto },
-                        title: config.unidade ? { display: true, text: config.unidade, color: c.texto } : { display: false },
-                    },
-                };
-
-                tooltipLabel = (ctx) => {
-                    if (ctx.dataset.label.startsWith('__banda')) return null;
-                    const u = config.unidade ? ' ' + config.unidade : '';
-                    return `${ctx.dataset.label}: ${ctx.formattedValue}${u}`;
+            const ann = {};
+            if (left?.banda) {
+                ann.bandaLeft = {
+                    type: 'box', yScaleID: 'y',
+                    yMin: left.banda.min, yMax: left.banda.max,
+                    backgroundColor: c.banda, borderWidth: 0,
                 };
             }
+            if (right?.banda) {
+                ann.bandaRight = {
+                    type: 'box', yScaleID: 'y1',
+                    yMin: right.banda.min, yMax: right.banda.max,
+                    backgroundColor: c.banda, borderWidth: 0,
+                };
+            }
+            return ann;
+        },
 
-            this.chart = new this.ChartClass(this.$refs.canvas, {
+        buildDataset(ds, yAxisID, cor) {
+            return {
+                label: ds.label,
+                data: ds.data,
+                yAxisID,
+                borderColor: cor,
+                backgroundColor: cor,
+                borderWidth: 2.5,
+                // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
+                pointRadius: ds.data.length <= 60 ? 3 : 0,
+                pointHoverRadius: 5,
+                tension: 0.3,
+                spanGaps: false,
+                order: 1,
+                ...(ds.dashed ? { borderDash: [5, 5] } : {}),
+            };
+        },
+
+        render() {
+            if (this.chart) this.chart.destroy();
+            if (!config || !config.left || !config.right) return;
+
+            const c = this.cores();
+            const left = config.left;
+            const right = config.right;
+            const datasets = [];
+
+            left.datasets.forEach((ds) => datasets.push(this.buildDataset(ds, 'y', left.cor)));
+            right.datasets.forEach((ds) => datasets.push(this.buildDataset(ds, 'y1', right.cor)));
+
+            const isShort = config.period === '6h' || config.period === '24h';
+            const timeUnit = isShort ? 'hour' : 'day';
+
+            this.chart = new ChartWithPlugins(this.$refs.canvas, {
                 type: 'line',
-                data: { labels: config.labels, datasets },
+                data: { datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
-                            display: true, position: 'bottom',
+                            display: true,
+                            position: 'bottom',
                             labels: {
-                                color: c.texto, boxWidth: 10, boxHeight: 10,
+                                color: c.texto,
+                                boxWidth: 10, boxHeight: 10,
                                 usePointStyle: true, pointStyle: 'line',
-                                filter: (item) => !item.text.startsWith('__banda'),
                             },
                         },
                         tooltip: {
-                            filter: (item) => !item.dataset.label.startsWith('__banda'),
                             callbacks: {
-                                label: tooltipLabel,
+                                label: (ctx) => {
+                                    const axis = ctx.dataset.yAxisID === 'y' ? left : right;
+                                    const u = axis.unidade ? ' ' + axis.unidade : '';
+                                    return `${ctx.dataset.label}: ${ctx.formattedValue}${u}`;
+                                },
+                            },
+                        },
+                        zoom: {
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'x',
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                            },
+                        },
+                        annotation: {
+                            annotations: this.buildAnnotations(left, right),
+                        },
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: timeUnit,
+                                displayFormats: {
+                                    hour: 'HH:mm',
+                                    day:  'dd/MM',
+                                },
+                                tooltipFormat: isShort ? 'dd/MM HH:mm' : 'dd/MM/yyyy',
+                            },
+                            grid: { display: false },
+                            ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 },
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            min: left.yMin,
+                            max: left.yMax,
+                            grid: { color: c.grelha },
+                            ticks: { color: left.cor },
+                            title: {
+                                display: true,
+                                text: left.unidade ? `${left.label} (${left.unidade})` : left.label,
+                                color: left.cor,
+                                font: { size: 11 },
+                            },
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            min: right.yMin,
+                            max: right.yMax,
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: right.cor },
+                            title: {
+                                display: true,
+                                text: right.unidade ? `${right.label} (${right.unidade})` : right.label,
+                                color: right.cor,
+                                font: { size: 11 },
                             },
                         },
                     },
-                    scales,
                 },
             });
         },
@@ -344,7 +350,7 @@ const setupDecimalInputs = () => {
     document.addEventListener('input', (e) => {
         const el = e.target;
         if (el.tagName !== 'INPUT') return;
-        
+
         const isDecimalInput = el.getAttribute('inputmode') === 'decimal';
         if (!isDecimalInput || el.type !== 'text') return;
 
@@ -383,19 +389,19 @@ const setupDecimalInputs = () => {
 
         e.preventDefault();
         const corrigido = texto.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-        
+
         const start = el.selectionStart ?? 0;
         const end = el.selectionEnd ?? 0;
         const val = el.value;
-        
+
         let newValue = val.slice(0, start) + corrigido + val.slice(end);
-        
+
         // Garantir no máximo um ponto
         const parts = newValue.split('.');
         if (parts.length > 2) {
             newValue = parts[0] + '.' + parts.slice(1).join('');
         }
-        
+
         el.value = newValue;
         const newPos = start + corrigido.length;
         el.setSelectionRange(newPos, newPos);
@@ -650,17 +656,17 @@ const setupGlobalImageLightbox = () => {
             const href = anchor.getAttribute('href');
             if (href) {
                 const isImage = anchor.classList.contains('glightbox-trigger') ||
-                              href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) || 
-                              href.includes('/storage/') || 
+                              href.match(/\.(jpeg|jpg|png|webp|gif|svg|heic|heif)(?:\?.*)?$/i) ||
+                              href.includes('/storage/') ||
                               href.includes('r2.dev') ||
                               href.includes('/app/private/') ||
                               anchor.closest('.filepond--file') !== null;
-                
+
                 if (isImage) {
                     if (anchor.classList.contains('filepond--action-remove-item') || anchor.hasAttribute('download')) {
                         return;
                     }
-                    
+
                     e.preventDefault();
                     e.stopPropagation();
                     if (typeof window.GLightbox !== 'undefined') {
@@ -680,17 +686,17 @@ let mmcSetupDone = false;
 const mmcSetup = () => {
     if (!document.documentElement.classList.contains('mmc-loaded')) {
         document.documentElement.classList.add('mmc-loaded');
-        
+
         // Carrega GSAP dinamicamente para animação global de entrada se necessário
         const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!reduzMovimento) {
             import('gsap').then(({ gsap }) => {
                 const pageContent = document.querySelector('.fi-main');
                 if (pageContent) {
-                    gsap.from(pageContent, { 
-                        opacity: 0, 
-                        y: 10, 
-                        duration: 0.4, 
+                    gsap.from(pageContent, {
+                        opacity: 0,
+                        y: 10,
+                        duration: 0.4,
                         ease: 'power2.out',
                         clearProps: 'all'
                     });
