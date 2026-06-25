@@ -204,7 +204,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 $rows = SensorReading::query()
                     ->select([
                         DB::raw('DATE(lida_em) as dia'),
-                        DB::raw("AVG({$campo}) as val"),
+                        DB::raw('AVG(' . DB::connection()->getQueryGrammar()->wrap($campo) . ') as val'),
                     ])
                     ->where('pool_id', $poolId)
                     ->where('lida_em', '>=', $start)
@@ -241,7 +241,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 $rows = DailyRecord::query()
                     ->select([
                         DB::raw('DATE(registado_em) as dia'),
-                        DB::raw("AVG({$campo}) as val"),
+                        DB::raw('AVG(' . DB::connection()->getQueryGrammar()->wrap($campo) . ') as val'),
                     ])
                     ->where('pool_id', $poolId)
                     ->where('registado_em', '>=', $start)
@@ -291,7 +291,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $rightIsSensor = isset(self::METRICAS[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
-        $cacheKey = "chart_v2_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}";
+        $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}";
 
         if ($canCache) {
             $cached = Cache::get($cacheKey);
@@ -334,6 +334,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->where('registado_em', '>=', $start)
             ->whereDoesntHave('correcoes')
             ->orderByDesc('registado_em')
+            ->limit(500)
             ->get()
             ->map(fn ($r) => [
                 'data'        => $r->registado_em->format('d/m H:i'),

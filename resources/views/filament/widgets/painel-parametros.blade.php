@@ -50,7 +50,7 @@
             @else
                 <div
                     wire:key="mmc-chart-{{ $this->poolSelecionada }}-{{ $this->leftMetric }}-{{ $this->rightMetric }}-{{ $this->period }}"
-                    x-data="mmcChart({{ Illuminate\Support\Js::from($payload) }})"
+                    x-data="mmcChart()"
                 >
                     <div class="mmc-grafico-canvas-wrap">
                         <canvas x-ref="canvas"></canvas>

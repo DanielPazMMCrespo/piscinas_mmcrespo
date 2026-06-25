@@ -21,11 +21,12 @@ let ChartWithPlugins = null;
  *   - hammerjs  (peer dep do zoom plugin para pinch/touch)
  */
 document.addEventListener('alpine:init', () => {
-    window.Alpine.data('mmcChart', (config) => ({
+    window.Alpine.data('mmcChart', (config = null) => ({
         chart: null,
         resizeObserver: null,
         resizeTimer: null,
         _destroyed: false,
+        chartConfig: config,
 
         async init() {
             if (!ChartWithPlugins) {
@@ -155,17 +156,27 @@ document.addEventListener('alpine:init', () => {
                 this.chart.destroy();
                 this.chart = null;
             }
-            if (!config || !config.left || !config.right) return;
+
+            let activeConfig = this.chartConfig;
+            if (!activeConfig && this.$refs.payload) {
+                try {
+                    activeConfig = JSON.parse(this.$refs.payload.textContent);
+                } catch (e) {
+                    console.error('Error parsing chart payload:', e);
+                }
+            }
+
+            if (!activeConfig || !activeConfig.left || !activeConfig.right) return;
 
             const c = this.cores();
-            const left = config.left;
-            const right = config.right;
+            const left = activeConfig.left;
+            const right = activeConfig.right;
             const datasets = [];
 
             left.datasets.forEach((ds) => datasets.push(this.buildDataset(ds, 'y', left.cor)));
             right.datasets.forEach((ds) => datasets.push(this.buildDataset(ds, 'y1', right.cor)));
 
-            const isShort = config.period === '6h' || config.period === '24h';
+            const isShort = activeConfig.period === '6h' || activeConfig.period === '24h';
             const timeUnit = isShort ? 'hour' : 'day';
 
             this.chart = new ChartWithPlugins(canvas, {
@@ -295,10 +306,22 @@ document.addEventListener('alpine:init', () => {
         },
 
         montar() {
-            this.sortables.forEach((s) => s.destroy());
-            this.sortables = [];
+            this.sortables = this.sortables.filter((s) => {
+                if (!document.body.contains(s.el)) {
+                    s.destroy();
+                    return false;
+                }
+                return true;
+            });
 
             this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
+                if (lista.dataset.sortableId) {
+                    return;
+                }
+
+                const sortableId = 'sortable_' + Math.random().toString(36).substr(2, 9);
+                lista.dataset.sortableId = sortableId;
+
                 this.sortables.push(this.SortableClass.create(lista, {
                     group: 'mmc-kanban',
                     animation: 150,
@@ -345,43 +368,10 @@ const setupDecimalInputs = () => {
         el.tagName === 'INPUT' &&
         (el.getAttribute('inputmode') === 'decimal' || el.type === 'number');
 
-    // 1) beforeinput — fiável em iOS (keydown em teclado virtual é 'Unidentified')
-    document.addEventListener('beforeinput', (e) => {
-        if (e.data !== ',') return;
-        const el = e.target;
-        if (!isDecimalEl(el) || el.type !== 'text') return;
-
-        e.preventDefault();
-        const start = el.selectionStart ?? 0;
-        const end = el.selectionEnd ?? 0;
-        if (el.value.includes('.') && start === end) return;
-        el.value = el.value.slice(0, start) + '.' + el.value.slice(end);
-        el.setSelectionRange(start + 1, start + 1);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-    }, { capture: true });
-
-    // 2) keydown — fallback para teclado físico (desktop/Android com teclado externo)
-    document.addEventListener('keydown', (e) => {
-        if (e.key !== ',') return;
-        const el = e.target;
-        if (!isDecimalEl(el) || el.type !== 'text') return;
-
-        e.preventDefault();
-        const start = el.selectionStart ?? 0;
-        const end = el.selectionEnd ?? 0;
-        if (el.value.includes('.') && start === end) return;
-        el.value = el.value.slice(0, start) + '.' + el.value.slice(end);
-        el.setSelectionRange(start + 1, start + 1);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-    }, { capture: true, passive: false });
-
-    // 2) Evento input -> sanitiza o texto digitado (apenas números e no máximo um ponto)
+    // Evento input -> converte vírgulas em pontos e sanitiza o texto digitado (apenas números e no máximo um ponto)
     document.addEventListener('input', (e) => {
         const el = e.target;
-        if (el.tagName !== 'INPUT') return;
-
-        const isDecimalInput = el.getAttribute('inputmode') === 'decimal';
-        if (!isDecimalInput || el.type !== 'text') return;
+        if (!isDecimalEl(el) || el.type !== 'text') return;
 
         const start = el.selectionStart ?? 0;
         const originalValue = el.value;
@@ -407,11 +397,10 @@ const setupDecimalInputs = () => {
         }
     }, { capture: true });
 
-    // 3) Colar texto -> converte vírgulas para pontos e sanitiza
+    // Colar texto -> converte vírgulas para pontos e sanitiza
     document.addEventListener('paste', (e) => {
         const el = e.target;
-        if (el.tagName !== 'INPUT') return;
-        if (el.getAttribute('inputmode') !== 'decimal' || el.type !== 'text') return;
+        if (!isDecimalEl(el) || el.type !== 'text') return;
 
         const texto = (e.clipboardData ?? window.clipboardData)?.getData('text') ?? '';
         if (!texto) return;
@@ -546,29 +535,12 @@ const setupAutoScroll = () => {
     let scrollTimer = null;
     const scrollDebounced = () => {
         clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(scrollToNextEmptySection, 150);
+        scrollTimer = setTimeout(scrollToNextEmptySection, 300);
     };
 
     // Listener para mudanças no formulário
     form.addEventListener('change', scrollDebounced);
     form.addEventListener('input', scrollDebounced);
-
-    // Monitorar mudanças nas classes (quando Filament adiciona ring-green-500)
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                if (mutation.target.className.includes('ring-green-500')) {
-                    scrollToNextEmptySection();
-                }
-            }
-        });
-    });
-
-    observer.observe(form, {
-        attributes: true,
-        attributeFilter: ['class'],
-        subtree: true,
-    });
 };
 
 // Auto-save form draft in localStorage for Daily Record creation
@@ -578,7 +550,7 @@ const setupFormDraft = () => {
     const form = document.querySelector('form');
     if (!form) return;
 
-    const formKey = 'daily_record_form_draft';
+    const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
 
     // Restore draft after a small timeout to let Livewire/Filament bindings initialize
     setTimeout(() => {
