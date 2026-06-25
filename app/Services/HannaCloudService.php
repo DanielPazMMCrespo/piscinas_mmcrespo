@@ -23,12 +23,6 @@ class HannaCloudService
 {
     private const BASE_URL = 'https://www.hannacloud.com/api';
 
-    /**
-     * Chave AES-256 (base64). Encontrada no JS público da Hanna Cloud webapp.
-     * Não é secreta — está hardcoded no front-end deles.
-     */
-    private const AES_KEY_B64 = 'MzJmODBmMDU0ZTAyNDFjYWM0YTVhOGQxY2ZlZTkwMDM=';
-
     private ?string $accessToken = null;
 
     // ------------------------------------------------------------------ Auth
@@ -186,7 +180,7 @@ class HannaCloudService
      */
     private function encrypt(string $plaintext): string
     {
-        $key = base64_decode(self::AES_KEY_B64);
+        $key = base64_decode(config('services.hanna.aes_key') ?? '');
         $iv = $this->randomAlphanumeric(16);
 
         $encrypted = openssl_encrypt(

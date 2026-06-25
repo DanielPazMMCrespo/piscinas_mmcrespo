@@ -16,11 +16,10 @@ class HealthController extends Controller
                 'database' => $this->checkDatabase(),
                 'cache' => $this->checkCache(),
                 'timestamp' => now()->toIso8601String(),
-                'version' => $this->getVersion(),
             ];
 
             $status = collect($checks)
-                ->except(['timestamp', 'version'])
+                ->except(['timestamp'])
                 ->every(fn ($value) => $value === 'connected')
                 ? 'ok'
                 : 'degraded';
@@ -70,10 +69,5 @@ class HealthController extends Controller
 
             return 'disconnected';
         }
-    }
-
-    private function getVersion(): string
-    {
-        return (string) env('APP_VERSION', 'unknown');
     }
 }

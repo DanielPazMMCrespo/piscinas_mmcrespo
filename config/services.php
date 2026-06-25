@@ -44,6 +44,7 @@ return [
     'hanna' => [
         'email' => env('HANNA_CLOUD_EMAIL'),
         'password' => env('HANNA_CLOUD_PASSWORD'),
+        'aes_key' => env('HANNA_AES_KEY'),
     ],
 
 ];

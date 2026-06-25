@@ -73,6 +73,11 @@ class DailyRecordStockInsufficientTest extends TestCase
             'cloro_total' => 1.5,
             'temperatura' => 27.0,
             'transparencia' => 1,
+            'ns_ph' => 7.2,
+            'ns_cloro_livre' => 1.0,
+            'ns_cloro_total' => 1.2,
+            'ns_temperatura' => 26.0,
+            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
         ];
 
         if ($adicoes !== []) {
@@ -119,6 +124,11 @@ class DailyRecordStockInsufficientTest extends TestCase
                 'cloro_total' => 1.5,
                 'temperatura' => 27.0,
                 'transparencia' => 1,
+                'ns_ph' => 7.2,
+                'ns_cloro_livre' => 1.0,
+                'ns_cloro_total' => 1.2,
+                'ns_temperatura' => 26.0,
+                'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
                 'adicoes' => [
                     ['product_id' => $this->product->id, 'quantity' => 10.0],
                 ],

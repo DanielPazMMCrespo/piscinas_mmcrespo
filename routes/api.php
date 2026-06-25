@@ -3,4 +3,4 @@
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', [HealthController::class, 'check']);
+Route::get('/health', [HealthController::class, 'check'])->middleware('throttle:30,1');

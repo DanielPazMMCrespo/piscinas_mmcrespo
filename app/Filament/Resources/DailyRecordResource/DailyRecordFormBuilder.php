@@ -775,8 +775,7 @@ class DailyRecordFormBuilder
                             ->schema($step4),
                     ])
                     ->skippable()
-                    ->columnSpanFull()
-                    ->persistStepInQueryString('registo-step'),
+                    ->columnSpanFull(),
                 ]);
         }
 

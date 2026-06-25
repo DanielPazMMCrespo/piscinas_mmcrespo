@@ -71,6 +71,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])"),
             )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">' .
+                    '<script>window.__userId = ' . (auth()->id() ?? 'null') . ';</script>',
+            )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

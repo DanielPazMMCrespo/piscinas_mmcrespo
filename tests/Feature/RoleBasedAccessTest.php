@@ -83,15 +83,15 @@ class RoleBasedAccessTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_swimmer_cannot_access_filament_admin_panel(): void
+    public function test_swimmer_can_access_filament_admin_panel(): void
     {
         $data = $this->createTestData();
         $swimmer = $data['swimmer'];
 
         $response = $this->actingAs($swimmer)->get('/admin');
 
-        // Nadador-Salvador should not have access to admin panel
-        $response->assertStatus(403);
+        // Nadador-Salvador has access to admin panel to record daily records
+        $response->assertStatus(200);
     }
 
     public function test_unauthenticated_user_redirected_to_login(): void

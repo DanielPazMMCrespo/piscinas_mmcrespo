@@ -26,16 +26,39 @@ class CreateDailyRecord extends CreateRecord
         $this->isCreating = true;
         $this->authorizeAccess();
 
+        $lockKey = 'create_record_' . auth()->id();
         try {
-            $this->beginDatabaseTransaction();
-            $this->callHook('beforeValidate');
-            $data = $this->form->getState();
-            $this->callHook('afterValidate');
-            $data = $this->mutateFormDataBeforeCreate($data);
-            $this->callHook('beforeCreate');
-            $this->record = $this->handleRecordCreation($data);
-            $this->form->model($this->getRecord())->saveRelationships();
-            $this->callHook('afterCreate');
+            $success = \Illuminate\Support\Facades\Cache::lock($lockKey, 10)->get(function () {
+                $this->beginDatabaseTransaction();
+                $this->callHook('beforeValidate');
+                $data = $this->form->getState();
+                $this->callHook('afterValidate');
+                $data = $this->mutateFormDataBeforeCreate($data);
+                $this->callHook('beforeCreate');
+                $this->record = $this->handleRecordCreation($data);
+                $this->form->model($this->getRecord())->saveRelationships();
+                $this->callHook('afterCreate');
+
+                $this->commitDatabaseTransaction();
+                $this->rememberData();
+
+                // Reset form for next record
+                $this->form->model($this->getRecord()::class);
+                $this->record = null;
+                $this->fillForm();
+
+                return true;
+            });
+
+            if (! $success) {
+                $this->isCreating = false;
+                Notification::make()
+                    ->danger()
+                    ->title('Submissão duplicada')
+                    ->body('O registo já está a ser processado. Por favor aguarde.')
+                    ->send();
+                return;
+            }
         } catch (Halt $exception) {
             $exception->shouldRollbackDatabaseTransaction()
                 ? $this->rollBackDatabaseTransaction()
@@ -49,13 +72,6 @@ class CreateDailyRecord extends CreateRecord
             throw $exception;
         }
 
-        $this->commitDatabaseTransaction();
-        $this->rememberData();
-
-        // Reset form for next record
-        $this->form->model($this->getRecord()::class);
-        $this->record = null;
-        $this->fillForm();
         $this->isCreating = false;
 
         // Show persistent choice notification (dispatch real-time, bypass session)
@@ -77,7 +93,13 @@ class CreateDailyRecord extends CreateRecord
             ]);
 
         $notificacao->send();
-        $this->dispatch('notificationSent', notification: $notificacao->toArray());
+        $notificationData = $notificacao->toArray();
+        $filteredNotification = [
+            'title' => $notificationData['title'] ?? null,
+            'body' => $notificationData['body'] ?? null,
+            'status' => $notificationData['status'] ?? null,
+        ];
+        $this->dispatch('notificationSent', notification: $filteredNotification);
     }
 
     protected function getFormActions(): array
