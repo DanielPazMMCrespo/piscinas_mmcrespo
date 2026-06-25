@@ -104,6 +104,7 @@ class StockInstallationResource extends Resource
                     ->label('Consumo Manual')
                     ->icon('heroicon-o-beaker')
                     ->color('warning')
+                    ->visible(fn ($record) => auth()->user()->can('update', $record))
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade consumida (Ajuste Manual)')

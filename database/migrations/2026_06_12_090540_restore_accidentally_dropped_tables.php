@@ -42,7 +42,7 @@ return new class extends Migration
         if (! Schema::hasTable('stock_installation_logs')) {
             Schema::create('stock_installation_logs', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('stock_installation_id')->constrained('stock_installations');
+                $table->foreignId('stock_installation_id')->constrained('stock_installations')->restrictOnDelete();
                 $table->foreignId('user_id')->constrained();
                 $table->enum('tipo_movimento', ['entrada', 'consumo']);
                 $table->decimal('quantity', 10, 3);
