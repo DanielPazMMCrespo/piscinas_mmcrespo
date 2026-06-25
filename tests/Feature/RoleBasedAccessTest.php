@@ -24,7 +24,7 @@ class RoleBasedAccessTest extends TestCase
 
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'nadador-salvador', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'nadador_salvador', 'guard_name' => 'web']);
     }
 
     private function createTestData(): array
@@ -52,7 +52,7 @@ class RoleBasedAccessTest extends TestCase
         $technician->assignRole('tecnico');
 
         $swimmer = User::factory()->create(['name' => 'Swimmer User']);
-        $swimmer->assignRole('nadador-salvador');
+        $swimmer->assignRole('nadador_salvador');
 
         return [
             'installation' => $installation,
@@ -224,7 +224,7 @@ class RoleBasedAccessTest extends TestCase
 
         $this->assertTrue($admin->hasRole('admin'));
         $this->assertFalse($admin->hasRole('tecnico'));
-        $this->assertFalse($admin->hasRole('nadador-salvador'));
+        $this->assertFalse($admin->hasRole('nadador_salvador'));
     }
 
     public function test_technician_has_tecnico_role(): void
@@ -234,7 +234,7 @@ class RoleBasedAccessTest extends TestCase
 
         $this->assertTrue($technician->hasRole('tecnico'));
         $this->assertFalse($technician->hasRole('admin'));
-        $this->assertFalse($technician->hasRole('nadador-salvador'));
+        $this->assertFalse($technician->hasRole('nadador_salvador'));
     }
 
     public function test_swimmer_has_nadador_salvador_role(): void
@@ -242,7 +242,7 @@ class RoleBasedAccessTest extends TestCase
         $data = $this->createTestData();
         $swimmer = $data['swimmer'];
 
-        $this->assertTrue($swimmer->hasRole('nadador-salvador'));
+        $this->assertTrue($swimmer->hasRole('nadador_salvador'));
         $this->assertFalse($swimmer->hasRole('admin'));
         $this->assertFalse($swimmer->hasRole('tecnico'));
     }
@@ -314,7 +314,7 @@ class RoleBasedAccessTest extends TestCase
         // Verify that roles exist and can be queried
         $admin_role = Role::where('name', 'admin')->first();
         $tecnico_role = Role::where('name', 'tecnico')->first();
-        $swimmer_role = Role::where('name', 'nadador-salvador')->first();
+        $swimmer_role = Role::where('name', 'nadador_salvador')->first();
 
         $this->assertNotNull($admin_role);
         $this->assertNotNull($tecnico_role);

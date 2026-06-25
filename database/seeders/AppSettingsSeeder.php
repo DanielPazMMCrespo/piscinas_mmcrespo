@@ -221,11 +221,11 @@ class AppSettingsSeeder extends Seeder
             ],
             [
                 'key' => 'email_convite_mensagem',
-                'value' => 'Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:',
+                'value' => 'Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:',
                 'group' => 'email',
-                'label' => 'Mensagem do Email de Convite',
+                'label' => 'Email de Convite',
                 'type' => 'text',
-                'description' => 'Mensagem principal do corpo do email de convite.',
+                'description' => 'Obrigado por se registar na plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta.',
             ],
         ];
 

@@ -39,7 +39,7 @@ class DailyRecordResource extends Resource
      * Técnicos e NS criam e corrigem; apenas o admin pode editar/eliminar.
      */
     /**
-     * Apenas admin, técnico e nadador-salvador criam registos.
+     * Apenas admin, técnico e nadador_salvador criam registos.
      * O gestor é só-leitura (vê a lista mas não cria).
      */
     public static function canCreate(): bool

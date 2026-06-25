@@ -26,7 +26,7 @@ class InvitationFlowTest extends TestCase
 
         Role::firstOrCreate(['name' => 'admin',           'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico',         'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'nadador-salvador','guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'nadador_salvador','guard_name' => 'web']);
     }
 
     public function test_admin_can_create_invitation(): void

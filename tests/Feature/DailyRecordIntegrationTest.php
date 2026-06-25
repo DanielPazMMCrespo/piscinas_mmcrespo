@@ -30,7 +30,7 @@ class DailyRecordIntegrationTest extends TestCase
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'nadador-salvador', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'nadador_salvador', 'guard_name' => 'web']);
     }
 
     private function createTestEnvironment(): array
@@ -436,7 +436,7 @@ class DailyRecordIntegrationTest extends TestCase
         $technician->assignRole('tecnico');
 
         $swimmer = User::factory()->create(['name' => 'Nadador']);
-        $swimmer->assignRole('nadador-salvador');
+        $swimmer->assignRole('nadador_salvador');
 
         // Each can create records
         $record_admin = DailyRecord::create([

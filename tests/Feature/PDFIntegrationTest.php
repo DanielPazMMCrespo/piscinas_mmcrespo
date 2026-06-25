@@ -26,7 +26,7 @@ class PDFIntegrationTest extends TestCase
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'nadador-salvador', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'nadador_salvador', 'guard_name' => 'web']);
     }
 
     private function createTestEnvironment(): array
@@ -54,7 +54,7 @@ class PDFIntegrationTest extends TestCase
         $technician->assignRole('tecnico');
 
         $swimmer = User::factory()->create(['name' => 'Nadador']);
-        $swimmer->assignRole('nadador-salvador');
+        $swimmer->assignRole('nadador_salvador');
 
         return [
             'installation' => $installation,
