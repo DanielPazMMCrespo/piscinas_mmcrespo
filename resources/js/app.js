@@ -77,8 +77,17 @@ document.addEventListener('alpine:init', () => {
         destroy() {
             this._destroyed = true;
             this.resizeObserver?.disconnect();
-            this.chart?.destroy();
-            this.chart = null;
+            if (this.chart) {
+                this.chart.destroy();
+                this.chart = null;
+            }
+            const canvas = this.$refs.canvas;
+            if (canvas && ChartWithPlugins) {
+                const existing = ChartWithPlugins.getChart(canvas);
+                if (existing) {
+                    existing.destroy();
+                }
+            }
         },
 
         resetZoom() {
@@ -136,7 +145,16 @@ document.addEventListener('alpine:init', () => {
             if (this._destroyed) return;
             const canvas = this.$refs.canvas;
             if (!canvas) return;
-            if (this.chart) { this.chart.destroy(); this.chart = null; }
+            if (ChartWithPlugins) {
+                const existing = ChartWithPlugins.getChart(canvas);
+                if (existing) {
+                    existing.destroy();
+                }
+            }
+            if (this.chart) {
+                this.chart.destroy();
+                this.chart = null;
+            }
             if (!config || !config.left || !config.right) return;
 
             const c = this.cores();
