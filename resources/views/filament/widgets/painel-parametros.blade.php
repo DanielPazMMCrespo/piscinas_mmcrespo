@@ -65,7 +65,6 @@
                     </div>
                 </div>
             </div>
-        @endif
         @else
             @php($tableData = $this->getTableRows())
 
