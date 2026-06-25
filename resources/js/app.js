@@ -25,6 +25,7 @@ document.addEventListener('alpine:init', () => {
         chart: null,
         resizeObserver: null,
         resizeTimer: null,
+        _destroyed: false,
 
         async init() {
             if (!ChartWithPlugins) {
@@ -56,21 +57,26 @@ document.addEventListener('alpine:init', () => {
 
             this.render();
 
+            // Reage a mudanças de dark mode — skip na primeira execução (já renderizámos acima)
+            let themeEffectFirst = true;
             Alpine.effect(() => {
                 Alpine.store('theme');
-                this.$nextTick(() => this.render());
+                if (themeEffectFirst) { themeEffectFirst = false; return; }
+                this.$nextTick(() => { if (!this._destroyed) this.render(); });
             });
 
             this.resizeObserver = new ResizeObserver(() => {
                 clearTimeout(this.resizeTimer);
-                this.resizeTimer = setTimeout(() => this.chart?.resize(), 100);
+                this.resizeTimer = setTimeout(() => { if (!this._destroyed) this.chart?.resize(); }, 100);
             });
             this.resizeObserver.observe(this.$el);
         },
 
         destroy() {
+            this._destroyed = true;
             this.resizeObserver?.disconnect();
             this.chart?.destroy();
+            this.chart = null;
         },
 
         resetZoom() {
@@ -125,7 +131,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         render() {
-            if (this.chart) this.chart.destroy();
+            if (this._destroyed) return;
+            const canvas = this.$refs.canvas;
+            if (!canvas) return;
+            if (this.chart) { this.chart.destroy(); this.chart = null; }
             if (!config || !config.left || !config.right) return;
 
             const c = this.cores();
@@ -139,7 +148,7 @@ document.addEventListener('alpine:init', () => {
             const isShort = config.period === '6h' || config.period === '24h';
             const timeUnit = isShort ? 'hour' : 'day';
 
-            this.chart = new ChartWithPlugins(this.$refs.canvas, {
+            this.chart = new ChartWithPlugins(canvas, {
                 type: 'line',
                 data: { datasets },
                 options: {
@@ -167,7 +176,7 @@ document.addEventListener('alpine:init', () => {
                         },
                         zoom: {
                             zoom: {
-                                wheel: { enabled: true },
+                                wheel: { enabled: true, modifierKey: 'ctrl' },
                                 pinch: { enabled: true },
                                 mode: 'x',
                             },
