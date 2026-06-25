@@ -122,19 +122,19 @@ class CloroPhChartWidget extends Widget implements HasForms
                     ->options($opcoesPiscinas)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(fn () => null),
+                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
                 Forms\Components\Select::make('leftMetric')
                     ->label('Eixo Esquerdo')
                     ->options($opcoesMetricas)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(fn () => null),
+                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
                 Forms\Components\Select::make('rightMetric')
                     ->label('Eixo Direito')
                     ->options($opcoesMetricas)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(fn () => null),
+                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
             ]),
         ];
     }
@@ -145,6 +145,14 @@ class CloroPhChartWidget extends Widget implements HasForms
             return;
         }
         $this->period = $p;
+        $this->dispatchChartRefresh();
+    }
+
+    private function dispatchChartRefresh(): void
+    {
+        if ($this->tabAtiva === 'graph' && $this->poolSelecionada !== null) {
+            $this->dispatch('mmc-chart-update', payload: $this->getChartPayload());
+        }
     }
 
     public function setTab(string $t): void

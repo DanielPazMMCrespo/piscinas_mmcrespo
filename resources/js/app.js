@@ -21,37 +21,16 @@ let ChartWithPlugins = null;
  *   - hammerjs  (peer dep do zoom plugin para pinch/touch)
  */
 document.addEventListener('alpine:init', () => {
-    window.Alpine.data('mmcChart', (config = null) => ({
+    window.Alpine.data('mmcChart', (initialPayload = null) => ({
         chart: null,
         resizeObserver: null,
         resizeTimer: null,
         _destroyed: false,
         _rafId: null,
-        chartConfig: config,
-
-        /**
-         * Aguarda até que $refs.canvas e $refs.payload estejam no DOM.
-         * Livewire pode não ter terminado o morphing quando Alpine.init() dispara,
-         * especialmente quando ChartWithPlugins já está em cache (sem await de imports).
-         * Usa requestAnimationFrame com timeout máximo de 2s.
-         */
-        _waitForRefs(callback, maxWait = 2000) {
-            const start = performance.now();
-            const poll = () => {
-                if (this._destroyed) return;
-                if (this.$refs.canvas && this.$refs.payload) {
-                    callback();
-                    return;
-                }
-                if (performance.now() - start > maxWait) {
-                    // Timeout: tenta render mesmo assim (render() já tem null guards)
-                    callback();
-                    return;
-                }
-                this._rafId = requestAnimationFrame(poll);
-            };
-            this._rafId = requestAnimationFrame(poll);
-        },
+        _offChartUpdate: null,
+        _payload: initialPayload,
+        _hasData: !!(initialPayload?.left && initialPayload?.right),
+        _renderRetries: 0,
 
         async init() {
             if (!ChartWithPlugins) {
@@ -81,16 +60,47 @@ document.addEventListener('alpine:init', () => {
                 );
             }
 
-            this._waitForRefs(() => {
-                if (!this._destroyed) this.render();
-            });
+            // Render inicial: usa os dados passados via x-data="mmcChart({...})"
+            if (this._hasData) {
+                this.$nextTick(() => {
+                    if (!this._destroyed) this.render();
+                });
+            }
+
+            // Escuta eventos Livewire para atualizar o gráfico quando a piscina/métrica/período muda.
+            // O componente Alpine fica vivo (wire:ignore) e recebe dados frescos via este canal,
+            // em vez de depender do DOM morph do Livewire (que é a causa do bug).
+            if (typeof Livewire !== 'undefined') {
+                this._offChartUpdate = Livewire.on('mmc-chart-update', (eventData) => {
+                    if (this._destroyed) return;
+                    const payload = eventData?.payload ?? eventData;
+                    if (!payload) return;
+
+                    this._payload = payload;
+                    const hadData = this._hasData;
+                    this._hasData = !!(payload?.left && payload?.right);
+
+                    if (this._hasData) {
+                        // $nextTick garante que x-show já processou _hasData=true
+                        // e o canvas está visível antes de renderizar
+                        this.$nextTick(() => {
+                            if (!this._destroyed) this.render();
+                        });
+                    } else if (this.chart) {
+                        this.chart.destroy();
+                        this.chart = null;
+                    }
+                });
+            }
 
             // Reage a mudanças de dark mode — skip na primeira execução (já renderizámos acima)
             let themeEffectFirst = true;
             Alpine.effect(() => {
                 Alpine.store('theme');
                 if (themeEffectFirst) { themeEffectFirst = false; return; }
-                this._waitForRefs(() => { if (!this._destroyed) this.render(); });
+                if (this._hasData) {
+                    this.$nextTick(() => { if (!this._destroyed) this.render(); });
+                }
             });
 
             this.resizeObserver = new ResizeObserver(() => {
@@ -105,6 +115,10 @@ document.addEventListener('alpine:init', () => {
             if (this._rafId) {
                 cancelAnimationFrame(this._rafId);
                 this._rafId = null;
+            }
+            if (this._offChartUpdate) {
+                this._offChartUpdate();
+                this._offChartUpdate = null;
             }
             this.resizeObserver?.disconnect();
             if (this.chart) {
@@ -175,6 +189,20 @@ document.addEventListener('alpine:init', () => {
             if (this._destroyed) return;
             const canvas = this.$refs.canvas;
             if (!canvas) return;
+
+            // Aguardar que o canvas tenha dimensões (pode estar a transitar de x-show hidden para visible)
+            if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                if (this._renderRetries < 15) {
+                    this._renderRetries++;
+                    this._rafId = requestAnimationFrame(() => {
+                        if (!this._destroyed) this.render();
+                    });
+                }
+                return;
+            }
+            this._renderRetries = 0;
+
+            // Limpar chart anterior (dupla verificação — por instância e por registo global do Chart.js)
             if (ChartWithPlugins) {
                 const existing = ChartWithPlugins.getChart(canvas);
                 if (existing) {
@@ -186,15 +214,7 @@ document.addEventListener('alpine:init', () => {
                 this.chart = null;
             }
 
-            let activeConfig = this.chartConfig;
-            if (!activeConfig && this.$refs.payload) {
-                try {
-                    activeConfig = JSON.parse(this.$refs.payload.textContent);
-                } catch (e) {
-                    console.error('Error parsing chart payload:', e);
-                }
-            }
-
+            const activeConfig = this._payload;
             if (!activeConfig || !activeConfig.left || !activeConfig.right) return;
 
             const c = this.cores();

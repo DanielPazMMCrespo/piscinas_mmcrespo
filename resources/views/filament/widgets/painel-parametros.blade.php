@@ -45,13 +45,12 @@
         @if ($this->tabAtiva === 'graph')
             @php($payload = $this->getChartPayload())
 
-            @if (empty($payload))
-                <div class="mmc-grafico-vazio">Seleciona uma piscina.</div>
-            @else
-                <div
-                    wire:key="mmc-chart-{{ $this->poolSelecionada }}-{{ $this->leftMetric }}-{{ $this->rightMetric }}-{{ $this->period }}"
-                    x-data="mmcChart()"
-                >
+            <div
+                x-data="mmcChart({{ Illuminate\Support\Js::from($payload ?: null) }})"
+                wire:ignore
+            >
+                <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
+                <div x-show="_hasData" x-cloak>
                     <div class="mmc-grafico-canvas-wrap">
                         <canvas x-ref="canvas"></canvas>
                     </div>
@@ -64,9 +63,9 @@
                             class="text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 underline ml-auto"
                         >Repor zoom</button>
                     </div>
-                    <script type="application/json" x-ref="payload">@json($payload)</script>
                 </div>
-            @endif
+            </div>
+        @endif
         @else
             @php($tableData = $this->getTableRows())
 
