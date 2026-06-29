@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     zlib1g-dev \
     libzip-dev \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # PHP extensions required by the app
