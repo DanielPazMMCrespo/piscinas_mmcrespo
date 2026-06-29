@@ -8,6 +8,7 @@ use Filament\Pages\Auth\Login as BaseLogin;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -46,7 +47,16 @@ class Login extends BaseLogin
             }
         }
 
-        $this->rateLimit(5);
+        try {
+            $this->rateLimit(5);
+        } catch (TooManyRequestsException $exception) {
+            throw ValidationException::withMessages([
+                'data.email' => __('filament-panels::pages/auth/login.messages.throttled', [
+                    'seconds' => $exception->secondsUntilAvailable,
+                    'minutes' => ceil($exception->secondsUntilAvailable / 60),
+                ]),
+            ]);
+        }
 
         $user = User::where('email', $email)->first();
 
