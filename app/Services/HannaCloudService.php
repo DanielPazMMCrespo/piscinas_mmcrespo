@@ -180,7 +180,7 @@ class HannaCloudService
      */
     private function encrypt(string $plaintext): string
     {
-        $key = base64_decode(config('services.hanna.aes_key') ?? '');
+        $key = base64_decode(config('services.hanna.aes_key') ?: 'MzJmODBmMDU0ZTAyNDFjYWM0YTVhOGQxY2ZlZTkwMDM=');
         $iv = $this->randomAlphanumeric(16);
 
         $encrypted = openssl_encrypt(
