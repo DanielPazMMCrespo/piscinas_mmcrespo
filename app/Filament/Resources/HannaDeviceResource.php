@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Artisan;
 
 /**
@@ -64,6 +65,7 @@ class HannaDeviceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordAction('ver_detalhes')
             ->columns([
                 Tables\Columns\TextColumn::make('hanna_device_id')
                     ->label('Device ID')->searchable(),
@@ -105,7 +107,6 @@ class HannaDeviceResource extends Resource
                                 ->title('Sync concluído')
                                 ->body($output ?: 'Leituras actualizadas.')
                                 ->send();
-                            // Redireciona para o dashboard com dados frescos.
                             $action->redirect(filament()->getUrl());
                         } else {
                             \Filament\Notifications\Notification::make()
@@ -144,6 +145,23 @@ class HannaDeviceResource extends Resource
                     ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.'),
             ])
             ->actions([
+                Tables\Actions\Action::make('ver_detalhes')
+                    ->label('Detalhes')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->modalHeading(fn (HannaDevice $record): string => $record->name)
+                    ->modalContent(fn (HannaDevice $record): View => view('filament.hanna-device-modal', ['device' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
+                    ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge),
+
+                Tables\Actions\Action::make('hanna_settings')
+                    ->label('Configurar')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('info')
+                    ->url(fn (HannaDevice $record): string => 'https://www.hannacloud.com/deviceSettings/'.$record->hanna_device_id)
+                    ->openUrlInNewTab(),
+
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ]);

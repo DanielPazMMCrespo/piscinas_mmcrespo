@@ -64,6 +64,18 @@ class HannaCloudSync extends Command
             return self::SUCCESS;
         }
 
+        // Atualiza raw_info (setpoints + config) em cada ciclo de sync.
+        try {
+            $apiDevices = collect($hanna->getDevices())->keyBy('DID');
+            foreach ($devices as $device) {
+                if ($apiDevices->has($device->hanna_device_id)) {
+                    $device->update(['raw_info' => $apiDevices->get($device->hanna_device_id)]);
+                }
+            }
+        } catch (\Throwable) {
+            // não-fatal: continua sem atualizar raw_info
+        }
+
         $sincronizados = 0;
 
         foreach ($devices as $device) {

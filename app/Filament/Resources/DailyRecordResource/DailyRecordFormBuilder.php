@@ -61,6 +61,9 @@ class DailyRecordFormBuilder
     ): array {
         $toggleName = 'substituir_' . $field;
 
+        $defaultHelper = 'Max. 5MB. HEIC aceite. Em iPhone: Definições > Câmara > Formato > Mais Compatível';
+        $fullHelper = $helperText ? "{$helperText} · {$defaultHelper}" : $defaultHelper;
+
         return [
             Forms\Components\Toggle::make($toggleName)
                 ->label('Substituir foto existente')
@@ -83,10 +86,10 @@ class DailyRecordFormBuilder
                 ->maxFiles($multiple ? $maxFiles : null)
                 ->reorderable($multiple)
                 ->maxSize(5120)
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
                 ->openable()
                 ->downloadable()
-                ->helperText($helperText)
+                ->helperText($fullHelper)
                 ->required($required)
                 ->visible(fn ($record, Get $get) =>
                     ($record === null || !filled($record->{$field}) || (bool)$get($toggleName)) &&

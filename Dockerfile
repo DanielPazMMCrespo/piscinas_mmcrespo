@@ -40,6 +40,7 @@ COPY --from=node-builder /build/public/build ./public/build
 
 # PHP dependencies (scripts skipped — package:discover runs at startup with env present)
 ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN dnf install -y unzip && dnf clean all
 RUN composer install --optimize-autoloader --no-scripts --no-interaction
 
 # Nginx site template + startup script (normalise CRLF -> LF for bash/sed safety)
