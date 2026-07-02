@@ -448,6 +448,49 @@ class PDFIntegrationTest extends TestCase
         }
     }
 
+    public function test_pdf_view_renders_correctly_with_custom_columns_and_sections(): void
+    {
+        $env = $this->createTestEnvironment();
+        $pool = $env['pool'];
+        $technician = $env['technician'];
+
+        $record = DailyRecord::create([
+            'pool_id' => $pool->id,
+            'user_id' => $technician->id,
+            'registado_em' => now(),
+            'ph' => 7.2,
+            'cloro_livre' => 1.2,
+            'cloro_total' => 1.5,
+            'transparencia' => 2.0,
+            'temperatura' => 26.5,
+        ]);
+
+        $seccoes = [[
+            'piscina' => $pool,
+            'registos' => collect([$record]),
+            'controlador' => collect(),
+        ]];
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $env['installation'],
+            'seccoes' => $seccoes,
+            'inicio' => now()->startOfDay(),
+            'fim' => now()->endOfDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => $env['admin']->name,
+            'colunasVisiveis' => ['ph', 'cloro_livre'],
+            'seccoesVisiveis' => ['mostrar_assinaturas'],
+            'modo' => 'todos',
+        ])->render();
+
+        $this->assertStringContainsString('pH', $html);
+        $this->assertStringContainsString('Cl. Livre', $html);
+        $this->assertStringNotContainsString('Técnico</th>', $html);
+        $this->assertStringNotContainsString('Transp.</th>', $html);
+        $this->assertStringContainsString('Responsável Técnico', $html);
+        $this->assertStringNotContainsString('Registo conforme CN 14/DA', $html);
+    }
+
     // Helper methods
 
     private function recordIsConforming(DailyRecord $record): bool
