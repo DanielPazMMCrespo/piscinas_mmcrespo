@@ -94,12 +94,11 @@ class CreateDailyRecord extends CreateRecord
 
         $notificacao->send();
         $notificationData = $notificacao->toArray();
-        $filteredNotification = [
+        $this->dispatch('dailyRecordSaved', notification: [
             'title' => $notificationData['title'] ?? null,
             'body' => $notificationData['body'] ?? null,
             'status' => $notificationData['status'] ?? null,
-        ];
-        $this->dispatch('notificationSent', notification: $filteredNotification);
+        ]);
     }
 
     protected function getFormActions(): array

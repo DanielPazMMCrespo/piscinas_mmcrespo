@@ -2,6 +2,7 @@
 namespace App\Providers\Filament;
 
 
+use Filament\Forms\Components\TextInput;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -24,6 +25,18 @@ use Rmsramos\Activitylog\ActivitylogPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public function boot(): void
+    {
+        // ->numeric() renderiza <input type="number"> por omissão, e o browser
+        // descarta silenciosamente a vírgula digitada (7,2 -> "72"), corrompendo
+        // valores sem qualquer erro visível. Forçar type="text" mantém o teclado
+        // decimal (inputmode="decimal" já definido por numeric()) mas deixa a
+        // conversão vírgula->ponto do app.js atuar antes da validação.
+        TextInput::configureUsing(function (TextInput $component): void {
+            $component->type(fn (): ?string => $component->isNumeric() ? 'text' : null);
+        });
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel
