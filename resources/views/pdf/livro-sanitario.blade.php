@@ -297,12 +297,16 @@
                                         <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura }}</span>
                                     @else — @endif
                                 </td>
-                                <td>{{ $registo->transparencia ?? '—' }}</td>
+                                <td>{{ $piscina->name === 'Maceira' ? 'Conforme' : ($registo->transparencia ?? '—') }}</td>
                                 <td>{{ $registo->contador_valor !== null ? number_format((float) $registo->contador_valor, 2, ',', ' ') : '—' }}</td>
                                 <td>
-                                    {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
-                                    /
-                                    {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
+                                    @if ($piscina->name === 'Maceira')
+                                        Conforme
+                                    @else
+                                        {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
+                                        /
+                                        {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
+                                    @endif
                                 </td>
                                 <td class="texto">{{ $acaoCorretiva !== null && $acaoCorretiva !== '' ? \Illuminate\Support\Str::limit((string) $acaoCorretiva, 70) : '—' }}</td>
                                 <td class="texto">{{ filled($registo->observacoes) ? \Illuminate\Support\Str::limit((string) $registo->observacoes, 80) : '—' }}</td>
