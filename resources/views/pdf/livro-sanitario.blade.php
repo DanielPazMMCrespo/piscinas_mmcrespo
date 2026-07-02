@@ -297,10 +297,10 @@
                                         <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura }}</span>
                                     @else — @endif
                                 </td>
-                                <td>{{ in_array($piscina->name, ['Lazer', 'Competição']) ? 'Conforme' : ($registo->transparencia ?? '—') }}</td>
+                                <td>{{ in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']) ? 'Conforme' : ($registo->transparencia ?? '—') }}</td>
                                 <td>{{ $registo->contador_valor !== null ? number_format((float) $registo->contador_valor, 2, ',', ' ') : '—' }}</td>
                                 <td>
-                                    @if (in_array($piscina->name, ['Lazer', 'Competição']))
+                                    @if (in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']))
                                         Conforme
                                     @else
                                         {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
