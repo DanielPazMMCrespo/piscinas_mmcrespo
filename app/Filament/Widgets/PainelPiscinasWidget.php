@@ -36,6 +36,9 @@ class PainelPiscinasWidget extends Widget
     private const ORP_MIN = 660;
     private const ORP_MAX = 750;
 
+    /** Acima de 4h a leitura do controlador é velha demais para atestar conformidade. */
+    private const CONTROLADOR_IDADE_MAX_MIN = 240;
+
     protected function getViewData(): array
     {
         // Cache: 10 min TTL para dados do painel (valores + estado).
@@ -123,45 +126,65 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
+            $metricas = $registo ? [
+                self::metrica('pH', $registo->ph, 2, '', $registo->ph !== null ? $registo->phConforme() : null),
+                self::metrica('Cl. Livre', $registo->cloro_livre, 2, ' mg/L', $registo->cloro_livre !== null ? $registo->cloroLivreConforme() : null),
+                self::metrica('Cl. Total', $registo->cloro_total, 2, ' mg/L', $registo->cloro_total !== null && $registo->cloro_livre !== null ? $registo->cloroCombinadoConforme() : null),
+                self::metrica('Temp.', $registo->temperatura, 1, ' °C', $registo->temperatura !== null ? $registo->temperaturaConforme() : null),
+            ] : [];
+
+            $controlador = $leitura ? [
+                'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
+                'ph_ok' => $ph !== null
+                    ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX)
+                    : null,
+                'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
+                // ORP é o indicador de desinfeção (proxy de cloro adequado); dentro do intervalo
+                // operacional 660–750 mV = cloro em bom nível. Não há mg/L fiável a partir do ORP.
+                'orp_ok' => $orp !== null
+                    ? ($orp >= self::ORP_MIN && $orp <= self::ORP_MAX)
+                    : null,
+                'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') : null,
+                'temp_ok' => $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
+                    ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                    : null,
+                'idade_txt' => match (true) {
+                    $idadeMin === null => 'sem dados',
+                    $idadeMin < 1 => 'agora',
+                    $idadeMin < 60 => "há {$idadeMin}m",
+                    default => $leitura->lida_em->locale('pt')->diffForHumans(),
+                },
+                'stale' => $idadeMin !== null && $idadeMin > 15,
+            ] : null;
+
+            $controladorUsavel = $leitura !== null && $idadeMin !== null
+                && $idadeMin <= self::CONTROLADOR_IDADE_MAX_MIN;
+            $controladorOk = $controladorUsavel
+                && $controlador['ph_ok'] !== false
+                && $controlador['orp_ok'] !== false
+                && $controlador['temp_ok'] !== false;
+
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
                 'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
                 'ha_quanto' => $registo?->registado_em->diffForHumans(),
-                'metricas' => $registo ? [
-                    self::metrica('pH', $registo->ph, 2, '', $registo->ph !== null ? $registo->phConforme() : null),
-                    self::metrica('Cl. Livre', $registo->cloro_livre, 2, ' mg/L', $registo->cloro_livre !== null ? $registo->cloroLivreConforme() : null),
-                    self::metrica('Cl. Total', $registo->cloro_total, 2, ' mg/L', $registo->cloro_total !== null && $registo->cloro_livre !== null ? $registo->cloroCombinadoConforme() : null),
-                    self::metrica('Temp.', $registo->temperatura, 1, ' °C', $registo->temperatura !== null ? $registo->temperaturaConforme() : null),
-                ] : [],
-                'controlador' => $leitura ? [
-                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
-                    'ph_ok' => $ph !== null
-                        ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX)
-                        : null,
-                    'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
-                    'orp_ok' => $orp !== null
-                        ? ($orp >= self::ORP_MIN && $orp <= self::ORP_MAX)
-                        : null,
-                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') : null,
-                    'temp_ok' => $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
-                        ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
-                        : null,
-                    'idade_txt' => match (true) {
-                        $idadeMin === null => 'sem dados',
-                        $idadeMin < 1 => 'agora',
-                        $idadeMin < 60 => "há {$idadeMin}m",
-                        default => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    },
-                    'stale' => $idadeMin !== null && $idadeMin > 15,
-                ] : null,
+                'metricas' => $metricas,
+                'controlador' => $controlador,
+                'conforme' => self::piscinaConforme(
+                    registoHoje: $registo !== null && $registo->registado_em->isToday(),
+                    registoOk: $registo !== null
+                        && collect($metricas)->every(fn ($m) => $m['ok'] !== false),
+                    controladorUsavel: $controladorUsavel,
+                    controladorOk: $controladorOk,
+                ),
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
             ];
         });
 
         $totalPiscinas = $piscinasMapped->count();
         $registadasHoje = $piscinasMapped->filter(fn ($p) => !$p['sem_hoje'])->count();
-        $conformes = $piscinasMapped->filter(fn ($p) => $p['registo'] && collect($p['metricas'])->every(fn ($m) => $m['ok'] !== false))->count();
+        $conformes = $piscinasMapped->filter(fn ($p) => $p['conforme'])->count();
 
         $percentagemRegisto = $totalPiscinas > 0 ? (int) (($registadasHoje / $totalPiscinas) * 100) : 0;
         $percentagemConforme = $totalPiscinas > 0 ? (int) (($conformes / $totalPiscinas) * 100) : 0;
@@ -190,5 +213,26 @@ class PainelPiscinasWidget extends Widget
             'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '').$sufixo : '—',
             'ok' => $valor !== null ? $ok : null,
         ];
+    }
+
+    /**
+     * Conformidade da piscina cruzando registo diário de hoje + controlador Hanna:
+     *  - com registo de hoje E controlador utilizável: ambos têm de estar dentro dos limites;
+     *  - sem registo de hoje: decide só o controlador;
+     *  - sem controlador utilizável (inexistente ou leitura > 4h): decide só o registo de hoje;
+     *  - sem qualquer fonte atual: não conforme.
+     */
+    private static function piscinaConforme(
+        bool $registoHoje,
+        bool $registoOk,
+        bool $controladorUsavel,
+        bool $controladorOk,
+    ): bool {
+        return match (true) {
+            $registoHoje && $controladorUsavel => $registoOk && $controladorOk,
+            $controladorUsavel => $controladorOk,
+            $registoHoje => $registoOk,
+            default => false,
+        };
     }
 }
