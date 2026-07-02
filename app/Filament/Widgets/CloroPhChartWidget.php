@@ -27,8 +27,10 @@ class CloroPhChartWidget extends Widget implements HasForms
     public string $rightMetric = 'controlador_orp';
     public string $period = '7d';
     public string $tabAtiva = 'graph';
+    public ?string $customStartDate = null;
+    public ?string $customEndDate = null;
 
-    private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d'];
+    private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
 
     private function poolsQuery()
@@ -96,10 +98,15 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->poolSelecionada = $primeiraPool !== null ? (string) $primeiraPool : null;
 
+        $this->customStartDate = now()->subDays(7)->format('Y-m-d');
+        $this->customEndDate = now()->format('Y-m-d');
+
         $this->form->fill([
             'poolSelecionada' => $this->poolSelecionada,
             'leftMetric'      => $this->leftMetric,
             'rightMetric'     => $this->rightMetric,
+            'customStartDate' => $this->customStartDate,
+            'customEndDate'   => $this->customEndDate,
         ]);
     }
 
@@ -136,6 +143,18 @@ class CloroPhChartWidget extends Widget implements HasForms
                     ->live()
                     ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
             ]),
+            Forms\Components\Grid::make(2)->schema([
+                Forms\Components\DatePicker::make('customStartDate')
+                    ->label('Data Início')
+                    ->hidden(fn () => $this->period !== 'custom')
+                    ->live()
+                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
+                Forms\Components\DatePicker::make('customEndDate')
+                    ->label('Data Fim')
+                    ->hidden(fn () => $this->period !== 'custom')
+                    ->live()
+                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
+            ]),
         ];
     }
 
@@ -166,11 +185,20 @@ class CloroPhChartWidget extends Widget implements HasForms
     private function getPeriodStart(): Carbon
     {
         return match ($this->period) {
-            '6h'    => now()->subHours(6),
-            '24h'   => now()->subHours(24),
-            '7d'    => now()->subDays(7)->startOfDay(),
-            '14d'   => now()->subDays(14)->startOfDay(),
-            default => now()->subDays(7)->startOfDay(),
+            '6h'     => now()->subHours(6),
+            '24h'    => now()->subHours(24),
+            '7d'     => now()->subDays(7)->startOfDay(),
+            '14d'    => now()->subDays(14)->startOfDay(),
+            'custom' => $this->customStartDate ? Carbon::parse($this->customStartDate)->startOfDay() : now()->subDays(7)->startOfDay(),
+            default  => now()->subDays(7)->startOfDay(),
+        };
+    }
+
+    private function getPeriodEnd(): Carbon
+    {
+        return match ($this->period) {
+            'custom' => $this->customEndDate ? Carbon::parse($this->customEndDate)->endOfDay() : now(),
+            default  => now(),
         };
     }
 
@@ -188,6 +216,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $def = self::METRICAS[$metricKey];
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
+        $end = $this->getPeriodEnd();
         $isSensor = isset($def['sensor_campo']);
         $datasets = [];
 
@@ -198,6 +227,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->select(['lida_em', $campo])
                 ->where('pool_id', $poolId)
                 ->where('lida_em', '>=', $start)
+                ->where('lida_em', '<=', $end)
                 ->orderBy('lida_em')
                 ->get();
 
@@ -215,6 +245,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->select(['registado_em', $campo])
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
+                ->where('registado_em', '<=', $end)
                 ->whereDoesntHave('correcoes')
                 ->orderBy('registado_em')
                 ->get();
@@ -259,7 +290,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $rightIsSensor = isset(self::METRICAS[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
-        $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}";
+        $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
 
         if ($canCache) {
             $cached = Cache::get($cacheKey);
@@ -295,11 +326,13 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
+        $end = $this->getPeriodEnd();
 
         $manual = DailyRecord::query()
             ->select(['registado_em', 'ph', 'cloro_livre', 'cloro_total', 'transparencia', 'temperatura'])
             ->where('pool_id', $poolId)
             ->where('registado_em', '>=', $start)
+            ->where('registado_em', '<=', $end)
             ->whereDoesntHave('correcoes')
             ->orderByDesc('registado_em')
             ->limit(500)
@@ -317,6 +350,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->select(['lida_em', 'ph', 'orp', 'temperatura_agua'])
             ->where('pool_id', $poolId)
             ->where('lida_em', '>=', $start)
+            ->where('lida_em', '<=', $end)
             ->orderByDesc('lida_em')
             ->limit(500)
             ->get()

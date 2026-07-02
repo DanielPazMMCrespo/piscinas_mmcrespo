@@ -29,7 +29,7 @@
             </div>
 
             <div class="flex gap-1">
-                @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d'] as $key => $label)
+                @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
                     <button
                         wire:click="setPeriod('{{ $key }}')"
                         @class([
