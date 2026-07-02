@@ -600,7 +600,6 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
                             ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                             ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         'transparencia'
                     ),
