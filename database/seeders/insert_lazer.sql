@@ -1,6 +1,6 @@
 BEGIN;
 -- Limpar registos existentes antes de inserir reais
-DELETE FROM daily_records;
+DELETE FROM daily_records WHERE pool_id = (SELECT id FROM pools WHERE name = 'Lazer' LIMIT 1);
 
 -- Assegurar utilizador Sistema
 INSERT INTO users (name, email, password, created_at, updated_at) VALUES ('Sistema', 'sistema@mmcrespo.pt', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NOW(), NOW()) ON CONFLICT (email) DO NOTHING;
