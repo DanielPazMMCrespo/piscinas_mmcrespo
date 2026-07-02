@@ -189,84 +189,44 @@ class CloroPhChartWidget extends Widget implements HasForms
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
         $isSensor = isset($def['sensor_campo']);
-        $isShort = $this->isShortPeriod();
         $datasets = [];
 
         if ($isSensor) {
             $campo = $def['sensor_campo'];
 
-            if ($isShort) {
-                $rows = SensorReading::query()
-                    ->select(['lida_em', $campo])
-                    ->where('pool_id', $poolId)
-                    ->where('lida_em', '>=', $start)
-                    ->orderBy('lida_em')
-                    ->get();
+            $rows = SensorReading::query()
+                ->select(['lida_em', $campo])
+                ->where('pool_id', $poolId)
+                ->where('lida_em', '>=', $start)
+                ->orderBy('lida_em')
+                ->get();
 
-                $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
-                    ->map(fn ($r) => [
-                        'x' => $r->lida_em->toIso8601String(),
-                        'y' => round((float) $r->{$campo}, $def['casas']),
-                    ])->values()->toArray();
-            } else {
-                $rows = SensorReading::query()
-                    ->select([
-                        DB::raw('DATE(lida_em) as dia'),
-                        DB::raw('AVG(' . DB::connection()->getQueryGrammar()->wrap($campo) . ') as val'),
-                    ])
-                    ->where('pool_id', $poolId)
-                    ->where('lida_em', '>=', $start)
-                    ->groupByRaw('DATE(lida_em)')
-                    ->orderBy('dia')
-                    ->get();
-
-                $data = $rows->filter(fn ($r) => $r->val !== null)
-                    ->map(fn ($r) => [
-                        'x' => $r->dia.'T12:00:00',
-                        'y' => round((float) $r->val, $def['casas']),
-                    ])->values()->toArray();
-            }
+            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
+                ->map(fn ($r) => [
+                    'x' => $r->lida_em->toIso8601String(),
+                    'y' => round((float) $r->{$campo}, $def['casas']),
+                ])->values()->toArray();
 
             $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => true];
         } else {
             $campo = $metricKey;
 
-            if ($isShort) {
-                $rows = DailyRecord::query()
-                    ->select(['registado_em', $campo])
-                    ->where('pool_id', $poolId)
-                    ->where('registado_em', '>=', $start)
-                    ->whereDoesntHave('correcoes')
-                    ->orderBy('registado_em')
-                    ->get();
+            $rows = DailyRecord::query()
+                ->select(['registado_em', $campo])
+                ->where('pool_id', $poolId)
+                ->where('registado_em', '>=', $start)
+                ->whereDoesntHave('correcoes')
+                ->orderBy('registado_em')
+                ->get();
 
-                $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
-                    ->map(fn ($r) => [
-                        'x' => $r->registado_em->toIso8601String(),
-                        'y' => round((float) $r->{$campo}, $def['casas']),
-                    ])->values()->toArray();
-            } else {
-                $rows = DailyRecord::query()
-                    ->select([
-                        DB::raw('DATE(registado_em) as dia'),
-                        DB::raw('AVG(' . DB::connection()->getQueryGrammar()->wrap($campo) . ') as val'),
-                    ])
-                    ->where('pool_id', $poolId)
-                    ->where('registado_em', '>=', $start)
-                    ->whereDoesntHave('correcoes')
-                    ->groupByRaw('DATE(registado_em)')
-                    ->orderBy('dia')
-                    ->get();
-
-                $data = $rows->filter(fn ($r) => $r->val !== null)
-                    ->map(fn ($r) => [
-                        'x' => $r->dia.'T12:00:00',
-                        'y' => round((float) $r->val, $def['casas']),
-                    ])->values()->toArray();
-            }
+            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
+                ->map(fn ($r) => [
+                    'x' => $r->registado_em->toIso8601String(),
+                    'y' => round((float) $r->{$campo}, $def['casas']),
+                ])->values()->toArray();
 
             $datasets[] = [
-                'label'  => $def['label'].($isShort ? '' : ' (média)'),
+                'label'  => $def['label'],
                 'data'   => $data,
                 'dashed' => false,
             ];
