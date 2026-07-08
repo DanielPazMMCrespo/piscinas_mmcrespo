@@ -108,9 +108,13 @@ class QuadroOperacionalWidget extends Widget
 
         $listaAtivos = [];
         $listaResolvidos = [];
+        $semRegisto = [];
+        $indiceGrupoSemRegisto = null;
 
         // Alertas ativos: qualquer status guardado que não seja resolvido/resolvido_auto
         // conta como ativo — inclui o legado 'em_curso' de antes desta simplificação.
+        // Alertas "sem_registo" são agrupados num único cartão quando há 2+ (evita
+        // encher o quadro com uma linha por piscina em falta).
         foreach ($ativos as $key => $alerta) {
             $estado = $estados->get($key);
             $resolvido = $estado && in_array($estado->status, ['resolvido', 'resolvido_auto'], true);
@@ -119,12 +123,46 @@ class QuadroOperacionalWidget extends Widget
                 continue;
             }
 
-            $listaAtivos[] = $alerta + [
+            $item = $alerta + [
                 'key' => $key,
                 'auto' => false,
                 'movido_em' => $estado?->moved_at?->format('H:i'),
             ];
+
+            if (str_starts_with($key, 'sem_registo|')) {
+                $semRegisto[] = $item;
+
+                if ($indiceGrupoSemRegisto === null) {
+                    $listaAtivos[] = null;
+                    $indiceGrupoSemRegisto = array_key_last($listaAtivos);
+                }
+
+                continue;
+            }
+
+            $listaAtivos[] = $item;
         }
+
+        if ($indiceGrupoSemRegisto !== null) {
+            if (count($semRegisto) === 1) {
+                $listaAtivos[$indiceGrupoSemRegisto] = $semRegisto[0];
+            } else {
+                $nomes = array_map(fn ($i) => trim(explode(':', $i['titulo'])[0]), $semRegisto);
+                $temVermelho = collect($semRegisto)->contains(fn ($i) => $i['nivel'] === \App\Constants\AlertLevel::VERMELHO);
+
+                $listaAtivos[$indiceGrupoSemRegisto] = [
+                    'key' => 'grupo_sem_registo',
+                    'grupo' => true,
+                    'nivel' => $temVermelho ? \App\Constants\AlertLevel::VERMELHO : \App\Constants\AlertLevel::AMARELO,
+                    'icone' => 'heroicon-o-clipboard-document-list',
+                    'titulo' => 'Sem registo diário hoje',
+                    'detalhe' => count($semRegisto).' piscinas: '.implode(', ', $nomes),
+                    'subalertas' => $semRegisto,
+                ];
+            }
+        }
+
+        $listaAtivos = array_values($listaAtivos);
 
         // Estados cuja condição desapareceu: resolvidos automáticos de hoje.
         \Illuminate\Support\Facades\DB::transaction(function () use ($estados, $ativos) {
