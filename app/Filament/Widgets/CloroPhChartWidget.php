@@ -44,51 +44,54 @@ class CloroPhChartWidget extends Widget implements HasForms
         return $query;
     }
 
-    private const METRICAS = [
-        'cloro_livre' => [
-            'label' => 'Cloro Livre', 'unidade' => 'mg/L', 'casas' => 2,
-            'min' => 0.0, 'max' => 2.5, 'cor' => '#2b9cd8',
-            'banda' => ['min' => DailyRecord::CLORO_LIVRE_MIN, 'max' => DailyRecord::CLORO_LIVRE_MAX],
-        ],
-        'cloro_total' => [
-            'label' => 'Cloro Total', 'unidade' => 'mg/L', 'casas' => 2,
-            'min' => 0.0, 'max' => 3.0, 'cor' => '#0e7490',
-            'banda' => null,
-        ],
-        'ph' => [
-            'label' => 'pH', 'unidade' => '', 'casas' => 2,
-            'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
-            'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
-        ],
-        'temperatura' => [
-            'label' => 'Temperatura', 'unidade' => '°C', 'casas' => 1,
-            'min' => 22.0, 'max' => 32.0, 'cor' => '#e0a800',
-            'banda' => null,
-        ],
-        'transparencia' => [
-            'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 2,
-            'min' => 0.0, 'max' => 1.0, 'cor' => '#8b5cf6',
-            'banda' => null,
-        ],
-        'controlador_ph' => [
-            'label' => 'Controlador — pH', 'unidade' => '', 'casas' => 2,
-            'min' => 6.5, 'max' => 8.5, 'cor' => '#059669',
-            'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
-            'sensor_campo' => 'ph',
-        ],
-        'controlador_orp' => [
-            'label' => 'Controlador — ORP', 'unidade' => 'mV', 'casas' => 0,
-            'min' => 580.0, 'max' => 820.0, 'cor' => '#d97706',
-            'banda' => ['min' => 660, 'max' => 750],
-            'sensor_campo' => 'orp',
-        ],
-        'controlador_temp' => [
-            'label' => 'Controlador — Temp. Água', 'unidade' => '°C', 'casas' => 1,
-            'min' => 22.0, 'max' => 32.0, 'cor' => '#dc2626',
-            'banda' => null,
-            'sensor_campo' => 'temperatura_agua',
-        ],
-    ];
+    private function getMetricas(): array
+    {
+        return [
+            'cloro_livre' => [
+                'label' => 'Cloro Livre', 'unidade' => 'mg/L', 'casas' => 2,
+                'min' => 0.0, 'max' => 2.5, 'cor' => '#2b9cd8',
+                'banda' => ['min' => DailyRecord::getCloroLivreMin(), 'max' => DailyRecord::getCloroLivreMax()],
+            ],
+            'cloro_total' => [
+                'label' => 'Cloro Total', 'unidade' => 'mg/L', 'casas' => 2,
+                'min' => 0.0, 'max' => 3.0, 'cor' => '#0e7490',
+                'banda' => null,
+            ],
+            'ph' => [
+                'label' => 'pH', 'unidade' => '', 'casas' => 2,
+                'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
+                'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
+            ],
+            'temperatura' => [
+                'label' => 'Temperatura', 'unidade' => '°C', 'casas' => 1,
+                'min' => 22.0, 'max' => 32.0, 'cor' => '#e0a800',
+                'banda' => null,
+            ],
+            'transparencia' => [
+                'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 2,
+                'min' => 0.0, 'max' => 1.0, 'cor' => '#8b5cf6',
+                'banda' => null,
+            ],
+            'controlador_ph' => [
+                'label' => 'Controlador — pH', 'unidade' => '', 'casas' => 2,
+                'min' => 6.5, 'max' => 8.5, 'cor' => '#059669',
+                'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
+                'sensor_campo' => 'ph',
+            ],
+            'controlador_orp' => [
+                'label' => 'Controlador — ORP', 'unidade' => 'mV', 'casas' => 0,
+                'min' => 580.0, 'max' => 820.0, 'cor' => '#d97706',
+                'banda' => ['min' => 660, 'max' => 750],
+                'sensor_campo' => 'orp',
+            ],
+            'controlador_temp' => [
+                'label' => 'Controlador — Temp. Água', 'unidade' => '°C', 'casas' => 1,
+                'min' => 22.0, 'max' => 32.0, 'cor' => '#dc2626',
+                'banda' => null,
+                'sensor_campo' => 'temperatura_agua',
+            ],
+        ];
+    }
 
     public function mount(): void
     {
@@ -119,7 +122,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
-        $opcoesMetricas = collect(self::METRICAS)
+        $opcoesMetricas = collect($this->getMetricas())
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
@@ -209,11 +212,11 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function buildMetricAxis(string $metricKey): array
     {
-        if (! array_key_exists($metricKey, self::METRICAS)) {
+        if (! array_key_exists($metricKey, $this->getMetricas())) {
             return [];
         }
 
-        $def = self::METRICAS[$metricKey];
+        $def = $this->getMetricas()[$metricKey];
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
         $end = $this->getPeriodEnd();
@@ -282,12 +285,12 @@ class CloroPhChartWidget extends Widget implements HasForms
             return [];
         }
 
-        $leftKey = array_key_exists($this->leftMetric, self::METRICAS) ? $this->leftMetric : 'ph';
-        $rightKey = array_key_exists($this->rightMetric, self::METRICAS) ? $this->rightMetric : 'controlador_orp';
+        $leftKey = array_key_exists($this->leftMetric, $this->getMetricas()) ? $this->leftMetric : 'ph';
+        $rightKey = array_key_exists($this->rightMetric, $this->getMetricas()) ? $this->rightMetric : 'controlador_orp';
 
         // Cache only for long-period, manual-only queries (sensor data changes every 15 min).
-        $leftIsSensor = isset(self::METRICAS[$leftKey]['sensor_campo']);
-        $rightIsSensor = isset(self::METRICAS[$rightKey]['sensor_campo']);
+        $leftIsSensor = isset($this->getMetricas()[$leftKey]['sensor_campo']);
+        $rightIsSensor = isset($this->getMetricas()[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
         $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";

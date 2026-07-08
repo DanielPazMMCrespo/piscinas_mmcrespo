@@ -27,12 +27,28 @@ class DailyRecord extends Model
     /**
      * Limites regulamentares CN 14/DA (DGS 2009) para piscinas públicas.
      * Fonte única de verdade — usados em validação, tabelas e dashboard.
-    public static function getPhMin(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_min', 6.9); }
-    public static function getPhMax(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_max', 8.0); }
-    public static function getCloroLivreMin(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', 0.5); }
-    public static function getCloroLivreMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', 2.0); }
-    public static function getCloroCombinadoMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', 0.6); }
-    public static function getTransparenciaMax(): float { return app(\App\Services\SettingsService::class)->getFloat('transparencia_max', 5.0); }
+     */
+    public const PH_MIN = 6.9;
+    public const PH_MAX = 8.0;
+    public const CLORO_LIVRE_MIN = 0.5;
+    public const CLORO_LIVRE_MAX = 2.0;
+    public const CLORO_COMBINADO_MAX = 0.6;
+    public const TRANSPARENCIA_MAX = 5.0;
+
+    public const METRICAS = [
+        'ph' => ['label' => 'pH', 'min' => self::PH_MIN, 'max' => self::PH_MAX, 'unidade' => ''],
+        'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::CLORO_LIVRE_MIN, 'max' => self::CLORO_LIVRE_MAX, 'unidade' => 'mg/L'],
+        'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::CLORO_COMBINADO_MAX, 'unidade' => 'mg/L'],
+        'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::TRANSPARENCIA_MAX, 'unidade' => 'FNU'],
+        'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
+    ];
+
+    public static function getPhMin(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN); }
+    public static function getPhMax(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX); }
+    public static function getCloroLivreMin(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN); }
+    public static function getCloroLivreMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX); }
+    public static function getCloroCombinadoMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX); }
+    public static function getTransparenciaMax(): float { return app(\App\Services\SettingsService::class)->getFloat('transparencia_max', self::TRANSPARENCIA_MAX); }
 
     /**
      * Mapa central das métricas com limites legais dinâmicos — fonte única para o semáforo
@@ -167,10 +183,7 @@ class DailyRecord extends Model
             return true; // sem leitura não é violação
         }
 
-        $min = app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN);
-        $max = app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX);
-
-        return (float) $this->ph >= $min && (float) $this->ph <= $max;
+        return (float) $this->ph >= self::getPhMin() && (float) $this->ph <= self::getPhMax();
     }
 
     public function cloroLivreConforme(): bool
@@ -179,10 +192,7 @@ class DailyRecord extends Model
             return true; // sem leitura não é violação
         }
 
-        $min = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
-        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
-
-        return (float) $this->cloro_livre >= $min && (float) $this->cloro_livre <= $max;
+        return (float) $this->cloro_livre >= self::getCloroLivreMin() && (float) $this->cloro_livre <= self::getCloroLivreMax();
     }
 
     public function cloroCombinadoConforme(): bool
@@ -192,9 +202,7 @@ class DailyRecord extends Model
             return true;
         }
 
-        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
-
-        return $this->cloro_combinado <= $max;
+        return $this->cloro_combinado <= self::getCloroCombinadoMax();
     }
 
     /**

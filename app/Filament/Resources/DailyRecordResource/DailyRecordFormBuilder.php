@@ -643,7 +643,7 @@ class DailyRecordFormBuilder
                     self::comSemaforo(
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
-                            ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::CLORO_LIVRE_MIN.' a '.DailyRecord::CLORO_LIVRE_MAX.' mg/L'.self::lookback('cloro_livre', $get))
+                            ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::getCloroLivreMin().' a '.DailyRecord::getCloroLivreMax().' mg/L'.self::lookback('cloro_livre', $get))
                             ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20),
                         'cloro_livre'
@@ -651,7 +651,7 @@ class DailyRecordFormBuilder
                     self::comSemaforo(
                         Forms\Components\TextInput::make('cloro_total')
                             ->label('Cloro Total (mg/L)')
-                            ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::CLORO_COMBINADO_MAX.' mg/L'.self::lookback('cloro_total', $get))
+                            ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::getCloroCombinadoMax().' mg/L'.self::lookback('cloro_total', $get))
                             ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20)
                             ->rules([
@@ -674,8 +674,8 @@ class DailyRecordFormBuilder
                     self::comSemaforo(
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
-                            ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
+                            ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::getTransparenciaMax().' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::getTransparenciaMax()),
                         'transparencia'
                     ),
                     ...self::fotoField('analises_fotos', 'Fotos das análises (até 5)', 'analises', true, 5),
