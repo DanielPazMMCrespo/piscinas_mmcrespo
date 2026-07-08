@@ -470,6 +470,7 @@ class DailyRecordFormBuilder
                             'on_com_agua' => 'ON — com água',
                             'on_sem_agua' => 'ON — sem água',
                             'off' => 'OFF — sem água na instalação',
+                            'inoperacional' => 'Inoperacional',
                         ])
                         ->native(false)
                         ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
