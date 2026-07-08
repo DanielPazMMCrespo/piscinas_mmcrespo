@@ -14,6 +14,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -75,6 +76,16 @@ class User extends Authenticatable implements FilamentUser
     public function piscinas(): BelongsToMany
     {
         return $this->belongsToMany(Pool::class, 'user_pools');
+    }
+
+    public function daily_records(): HasMany
+    {
+        return $this->hasMany(DailyRecord::class);
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class);
     }
 
     /**

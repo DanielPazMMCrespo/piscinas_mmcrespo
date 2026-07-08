@@ -50,7 +50,15 @@ class UserResource extends Resource
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        if (! (auth()->user()?->hasRole(UserRole::ADMIN) ?? false)) {
+            return false;
+        }
+
+        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function canDeleteAny(): bool
@@ -178,6 +186,12 @@ class UserResource extends Resource
                         }
                         if ($record->hasRole(UserRole::ADMIN) && User::role(UserRole::ADMIN)->count() <= 1) {
                             Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
+                            $action->halt();
+                        }
+                        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                            Notification::make()->danger()->title('Não é possível eliminar este utilizador.')
+                                ->body('Existem registos diários ou incidentes associados. Contacte o administrador.')
+                                ->send();
                             $action->halt();
                         }
                     }),
