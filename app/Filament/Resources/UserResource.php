@@ -102,6 +102,7 @@ class UserResource extends Resource
                     ->label('PIN')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
+                    ->hiddenOn('edit')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->minLength(4)
                     ->maxLength(255)
