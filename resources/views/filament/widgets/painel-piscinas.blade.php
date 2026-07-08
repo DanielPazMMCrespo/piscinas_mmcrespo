@@ -45,7 +45,9 @@
             </div>
 
             <div class="mmc-pool-list">
-                @php($ultimaInstalacaoId = null)
+                @php
+                    $ultimaInstalacaoId = null;
+                @endphp
                 @forelse ($piscinas as $item)
                     @php
                         $piscina = $item['piscina'];
@@ -56,7 +58,9 @@
                     @endphp
 
                     @if ($piscina->installation_id !== $ultimaInstalacaoId)
-                        @php($ultimaInstalacaoId = $piscina->installation_id)
+                        @php
+                            $ultimaInstalacaoId = $piscina->installation_id;
+                        @endphp
                         <div class="mmc-pool-group-label">{{ $piscina->instalacao?->name }}</div>
                     @endif
 
