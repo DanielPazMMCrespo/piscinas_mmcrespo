@@ -31,7 +31,7 @@ jobs:
           php-version: '8.4'
 
       - name: Audit Composer dependencies
-        run: composer audit --no-interaction
+        run: composer audit --no-interaction --locked
 
   npm-audit:
     name: NPM audit

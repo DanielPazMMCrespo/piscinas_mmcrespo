@@ -654,7 +654,7 @@ const setupFormDraft = () => {
 
     // Also clear draft when Filament notifies that the record was successfully saved
     if (window.Livewire) {
-        window.Livewire.on('notificationSent', (event) => {
+        window.Livewire.on('dailyRecordSaved', (event) => {
             if (event.notification && event.notification.status === 'success') {
                 localStorage.removeItem(formKey);
             }

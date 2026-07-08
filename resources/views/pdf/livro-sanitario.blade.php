@@ -10,6 +10,20 @@
       $seccoes    (array de ['piscina' => Pool, 'registos' => Collection<DailyRecord>, 'controlador' => Collection])
       $inicio, $fim, $emitidoEm (Carbon)  $emitidoPor (?string)
 --}}
+@php
+    $colunasVisiveis = $colunasVisiveis ?? [
+        'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
+        'cloro_combinado', 'temperatura', 'transparencia',
+        'contador_valor', 'bomba_tanque', 'acao_corretiva',
+        'observacoes', 'conforme'
+    ];
+    $seccoesVisiveis = $seccoesVisiveis ?? [
+        'mostrar_resumo', 'mostrar_controlador_grafico',
+        'mostrar_controlador_tabela', 'mostrar_assinaturas',
+        'mostrar_nota_legal'
+    ];
+    $modo = $modo ?? 'todos';
+@endphp
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -237,26 +251,26 @@
                 <table class="registos">
                     <thead>
                         <tr>
-                            <th style="width: 6%;">Data</th>
-                            <th style="width: 6.5%;">Hora</th>
-                            <th style="width: 9%;">Técnico</th>
-                            <th style="width: 4.5%;">pH</th>
-                            <th style="width: 6%;">Cl. Livre (mg/L)</th>
-                            <th style="width: 6%;">Cl. Total (mg/L)</th>
-                            <th style="width: 6.5%;">Cl. Combinado (mg/L)</th>
-                            <th style="width: 5.5%;">Temp. (°C)</th>
-                            <th style="width: 5.5%;">Transp.</th>
-                            <th style="width: 7%;">Contador (m³)</th>
-                            <th style="width: 7%;">Bomba / Tanque</th>
-                            <th style="width: 11%;">Ação corretiva</th>
-                            <th style="width: 14%;">Observações</th>
-                            <th style="width: 5.5%;">Conforme</th>
+                            <th>Data</th>
+                            @if ($modo === 'todos' && in_array('hora', $colunasVisiveis)) <th>Hora</th> @endif
+                            @if (in_array('tecnico', $colunasVisiveis)) <th>Técnico</th> @endif
+                            @if (in_array('ph', $colunasVisiveis)) <th>pH</th> @endif
+                            @if (in_array('cloro_livre', $colunasVisiveis)) <th>Cl. Livre (mg/L)</th> @endif
+                            @if (in_array('cloro_total', $colunasVisiveis)) <th>Cl. Total (mg/L)</th> @endif
+                            @if (in_array('cloro_combinado', $colunasVisiveis)) <th>Cl. Combinado (mg/L)</th> @endif
+                            @if (in_array('temperatura', $colunasVisiveis)) <th>Temp. (°C)</th> @endif
+                            @if (in_array('transparencia', $colunasVisiveis)) <th>Transp.</th> @endif
+                            @if (in_array('contador_valor', $colunasVisiveis)) <th>Contador (m³)</th> @endif
+                            @if (in_array('bomba_tanque', $colunasVisiveis)) <th>Bomba / Tanque</th> @endif
+                            @if (in_array('acao_corretiva', $colunasVisiveis)) <th>Ação corretiva</th> @endif
+                            @if (in_array('observacoes', $colunasVisiveis)) <th>Observações</th> @endif
+                            @if (in_array('conforme', $colunasVisiveis)) <th>Conforme</th> @endif
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($registos as $registo)
                             @php
-                                $conforme = $conformidade[$registo->id];
+                                $conforme = $conformidade[$registo->id] ?? true;
                                 // Negrito apenas quando o valor existe E está fora de gama.
                                 $phFora = $registo->ph !== null && ! $registo->phConforme();
                                 $clFora = $registo->cloro_livre !== null && ! $registo->cloroLivreConforme();
@@ -269,68 +283,100 @@
                             @endphp
                             <tr>
                                 <td>{{ $registo->registado_em?->format('d/m/Y') ?? '—' }}</td>
-                                <td>
-                                    {{ $registo->registado_em?->format('H:i') ?? '—' }}
-                                    @if ($registo->e_correcao)
-                                        <br><span style="font-size: 6px;">(correção)</span>
-                                    @endif
-                                </td>
-                                <td class="texto">{{ $registo->utilizador?->name ?? '—' }}</td>
-                                <td>
-                                    @if ($registo->ph !== null)
-                                        <span @class(['fora-gama' => $phFora])>{{ $registo->ph }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($registo->cloro_livre !== null)
-                                        <span @class(['fora-gama' => $clFora])>{{ $registo->cloro_livre }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>{{ $registo->cloro_total ?? '—' }}</td>
-                                <td>
-                                    @if ($registo->cloro_total !== null && $registo->cloro_livre !== null)
-                                        <span @class(['fora-gama' => $combFora])>{{ number_format($registo->cloro_combinado, 2) }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($registo->temperatura !== null)
-                                        <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>{{ $registo->transparencia ?? '—' }}</td>
-                                <td>{{ $registo->contador_valor !== null ? number_format((float) $registo->contador_valor, 2, ',', ' ') : '—' }}</td>
-                                <td>
-                                    {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
-                                    /
-                                    {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
-                                </td>
-                                <td class="texto">{{ $acaoCorretiva !== null && $acaoCorretiva !== '' ? \Illuminate\Support\Str::limit((string) $acaoCorretiva, 70) : '—' }}</td>
-                                <td class="texto">{{ filled($registo->observacoes) ? \Illuminate\Support\Str::limit((string) $registo->observacoes, 80) : '—' }}</td>
-                                <td>
-                                    @if ($conforme)
-                                        ✓
-                                    @else
-                                        <span class="nao-conforme">✗</span>
-                                    @endif
-                                </td>
+                                @if ($modo === 'todos' && in_array('hora', $colunasVisiveis))
+                                    <td>
+                                        {{ $registo->registado_em?->format('H:i') ?? '—' }}
+                                        @if ($registo->e_correcao)
+                                            <br><span style="font-size: 6px;">(correção)</span>
+                                        @endif
+                                    </td>
+                                @endif
+                                @if (in_array('tecnico', $colunasVisiveis))
+                                    <td class="texto">{{ $registo->utilizador?->name ?? '—' }}</td>
+                                @endif
+                                @if (in_array('ph', $colunasVisiveis))
+                                    <td>
+                                        @if ($registo->ph !== null)
+                                            <span @class(['fora-gama' => $phFora])>{{ $registo->ph }}</span>
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                @if (in_array('cloro_livre', $colunasVisiveis))
+                                    <td>
+                                        @if ($registo->cloro_livre !== null)
+                                            <span @class(['fora-gama' => $clFora])>{{ $registo->cloro_livre }}</span>
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                @if (in_array('cloro_total', $colunasVisiveis))
+                                    <td>{{ $registo->cloro_total ?? '—' }}</td>
+                                @endif
+                                @if (in_array('cloro_combinado', $colunasVisiveis))
+                                    <td>
+                                        @if ($registo->cloro_total !== null && $registo->cloro_livre !== null)
+                                            <span @class(['fora-gama' => $combFora])>{{ number_format($registo->cloro_combinado, 2) }}</span>
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                @if (in_array('temperatura', $colunasVisiveis))
+                                    <td>
+                                        @if ($registo->temperatura !== null)
+                                            <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura }}</span>
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                @if (in_array('transparencia', $colunasVisiveis))
+                                    <td>{{ in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']) ? 'Conforme' : ($registo->transparencia ?? '—') }}</td>
+                                @endif
+                                @if (in_array('contador_valor', $colunasVisiveis))
+                                    <td>{{ $registo->contador_valor !== null ? number_format((float) $registo->contador_valor, 2, ',', ' ') : '—' }}</td>
+                                @endif
+                                @if (in_array('bomba_tanque', $colunasVisiveis))
+                                    <td>
+                                        @if (in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']))
+                                            Conforme
+                                        @else
+                                            {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
+                                            /
+                                            {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
+                                        @endif
+                                    </td>
+                                @endif
+                                @if (in_array('acao_corretiva', $colunasVisiveis))
+                                    <td class="texto">{{ $acaoCorretiva !== null && $acaoCorretiva !== '' ? \Illuminate\Support\Str::limit((string) $acaoCorretiva, 70) : '—' }}</td>
+                                @endif
+                                @if (in_array('observacoes', $colunasVisiveis))
+                                    <td class="texto">{{ filled($registo->observacoes) ? \Illuminate\Support\Str::limit((string) $registo->observacoes, 80) : '—' }}</td>
+                                @endif
+                                @if (in_array('conforme', $colunasVisiveis))
+                                    <td>
+                                        @if ($conforme)
+                                            ✓
+                                        @else
+                                            <span class="nao-conforme">✗</span>
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
 
+                @if (in_array('mostrar_resumo', $seccoesVisiveis))
                 <p class="resumo">
                     <strong>Resumo — {{ $piscina->name }}:</strong>
                     {{ $totalRegistos }} {{ $totalRegistos === 1 ? 'registo' : 'registos' }} no período
                     | Não conformidades: <strong>{{ $naoConformes }}</strong>
                     | Conformidade: <strong>{{ number_format((float) $percentagem, 1, ',', '') }}%</strong>
                 </p>
+                @endif
             @endif
 
             {{-- ================================================================
                  Secção do Controlador Hanna BL132 — Leituras Automáticas
                  Complemento informativo; não substitui o registo manual obrigatório.
                  ================================================================ --}}
-            @if ($controlador->isNotEmpty())
+            @if ($controlador->isNotEmpty() && (in_array('mostrar_controlador_grafico', $seccoesVisiveis) || in_array('mostrar_controlador_tabela', $seccoesVisiveis)))
                 @php
                     // ---- Dados para o gráfico SVG de pH ----
                     // Dimensões da área de plot (em px, adaptadas ao A4 landscape dompdf)
@@ -399,7 +445,7 @@
                 </p>
 
                 {{-- Gráfico SVG de pH — renderizado pelo php-svg-lib do dompdf --}}
-                @if ($pathD !== '')
+                @if ($pathD !== '' && in_array('mostrar_controlador_grafico', $seccoesVisiveis))
                     <div class="svg-wrap">
                         <svg width="{{ $svgW }}" height="{{ $svgH }}" xmlns="http://www.w3.org/2000/svg">
 
@@ -490,6 +536,7 @@
                 @endif
 
                 {{-- Tabela de médias diárias do controlador --}}
+                @if (in_array('mostrar_controlador_tabela', $seccoesVisiveis))
                 <table class="registos controlador">
                     <thead>
                         <tr>
@@ -561,12 +608,14 @@
                     | Dias com pH médio fora de gama: <strong>{{ $diasFora }}</strong>
                     | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
                 </p>
+                @endif
             @endif
 
         </div>
     @endforeach
 
     {{-- Área de assinaturas (última página) --}}
+    @if (in_array('mostrar_assinaturas', $seccoesVisiveis))
     <table class="assinaturas">
         <tr>
             <td>
@@ -579,11 +628,14 @@
             </td>
         </tr>
     </table>
+    @endif
 
+    @if (in_array('mostrar_nota_legal', $seccoesVisiveis))
     <p class="nota-legal">
         Registo conforme CN 14/DA (DGS 2009), NP 4542:2017 e DR 5/97.
         Documento gerado eletronicamente pela aplicação de gestão operacional MMCrespo em {{ $emitidoEm->format('d/m/Y H:i') }}.
     </p>
+    @endif
 
 </body>
 </html>

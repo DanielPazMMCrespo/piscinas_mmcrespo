@@ -5,11 +5,14 @@ namespace App\Filament\Pages;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\SensorReading;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -17,6 +20,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -66,6 +70,18 @@ class RelatorioPdf extends Page implements HasForms
             'pool_id' => 'todas',
             'data_inicio' => now()->startOfMonth()->toDateString(),
             'data_fim' => now()->subDay()->toDateString(),
+            'registo_modo' => 'todos',
+            'colunas_visiveis' => [
+                'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
+                'cloro_combinado', 'temperatura', 'transparencia',
+                'contador_valor', 'bomba_tanque', 'acao_corretiva',
+                'observacoes', 'conforme',
+            ],
+            'seccoes_visiveis' => [
+                'mostrar_resumo', 'mostrar_controlador_grafico',
+                'mostrar_controlador_tabela', 'mostrar_assinaturas',
+                'mostrar_nota_legal',
+            ],
         ]);
     }
 
@@ -125,6 +141,72 @@ class RelatorioPdf extends Page implements HasForms
                                 'after_or_equal' => 'A data fim tem de ser igual ou posterior à data início.',
                             ]),
                     ]),
+
+                Section::make('Opções de personalização do PDF')
+                    ->description('Personalize as colunas e secções que vão constar no documento PDF.')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->collapsible()
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->schema([
+                        Placeholder::make('aviso_customizacao')
+                            ->hidden(fn (Get $get) => 
+                                $get('registo_modo') === 'todos' &&
+                                count($get('colunas_visiveis') ?? []) === 13 &&
+                                count($get('seccoes_visiveis') ?? []) === 5
+                            )
+                            ->columnSpanFull()
+                            ->content(new HtmlString('
+                                <div class="p-4 rounded-lg bg-warning-50 border border-warning-200 dark:bg-warning-950/30 dark:border-warning-900/50 flex gap-3 text-sm text-warning-800 dark:text-warning-300">
+                                    <svg class="h-5 w-5 text-warning-600 dark:text-warning-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                    </svg>
+                                    <div>
+                                        <strong>Aviso importante:</strong> A personalização do PDF (ocultação de colunas, alteração de secções ou agrupamento por médias) desvia-se do modelo regulamentar oficial do <strong>Livro de Registo Sanitário (CN 14/DA - DGS)</strong>. Não é recomendado fazer alterações se necessitar do documento para fins inspetivos/legais.
+                                    </div>
+                                </div>
+                            ')),
+
+                        Select::make('registo_modo')
+                            ->label('Tipo de agrupamento')
+                            ->options([
+                                'todos' => 'Todos os registos diários',
+                                'media_diaria' => 'Média diária (um registo por dia)',
+                            ])
+                            ->required()
+                            ->live(),
+
+                        CheckboxList::make('colunas_visiveis')
+                            ->label('Colunas da tabela de registos')
+                            ->options([
+                                'hora' => 'Hora (apenas no modo "Todos os registos")',
+                                'tecnico' => 'Técnico',
+                                'ph' => 'pH',
+                                'cloro_livre' => 'Cloro Livre',
+                                'cloro_total' => 'Cloro Total',
+                                'cloro_combinado' => 'Cloro Combinado',
+                                'temperatura' => 'Temperatura',
+                                'transparencia' => 'Transparência',
+                                'contador_valor' => 'Contador',
+                                'bomba_tanque' => 'Bomba / Tanque',
+                                'acao_corretiva' => 'Ações corretivas',
+                                'observacoes' => 'Observações',
+                                'conforme' => 'Conformidade',
+                            ])
+                            ->columns(2)
+                            ->live(),
+
+                        CheckboxList::make('seccoes_visiveis')
+                            ->label('Outros elementos do PDF')
+                            ->options([
+                                'mostrar_resumo' => 'Resumo da conformidade da piscina',
+                                'mostrar_controlador_grafico' => 'Gráfico do controlador Hanna BL132',
+                                'mostrar_controlador_tabela' => 'Tabela do controlador Hanna BL132',
+                                'mostrar_assinaturas' => 'Área de assinaturas',
+                                'mostrar_nota_legal' => 'Nota legal de rodapé',
+                            ])
+                            ->columns(1)
+                            ->live(),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -177,6 +259,10 @@ class RelatorioPdf extends Page implements HasForms
             return null;
         }
 
+        $modo = $estado['registo_modo'] ?? 'todos';
+        $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
+        $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
+
         // Leituras do controlador agregadas por dia (média, min, max por piscina).
         // Agrupadas por pool_id para acesso O(1) na montagem das secções.
         $leiturasControlador = SensorReading::query()
@@ -191,13 +277,63 @@ class RelatorioPdf extends Page implements HasForms
 
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador): array {
+        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador, $modo): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina'])
                 ->whereBetween('registado_em', [$inicio, $fim])
                 ->whereDoesntHave('correcoes')
                 ->orderBy('registado_em')
                 ->get();
+
+            if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
+                $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
+                    ->map(function ($grupo, $dataStr) use ($piscina) {
+                        $dia = Carbon::parse($dataStr);
+                        
+                        $phAvg = $grupo->whereNotNull('ph')->avg('ph');
+                        $cloroLivreAvg = $grupo->whereNotNull('cloro_livre')->avg('cloro_livre');
+                        $cloroTotalAvg = $grupo->whereNotNull('cloro_total')->avg('cloro_total');
+                        $tempAvg = $grupo->whereNotNull('temperatura')->avg('temperatura');
+                        $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
+                        $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
+                        
+                        $acoes = $grupo->pluck('acao_corretiva')->filter()->unique()->implode('; ');
+                        $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
+                        $tecnicos = $grupo->map(fn ($r) => $r->utilizador?->name)->filter()->unique()->implode(', ');
+                        
+                        $bombaFerrada = null;
+                        if ($grupo->whereNotNull('bomba_ferrada')->isNotEmpty()) {
+                            $bombaFerrada = $grupo->where('bomba_ferrada', false)->isEmpty();
+                        }
+                        $tanqueOk = null;
+                        if ($grupo->whereNotNull('tanque_ok')->isNotEmpty()) {
+                            $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
+                        }
+
+                        $mockRecord = new \App\Models\DailyRecord();
+                        $mockRecord->registado_em = $dia;
+                        $mockRecord->ph = $phAvg !== null ? round((float)$phAvg, 2) : null;
+                        $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float)$cloroLivreAvg, 2) : null;
+                        $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float)$cloroTotalAvg, 2) : null;
+                        $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
+                        $mockRecord->transparencia = $transparenciaAvg !== null ? round((float)$transparenciaAvg, 2) : null;
+                        $mockRecord->contador_valor = $contadorAvg !== null ? round((float)$contadorAvg, 2) : null;
+                        $mockRecord->bomba_ferrada = $bombaFerrada;
+                        $mockRecord->tanque_ok = $tanqueOk;
+                        $mockRecord->acao_corretiva = $acoes ?: null;
+                        $mockRecord->observacoes = $observacoes ?: null;
+                        $mockRecord->e_correcao = false;
+
+                        if ($tecnicos !== '') {
+                            $u = new \App\Models\User();
+                            $u->name = $tecnicos;
+                            $mockRecord->setRelation('utilizador', $u);
+                        }
+                        $mockRecord->setRelation('piscina', $piscina);
+
+                        return $mockRecord;
+                    })->values();
+            }
 
             return [
                 'piscina' => $piscina,
@@ -213,6 +349,9 @@ class RelatorioPdf extends Page implements HasForms
             'fim' => $fim,
             'emitidoEm' => now(),
             'emitidoPor' => auth()->user()?->name,
+            'colunasVisiveis' => $colunasVisiveis,
+            'seccoesVisiveis' => $seccoesVisiveis,
+            'modo' => $modo,
         ])->setPaper('a4', 'landscape');
 
         // Numeração "Página X de Y": render explícito no objeto Dompdf e
