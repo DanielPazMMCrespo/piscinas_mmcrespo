@@ -153,6 +153,10 @@ class CacheService
      */
     public function invalidatePoolData(): void
     {
+        if (config('cache.default') === 'file') {
+            \Illuminate\Support\Facades\Cache::flush();
+            return;
+        }
         $this->invalidateByPattern('cache_painel_piscinas_*');
     }
 
