@@ -57,12 +57,37 @@ class DailyRecordFormBuilder
         int $maxFiles = 5,
         ?Closure $extraVisible = null,
         ?string $helperText = null,
-        bool $required = false
+        bool $required = false,
+        ?Closure $afterStateUpdated = null
     ): array {
         $toggleName = 'substituir_' . $field;
 
         $defaultHelper = 'Max. 5MB. HEIC aceite. Em iPhone: Definições > Câmara > Formato > Mais Compatível';
         $fullHelper = $helperText ? "{$helperText} · {$defaultHelper}" : $defaultHelper;
+
+        $fileUpload = Forms\Components\FileUpload::make($field)
+            ->label($label)
+            ->disk(DailyRecord::getStorageDisk())->visibility('public')
+            ->directory($directory)
+            ->image()
+            ->multiple($multiple)
+            ->maxFiles($multiple ? $maxFiles : null)
+            ->reorderable($multiple)
+            ->maxSize(5120)
+            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            ->openable()
+            ->downloadable()
+            ->helperText($fullHelper)
+            ->required($required)
+            ->visible(fn ($record, Get $get) =>
+                ($record === null || !filled($record->{$field}) || (bool)$get($toggleName)) &&
+                ($extraVisible ? $extraVisible($record, $get) : true)
+            )
+            ->columnSpanFull();
+
+        if ($afterStateUpdated !== null) {
+            $fileUpload = $fileUpload->live()->afterStateUpdated($afterStateUpdated);
+        }
 
         return [
             Forms\Components\Toggle::make($toggleName)
@@ -77,25 +102,7 @@ class DailyRecordFormBuilder
 
             self::fotoPreview($field, 'Visualização da Foto'),
 
-            Forms\Components\FileUpload::make($field)
-                ->label($label)
-                ->disk(DailyRecord::getStorageDisk())->visibility('public')
-                ->directory($directory)
-                ->image()
-                ->multiple($multiple)
-                ->maxFiles($multiple ? $maxFiles : null)
-                ->reorderable($multiple)
-                ->maxSize(5120)
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
-                ->openable()
-                ->downloadable()
-                ->helperText($fullHelper)
-                ->required($required)
-                ->visible(fn ($record, Get $get) =>
-                    ($record === null || !filled($record->{$field}) || (bool)$get($toggleName)) &&
-                    ($extraVisible ? $extraVisible($record, $get) : true)
-                )
-                ->columnSpanFull(),
+            $fileUpload,
         ];
     }
     /**
