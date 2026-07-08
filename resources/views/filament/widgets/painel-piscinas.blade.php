@@ -2,11 +2,13 @@
     <x-filament::section>
         <x-slot name="heading">Estado das Piscinas</x-slot>
         <x-slot name="description">Último registo válido de cada piscina. Vermelho = fora dos limites CN 14/DA.</x-slot>
-        <x-slot name="headerEnd">
-            <x-filament::button tag="a" href="{{ $urlRegistar }}" icon="heroicon-m-plus-circle" size="sm">
-                Registar agora
-            </x-filament::button>
-        </x-slot>
+        @can('create', \App\Models\DailyRecord::class)
+            <x-slot name="headerEnd">
+                <x-filament::button tag="a" href="{{ $urlRegistar }}" icon="heroicon-m-plus-circle" size="sm">
+                    Registar agora
+                </x-filament::button>
+            </x-slot>
+        @endcan
 
         @if ($totalPiscinas > 0)
             <div class="mmc-dashboard-status">
@@ -96,10 +98,12 @@
                         <div class="mmc-empty">Sem registos manuais</div>
                     @endif
 
-                    <a href="{{ $item['url_registar'] }}" class="mmc-card-cta">
-                        <x-filament::icon icon="heroicon-m-pencil-square" class="mmc-card-cta-icon" />
-                        Registar
-                    </a>
+                    @can('create', \App\Models\DailyRecord::class)
+                        <a href="{{ $item['url_registar'] }}" class="mmc-card-cta">
+                            <x-filament::icon icon="heroicon-m-pencil-square" class="mmc-card-cta-icon" />
+                            Registar
+                        </a>
+                    @endcan
                 </div>
             @empty
                 <div class="mmc-empty">Nenhuma piscina ativa.</div>

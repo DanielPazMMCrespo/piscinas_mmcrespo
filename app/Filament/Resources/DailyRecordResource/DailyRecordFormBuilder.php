@@ -75,6 +75,7 @@ class DailyRecordFormBuilder
             ->reorderable($multiple)
             ->maxSize(5120)
             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            ->extraInputAttributes(['capture' => 'environment'])
             ->openable()
             ->downloadable()
             ->helperText($fullHelper)
@@ -211,13 +212,17 @@ class DailyRecordFormBuilder
     {
         $parts = [];
 
-        $disponivel = self::quantidadeDisponivel($get);
-        if ($disponivel === null) {
+        $poolId = $get('../../pool_id');
+        $productId = $get('product_id');
+
+        if (! $poolId || ! $productId) {
             $parts[] = 'Selecione a piscina e o produto para ver a quantidade disponível.';
         } else {
-            $productId = $get('product_id');
-            $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
-            $parts[] = "Disponível: {$disponivel} {$unidade}";
+            $disponivel = self::quantidadeDisponivel($get);
+            $unidade = \App\Models\Product::find($productId)?->unidade ?? 'unid.';
+            $parts[] = $disponivel === null
+                ? 'Sem stock registado nesta instalação para este produto.'
+                : "Disponível: {$disponivel} {$unidade}";
         }
 
         $sugestao = self::sugestaoDosagem($get);
@@ -809,7 +814,7 @@ class DailyRecordFormBuilder
                                             $resultado = round(
                                                 ((float) $pool->volume * (float) $data['dosagem'])
                                                 / ((float) $data['concentracao'] * 10),
-                                                3
+                                                2
                                             );
                                             $set('quantity', $resultado);
                                         })
@@ -872,6 +877,11 @@ class DailyRecordFormBuilder
                             ->schema($step4),
                     ])
                     ->skippable()
+                    ->submitAction(
+                        view('filament.daily-record-wizard-submit', [
+                            'label' => $form->getLivewire()->getSubmitLabel(),
+                        ])
+                    )
                     ->columnSpanFull(),
                 ]);
         }

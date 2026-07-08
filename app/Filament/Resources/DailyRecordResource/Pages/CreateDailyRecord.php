@@ -138,6 +138,28 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
+    /**
+     * Label do botão de submissão do wizard, refletindo se ainda há piscinas
+     * por gravar na fila da visita (usado pelo submitAction do Wizard, que só
+     * é renderizado no último passo — ver DailyRecordFormBuilder::form()).
+     */
+    public function getSubmitLabel(): string
+    {
+        $proximo = $this->proximaPiscinaDaFila();
+
+        return $proximo ? "Guardar e seguir para {$proximo->name}" : 'Criar';
+    }
+
+    /**
+     * Chamado pelo botão de submissão do Wizard (só visível no último passo).
+     * Monta a mesma action que getFormActions() usaria — "create" ou
+     * "guardarEAvancar" — para reaproveitar a confirmação e o resumo.
+     */
+    public function submeterFormulario(): void
+    {
+        $this->mountAction($this->proximaPiscinaDaFila() ? 'guardarEAvancar' : 'create');
+    }
+
     private function proximaPiscinaDaFila(): ?Pool
     {
         if (! empty($this->filaRestante)) {
@@ -242,6 +264,17 @@ class CreateDailyRecord extends CreateRecord
             $acaoPrincipal,
             $this->getCancelFormAction(),
         ];
+    }
+
+    /**
+     * As actions de getFormActions() continuam registadas (necessário para
+     * mountAction() em submeterFormulario()) — isto só esconde a barra
+     * default da page, que mostrava "Criar/Cancelar" em todos os passos do
+     * Wizard. O botão real vive no submitAction do Wizard (último passo).
+     */
+    public function getCachedFormActions(): array
+    {
+        return [];
     }
 
     /**

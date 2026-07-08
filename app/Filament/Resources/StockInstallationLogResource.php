@@ -21,6 +21,8 @@ class StockInstallationLogResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Histórico de Transações — Instalação';
 
+    protected static ?string $navigationLabel = 'Movimentos — Instalação';
+
     public static function canAccess(): bool
     {
         return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
