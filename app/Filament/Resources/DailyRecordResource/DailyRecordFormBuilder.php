@@ -25,6 +25,25 @@ class DailyRecordFormBuilder
             : 'ring-2 ring-red-500 ring-offset-2 rounded-xl'];
     }
 
+    private static ?bool $isNS = null;
+    private static ?array $nsPoolIds = null;
+
+    private static function isNS(): bool
+    {
+        if (self::$isNS === null) {
+            self::$isNS = auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+        }
+        return self::$isNS;
+    }
+
+    private static function nsPoolIds(): array
+    {
+        if (self::$nsPoolIds === null) {
+            self::$nsPoolIds = auth()->user()?->piscinas()->pluck('pools.id')->toArray() ?? [];
+        }
+        return self::$nsPoolIds;
+    }
+
     private static array $ultimoCache = [];
     private static array $poolCache = [];
     private static function fotoPreview(string $field, string $label): Forms\Components\Placeholder
@@ -82,6 +101,9 @@ class DailyRecordFormBuilder
                 ->disk(DailyRecord::getStorageDisk())->visibility('public')
                 ->directory($directory)
                 ->image()
+                ->imageEditor()
+                ->imageResizeMode('cover')
+                ->imageResizeTargetWidth('1024')
                 ->multiple($multiple)
                 ->maxFiles($multiple ? $maxFiles : null)
                 ->reorderable($multiple)
@@ -174,6 +196,42 @@ class DailyRecordFormBuilder
         return implode(' · ', $parts);
     }
 
+    private static function sugestaoDosagemVal(Get $get): ?float
+    {
+        $productId = $get('product_id');
+        if (! $productId) {
+            return null;
+        }
+
+        $product = \App\Models\Product::find($productId);
+        if (! $product || ! $product->concentracao_cl) {
+            return null;
+        }
+
+        $poolId = $get('../../pool_id');
+        $pool = $poolId ? Pool::find((int) $poolId) : null;
+        if (! $pool || ! $pool->volume) {
+            return null;
+        }
+
+        $cloro = $get('../../cloro_livre');
+        if ($cloro === null || $cloro === '') {
+            return null;
+        }
+
+        $deficit = max(0.0, 1.7 - (float) $cloro);
+        if ($deficit <= 0) {
+            return null;
+        }
+
+        $divisor = (float) $product->concentracao_cl * 10;
+        if ($divisor <= 0) {
+            return null;
+        }
+
+        return round(((float) $pool->volume * $deficit) / $divisor, 2);
+    }
+
     private static function sugestaoDosagem(Get $get): string
     {
         $productId = $get('product_id');
@@ -202,12 +260,8 @@ class DailyRecordFormBuilder
             return '';
         }
 
-        $divisor = (float) $product->concentracao_cl * 10;
-        if ($divisor <= 0) {
-            return '';
-        }
-
-        $dose = round(((float) $pool->volume * $deficit) / $divisor, 2);
+        $dose = self::sugestaoDosagemVal($get);
+        if ($dose === null) return '';
 
         return 'Sugerido: '.number_format($dose, 2, ',', '').' '.$product->unidade
             .' (défice '.number_format($deficit, 3, ',', '').' mg/L)';
@@ -268,7 +322,6 @@ class DailyRecordFormBuilder
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica): Forms\Components\TextInput
     {
         return $campo
-            ->live(onBlur: true)
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => self::conformidadeCampo($metrica, $get)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => self::corSemaforo(self::conformidadeCampo($metrica, $get)['estado']))
@@ -358,9 +411,8 @@ class DailyRecordFormBuilder
                     Forms\Components\Select::make('pool_id')
                         ->label('Piscina')
                         ->relationship('piscina', 'name', function ($query) {
-                            $user = auth()->user();
-                            if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
-                                return $query->whereIn('id', $user->piscinas()->pluck('pools.id'));
+                            if (self::isNS()) {
+                                return $query->whereIn('id', self::nsPoolIds());
                             }
                             return $query;
                         })
@@ -368,26 +420,25 @@ class DailyRecordFormBuilder
                         ->preload()
                         ->searchable()
                         ->default(function (): ?int {
-                            $user = auth()->user();
                             $requested = request()->integer('pool') ?: null;
 
-                            if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
-                                $allowedIds = $user->piscinas()->pluck('pools.id');
-                                if ($requested && $allowedIds->contains($requested)) {
+                            if (self::isNS()) {
+                                $allowedIds = self::nsPoolIds();
+                                if ($requested && in_array($requested, $allowedIds)) {
                                     return $requested;
                                 }
                                 $last = DailyRecord::query()
-                                    ->where('user_id', $user->id)
+                                    ->where('user_id', auth()->id())
                                     ->whereIn('pool_id', $allowedIds)
                                     ->orderByDesc('registado_em')
                                     ->orderByDesc('id')
                                     ->value('pool_id');
-                                return $last ?? $allowedIds->first();
+                                return $last ?? ($allowedIds[0] ?? null);
                             }
 
                             return $requested
                                 ?: DailyRecord::query()
-                                    ->where('user_id', $user->id)
+                                    ->where('user_id', auth()->id())
                                     ->orderByDesc('registado_em')
                                     ->orderByDesc('id')
                                     ->value('pool_id');
@@ -410,15 +461,14 @@ class DailyRecordFormBuilder
                         ->label('Data e Hora do Registo')
                         ->default(now())
                         ->required()
-                        ->disabled(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                        ->dehydrated()
-                        ->live(onBlur: true),
+                        ->disabled(fn (): bool => self::isNS())
+                        ->dehydrated(),
                 ]),
 
             Forms\Components\Section::make('Bomba')
                 ->description('A bomba está ferrada?')
                 ->icon('heroicon-o-bolt')
-                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->hidden(fn (): bool => self::isNS())
                 ->collapsible()
                 ->extraAttributes(fn (Get $get): array => self::sectionRing(
                     $get('bomba_ferrada') !== null
@@ -429,15 +479,14 @@ class DailyRecordFormBuilder
                         ->helperText('Liga se a bomba está a aspirar bem, sem ar.')
                         ->onIcon('heroicon-m-check')
                         ->offIcon('heroicon-m-x-mark')
-                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada)
-                        ->live(onBlur: true),
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->bomba_ferrada),
                     ...self::fotoField('bomba_foto', 'Foto da Bomba', 'bomba', false, 5, null, 'Foto opcional da bomba para documentação'),
                 ]),
 
             Forms\Components\Section::make('Contador & Água')
                 ->description(fn (Get $get): string => 'Leitura do contador e estado da entrada de água. '.self::progresso(['contador_valor', 'agua_modo'], $get))
                 ->icon('heroicon-o-calculator')
-                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->hidden(fn (): bool => self::isNS())
                 ->collapsible()
                 ->columns(2)
                 ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -460,8 +509,7 @@ class DailyRecordFormBuilder
                                     $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
                                 }
                             },
-                        ])
-                        ->live(onBlur: true),
+                        ]),
                     Forms\Components\Select::make('agua_modo')
                         ->label('Entrada de Água')
                         ->options([
@@ -472,14 +520,13 @@ class DailyRecordFormBuilder
                             'off' => 'OFF — sem água na instalação',
                         ])
                         ->native(false)
-                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo)
-                        ->live(onBlur: true),
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->agua_modo),
                     ...self::fotoField('contador_foto', 'Foto do Contador', 'contador', false, 5, null, 'Evidência fotográfica da leitura do contador'),
                 ]),
 
             Forms\Components\Section::make('Tanque de Compensação')
                 ->icon('heroicon-o-beaker')
-                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->hidden(fn (): bool => self::isNS())
                 ->collapsible()
                 ->columns(2)
                 ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -491,8 +538,7 @@ class DailyRecordFormBuilder
                         ->helperText('Nível e estado conformes.')
                         ->onIcon('heroicon-m-check')
                         ->offIcon('heroicon-m-x-mark')
-                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->tanque_ok)
-                        ->live(onBlur: true),
+                        ->default(fn (Get $get) => self::ultimoRegisto($get('pool_id') ? (int) $get('pool_id') : null)?->tanque_ok),
                     Forms\Components\Textarea::make('tanque_observacoes')
                         ->label('Observações do Tanque')
                         ->rows(2)
@@ -545,7 +591,7 @@ class DailyRecordFormBuilder
             Forms\Components\Section::make('Nossas Análises')
                 ->description(fn (Get $get): string => 'Análises do técnico, com até 5 fotos de evidência. '.self::progresso(['ph', 'cloro_livre', 'cloro_total', 'temperatura', 'transparencia'], $get))
                 ->icon('heroicon-o-beaker')
-                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->hidden(fn (): bool => self::isNS())
                 ->collapsible()
                 ->columns(2)
                 ->extraAttributes(fn (Get $get): array => self::sectionRing(
@@ -560,7 +606,7 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('ph')
                             ->label('pH')
                             ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::PH_MIN.' a '.DailyRecord::PH_MAX.self::lookback('ph', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->required(fn (): bool => ! self::isNS())
                             ->numeric()->step(0.01)->minValue(0)->maxValue(14)
                             ->rules(['between:0,14']),
                         'ph'
@@ -569,7 +615,7 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('cloro_livre')
                             ->label('Cloro Livre (mg/L)')
                             ->helperText(fn (Get $get): string => 'Limite legal: '.DailyRecord::CLORO_LIVRE_MIN.' a '.DailyRecord::CLORO_LIVRE_MAX.' mg/L'.self::lookback('cloro_livre', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->required(fn (): bool => ! self::isNS())
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20),
                         'cloro_livre'
                     ),
@@ -577,7 +623,7 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('cloro_total')
                             ->label('Cloro Total (mg/L)')
                             ->helperText(fn (Get $get): string => 'Combinado (total − livre) deve ser ≤ '.DailyRecord::CLORO_COMBINADO_MAX.' mg/L'.self::lookback('cloro_total', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->required(fn (): bool => ! self::isNS())
                             ->numeric()->step(0.01)->minValue(0)->maxValue(20)
                             ->rules([
                                 fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -592,7 +638,7 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('temperatura')
                             ->label('Temperatura (ºC)')
                             ->helperText(fn (Get $get): string => 'Avaliada contra os limites próprios da piscina (temp. mín/máx).'.self::lookback('temperatura', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->required(fn (): bool => ! self::isNS())
                             ->numeric()->step(0.1)->minValue(0)->maxValue(50),
                         'temperatura'
                     ),
@@ -600,7 +646,7 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
                             ->helperText(fn (Get $get): string => 'Limite operacional: ≤ '.DailyRecord::TRANSPARENCIA_MAX.' FNU (0.2 cristalina, 0.35+ turva)'.self::lookback('transparencia', $get))
-                            ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
+                            ->required(fn (): bool => ! self::isNS())
                             ->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         'transparencia'
                     ),
@@ -629,7 +675,7 @@ class DailyRecordFormBuilder
         $step4 = [
             Forms\Components\Section::make('Adições de Químicos')
                 ->icon('heroicon-o-sparkles')
-                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                ->hidden(fn (): bool => self::isNS())
                 ->collapsible()
                 ->extraAttributes(fn (): array => self::sectionRing(true))
                 ->schema([
@@ -646,7 +692,13 @@ class DailyRecordFormBuilder
                                 ->required()
                                 ->searchable()
                                 ->preload()
-                                ->live(),
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                    $sugestao = self::sugestaoDosagemVal($get);
+                                    if ($sugestao !== null && empty($get('quantity'))) {
+                                        $set('quantity', $sugestao);
+                                    }
+                                }),
                             Forms\Components\TextInput::make('quantity')
                                 ->label('Quantidade')
                                 ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
@@ -761,25 +813,8 @@ class DailyRecordFormBuilder
 
         if ($form->getOperation() === 'create') {
             return $form
-                ->schema([
-                    Forms\Components\Wizard::make([
-                        Forms\Components\Wizard\Step::make('Piscina & Estado')
-                            ->icon('heroicon-o-home')
-                            ->schema($step1),
-                        Forms\Components\Wizard\Step::make('Análises')
-                            ->icon('heroicon-o-beaker')
-                            ->schema($step2),
-                        Forms\Components\Wizard\Step::make('Filtros')
-                            ->icon('heroicon-o-funnel')
-                            ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                            ->schema($step3),
-                        Forms\Components\Wizard\Step::make('Químicos & Notas')
-                            ->icon('heroicon-o-sparkles')
-                            ->schema($step4),
-                    ])
-                    ->skippable()
-                    ->columnSpanFull(),
-                ]);
+                ->schema(array_merge($step1, $step2, $step3, $step4))
+                ->columns(1);
         }
 
         return $form
@@ -794,7 +829,7 @@ class DailyRecordFormBuilder
                             ->schema($step2),
                         Forms\Components\Tabs\Tab::make('Filtros')
                             ->icon('heroicon-o-funnel')
-                            ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
+                            ->hidden(fn (): bool => self::isNS())
                             ->schema($step3),
                         Forms\Components\Tabs\Tab::make('Notas')
                             ->icon('heroicon-o-wrench-screwdriver')

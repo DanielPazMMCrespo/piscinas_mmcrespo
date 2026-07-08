@@ -31,13 +31,11 @@ class Pool extends Model
         'volume' => 'decimal:2',
     ];
 
-    protected static function boot(): void
+    protected static function booted(): void
     {
-        parent::boot();
-
         static::deleting(function (Pool $pool): void {
-            \Illuminate\Support\Facades\DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
-            \Illuminate\Support\Facades\DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
+            $pool->tapAlerts()->delete();
+            $pool->sensorReadings()->delete();
         });
     }
 
@@ -54,5 +52,25 @@ class Pool extends Model
     public function verificacoesFiltro(): HasMany
     {
         return $this->hasMany(FilterCheck::class);
+    }
+
+    public function tapAlerts(): HasMany
+    {
+        return $this->hasMany(TapAlert::class);
+    }
+
+    public function sensorReadings(): HasMany
+    {
+        return $this->hasMany(SensorReading::class);
+    }
+
+    public function hannaDevices(): HasMany
+    {
+        return $this->hasMany(HannaDevice::class);
+    }
+
+    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_pools');
     }
 }

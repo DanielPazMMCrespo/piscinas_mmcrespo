@@ -83,8 +83,9 @@ class PainelPiscinasWidget extends Widget
             ->where('active', true)
             ->with('instalacao');
 
-        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
+        $user = auth()->user();
+        if ($user && $user->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $query->whereIn('id', $user->piscinas()->pluck('pools.id'));
         }
 
         $piscinas = $query

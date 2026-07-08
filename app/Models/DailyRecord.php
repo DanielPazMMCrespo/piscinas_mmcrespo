@@ -58,6 +58,8 @@ class DailyRecord extends Model
         'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
     ];
 
+    protected $appends = ['cloro_combinado'];
+
     protected $fillable = [
         'pool_id', 'user_id', 'registado_em',
         'cloro_livre', 'cloro_total',
@@ -89,6 +91,7 @@ class DailyRecord extends Model
         'ns_cloro_livre' => 'decimal:2',
         'ns_cloro_total' => 'decimal:2',
         'ns_temperatura' => 'decimal:2',
+        'transparencia' => 'decimal:2',
         'contador_valor' => 'decimal:2',
         'caleira_feita' => 'boolean',
         'renovacao_agua' => 'boolean',

@@ -243,6 +243,7 @@ class HannaCloudService
         }
 
         $response = Http::withHeaders($headers)
+            ->timeout(10)
             ->post(self::BASE_URL.'/'.$endpoint, $payload);
 
         if ($response->status() === 403 && $this->accessToken) {

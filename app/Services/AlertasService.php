@@ -34,16 +34,14 @@ use Illuminate\Support\Str;
 class AlertasService
 {
     /** Memo por-pedido: o hero e o Kanban partilham o mesmo cálculo. */
-    private static array $memo = [];
+    private array $memo = [];
 
     /**
-     * Limpa o memo estático. Em produção o memo é por-pedido (processo efémero),
-     * mas em testes o mesmo processo corre vários "pedidos" — chamar entre testes
-     * evita que resultados memoizados poluam asserções seguintes.
+     * Limpa o memo.
      */
-    public static function resetMemo(): void
+    public function resetMemo(): void
     {
-        self::$memo = [];
+        $this->memo = [];
     }
 
     /**
@@ -54,15 +52,15 @@ class AlertasService
         $memoKey = (string) ($utilizador?->id ?? 'guest');
 
         // Verifica memo em-memória primeiro (dentro do mesmo request).
-        if (isset(self::$memo[$memoKey])) {
-            return self::$memo[$memoKey];
+        if (isset($this->memo[$memoKey])) {
+            return $this->memo[$memoKey];
         }
 
         // Verifica cache (Redis/Database — 5 min TTL).
         $cacheService = app(CacheService::class);
         $cached = $cacheService->getAlerts($utilizador?->id);
         if ($cached !== null) {
-            return self::$memo[$memoKey] = $cached;
+            return $this->memo[$memoKey] = $cached;
         }
 
         $alertas = [];
@@ -79,7 +77,8 @@ class AlertasService
         $conformesHoje = 0;
 
         // Torneiras abertas: uma query única fora do loop.
-        $taps = Schema::hasTable('tap_alerts')
+        $hasTable = \Illuminate\Support\Facades\Cache::remember('schema_has_tap_alerts', 3600, fn() => Schema::hasTable('tap_alerts'));
+        $taps = $hasTable
             ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
             : collect();
 
@@ -161,7 +160,7 @@ class AlertasService
         // Guarda em cache (5 min TTL — crítico para dashboard).
         $cacheService->cacheAlerts($utilizador?->id, $resultado, 5);
 
-        return self::$memo[$memoKey] = $resultado;
+        return $this->memo[$memoKey] = $resultado;
     }
 
     private function violacoesLegais(DailyRecord $registo): array

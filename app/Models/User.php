@@ -14,6 +14,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -39,25 +41,33 @@ class User extends Authenticatable implements FilamentUser
         return $hasRole;
     }
 
-    public function getFullNameAttribute(): string
+    protected function fullName(): Attribute
     {
-        if ($this->first_name || $this->last_name) {
-            return trim("{$this->first_name} {$this->last_name}");
-        }
-
-        return $this->name;
+        return Attribute::make(
+            get: fn () => ($this->first_name || $this->last_name) ? trim("{$this->first_name} {$this->last_name}") : $this->name,
+        );
     }
 
-    protected function setFirstNameAttribute(?string $value): void
+    protected function firstName(): Attribute
     {
-        $this->attributes['first_name'] = $value;
-        $this->syncNameField();
+        return Attribute::make(
+            set: function (?string $value) {
+                $this->attributes['first_name'] = $value;
+                $this->syncNameField();
+                return $value;
+            }
+        );
     }
 
-    protected function setLastNameAttribute(?string $value): void
+    protected function lastName(): Attribute
     {
-        $this->attributes['last_name'] = $value;
-        $this->syncNameField();
+        return Attribute::make(
+            set: function (?string $value) {
+                $this->attributes['last_name'] = $value;
+                $this->syncNameField();
+                return $value;
+            }
+        );
     }
 
     private function syncNameField(): void
@@ -75,6 +85,31 @@ class User extends Authenticatable implements FilamentUser
     public function piscinas(): BelongsToMany
     {
         return $this->belongsToMany(Pool::class, 'user_pools');
+    }
+
+    public function dailyRecords(): HasMany
+    {
+        return $this->hasMany(DailyRecord::class, 'user_id');
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class, 'user_id');
+    }
+
+    public function stockWarehouseLogs(): HasMany
+    {
+        return $this->hasMany(StockWarehouseLog::class, 'user_id');
+    }
+
+    public function tapAlertsOpened(): HasMany
+    {
+        return $this->hasMany(TapAlert::class, 'opened_by');
+    }
+
+    public function tapAlertsResolved(): HasMany
+    {
+        return $this->hasMany(TapAlert::class, 'resolved_by');
     }
 
     /**
@@ -115,6 +150,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'pin' => 'hashed',
+            'must_change_password' => 'boolean',
         ];
     }
 }

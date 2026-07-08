@@ -242,11 +242,24 @@ class CacheService
         $prefix = config('cache.prefix') ?: '';
         $fullPattern = $prefix ? "{$prefix}:{$pattern}" : $pattern;
 
-        $keys = $redis->keys($fullPattern);
-        if (empty($keys)) {
-            return 0;
-        }
+        $cursor = '0';
+        $count = 0;
 
-        return $redis->del(...$keys);
+        do {
+            $result = $redis->scan($cursor, ['match' => $fullPattern, 'count' => 100]);
+            if ($result === false) {
+                break;
+            }
+
+            $cursor = $result[0];
+            $keys = $result[1];
+
+            if (!empty($keys)) {
+                $redis->del(...$keys);
+                $count += count($keys);
+            }
+        } while ($cursor !== '0');
+
+        return $count;
     }
 }

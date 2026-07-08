@@ -44,31 +44,33 @@ class InvitationService
 
     public function accept(UserInvitation $invitation, array $data): User
     {
-        $firstName = $data['first_name'];
-        $lastName  = $data['last_name'];
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($invitation, $data) {
+            $firstName = $data['first_name'];
+            $lastName  = $data['last_name'];
 
-        $password = isset($data['password']) && $data['password'] !== ''
-            ? Hash::make($data['password'])
-            : Hash::make(Str::random(32));
+            $password = isset($data['password']) && $data['password'] !== ''
+                ? Hash::make($data['password'])
+                : Hash::make(Str::random(32));
 
-        $user = User::create([
-            'name'       => trim("{$firstName} {$lastName}"),
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'email'      => $invitation->email,
-            'phone'      => $data['phone'] ?? null,
-            'password'   => $password,
-            'pin'        => isset($data['pin']) && $data['pin'] !== ''
-                ? $data['pin']
-                : null,
-        ]);
+            $user = User::create([
+                'name'       => trim("{$firstName} {$lastName}"),
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+                'email'      => $invitation->email,
+                'phone'      => $data['phone'] ?? null,
+                'password'   => $password,
+                'pin'        => isset($data['pin']) && $data['pin'] !== ''
+                    ? Hash::make($data['pin'])
+                    : null,
+            ]);
 
-        $user->forceFill(['email_verified_at' => now()])->save();
+            $user->forceFill(['email_verified_at' => now()])->save();
 
-        $user->assignRole($invitation->role);
+            $user->assignRole($invitation->role);
 
-        $invitation->update(['accepted_at' => now()]);
+            $invitation->update(['accepted_at' => now()]);
 
-        return $user;
+            return $user;
+        });
     }
 }
