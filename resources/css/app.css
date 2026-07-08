@@ -61,6 +61,19 @@ h1, h2, h3, h4, h5, h6,
     100% { transform: scale(1); opacity: 1; }
 }
 
+/* Em ecrãs estreitos, o hint de conformidade (ex.: "Cloro livre 0,3 mg/L —
+   abaixo do mínimo") espreme-se ao lado do label do campo. Empilha-os. */
+@media (max-width: 480px) {
+    .fi-fo-field-wrp > div:has(> .fi-fo-field-wrp-hint) {
+        flex-wrap: wrap;
+        row-gap: 0.25rem;
+    }
+    .fi-fo-field-wrp-hint {
+        flex-basis: 100%;
+        justify-content: flex-start;
+    }
+}
+
 /* Cursor helper for zoom preview */
 .filepond--image-preview-wrapper,
 .fi-in-image img,
@@ -68,4 +81,19 @@ h1, h2, h3, h4, h5, h6,
 .fi-ta-image img,
 .filepond--file-info {
     cursor: zoom-in !important;
+}
+
+/* Timer de retrolavagem — pill fixa no topo do formulário, estilo notificação. */
+.mmc-timer-pill {
+    background: #12213b;
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.mmc-timer-pill--terminado {
+    background: #7c1d1d;
 }
