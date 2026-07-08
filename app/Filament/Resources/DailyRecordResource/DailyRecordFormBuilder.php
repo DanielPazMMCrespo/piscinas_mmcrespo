@@ -453,6 +453,21 @@ class DailyRecordFormBuilder
                             $set('agua_modo', $ultimo?->agua_modo);
                             $set('tanque_ok', $ultimo?->tanque_ok);
                         }),
+                    Forms\Components\CheckboxList::make('outras_piscinas_visita')
+                        ->label('Também registar nesta visita')
+                        ->helperText('As piscinas marcadas serão registadas a seguir, uma de cada vez, nesta mesma visita.')
+                        ->options(fn (Get $get): array => self::outrasPiscinasDaInstalacao($get('pool_id') ? (int) $get('pool_id') : null))
+                        ->visible(function (Get $get, string $operation, $livewire): bool {
+                            if ($operation !== 'create') {
+                                return false;
+                            }
+
+                            return ($livewire->filaTotal ?? 0) === 0
+                                && empty($livewire->filaRestante ?? [])
+                                && self::outrasPiscinasDaInstalacao($get('pool_id') ? (int) $get('pool_id') : null) !== [];
+                        })
+                        ->dehydrated(false)
+                        ->columnSpanFull(),
                     Forms\Components\Select::make('user_id')
                         ->label('Responsável')
                         ->relationship('utilizador', 'name')
