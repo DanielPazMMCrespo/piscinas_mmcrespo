@@ -73,11 +73,11 @@ class AlertStateKanbanTest extends TestCase
 
         Livewire::actingAs($admin)
             ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
-            ->call('moverAlerta', $key, 'em_curso');
+            ->call('moverAlerta', $key, 'resolvido');
 
         $this->assertDatabaseHas('alert_states', [
             'alert_key' => $key,
-            'status'    => 'em_curso',
+            'status'    => 'resolvido',
             'moved_by'  => $admin->id,
         ]);
     }
@@ -124,11 +124,30 @@ class AlertStateKanbanTest extends TestCase
         ]);
     }
 
+    public function test_mover_alerta_rejects_em_curso(): void
+    {
+        $admin = $this->adminUser();
+        $key = $this->alertKey();
+
+        $this->mockAlertasWithKey($key);
+
+        Livewire::actingAs($admin)
+            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
+            ->call('moverAlerta', $key, 'em_curso');
+
+        $this->assertDatabaseMissing('alert_states', [
+            'alert_key' => $key,
+            'status'    => 'em_curso',
+        ]);
+    }
+
     public function test_alert_state_auto_resolves_when_condition_disappears(): void
     {
         $admin = $this->adminUser();
         $key = $this->alertKey();
 
+        // Estado legado com 'em_curso' (de antes da simplificação para 2 estados)
+        // continua a ser tratado como ativo e a resolver automaticamente.
         AlertState::create([
             'alert_key' => $key,
             'status'    => 'em_curso',
