@@ -39,7 +39,7 @@ class RelatorioPdf extends Page implements HasForms
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Operação';
+    protected static ?string $navigationGroup = 'Dados';
 
     protected static ?string $navigationLabel = 'Relatório PDF (CN 14/DA)';
 

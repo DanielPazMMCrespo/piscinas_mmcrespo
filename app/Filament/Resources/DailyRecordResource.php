@@ -23,6 +23,12 @@ class DailyRecordResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Registos Diários';
 
+    /** Acesso pelo hub da secção Operação (OperacaoHub), não diretamente pela sidebar. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
