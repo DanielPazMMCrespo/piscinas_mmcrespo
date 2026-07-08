@@ -123,7 +123,36 @@ class DailyRecordFormBuilder
             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true);
     }
 
-    private static function ultimoRegisto(?int $poolId): ?DailyRecord
+    /**
+     * @return array<int, string> Mapa id => nome das outras piscinas ativas da
+     *                             mesma instalação, respeitando o âmbito do
+     *                             Nadador-Salvador (só vê as suas piscinas).
+     */
+    public static function outrasPiscinasDaInstalacao(?int $poolId): array
+    {
+        if ($poolId === null) {
+            return [];
+        }
+
+        $piscina = Pool::find($poolId);
+        if ($piscina === null) {
+            return [];
+        }
+
+        $query = Pool::query()
+            ->where('installation_id', $piscina->installation_id)
+            ->where('active', true)
+            ->where('id', '!=', $poolId);
+
+        $user = auth()->user();
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $query->whereIn('id', $user->piscinas()->pluck('pools.id'));
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public static function ultimoRegisto(?int $poolId): ?DailyRecord
     {
         if (! $poolId) {
             return null;
