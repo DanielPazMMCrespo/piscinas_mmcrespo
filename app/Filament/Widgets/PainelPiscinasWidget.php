@@ -36,20 +36,28 @@ class PainelPiscinasWidget extends Widget
     private const ORP_MIN = 660;
     private const ORP_MAX = 750;
 
+    /** Proxy de cloro conforme via ORP, usado só no cálculo agregado de "conformes" (não no cartão). */
+    private const ORP_CLORO_MIN = 680;
+    private const ORP_CLORO_MAX = 820;
+
+    /** Leitura da sonda só substitui o registo diário no cálculo de conformes se tiver menos de 4h. */
+    private const SENSOR_FRESCO_MINUTOS = 240;
+
     protected function getViewData(): array
     {
         // Cache: 10 min TTL para dados do painel (valores + estado).
         $cacheService = app(CacheService::class);
-        $cached = $cacheService->getPoolData();
+        $scope = $this->cacheScope();
+        $cached = $cacheService->getPoolData($scope);
         if ($cached !== null) {
             return $cached;
         }
 
         try {
             // Lock de 15 segundos para evitar cache stampede, block up to 5 seconds.
-            return \Illuminate\Support\Facades\Cache::lock('painel_piscinas_widget_lock', 15)->block(5, function () use ($cacheService) {
+            return \Illuminate\Support\Facades\Cache::lock("painel_piscinas_widget_lock_{$scope}", 15)->block(5, function () use ($cacheService, $scope) {
                 // Verifica novamente após obter o lock
-                $cached = $cacheService->getPoolData();
+                $cached = $cacheService->getPoolData($scope);
                 if ($cached !== null) {
                     return $cached;
                 }
@@ -57,18 +65,33 @@ class PainelPiscinasWidget extends Widget
                 $viewData = $this->buildPoolData();
 
                 // Cache: guarda para 10 min.
-                $cacheService->cachePoolData($viewData, 10);
+                $cacheService->cachePoolData($scope, $viewData, 10);
 
                 return $viewData;
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             // Fallback: build without caching, or return the cache data if it got set in the meantime
-            $cached = $cacheService->getPoolData();
+            $cached = $cacheService->getPoolData($scope);
             if ($cached !== null) {
                 return $cached;
             }
             return $this->buildPoolData();
         }
+    }
+
+    /**
+     * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
+     * dados de instalações diferentes entre utilizadores com esse papel.
+     */
+    private function cacheScope(): string
+    {
+        $utilizador = auth()->user();
+
+        if ($utilizador?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            return "ns_{$utilizador->id}";
+        }
+
+        return 'full';
     }
 
     private function buildPoolData(): array
@@ -123,6 +146,38 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
+            $sensorFresco = $idadeMin !== null && $idadeMin <= self::SENSOR_FRESCO_MINUTOS;
+
+            // Conformes: prioriza a leitura da sonda (se fresca); cai para o registo diário caso contrário.
+            $phOkConformes = self::parametroOk(
+                $sensorFresco,
+                $ph,
+                $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null,
+                $registo?->ph !== null ? $registo->phConforme() : null,
+            );
+
+            $tempOkConformes = self::parametroOk(
+                $sensorFresco,
+                $tempAgua,
+                ($tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null)
+                    ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                    : null,
+                $registo?->temperatura !== null ? $registo->temperaturaConforme() : null,
+            );
+
+            // Não há sensor de cloro: o ORP dentro do range serve de proxy quando fresco.
+            $cloroOkRegisto = self::combinarOk(
+                $registo?->cloro_livre !== null ? $registo->cloroLivreConforme() : null,
+                ($registo?->cloro_total !== null && $registo?->cloro_livre !== null) ? $registo->cloroCombinadoConforme() : null,
+            );
+
+            $cloroOkConformes = self::parametroOk(
+                $sensorFresco,
+                $orp,
+                $orp !== null ? ($orp >= self::ORP_CLORO_MIN && $orp <= self::ORP_CLORO_MAX) : null,
+                $cloroOkRegisto,
+            );
+
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
@@ -134,6 +189,8 @@ class PainelPiscinasWidget extends Widget
                     self::metrica('Cl. Total', $registo->cloro_total, 2, ' mg/L', $registo->cloro_total !== null && $registo->cloro_livre !== null ? $registo->cloroCombinadoConforme() : null),
                     self::metrica('Temp.', $registo->temperatura, 1, ' °C', $registo->temperatura !== null ? $registo->temperaturaConforme() : null),
                 ] : [],
+                'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
+                'tem_dados_conformes' => $registo !== null || $sensorFresco,
                 'controlador' => $leitura ? [
                     'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
                     'ph_ok' => $ph !== null
@@ -161,7 +218,7 @@ class PainelPiscinasWidget extends Widget
 
         $totalPiscinas = $piscinasMapped->count();
         $registadasHoje = $piscinasMapped->filter(fn ($p) => !$p['sem_hoje'])->count();
-        $conformes = $piscinasMapped->filter(fn ($p) => $p['registo'] && collect($p['metricas'])->every(fn ($m) => $m['ok'] !== false))->count();
+        $conformes = $piscinasMapped->filter(fn ($p) => $p['tem_dados_conformes'] && collect($p['parametros_conformes'])->every(fn ($ok) => $ok !== false))->count();
 
         $percentagemRegisto = $totalPiscinas > 0 ? (int) (($registadasHoje / $totalPiscinas) * 100) : 0;
         $percentagemConforme = $totalPiscinas > 0 ? (int) (($conformes / $totalPiscinas) * 100) : 0;
@@ -175,6 +232,30 @@ class PainelPiscinasWidget extends Widget
             'percentagemRegisto' => $percentagemRegisto,
             'percentagemConforme' => $percentagemConforme,
         ];
+    }
+
+    /**
+     * Conformidade de um parâmetro para o cálculo agregado: usa a sonda se estiver
+     * fresca e tiver valor; caso contrário cai para a avaliação do registo diário.
+     */
+    private static function parametroOk(bool $sensorFresco, ?float $valorSensor, ?bool $okSensor, ?bool $okRegisto): ?bool
+    {
+        return $sensorFresco && $valorSensor !== null ? $okSensor : $okRegisto;
+    }
+
+    /**
+     * Combina vários booleanos anuláveis: false se algum falhar, null se todos
+     * forem desconhecidos, true caso contrário (nulos não bloqueiam, como no resto do model).
+     */
+    private static function combinarOk(?bool ...$valores): ?bool
+    {
+        $conhecidos = array_filter($valores, fn (?bool $v) => $v !== null);
+
+        if ($conhecidos === []) {
+            return null;
+        }
+
+        return ! in_array(false, $conhecidos, true);
     }
 
     /**

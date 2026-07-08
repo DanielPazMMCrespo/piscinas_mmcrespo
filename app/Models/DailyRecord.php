@@ -275,13 +275,16 @@ class DailyRecord extends Model
      * Utiliza uma sub-query window function para performance (evita N+1 queries).
      *
      * @param Builder $query
+     * @param int|null $dias Limita a janela analisada (a window function varre a
+     *                       tabela inteira se não for limitada — custo cresce com o histórico)
      * @return Builder
      */
-    public function scopeLatestPerPool(Builder $query): Builder
+    public function scopeLatestPerPool(Builder $query, ?int $dias = null): Builder
     {
         return $query->fromSub(
             static::query()
                 ->selectRaw('*, ROW_NUMBER() OVER (PARTITION BY pool_id ORDER BY registado_em DESC, id DESC) as rn')
+                ->when($dias !== null, fn (Builder $q): Builder => $q->where('registado_em', '>=', now()->subDays($dias)))
                 ->whereDoesntHave('correcoes'),
             'sub'
         )->where('rn', 1);

@@ -91,10 +91,10 @@ class CachingIntegrationTest extends TestCase
         ];
 
         // Guardar em cache
-        $this->cacheService->cachePoolData($poolData, 10);
+        $this->cacheService->cachePoolData('full', $poolData, 10);
 
         // Recuperar
-        $cached = $this->cacheService->getPoolData();
+        $cached = $this->cacheService->getPoolData('full');
 
         $this->assertNotNull($cached);
         $this->assertEquals($poolData, $cached);
@@ -107,13 +107,13 @@ class CachingIntegrationTest extends TestCase
         // Setup cache inicial
         $this->cacheService->cacheAlerts(1, ['alertas' => [], 'totalPiscinas' => 1, 'conformesHoje' => 0], 5);
         $this->cacheService->cacheGraphData($pool->id, ['modo' => 'mono'], 30);
-        $this->cacheService->cachePoolData(['piscinas' => []], 10);
+        $this->cacheService->cachePoolData('full', ['piscinas' => []], 10);
 
         // Verificar que estão em cache
         $this->assertNotNull($this->cacheService->getAlerts(1));
         // O gráfico foi guardado sem 'series' → hash de [] (igual ao usado por cacheGraphData).
         $this->assertNotNull($this->cacheService->getGraphData($pool->id, md5(json_encode([])) ?: ''));
-        $this->assertNotNull($this->cacheService->getPoolData());
+        $this->assertNotNull($this->cacheService->getPoolData('full'));
 
         // Criar novo DailyRecord (observer deve invalidar cache)
         DailyRecord::factory()->create(['pool_id' => $pool->id]);

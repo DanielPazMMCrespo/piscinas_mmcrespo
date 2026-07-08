@@ -54,16 +54,17 @@ class CacheService
 
     /**
      * Cache do resultado completo de AlertasService::calcular().
-     * Chave: cache_alertas_{user_id}
+     * Chave: cache_alertas_{scope} — o resultado só varia por role (ns/full),
+     * não por utilizador.
      *
-     * @param int|string|null $userId ID do utilizador (ou 'guest')
+     * @param int|string|null $scope Âmbito do cálculo (ex: 'full', 'ns')
      * @param array{alertas: array, totalPiscinas: int, conformesHoje: int} $data Resultado de calcular()
      * @param int $ttlMinutos Time-to-live em minutos (padrão 5 — crítico para dashboard)
      * @return void
      */
-    public function cacheAlerts(?int $userId, array $data, int $ttlMinutos = 5): void
+    public function cacheAlerts(int|string|null $scope, array $data, int $ttlMinutos = 5): void
     {
-        $memoKey = (string) ($userId ?? 'guest');
+        $memoKey = (string) ($scope ?? 'guest');
         $key = "cache_alertas_{$memoKey}";
 
         Cache::put($key, $data, now()->addMinutes($ttlMinutos));
@@ -72,12 +73,12 @@ class CacheService
     /**
      * Obtém alertas do cache.
      *
-     * @param int|string|null $userId ID do utilizador (ou 'guest')
+     * @param int|string|null $scope Âmbito do cálculo (ex: 'full', 'ns')
      * @return array{alertas: array, totalPiscinas: int, conformesHoje: int}|null
      */
-    public function getAlerts(?int $userId): ?array
+    public function getAlerts(int|string|null $scope): ?array
     {
-        $memoKey = (string) ($userId ?? 'guest');
+        $memoKey = (string) ($scope ?? 'guest');
         $key = "cache_alertas_{$memoKey}";
 
         return Cache::get($key);
@@ -85,15 +86,17 @@ class CacheService
 
     /**
      * Cache dos dados do painel de piscinas (valores + estado).
-     * Chave: cache_painel_piscinas
+     * Chave: cache_painel_piscinas_{scope} — o Nadador-Salvador só vê as suas
+     * piscinas, logo uma chave global cruzaria dados entre roles.
      *
+     * @param string $scope Âmbito da vista (ex: 'full', "ns_{userId}")
      * @param array<string, mixed> $data Array de piscinas com métricas/sonda
      * @param int $ttlMinutos Time-to-live em minutos (padrão 10)
      * @return void
      */
-    public function cachePoolData(array $data, int $ttlMinutos = 10): void
+    public function cachePoolData(string $scope, array $data, int $ttlMinutos = 10): void
     {
-        $key = 'cache_painel_piscinas';
+        $key = "cache_painel_piscinas_{$scope}";
 
         Cache::put($key, $data, now()->addMinutes($ttlMinutos));
     }
@@ -101,11 +104,12 @@ class CacheService
     /**
      * Obtém dados do painel de piscinas do cache.
      *
+     * @param string $scope Âmbito da vista (ex: 'full', "ns_{userId}")
      * @return array<string, mixed>|null
      */
-    public function getPoolData(): ?array
+    public function getPoolData(string $scope): ?array
     {
-        $key = 'cache_painel_piscinas';
+        $key = "cache_painel_piscinas_{$scope}";
 
         return Cache::get($key);
     }
@@ -142,16 +146,14 @@ class CacheService
     }
 
     /**
-     * Invalida o cache do painel de piscinas (global).
+     * Invalida o cache do painel de piscinas (todos os scopes).
      * Chamado ao criar novo registo ou mudar stock.
      *
      * @return void
      */
     public function invalidatePoolData(): void
     {
-        $key = 'cache_painel_piscinas';
-
-        Cache::forget($key);
+        $this->invalidateByPattern('cache_painel_piscinas_*');
     }
 
     /**
