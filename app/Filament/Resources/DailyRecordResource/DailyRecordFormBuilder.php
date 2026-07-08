@@ -879,7 +879,7 @@ class DailyRecordFormBuilder
                     ->skippable()
                     ->submitAction(
                         view('filament.daily-record-wizard-submit', [
-                            'label' => $form->getLivewire()->getSubmitLabel(),
+                            'label' => 'Criar',
                         ])
                     )
                     ->columnSpanFull(),
