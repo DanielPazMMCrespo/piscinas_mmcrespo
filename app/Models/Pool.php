@@ -22,12 +22,14 @@ class Pool extends Model
             ->dontSubmitEmptyLogs();
     }
 
-    protected $fillable = ['installation_id', 'name', 'type', 'temp_min', 'temp_max', 'volume', 'active'];
+    protected $fillable = ['installation_id', 'name', 'type', 'temp_min', 'temp_max', 'orp_min', 'orp_max', 'volume', 'active'];
 
     protected $casts = [
         'active' => 'boolean',
         'temp_min' => 'decimal:1',
         'temp_max' => 'decimal:1',
+        'orp_min' => 'integer',
+        'orp_max' => 'integer',
         'volume' => 'decimal:2',
     ];
 
@@ -38,6 +40,13 @@ class Pool extends Model
         static::deleting(function (Pool $pool): void {
             \Illuminate\Support\Facades\DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
             \Illuminate\Support\Facades\DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
+            app(\App\Services\CacheService::class)->invalidatePoolData();
+            app(\App\Services\CacheService::class)->invalidateGraphCache($pool->id);
+        });
+
+        static::saved(function (Pool $pool): void {
+            app(\App\Services\CacheService::class)->invalidatePoolData();
+            app(\App\Services\CacheService::class)->invalidateGraphCache($pool->id);
         });
     }
 
