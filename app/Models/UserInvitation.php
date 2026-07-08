@@ -10,6 +10,7 @@ class UserInvitation extends Model
     protected $fillable = [
         'email',
         'role',
+        'pool_ids',
         'token',
         'invited_by_id',
         'accepted_at',
@@ -17,6 +18,7 @@ class UserInvitation extends Model
     ];
 
     protected $casts = [
+        'pool_ids'    => 'array',
         'accepted_at' => 'datetime',
         'expires_at'  => 'datetime',
     ];

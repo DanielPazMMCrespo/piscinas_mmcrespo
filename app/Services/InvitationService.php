@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\UserRole;
 use App\Mail\UserInvitationMail;
 use App\Models\User;
 use App\Models\UserInvitation;
@@ -12,7 +13,10 @@ use RuntimeException;
 
 class InvitationService
 {
-    public function send(string $email, string $role, User $invitedBy): UserInvitation
+    /**
+     * @param array<int, int|string> $poolIds Piscinas a pré-atribuir (só aplicadas a Nadador Salvador).
+     */
+    public function send(string $email, string $role, User $invitedBy, array $poolIds = []): UserInvitation
     {
         if (User::where('email', $email)->exists()) {
             throw new RuntimeException("Já existe um utilizador com o email {$email}.");
@@ -32,6 +36,9 @@ class InvitationService
         $invitation = UserInvitation::create([
             'email'         => $email,
             'role'          => $role,
+            'pool_ids'      => $role === UserRole::NADADOR_SALVADOR
+                ? array_values(array_map('intval', $poolIds))
+                : null,
             'token'         => hash('sha256', $rawToken),
             'invited_by_id' => $invitedBy->id,
             'expires_at'    => now()->addHours(48),
@@ -66,6 +73,10 @@ class InvitationService
         $user->forceFill(['email_verified_at' => now()])->save();
 
         $user->assignRole($invitation->role);
+
+        if (! empty($invitation->pool_ids)) {
+            $user->piscinas()->sync($invitation->pool_ids);
+        }
 
         $invitation->update(['accepted_at' => now()]);
 
