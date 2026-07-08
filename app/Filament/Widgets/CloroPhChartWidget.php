@@ -244,9 +244,16 @@ class CloroPhChartWidget extends Widget implements HasForms
             $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => true];
         } else {
             $campo = $metricKey;
+            $campoNs = 'ns_' . $campo;
+            $hasNs = in_array($campoNs, ['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'], true);
+
+            $selects = ['registado_em', $campo];
+            if ($hasNs) {
+                $selects[] = $campoNs;
+            }
 
             $rows = DailyRecord::query()
-                ->select(['registado_em', $campo])
+                ->select($selects)
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
                 ->where('registado_em', '<=', $end)
@@ -254,10 +261,10 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
-            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
+            $data = $rows->filter(fn ($r) => $r->{$campo} !== null || ($hasNs && $r->{$campoNs} !== null))
                 ->map(fn ($r) => [
                     'x' => $r->registado_em->toIso8601String(),
-                    'y' => round((float) $r->{$campo}, $def['casas']),
+                    'y' => round((float) ($r->{$campo} ?? $r->{$campoNs}), $def['casas']),
                 ])->values()->toArray();
 
             $datasets[] = [
@@ -334,7 +341,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $end = $this->getPeriodEnd();
 
         $manual = DailyRecord::query()
-            ->select(['registado_em', 'ph', 'cloro_livre', 'cloro_total', 'transparencia', 'temperatura'])
+            ->select(['registado_em', 'ph', 'ns_ph', 'cloro_livre', 'ns_cloro_livre', 'cloro_total', 'ns_cloro_total', 'transparencia', 'temperatura', 'ns_temperatura'])
             ->where('pool_id', $poolId)
             ->where('registado_em', '>=', $start)
             ->where('registado_em', '<=', $end)
@@ -342,14 +349,21 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->orderByDesc('registado_em')
             ->limit(500)
             ->get()
-            ->map(fn ($r) => [
-                'data'        => $r->registado_em->format('d/m H:i'),
-                'ph'          => $r->ph !== null ? number_format((float) $r->ph, 2, ',', '') : '—',
-                'cloro_livre' => $r->cloro_livre !== null ? number_format((float) $r->cloro_livre, 2, ',', '') : '—',
-                'cloro_total' => $r->cloro_total !== null ? number_format((float) $r->cloro_total, 2, ',', '') : '—',
-                'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
-                'temperatura' => $r->temperatura !== null ? number_format((float) $r->temperatura, 1, ',', '') : '—',
-            ])->toArray();
+            ->map(function ($r) {
+                $ph = $r->ph ?? $r->ns_ph;
+                $cl = $r->cloro_livre ?? $r->ns_cloro_livre;
+                $ct = $r->cloro_total ?? $r->ns_cloro_total;
+                $temp = $r->temperatura ?? $r->ns_temperatura;
+                
+                return [
+                    'data'        => $r->registado_em->format('d/m H:i'),
+                    'ph'          => $ph !== null ? number_format((float) $ph, 2, ',', '') : '—',
+                    'cloro_livre' => $cl !== null ? number_format((float) $cl, 2, ',', '') : '—',
+                    'cloro_total' => $ct !== null ? number_format((float) $ct, 2, ',', '') : '—',
+                    'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
+                    'temperatura' => $temp !== null ? number_format((float) $temp, 1, ',', '') : '—',
+                ];
+            })->toArray();
 
         $sensor = SensorReading::query()
             ->select(['lida_em', 'ph', 'orp', 'temperatura_agua'])
