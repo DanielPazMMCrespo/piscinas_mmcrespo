@@ -7,6 +7,16 @@ const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').mat
 // Avoids duplicate plugin registration and duplicate dynamic imports.
 let ChartWithPlugins = null;
 
+// _hasData (payload.left/right existem) só diz que há uma piscina selecionada
+// e uma estrutura de eixos válida — não que haja pontos para desenhar. Sem
+// isto, um período sem registos mostra um gráfico vazio (só a banda legal)
+// em vez de uma mensagem clara.
+function payloadHasSeries(payload) {
+    if (!payload?.left || !payload?.right) return false;
+    const hasPoints = (axis) => (axis?.datasets ?? []).some((d) => (d?.data ?? []).length > 0);
+    return hasPoints(payload.left) || hasPoints(payload.right);
+}
+
 /**
  * Componente Alpine para os gráficos de parâmetros (dual Y-axis, zoom/pan, time scale).
  *
@@ -30,6 +40,7 @@ document.addEventListener('alpine:init', () => {
         _offChartUpdate: null,
         _payload: initialPayload,
         _hasData: !!(initialPayload?.left && initialPayload?.right),
+        _hasSeries: payloadHasSeries(initialPayload),
         _renderRetries: 0,
 
         async init() {
@@ -79,6 +90,7 @@ document.addEventListener('alpine:init', () => {
                     this._payload = payload;
                     const hadData = this._hasData;
                     this._hasData = !!(payload?.left && payload?.right);
+                    this._hasSeries = payloadHasSeries(payload);
 
                     if (this._hasData) {
                         // $nextTick garante que x-show já processou _hasData=true
@@ -406,6 +418,200 @@ document.addEventListener('alpine:init', () => {
 
         destroy() {
             this.sortables.forEach((s) => s.destroy());
+        },
+    }));
+
+    /**
+     * Timer de retrolavagem: modal ecrã cheio ao iniciar, colapsa numa pill fixa
+     * no topo ao tocar fora. Persistido em localStorage (timestamp absoluto de
+     * fim, scoped por piscina) para sobreviver a reload/bloqueio de ecrã.
+     */
+    window.Alpine.data('mmcTimerRetrolavagem', (configTimers) => ({
+        timers: {},
+        intervaloId: null,
+        ouvinteEvento: null,
+
+        init() {
+            configTimers.forEach((cfg) => {
+                this.timers[cfg.campo] = {
+                    label: cfg.label,
+                    duracaoSegundos: cfg.duracaoSegundos,
+                    fimEm: null,
+                    segundosRestantesPausado: null,
+                    pausado: false,
+                    terminado: false,
+                    modalAberto: false,
+                    pillVisivel: false,
+                    mostrarEditor: false,
+                };
+                this.restaurar(cfg.campo);
+            });
+
+            this.intervaloId = setInterval(() => this.atualizarTodos(), 250);
+
+            this.ouvinteEvento = (evento) => {
+                const campo = evento.detail?.campo;
+                if (campo && this.timers[campo]) {
+                    this.iniciar(campo);
+                }
+            };
+            window.addEventListener('mmc-timer-iniciar', this.ouvinteEvento);
+        },
+
+        destroy() {
+            clearInterval(this.intervaloId);
+            if (this.ouvinteEvento) {
+                window.removeEventListener('mmc-timer-iniciar', this.ouvinteEvento);
+            }
+        },
+
+        poolIdAtual() {
+            return this.$wire?.data?.pool_id ?? 'sem_piscina';
+        },
+
+        chaveArmazenamento(campo) {
+            return `mmc_timer_${this.poolIdAtual()}_${campo}`;
+        },
+
+        restaurar(campo) {
+            const guardado = localStorage.getItem(this.chaveArmazenamento(campo));
+            if (!guardado) return;
+
+            let dados;
+            try {
+                dados = JSON.parse(guardado);
+            } catch (erro) {
+                localStorage.removeItem(this.chaveArmazenamento(campo));
+                return;
+            }
+
+            if (dados.fimEm && dados.fimEm > Date.now()) {
+                this.timers[campo].duracaoSegundos = dados.duracaoSegundos;
+                this.timers[campo].fimEm = dados.fimEm;
+                this.timers[campo].pillVisivel = true;
+            } else {
+                localStorage.removeItem(this.chaveArmazenamento(campo));
+            }
+        },
+
+        guardar(campo) {
+            const t = this.timers[campo];
+            localStorage.setItem(this.chaveArmazenamento(campo), JSON.stringify({
+                duracaoSegundos: t.duracaoSegundos,
+                fimEm: t.fimEm,
+            }));
+        },
+
+        limpar(campo) {
+            localStorage.removeItem(this.chaveArmazenamento(campo));
+        },
+
+        iniciar(campo) {
+            const t = this.timers[campo];
+            t.terminado = false;
+            t.pausado = false;
+            t.fimEm = Date.now() + t.duracaoSegundos * 1000;
+            t.modalAberto = true;
+            t.pillVisivel = false;
+            this.guardar(campo);
+        },
+
+        atualizarTodos() {
+            Object.keys(this.timers).forEach((campo) => this.atualizar(campo));
+        },
+
+        atualizar(campo) {
+            const t = this.timers[campo];
+            if (t.pausado || t.fimEm === null || t.terminado) return;
+
+            if (this.segundosRestantes(campo) <= 0) {
+                t.terminado = true;
+                t.pillVisivel = true;
+                this.guardar(campo);
+                this.notificarFim();
+            }
+        },
+
+        segundosRestantes(campo) {
+            const t = this.timers[campo];
+            if (t.fimEm === null) return 0;
+            return Math.max(0, Math.round((t.fimEm - Date.now()) / 1000));
+        },
+
+        progresso(campo) {
+            const t = this.timers[campo];
+            if (t.duracaoSegundos <= 0) return 0;
+            return Math.min(1, 1 - this.segundosRestantes(campo) / t.duracaoSegundos);
+        },
+
+        formatoTempo(campo) {
+            const total = this.segundosRestantes(campo);
+            const minutos = Math.floor(total / 60).toString().padStart(2, '0');
+            const segundos = (total % 60).toString().padStart(2, '0');
+            return `${minutos}:${segundos}`;
+        },
+
+        algumaPillVisivel() {
+            return Object.values(this.timers).some((t) => t.pillVisivel);
+        },
+
+        colapsar(campo) {
+            this.timers[campo].modalAberto = false;
+            this.timers[campo].pillVisivel = true;
+        },
+
+        expandir(campo) {
+            this.timers[campo].modalAberto = true;
+            this.timers[campo].pillVisivel = false;
+        },
+
+        cancelar(campo) {
+            const t = this.timers[campo];
+            t.modalAberto = false;
+            t.pillVisivel = false;
+            t.terminado = false;
+            t.pausado = false;
+            t.fimEm = null;
+            this.limpar(campo);
+        },
+
+        alternarPausa(campo) {
+            const t = this.timers[campo];
+            if (t.pausado) {
+                t.fimEm = Date.now() + t.segundosRestantesPausado;
+                t.pausado = false;
+            } else {
+                t.segundosRestantesPausado = t.fimEm - Date.now();
+                t.pausado = true;
+            }
+            this.guardar(campo);
+        },
+
+        ajustarMinutos(campo, delta) {
+            const t = this.timers[campo];
+            const novaDuracao = Math.max(60, t.duracaoSegundos + delta * 60);
+            const restanteAtual = this.segundosRestantes(campo);
+            t.duracaoSegundos = novaDuracao;
+            if (t.fimEm !== null) {
+                t.fimEm = Date.now() + Math.min(restanteAtual + delta * 60, novaDuracao) * 1000;
+            }
+            this.guardar(campo);
+        },
+
+        notificarFim() {
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200]);
+            }
+            try {
+                const contexto = new (window.AudioContext || window.webkitAudioContext)();
+                const oscilador = contexto.createOscillator();
+                oscilador.frequency.value = 880;
+                oscilador.connect(contexto.destination);
+                oscilador.start();
+                oscilador.stop(contexto.currentTime + 0.3);
+            } catch (erro) {
+                // Ambiente sem suporte a Web Audio — pill já fica visível/vermelha.
+            }
         },
     }));
 });
@@ -768,3 +974,16 @@ document.addEventListener('DOMContentLoaded', mmcSetup);
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     mmcSetup();
 }
+
+// A sidebar do Filament persiste `isOpen: true` por defeito (Alpine.$persist),
+// independente do viewport — em mobile isto mostra o menu em overlay por cima
+// do dashboard no primeiro acesso. 'alpine:initialized' corre depois do Alpine
+// arrancar por completo (após todos os stores serem registados), por isso não
+// há corrida com o store 'sidebar' do próprio Filament. Só força o fecho no
+// full-page-load: navegação Livewire (wire:navigate) não reinicializa o Alpine,
+// por isso um utilizador que abra o menu manualmente mantém-no aberto ao navegar.
+document.addEventListener('alpine:initialized', () => {
+    if (window.innerWidth < 1024 && window.Alpine?.store('sidebar')) {
+        window.Alpine.store('sidebar').close();
+    }
+});
