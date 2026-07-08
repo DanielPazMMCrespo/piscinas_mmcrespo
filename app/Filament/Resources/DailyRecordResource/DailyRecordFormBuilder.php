@@ -116,6 +116,13 @@ class DailyRecordFormBuilder
         ];
     }
 
+    private static function timerRetrolavagemView(): Forms\Components\View
+    {
+        return Forms\Components\View::make('filament.forms.components.timer-retrolavagem')
+            ->viewData(['timers' => self::timerRetrolavagemConfig()])
+            ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true);
+    }
+
     private static function ultimoRegisto(?int $poolId): ?DailyRecord
     {
         if (! $poolId) {
@@ -638,8 +645,33 @@ class DailyRecordFormBuilder
                         ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
                         ->default(false)
                         ->live(),
-                    ...self::fotoField('filtro_foto_retrolavagem', 'Foto — Posição Retrolavagem', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
-                    ...self::fotoField('filtro_foto_enxaguamento', 'Foto — Posição Enxaguamento', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
+                    self::timerRetrolavagemView(),
+                    ...self::fotoField(
+                        'filtro_foto_retrolavagem',
+                        'Foto — Posição Retrolavagem',
+                        'filtros',
+                        false,
+                        5,
+                        fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true,
+                        null,
+                        false,
+                        fn ($state, \Livewire\Component $livewire) => filled($state)
+                            ? $livewire->dispatch('mmc-timer-iniciar', campo: 'filtro_foto_retrolavagem')
+                            : null,
+                    ),
+                    ...self::fotoField(
+                        'filtro_foto_enxaguamento',
+                        'Foto — Posição Enxaguamento',
+                        'filtros',
+                        false,
+                        5,
+                        fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true,
+                        null,
+                        false,
+                        fn ($state, \Livewire\Component $livewire) => filled($state)
+                            ? $livewire->dispatch('mmc-timer-iniciar', campo: 'filtro_foto_enxaguamento')
+                            : null,
+                    ),
                     ...self::fotoField('filtro_foto_posicao_normal', 'Foto — Retorno à Posição Normal', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                 ]),
         ];
