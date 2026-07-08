@@ -31,7 +31,7 @@ class EditUser extends EditRecord
                         ->send();
                 }),
             Actions\Action::make('forceChangePassword')
-                ->label('Forçar Palavra-passe')
+                ->label('Forçar Pass / PIN')
                 ->icon('heroicon-o-lock-closed')
                 ->color('danger')
                 ->form([
