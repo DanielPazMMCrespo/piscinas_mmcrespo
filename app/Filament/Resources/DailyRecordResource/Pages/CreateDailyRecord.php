@@ -38,12 +38,8 @@ class CreateDailyRecord extends CreateRecord
         return "Piscina {$atual} de {$this->filaTotal}" . ($piscina ? " — {$piscina->name}" : '');
     }
 
-    public function create(bool $another = false): void
+    private function persistirRegisto(): ?DailyRecord
     {
-        if ($this->isCreating) {
-            return;
-        }
-
         $this->isCreating = true;
         $this->authorizeAccess();
 
@@ -63,11 +59,6 @@ class CreateDailyRecord extends CreateRecord
                 $this->commitDatabaseTransaction();
                 $this->rememberData();
 
-                // Reset form for next record
-                $this->form->model($this->getRecord()::class);
-                $this->record = null;
-                $this->fillForm();
-
                 return true;
             });
 
@@ -78,15 +69,14 @@ class CreateDailyRecord extends CreateRecord
                     ->title('Submissão duplicada')
                     ->body('O registo já está a ser processado. Por favor aguarde.')
                     ->send();
-                return;
+                return null;
             }
         } catch (Halt $exception) {
             $exception->shouldRollbackDatabaseTransaction()
                 ? $this->rollBackDatabaseTransaction()
                 : $this->commitDatabaseTransaction();
             $this->isCreating = false;
-
-            return;
+            return null;
         } catch (\Throwable $exception) {
             $this->rollBackDatabaseTransaction();
             $this->isCreating = false;
@@ -94,6 +84,32 @@ class CreateDailyRecord extends CreateRecord
         }
 
         $this->isCreating = false;
+
+        return $this->record;
+    }
+
+    private function resetarFormularioParaNovoRegisto(): void
+    {
+        $this->form->model(DailyRecord::class);
+        $this->record = null;
+        $this->fillForm();
+    }
+
+    public function create(bool $another = false): void
+    {
+        if ($this->isCreating) {
+            return;
+        }
+
+        $registo = $this->persistirRegisto();
+
+        if ($registo === null) {
+            return;
+        }
+
+        $this->resetarFormularioParaNovoRegisto();
+        $this->filaRestante = [];
+        $this->filaTotal = 0;
 
         // Show persistent choice notification (dispatch real-time, bypass session)
         $notificacao = Notification::make()
@@ -122,37 +138,108 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
+    private function proximaPiscinaDaFila(): ?Pool
+    {
+        if (! empty($this->filaRestante)) {
+            return Pool::find($this->filaRestante[0]);
+        }
+
+        $selecionadas = $this->data['outras_piscinas_visita'] ?? [];
+        if (! empty($selecionadas)) {
+            return Pool::find(array_values($selecionadas)[0]);
+        }
+
+        return null;
+    }
+
+    public function guardarEAvancar(): void
+    {
+        if ($this->isCreating) {
+            return;
+        }
+
+        if (empty($this->filaRestante) && $this->filaTotal === 0) {
+            $selecionadas = array_values(array_map('intval', $this->data['outras_piscinas_visita'] ?? []));
+            $this->filaRestante = $selecionadas;
+            $this->filaTotal = count($selecionadas) + 1;
+        }
+
+        $piscinaAtual = Pool::find($this->data['pool_id'] ?? null);
+        $responsavelId = $this->data['user_id'] ?? auth()->id();
+        $dataHora = $this->data['registado_em'] ?? now();
+
+        $registo = $this->persistirRegisto();
+
+        if ($registo === null) {
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title($piscinaAtual ? "{$piscinaAtual->name} guardada" : 'Registo guardado')
+            ->body('A avançar para a próxima piscina da visita.')
+            ->send();
+
+        $proximoPoolId = array_shift($this->filaRestante);
+
+        $this->resetarFormularioParaNovoRegisto();
+
+        $ultimo = DailyRecordFormBuilder::ultimoRegisto($proximoPoolId);
+        $this->data['pool_id'] = $proximoPoolId;
+        $this->data['user_id'] = $responsavelId;
+        $this->data['registado_em'] = $dataHora;
+        $this->data['bomba_ferrada'] = $ultimo?->bomba_ferrada;
+        $this->data['agua_modo'] = $ultimo?->agua_modo;
+        $this->data['tanque_ok'] = $ultimo?->tanque_ok;
+    }
+
+    private function conteudoModalConfirmacao()
+    {
+        $data = $this->data;
+        $pool = Pool::find($data['pool_id'] ?? null);
+        $problemas = [];
+        foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
+            if (isset($data[$campo]) && $data[$campo] !== '') {
+                $estado = DailyRecord::avaliarConformidade($campo, $data[$campo], $pool);
+                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                    $problemas[] = $estado['mensagem'];
+                }
+            }
+        }
+        if (isset($data['cloro_livre'], $data['cloro_total']) && $data['cloro_livre'] !== '' && $data['cloro_total'] !== '') {
+            $combinado = (float)$data['cloro_total'] - (float)$data['cloro_livre'];
+            $estado = DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
+            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                $problemas[] = $estado['mensagem'];
+            }
+        }
+        return view('filament.daily-record-modal-summary', ['problemas' => $problemas]);
+    }
+
     protected function getFormActions(): array
     {
-        return [
-            Action::make('create')
+        $proximo = $this->proximaPiscinaDaFila();
+
+        $acaoPrincipal = $proximo
+            ? Action::make('guardarEAvancar')
+                ->label("Guardar e seguir para {$proximo->name}")
+                ->action(fn () => $this->guardarEAvancar())
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar registo')
+                ->modalContent(fn () => $this->conteudoModalConfirmacao())
+                ->modalSubmitActionLabel('Confirmar e guardar')
+                ->keyBindings(['mod+s'])
+            : Action::make('create')
                 ->label('Criar')
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registo')
-                ->modalContent(function () {
-                    $data = $this->data;
-                    $pool = \App\Models\Pool::find($data['pool_id'] ?? null);
-                    $problemas = [];
-                    foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
-                        if (isset($data[$campo]) && $data[$campo] !== '') {
-                            $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $data[$campo], $pool);
-                            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                $problemas[] = $estado['mensagem'];
-                            }
-                        }
-                    }
-                    if (isset($data['cloro_livre'], $data['cloro_total']) && $data['cloro_livre'] !== '' && $data['cloro_total'] !== '') {
-                        $combinado = (float)$data['cloro_total'] - (float)$data['cloro_livre'];
-                        $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
-                        if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                            $problemas[] = $estado['mensagem'];
-                        }
-                    }
-                    return view('filament.daily-record-modal-summary', ['problemas' => $problemas]);
-                })
+                ->modalContent(fn () => $this->conteudoModalConfirmacao())
                 ->modalSubmitActionLabel('Confirmar e guardar')
-                ->keyBindings(['mod+s']),
+                ->keyBindings(['mod+s']);
+
+        return [
+            $acaoPrincipal,
             $this->getCancelFormAction(),
         ];
     }
