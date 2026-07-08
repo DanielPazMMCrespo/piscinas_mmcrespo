@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,7 +17,7 @@ use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, LogsActivity, Notifiable;
@@ -38,6 +39,15 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return $hasRole;
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        $name = trim("{$this->first_name} {$this->last_name}");
+        if (empty($name)) {
+            $name = $this->name;
+        }
+        return 'https://ui-avatars.com/api/?name='.urlencode($name).'&color=FFFFFF&background=09090b';
     }
 
     public function getFullNameAttribute(): string

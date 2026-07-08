@@ -155,11 +155,11 @@ class HannaCloudSync extends Command
         $violacoes = [];
         $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
 
-        if ($ph !== null && ($ph < DailyRecord::PH_MIN || $ph > DailyRecord::PH_MAX)) {
-            $fmt = number_format($ph, 2, ',', '');
-            $violacoes[] = $ph < DailyRecord::PH_MIN
-                ? "pH {$fmt} abaixo do mínimo (".number_format(DailyRecord::PH_MIN, 1, ',', '').')'
-                : "pH {$fmt} acima do máximo (".number_format(DailyRecord::PH_MAX, 1, ',', '').')';
+        if ($ph !== null && ($ph < DailyRecord::getPhMin() || $ph > DailyRecord::getPhMax())) {
+            $fmt = number_format($ph, 1, ',', '');
+            $violacoes[] = $ph < DailyRecord::getPhMin()
+                ? "pH {$fmt} abaixo do mínimo (".number_format(DailyRecord::getPhMin(), 1, ',', '').')'
+                : "pH {$fmt} acima do máximo (".number_format(DailyRecord::getPhMax(), 1, ',', '').')';
         }
 
         if (empty($violacoes)) {

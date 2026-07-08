@@ -97,6 +97,25 @@ class DefinicoesSistema extends Page
                             ->helperText('Aproximação do limite (Padrão: 10%)'),
                     ])->columns(2),
 
+                Section::make('Tempos e Prazos')
+                    ->description('Configuração de tempos de validade e alertas de falhas.')
+                    ->icon('heroicon-o-clock')
+                    ->collapsible()
+                    ->schema([
+                        TextInput::make('sensor_fresco_minutos')
+                            ->label('Validade da Leitura do Dashboard (Minutos)')
+                            ->numeric()
+                            ->helperText('Até quanto tempo a leitura da sonda é considerada "válida" no painel. (Padrão: 240)'),
+                        TextInput::make('sensor_timeout_minutos')
+                            ->label('Timeout da Sonda (Minutos)')
+                            ->numeric()
+                            ->helperText('Tempo sem resposta da sonda até disparar o alerta de falha de comunicação. (Padrão: 30)'),
+                        TextInput::make('convite_validade_horas')
+                            ->label('Validade do Convite (Horas)')
+                            ->numeric()
+                            ->helperText('Quanto tempo o link do convite demora a expirar. (Padrão: 48)'),
+                    ]),
+
 
 
                 Section::make('Templates de Email')

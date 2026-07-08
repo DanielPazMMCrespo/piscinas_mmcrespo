@@ -634,7 +634,7 @@ class DailyRecordFormBuilder
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ph')
                             ->label('pH')
-                            ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::PH_MIN.' a '.DailyRecord::PH_MAX.self::lookback('ph', $get))
+                            ->helperText(fn (Get $get): string => 'Limite legal CN 14/DA: '.DailyRecord::getPhMin().' a '.DailyRecord::getPhMax().self::lookback('ph', $get))
                             ->required(fn (): bool => ! (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false))
                             ->numeric()->step(0.01)->minValue(0)->maxValue(14)
                             ->rules(['between:0,14']),

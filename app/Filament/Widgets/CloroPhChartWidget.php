@@ -58,7 +58,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         'ph' => [
             'label' => 'pH', 'unidade' => '', 'casas' => 2,
             'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
-            'banda' => ['min' => DailyRecord::PH_MIN, 'max' => DailyRecord::PH_MAX],
+            'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
         ],
         'temperatura' => [
             'label' => 'Temperatura', 'unidade' => '°C', 'casas' => 1,
@@ -73,7 +73,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         'controlador_ph' => [
             'label' => 'Controlador — pH', 'unidade' => '', 'casas' => 2,
             'min' => 6.5, 'max' => 8.5, 'cor' => '#059669',
-            'banda' => ['min' => DailyRecord::PH_MIN, 'max' => DailyRecord::PH_MAX],
+            'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
             'sensor_campo' => 'ph',
         ],
         'controlador_orp' => [
