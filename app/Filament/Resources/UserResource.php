@@ -93,6 +93,7 @@ class UserResource extends Resource
                     ->label('Palavra-passe')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
+                    ->hiddenOn('edit')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->dehydrateStateUsing(fn (string $state) => \Illuminate\Support\Facades\Hash::make($state))
                     ->minLength(8)
@@ -178,6 +179,22 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('resetPassword')
+                    ->label('Redefinir Palavra-passe')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Enviar email de redefinição')
+                    ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
+                    ->modalSubmitActionLabel('Sim, enviar e-mail')
+                    ->action(function (User $record): void {
+                        \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $record->email]);
+                        Notification::make()
+                            ->title('E-mail enviado')
+                            ->body('As instruções para redefinir a palavra-passe foram enviadas.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\DeleteAction::make()
                     ->before(function ($record, Tables\Actions\DeleteAction $action): void {
                         if ($record->id === auth()->id()) {

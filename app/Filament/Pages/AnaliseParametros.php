@@ -13,7 +13,7 @@ class AnaliseParametros extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static ?string $navigationGroup = 'Operação';
+    protected static ?string $navigationGroup = 'Dados';
 
     protected static ?string $navigationLabel = 'Análise de Parâmetros';
 

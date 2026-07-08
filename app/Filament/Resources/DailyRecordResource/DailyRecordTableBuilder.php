@@ -56,7 +56,7 @@ class DailyRecordTableBuilder
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->phConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::PH_MIN.'–'.DailyRecord::PH_MAX.')'),
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::getPhMin().'–'.DailyRecord::getPhMax().')'),
                         Tables\Columns\TextColumn::make('cloro_livre')
                             ->label('Cloro L.')
                             ->formatStateUsing(fn ($state): string => 'Cl '.$state.' mg/L')

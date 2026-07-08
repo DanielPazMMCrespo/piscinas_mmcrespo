@@ -1,33 +1,24 @@
 <x-filament-panels::page>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto py-6">
-        <!-- Card Registo Diário -->
-        <button type="button" 
-                wire:click="mountAction('registoDiario')"
-                class="flex flex-col items-center justify-center p-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md hover:border-primary-500 dark:hover:border-primary-500 transition-all group text-center cursor-pointer">
-            <div class="p-4 rounded-full bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 mb-6 group-hover:scale-105 transition-transform">
-                <x-heroicon-o-clipboard-document-check class="w-12 h-12" />
-            </div>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                Registo Diário
-            </h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                Registe os parâmetros da água ou consulte o histórico e conformidades das piscinas.
-            </p>
-        </button>
+    <div class="mmc-hub-grid">
+        @if ($this->getDailyRecordUrl())
+            <button type="button" wire:click="mountAction('registoDiario')" class="mmc-hub-card text-left w-full cursor-pointer">
+                <x-filament::icon icon="heroicon-o-clipboard-document-check" class="mmc-hub-card-icon" />
+                <div class="mmc-hub-card-body">
+                    <div class="mmc-hub-card-title">Registo Diário</div>
+                    <div class="mmc-hub-card-sub">Consultar e criar registos diários das piscinas.</div>
+                </div>
+            </button>
+        @endif
 
-        <!-- Card Incidentes -->
-        <a href="{{ \App\Filament\Resources\IncidentResource::getUrl('index') }}"
-           class="flex flex-col items-center justify-center p-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md hover:border-danger-500 dark:hover:border-danger-500 transition-all group text-center cursor-pointer">
-            <div class="p-4 rounded-full bg-danger-50 dark:bg-danger-950/30 text-danger-600 dark:text-danger-400 mb-6 group-hover:scale-105 transition-transform">
-                <x-heroicon-o-exclamation-triangle class="w-12 h-12" />
-            </div>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-danger-600 dark:group-hover:text-danger-400 transition-colors">
-                Incidentes
-            </h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                Registe e faça a gestão de avarias, fugas de água ou outros problemas operacionais.
-            </p>
-        </a>
+        @if ($this->getIncidentUrl())
+            <a href="{{ $this->getIncidentUrl() }}" class="mmc-hub-card">
+                <x-filament::icon icon="heroicon-o-exclamation-triangle" class="mmc-hub-card-icon" />
+                <div class="mmc-hub-card-body">
+                    <div class="mmc-hub-card-title">Incidentes</div>
+                    <div class="mmc-hub-card-sub">Consultar e registar incidentes.</div>
+                </div>
+            </a>
+        @endif
     </div>
 
     <x-filament-actions::modals />

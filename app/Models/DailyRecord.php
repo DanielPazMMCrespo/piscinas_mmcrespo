@@ -27,36 +27,27 @@ class DailyRecord extends Model
     /**
      * Limites regulamentares CN 14/DA (DGS 2009) para piscinas públicas.
      * Fonte única de verdade — usados em validação, tabelas e dashboard.
-     */
-    public const PH_MIN = 6.9;
-
-    public const PH_MAX = 8.0;
-
-    public const CLORO_LIVRE_MIN = 0.5;
-
-    public const CLORO_LIVRE_MAX = 2.0;
-
-    public const CLORO_COMBINADO_MAX = 0.6;
+    public static function getPhMin(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_min', 6.9); }
+    public static function getPhMax(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_max', 8.0); }
+    public static function getCloroLivreMin(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', 0.5); }
+    public static function getCloroLivreMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', 2.0); }
+    public static function getCloroCombinadoMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', 0.6); }
+    public static function getTransparenciaMax(): float { return app(\App\Services\SettingsService::class)->getFloat('transparencia_max', 5.0); }
 
     /**
-     * Limite máximo de turbidez (FNU). A CN 14/DA exige água límpida com o fundo
-     * perfeitamente visível; usa-se 5 FNU como limiar operacional de alerta.
-     */
-    public const TRANSPARENCIA_MAX = 5.0;
-
-    /**
-     * Mapa central das métricas com limites legais — fonte única para o semáforo
+     * Mapa central das métricas com limites legais dinâmicos — fonte única para o semáforo
      * de conformidade do formulário, validações e relatórios.
-     * `min`/`max` a null significam "sem limite fixo" (a temperatura usa os
-     * limites próprios da piscina — Pool::temp_min/temp_max).
      */
-    public const METRICAS = [
-        'ph' => ['label' => 'pH', 'min' => self::PH_MIN, 'max' => self::PH_MAX, 'unidade' => ''],
-        'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::CLORO_LIVRE_MIN, 'max' => self::CLORO_LIVRE_MAX, 'unidade' => 'mg/L'],
-        'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::CLORO_COMBINADO_MAX, 'unidade' => 'mg/L'],
-        'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::TRANSPARENCIA_MAX, 'unidade' => 'FNU'],
-        'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
-    ];
+    public static function getMetricas(): array
+    {
+        return [
+            'ph' => ['label' => 'pH', 'min' => self::getPhMin(), 'max' => self::getPhMax(), 'unidade' => ''],
+            'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::getCloroLivreMin(), 'max' => self::getCloroLivreMax(), 'unidade' => 'mg/L'],
+            'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::getCloroCombinadoMax(), 'unidade' => 'mg/L'],
+            'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::getTransparenciaMax(), 'unidade' => 'FNU'],
+            'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
+        ];
+    }
 
     protected $fillable = [
         'pool_id', 'user_id', 'registado_em',
@@ -124,7 +115,7 @@ class DailyRecord extends Model
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
-        $meta = self::METRICAS[$campo] ?? null;
+        $meta = self::getMetricas()[$campo] ?? null;
         if ($meta === null) {
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }

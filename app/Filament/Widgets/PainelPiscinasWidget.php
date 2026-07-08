@@ -40,9 +40,6 @@ class PainelPiscinasWidget extends Widget
     private const ORP_CLORO_MIN = 680;
     private const ORP_CLORO_MAX = 820;
 
-    /** Leitura da sonda só substitui o registo diário no cálculo de conformes se tiver menos de 4h. */
-    private const SENSOR_FRESCO_MINUTOS = 240;
-
     protected function getViewData(): array
     {
         // Cache: 10 min TTL para dados do painel (valores + estado).
@@ -146,7 +143,8 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $sensorFresco = $idadeMin !== null && $idadeMin <= self::SENSOR_FRESCO_MINUTOS;
+            $sensorFrescoMinutos = app(\App\Services\SettingsService::class)->getInt('sensor_fresco_minutos', 240);
+            $sensorFresco = $idadeMin !== null && $idadeMin <= $sensorFrescoMinutos;
 
             // Conformes: prioriza a leitura da sonda (se fresca); cai para o registo diário caso contrário.
             $phOkConformes = self::parametroOk(

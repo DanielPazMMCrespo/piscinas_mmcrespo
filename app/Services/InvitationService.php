@@ -6,6 +6,7 @@ use App\Constants\UserRole;
 use App\Mail\UserInvitationMail;
 use App\Models\User;
 use App\Models\UserInvitation;
+use App\Services\SettingsService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -13,6 +14,10 @@ use RuntimeException;
 
 class InvitationService
 {
+    public function __construct(
+        private SettingsService $settings
+    ) {}
+
     /**
      * @param array<int, int|string> $poolIds Piscinas a pré-atribuir (só aplicadas a Nadador Salvador).
      */
@@ -32,6 +37,7 @@ class InvitationService
         }
 
         $rawToken = Str::random(64);
+        $validadeHoras = $this->settings->getInt('convite_validade_horas', 48);
 
         $invitation = UserInvitation::create([
             'email'         => $email,
@@ -41,7 +47,7 @@ class InvitationService
                 : null,
             'token'         => hash('sha256', $rawToken),
             'invited_by_id' => $invitedBy->id,
-            'expires_at'    => now()->addHours(48),
+            'expires_at'    => now()->addHours($validadeHoras),
         ]);
 
         Mail::to($email)->send(new UserInvitationMail($invitation, $rawToken));
