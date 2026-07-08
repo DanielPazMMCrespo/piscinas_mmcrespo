@@ -174,7 +174,7 @@ class PainelPiscinasWidget extends Widget
             $cloroOkConformes = self::parametroOk(
                 $sensorFresco,
                 $orp,
-                $orp !== null ? ($orp >= self::ORP_CLORO_MIN && $orp <= self::ORP_CLORO_MAX) : null,
+                $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_CLORO_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_CLORO_MAX)) : null,
                 $cloroOkRegisto,
             );
 
