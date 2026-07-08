@@ -3,7 +3,9 @@ namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 
 use App\Filament\Resources\DailyRecordResource;
+use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
 use App\Models\DailyRecord;
+use App\Models\Pool;
 use Filament\Actions\Action;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
@@ -16,6 +18,25 @@ class CreateDailyRecord extends CreateRecord
 
     /** Guarda flag para evitar duplo-submit (previne re-entrada em create()). */
     public bool $isCreating = false;
+
+    /** IDs das piscinas ainda por gravar nesta visita, pela ordem da fila (exclui a atual). */
+    public array $filaRestante = [];
+
+    /** Total de piscinas desta visita (0 = fluxo normal de piscina única). Fixado no 1º "Guardar e seguir". */
+    public int $filaTotal = 0;
+
+    public function getSubheading(): ?string
+    {
+        if ($this->filaTotal <= 1) {
+            return null;
+        }
+
+        $atual = $this->filaTotal - count($this->filaRestante);
+        $piscinaId = $this->data['pool_id'] ?? null;
+        $piscina = $piscinaId ? Pool::find($piscinaId) : null;
+
+        return "Piscina {$atual} de {$this->filaTotal}" . ($piscina ? " — {$piscina->name}" : '');
+    }
 
     public function create(bool $another = false): void
     {
