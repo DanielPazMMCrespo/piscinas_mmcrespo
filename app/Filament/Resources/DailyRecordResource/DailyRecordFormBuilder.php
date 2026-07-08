@@ -98,6 +98,17 @@ class DailyRecordFormBuilder
                 ->columnSpanFull(),
         ];
     }
+    /**
+     * @return array<int, array{campo: string, label: string, duracaoSegundos: int}>
+     */
+    public static function timerRetrolavagemConfig(): array
+    {
+        return [
+            ['campo' => 'filtro_foto_retrolavagem', 'label' => 'Timer — Retrolavagem', 'duracaoSegundos' => 300],
+            ['campo' => 'filtro_foto_enxaguamento', 'label' => 'Timer — Enxaguamento', 'duracaoSegundos' => 120],
+        ];
+    }
+
     private static function ultimoRegisto(?int $poolId): ?DailyRecord
     {
         if (! $poolId) {
