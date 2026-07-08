@@ -44,7 +44,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         return $query;
     }
 
-    private function getMetricas(): array
+    private static function getMetricas(): array
     {
         return [
             'cloro_livre' => [
@@ -122,7 +122,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
-        $opcoesMetricas = collect($this->getMetricas())
+        $opcoesMetricas = collect(self::getMetricas())
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
@@ -212,11 +212,12 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function buildMetricAxis(string $metricKey): array
     {
-        if (! array_key_exists($metricKey, $this->getMetricas())) {
+        $metricas = self::getMetricas();
+        if (! array_key_exists($metricKey, $metricas)) {
             return [];
         }
 
-        $def = $this->getMetricas()[$metricKey];
+        $def = $metricas[$metricKey];
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
         $end = $this->getPeriodEnd();
@@ -285,12 +286,13 @@ class CloroPhChartWidget extends Widget implements HasForms
             return [];
         }
 
-        $leftKey = array_key_exists($this->leftMetric, $this->getMetricas()) ? $this->leftMetric : 'ph';
-        $rightKey = array_key_exists($this->rightMetric, $this->getMetricas()) ? $this->rightMetric : 'controlador_orp';
+        $metricas = self::getMetricas();
+        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
+        $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
 
         // Cache only for long-period, manual-only queries (sensor data changes every 15 min).
-        $leftIsSensor = isset($this->getMetricas()[$leftKey]['sensor_campo']);
-        $rightIsSensor = isset($this->getMetricas()[$rightKey]['sensor_campo']);
+        $leftIsSensor = isset($metricas[$leftKey]['sensor_campo']);
+        $rightIsSensor = isset($metricas[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
         $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
