@@ -1,59 +1,44 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
-
 use App\Filament\Resources\DailyRecordResource;
-use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
 use App\Models\DailyRecord;
 use App\Models\Pool;
 use Filament\Actions\Action;
-use Filament\Notifications\Actions\Action as NotificationAction;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
-use Filament\Support\Exceptions\Halt;
 
 class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
-    /** Guarda flag para evitar duplo-submit (previne re-entrada em create()). */
-    
-
-    /** IDs das piscinas ainda por gravar nesta visita, pela ordem da fila (exclui a atual). */
-    
-
-    /** Total de piscinas desta visita (0 = fluxo normal de piscina única). Fixado no 1º "Guardar e seguir". */
-    
-
-    
     private function conteudoModalConfirmacao()
     {
-         = ->data;
-         = [];
+        $data = $this->data;
+        $problemas = [];
         
-         = array_filter(array_unique(array_merge([['pool_id'] ?? null], ['outras_piscinas_visita'] ?? [])));
-        foreach ( as ) {
-             = Pool::find();
-             = ['piscina_' . ] ?? [];
+        $poolIds = array_filter(array_unique(array_merge([$data['pool_id'] ?? null], $data['outras_piscinas_visita'] ?? [])));
+        foreach ($poolIds as $pId) {
+            $pool = Pool::find($pId);
+            $poolData = $data['piscina_' . $pId] ?? [];
             
-            foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as ) {
-                if (isset([]) && [] !== '') {
-                     = DailyRecord::avaliarConformidade(, [], );
-                    if (['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                        [] = ( ? ->name . ': ' : '') . ['mensagem'];
+            foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
+                if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
+                    $estado = DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
+                    if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                        $problemas[] = ($pool ? $pool->name . ': ' : '') . $estado['mensagem'];
                     }
                 }
             }
-            if (isset(['cloro_livre'], ['cloro_total']) && ['cloro_livre'] !== '' && ['cloro_total'] !== '') {
-                 = (float)['cloro_total'] - (float)['cloro_livre'];
-                 = DailyRecord::avaliarConformidade('cloro_combinado', , );
-                if (['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                    [] = ( ? ->name . ': ' : '') . ['mensagem'];
+            if (isset($poolData['cloro_livre'], $poolData['cloro_total']) && $poolData['cloro_livre'] !== '' && $poolData['cloro_total'] !== '') {
+                $combinado = (float)$poolData['cloro_total'] - (float)$poolData['cloro_livre'];
+                $estado = DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
+                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                    $problemas[] = ($pool ? $pool->name . ': ' : '') . $estado['mensagem'];
                 }
             }
         }
 
-        return view('filament.daily-record-modal-summary', ['problemas' => ]);
+        return view('filament.daily-record-modal-summary', ['problemas' => $problemas]);
     }
 
     protected function getFormActions(): array
@@ -61,55 +46,55 @@ class CreateDailyRecord extends CreateRecord
         return [
             Action::make('create')
                 ->label('Criar')
-                ->action(fn () => ->create())
+                ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registo')
-                ->modalContent(fn () => ->conteudoModalConfirmacao())
+                ->modalContent(fn () => $this->conteudoModalConfirmacao())
                 ->modalSubmitActionLabel('Confirmar e guardar')
                 ->keyBindings(['mod+s']),
-            ->getCancelFormAction(),
+            $this->getCancelFormAction(),
         ];
     }
 
     public function getCachedFormActions(): array
     {
-        return ->getFormActions();
+        return $this->getFormActions();
     }
 
-    protected function handleRecordCreation(array ): \Illuminate\Database\Eloquent\Model
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
-         = array_filter(array_unique(array_merge([['pool_id'] ?? null], ['outras_piscinas_visita'] ?? [])));
-         = null;
+        $poolIds = array_filter(array_unique(array_merge([$data['pool_id'] ?? null], $data['outras_piscinas_visita'] ?? [])));
+        $firstRecord = null;
         
-         = [
-            'user_id' => ['user_id'],
-            'registado_em' => ['registado_em'],
+        $baseData = [
+            'user_id' => $data['user_id'],
+            'registado_em' => $data['registado_em'],
         ];
 
-        foreach ( as ) {
-             = ['piscina_' . ] ?? [];
-             = array_merge(, );
-            ['pool_id'] = ;
+        foreach ($poolIds as $pId) {
+            $poolData = $data['piscina_' . $pId] ?? [];
+            $recordData = array_merge($baseData, $poolData);
+            $recordData['pool_id'] = $pId;
             
-             = ['adicoes'] ?? [];
-            unset(['adicoes']);
+            $adicoes = $recordData['adicoes'] ?? [];
+            unset($recordData['adicoes']);
 
-             = DailyRecord::create();
+            $record = DailyRecord::create($recordData);
             
-            foreach ( as ) {
-                ->adicoes()->create();
+            foreach ($adicoes as $adicao) {
+                $record->adicoes()->create($adicao);
             }
             
-            if (!) {
-                 = ;
+            if (!$firstRecord) {
+                $firstRecord = $record;
             }
             
-            \App\Jobs\ProcessDailyRecordAfterCreate::dispatch(->id, (int) auth()->id());
+            \App\Jobs\ProcessDailyRecordAfterCreate::dispatch($record->id, (int) auth()->id());
         }
 
         app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
 
-        return  ?? new DailyRecord();
+        return $firstRecord ?? new DailyRecord();
     }
 
     protected function afterCreate(): void
@@ -119,6 +104,6 @@ class CreateDailyRecord extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return ->getResource()::getUrl('index');
+        return $this->getResource()::getUrl('index');
     }
 }
