@@ -141,7 +141,7 @@ class PainelPiscinasWidget extends Widget
                         : null,
                     'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
                     'orp_ok' => $orp !== null
-                        ? ($orp >= self::ORP_MIN && $orp <= self::ORP_MAX)
+                        ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX))
                         : null,
                     'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') : null,
                     'temp_ok' => $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null

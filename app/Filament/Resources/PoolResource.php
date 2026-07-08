@@ -53,6 +53,18 @@ class PoolResource extends Resource
                     ->label('Temperatura Máxima (ºC)')
                     ->required()
                     ->numeric(),
+                Forms\Components\TextInput::make('orp_min')
+                    ->label('ORP Mínimo (mV)')
+                    ->numeric()
+                    ->step(1)
+                    ->placeholder('660')
+                    ->helperText('Opcional. Valor por defeito: 660 mV.'),
+                Forms\Components\TextInput::make('orp_max')
+                    ->label('ORP Máximo (mV)')
+                    ->numeric()
+                    ->step(1)
+                    ->placeholder('750')
+                    ->helperText('Opcional. Valor por defeito: 750 mV.'),
                 Forms\Components\TextInput::make('volume')
                     ->label('Volume (m³)')
                     ->helperText('Necessário para a calculadora de dosagem de químicos.')
