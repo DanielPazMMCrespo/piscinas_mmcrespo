@@ -55,14 +55,88 @@
                     <div class="mmc-grafico-canvas-wrap">
                         <canvas x-ref="canvas"></canvas>
                     </div>
-                    <div class="flex items-center justify-between mt-2">
+                    <div class="flex items-center justify-between mt-2.5 gap-2 flex-wrap">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Ctrl+Scroll para zoom &middot; Arrastar para pan
+                            Ctrl+Scroll para zoom &middot; Arrastar para mover
                         </span>
-                        <button
-                            x-on:click="resetZoom()"
-                            class="text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 underline ml-auto"
-                        >Repor zoom</button>
+                        
+                        <div class="flex items-center gap-4 ml-auto text-xs">
+                            <button
+                                type="button"
+                                x-on:click="showPrefs = !showPrefs"
+                                class="flex items-center gap-1.5 text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 font-medium transition-colors"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span>Personalizar Gráfico</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                x-on:click="resetZoom()"
+                                class="text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 underline"
+                            >Repor zoom</button>
+                        </div>
+                    </div>
+
+                    {{-- Painel de Personalização Instantânea --}}
+                    <div
+                        x-show="showPrefs"
+                        x-transition
+                        x-cloak
+                        class="mt-3 p-3.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs shadow-sm"
+                    >
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Linha</label>
+                                <select
+                                    x-model="prefs.curve"
+                                    @change="updatePref('curve', prefs.curve)"
+                                    class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:ring-primary-500"
+                                >
+                                    <option value="smooth">Suave (Curvo)</option>
+                                    <option value="linear">Reta (Linear)</option>
+                                    <option value="stepped">Degraus (Escada)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Preenchimento (Área)</label>
+                                <select
+                                    x-model="prefs.areaFill"
+                                    @change="updatePref('areaFill', prefs.areaFill === 'true' || prefs.areaFill === true)"
+                                    class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:ring-primary-500"
+                                >
+                                    <option :value="true">Ativado (Gradiente)</option>
+                                    <option :value="false">Desativado (Só Linha)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Pontos / Marcadores</label>
+                                <select
+                                    x-model="prefs.showPoints"
+                                    @change="updatePref('showPoints', prefs.showPoints)"
+                                    class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:ring-primary-500"
+                                >
+                                    <option value="auto">Automático</option>
+                                    <option value="always">Sempre visíveis</option>
+                                    <option value="none">Ocultos</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Espessura da Linha</label>
+                                <select
+                                    x-model="prefs.lineWidth"
+                                    @change="updatePref('lineWidth', prefs.lineWidth)"
+                                    class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 focus:ring-primary-500"
+                                >
+                                    <option value="1.5">Fina (1.5px)</option>
+                                    <option value="2.5">Normal (2.5px)</option>
+                                    <option value="3.5">Grossa (3.5px)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

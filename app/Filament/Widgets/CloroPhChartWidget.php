@@ -241,7 +241,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                     'y' => round((float) $r->{$campo}, $def['casas']),
                 ])->values()->toArray();
 
-            $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => true];
+            $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => false];
         } else {
             $campo = $metricKey;
             $campoNs = 'ns_' . $campo;

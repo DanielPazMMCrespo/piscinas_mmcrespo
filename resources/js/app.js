@@ -179,22 +179,43 @@ document.addEventListener('alpine:init', () => {
             return ann;
         },
 
+        showPrefs: false,
+        prefs: JSON.parse(localStorage.getItem('mmc_chart_prefs') || 'null') || {
+            curve: 'smooth',
+            areaFill: true,
+            showPoints: 'auto',
+            lineWidth: 2.5,
+        },
+
+        updatePref(key, value) {
+            this.prefs[key] = value;
+            localStorage.setItem('mmc_chart_prefs', JSON.stringify(this.prefs));
+            if (!this._destroyed && this.chart) {
+                this.render();
+            }
+        },
+
         buildDataset(ds, yAxisID, cor) {
+            const isStepped = this.prefs.curve === 'stepped';
+            const tension = this.prefs.curve === 'linear' ? 0 : (isStepped ? 0 : 0.4);
+            const pointRadius = this.prefs.showPoints === 'always'
+                ? 4
+                : (this.prefs.showPoints === 'none' ? 0 : (ds.data.length <= 60 ? 3 : 0));
+
             return {
                 label: ds.label,
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor + '20', // Transparent hex for area fill
-                fill: true,
-                borderWidth: 2.5,
-                // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
-                pointRadius: ds.data.length <= 60 ? 3 : 0,
+                backgroundColor: cor + '24', // Transparent hex for area fill
+                fill: this.prefs.areaFill,
+                borderWidth: Number(this.prefs.lineWidth) || 2.5,
+                pointRadius,
                 pointHoverRadius: 5,
-                tension: 0.4, // Suaviza mais as curvas
+                tension,
+                stepped: isStepped,
                 spanGaps: false,
                 order: 1,
-                ...(ds.dashed ? { borderDash: [5, 5], fill: false } : {}), // Não preenche se for dashed
             };
         },
 
