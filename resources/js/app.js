@@ -185,15 +185,16 @@ document.addEventListener('alpine:init', () => {
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor,
+                backgroundColor: cor + '20', // Transparent hex for area fill
+                fill: true,
                 borderWidth: 2.5,
                 // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
                 pointRadius: ds.data.length <= 60 ? 3 : 0,
                 pointHoverRadius: 5,
-                tension: 0.3,
+                tension: 0.4, // Suaviza mais as curvas
                 spanGaps: false,
                 order: 1,
-                ...(ds.dashed ? { borderDash: [5, 5] } : {}),
+                ...(ds.dashed ? { borderDash: [5, 5], fill: false } : {}), // Não preenche se for dashed
             };
         },
 
