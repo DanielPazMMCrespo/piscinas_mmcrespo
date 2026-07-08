@@ -180,17 +180,18 @@ document.addEventListener('alpine:init', () => {
         },
 
         buildDataset(ds, yAxisID, cor) {
+            const isDense = ds.data.length > 25;
             return {
                 label: ds.label,
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor,
-                fill: false, // Desativado (Só Linha)
-                borderWidth: 2.5, // Normal (2.5px)
-                pointRadius: 4, // Sempre visíveis
-                pointHoverRadius: 6,
-                tension: 0.4, // Suave (Curvo)
+                backgroundColor: cor + '1A', // 10% opacidade para um gradiente subtil e elegante
+                fill: true,
+                borderWidth: 2,
+                pointRadius: isDense ? 0 : 3, // Oculta bolinhas em séries densas para não criar grumos
+                pointHoverRadius: 5,
+                tension: 0.2, // Suavização equilibrada que não distorce picos bruscos
                 spanGaps: false,
                 order: 1,
             };
