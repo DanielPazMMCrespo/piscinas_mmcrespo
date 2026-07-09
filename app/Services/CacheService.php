@@ -85,15 +85,15 @@ class CacheService
 
     /**
      * Cache dos dados do painel de piscinas (valores + estado).
-     * Chave: cache_painel_piscinas
      *
+     * @param string $scope O scope do cache (ex: 'full' ou id do utilizador)
      * @param array<string, mixed> $data Array de piscinas com métricas/sonda
      * @param int $ttlMinutos Time-to-live em minutos (padrão 10)
      * @return void
      */
-    public function cachePoolData(array $data, int $ttlMinutos = 10): void
+    public function cachePoolData(string $scope, array $data, int $ttlMinutos = 10): void
     {
-        $key = 'cache_painel_piscinas';
+        $key = "cache_painel_piscinas_{$scope}";
 
         Cache::put($key, $data, now()->addMinutes($ttlMinutos));
     }
@@ -101,11 +101,12 @@ class CacheService
     /**
      * Obtém dados do painel de piscinas do cache.
      *
+     * @param string $scope O scope do cache
      * @return array<string, mixed>|null
      */
-    public function getPoolData(): ?array
+    public function getPoolData(string $scope): ?array
     {
-        $key = 'cache_painel_piscinas';
+        $key = "cache_painel_piscinas_{$scope}";
 
         return Cache::get($key);
     }
