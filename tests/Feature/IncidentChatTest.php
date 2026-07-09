@@ -106,4 +106,101 @@ class IncidentChatTest extends TestCase
 
         Notification::assertSentTo($ns, \App\Notifications\IncidentMessageNotification::class);
     }
+
+    public function test_reporter_message_notifies_admin_and_tecnico_not_other_ns(): void
+    {
+        Notification::fake();
+
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $outroNs = User::factory()->create();
+        $outroNs->assignRole(UserRole::NADADOR_SALVADOR);
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'aberto',
+        ]);
+
+        $this->actingAs($ns);
+
+        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+            ->set('texto', 'A situação está a agravar-se.')
+            ->call('enviarMensagem');
+
+        $this->assertSame(1, $incidente->mensagens()->count());
+
+        Notification::assertSentTo($admin, \App\Notifications\IncidentMessageNotification::class);
+        Notification::assertNotSentTo($outroNs, \App\Notifications\IncidentMessageNotification::class);
+    }
+
+    public function test_new_message_reopens_resolved_incident(): void
+    {
+        Notification::fake();
+
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'resolvido',
+            'resolvido_em' => now(),
+            'resolvido_por' => $tecnico->id,
+            'resolucao' => 'Junta substituída.',
+        ]);
+
+        $this->actingAs($ns);
+
+        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+            ->set('texto', 'Voltou a haver fuga.')
+            ->call('enviarMensagem');
+
+        $incidente->refresh();
+
+        $this->assertSame('aberto', $incidente->status);
+        $this->assertNull($incidente->resolvido_em);
+        $this->assertNull($incidente->resolvido_por);
+        $this->assertNull($incidente->resolucao);
+
+        $textos = $incidente->mensagens()->pluck('texto')->all();
+        $this->assertContains('Voltou a haver fuga.', $textos);
+        $this->assertContains('Reaberto automaticamente após nova mensagem.', $textos);
+    }
+
+    public function test_blank_message_is_ignored(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'outro',
+            'descricao' => 'Problema qualquer',
+            'status' => 'aberto',
+        ]);
+
+        $this->actingAs($ns);
+
+        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+            ->set('texto', '   ')
+            ->call('enviarMensagem');
+
+        $this->assertSame(0, $incidente->mensagens()->count());
+    }
 }

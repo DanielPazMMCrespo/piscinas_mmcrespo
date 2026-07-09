@@ -767,7 +767,7 @@ Adicionar a `tests/Feature/IncidentChatTest.php`:
             ->set('texto', 'A situação está a agravar-se.')
             ->call('enviarMensagem');
 
-        $this->assertSame(2, $incidente->mensagens()->count());
+        $this->assertSame(1, $incidente->mensagens()->count());
 
         Notification::assertSentTo($admin, \App\Notifications\IncidentMessageNotification::class);
         Notification::assertNotSentTo($outroNs, \App\Notifications\IncidentMessageNotification::class);
