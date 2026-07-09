@@ -245,8 +245,9 @@ class CloroPhChartWidget extends Widget implements HasForms
         } else {
             $campo = $metricKey;
 
+            $nsCampo = 'ns_' . $campo;
             $rows = DailyRecord::query()
-                ->select(['registado_em', $campo])
+                ->select(['registado_em', $campo, $nsCampo])
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
                 ->where('registado_em', '<=', $end)
@@ -254,10 +255,14 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
-            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
-                ->map(fn ($r) => [
-                    'x' => $r->registado_em->toIso8601String(),
-                    'y' => round((float) $r->{$campo}, $def['casas']),
+            $data = $rows->map(fn ($r) => [
+                    'val' => $r->{$campo} ?? $r->{$nsCampo},
+                    'r' => $r
+                ])
+                ->filter(fn ($item) => $item['val'] !== null)
+                ->map(fn ($item) => [
+                    'x' => $item['r']->registado_em->toIso8601String(),
+                    'y' => round((float) $item['val'], $def['casas']),
                 ])->values()->toArray();
 
             $datasets[] = [
@@ -334,7 +339,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $end = $this->getPeriodEnd();
 
         $manual = DailyRecord::query()
-            ->select(['registado_em', 'ph', 'cloro_livre', 'cloro_total', 'transparencia', 'temperatura'])
+            ->select(['registado_em', 'ph', 'cloro_livre', 'cloro_total', 'transparencia', 'temperatura', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'])
             ->where('pool_id', $poolId)
             ->where('registado_em', '>=', $start)
             ->where('registado_em', '<=', $end)
@@ -344,11 +349,11 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->get()
             ->map(fn ($r) => [
                 'data'        => $r->registado_em->format('d/m H:i'),
-                'ph'          => $r->ph !== null ? number_format((float) $r->ph, 2, ',', '') : '—',
-                'cloro_livre' => $r->cloro_livre !== null ? number_format((float) $r->cloro_livre, 2, ',', '') : '—',
-                'cloro_total' => $r->cloro_total !== null ? number_format((float) $r->cloro_total, 2, ',', '') : '—',
+                'ph'          => $r->ph_efetivo !== null ? number_format((float) $r->ph_efetivo, 2, ',', '') : '—',
+                'cloro_livre' => $r->cloro_livre_efetivo !== null ? number_format((float) $r->cloro_livre_efetivo, 2, ',', '') : '—',
+                'cloro_total' => $r->cloro_total_efetivo !== null ? number_format((float) $r->cloro_total_efetivo, 2, ',', '') : '—',
                 'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
-                'temperatura' => $r->temperatura !== null ? number_format((float) $r->temperatura, 1, ',', '') : '—',
+                'temperatura' => $r->temperatura_efetivo !== null ? number_format((float) $r->temperatura_efetivo, 1, ',', '') : '—',
             ])->toArray();
 
         $sensor = SensorReading::query()

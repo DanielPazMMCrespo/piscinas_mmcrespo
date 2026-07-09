@@ -22,13 +22,15 @@ class Pool extends Model
             ->dontSubmitEmptyLogs();
     }
 
-    protected $fillable = ['installation_id', 'name', 'type', 'temp_min', 'temp_max', 'volume', 'active'];
+    protected $fillable = ['installation_id', 'name', 'type', 'temp_min', 'temp_max', 'volume', 'active', 'ordem_bombas', 'ordem_filtros'];
 
     protected $casts = [
         'active' => 'boolean',
         'temp_min' => 'decimal:1',
         'temp_max' => 'decimal:1',
         'volume' => 'decimal:2',
+        'ordem_bombas' => 'integer',
+        'ordem_filtros' => 'integer',
     ];
 
     protected static function booted(): void

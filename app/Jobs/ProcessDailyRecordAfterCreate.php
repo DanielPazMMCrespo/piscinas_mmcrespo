@@ -198,17 +198,17 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
         }
 
         $violacoes = [];
-        if ($registo->ph !== null && ! $registo->phConforme()) {
-            $violacoes[] = 'pH '.$registo->ph;
+        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
+            $violacoes[] = 'pH '.$registo->ph_efetivo;
         }
-        if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
-            $violacoes[] = 'cloro livre '.$registo->cloro_livre.' mg/L';
+        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
+            $violacoes[] = 'cloro livre '.$registo->cloro_livre_efetivo.' mg/L';
         }
-        if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
+        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
             $violacoes[] = 'cloro combinado '.$registo->cloro_combinado.' mg/L';
         }
-        if ($registo->temperatura !== null && ! $registo->temperaturaConforme()) {
-            $violacoes[] = 'temperatura '.$registo->temperatura.' ºC';
+        if ($registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme()) {
+            $violacoes[] = 'temperatura '.$registo->temperatura_efetivo.' ºC';
         }
 
         if ($violacoes === []) {

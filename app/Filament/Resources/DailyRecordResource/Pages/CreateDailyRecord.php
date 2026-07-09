@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
-
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use Filament\Actions\Action;
@@ -14,8 +13,51 @@ class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
-    /** Guarda flag para evitar duplo-submit (previne re-entrada em create()). */
     public bool $isCreating = false;
+    
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+    {
+        $commonData = [
+            'user_id' => $data['user_id'] ?? auth()->id(),
+            'registado_em' => $data['registado_em'] ?? now(),
+        ];
+        
+        if (isset($data['ns_foto'])) {
+            $commonData['ns_foto'] = is_array($data['ns_foto']) ? array_values($data['ns_foto'])[0] : $data['ns_foto'];
+        }
+        
+        $poolsData = $data['pools'] ?? [];
+        $lastRecord = null;
+        
+        foreach ($poolsData as $poolId => $poolData) {
+            $adicoes = $poolData['adicoes'] ?? [];
+            unset($poolData['adicoes']); // Remove from attributes
+            
+            $photoFields = ['bomba_foto', 'contador_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
+            foreach ($photoFields as $pf) {
+                if (isset($poolData[$pf]) && is_array($poolData[$pf])) {
+                    $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                }
+            }
+
+            $recordData = array_merge($commonData, $poolData, ['pool_id' => $poolId]);
+            $lastRecord = static::getModel()::create($recordData);
+            
+            // Gravar adicões no pivot (relacionamento 'adicoes')
+            if (!empty($adicoes)) {
+                $lastRecord->adicoes()->createMany($adicoes);
+            }
+            
+            \App\Jobs\ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, (int) auth()->id());
+        }
+        
+        return $lastRecord;
+    }
+    
+    protected function afterCreate(): void
+    {
+        app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
+    }
 
     public function create(bool $another = false): void
     {
@@ -35,14 +77,14 @@ class CreateDailyRecord extends CreateRecord
                 $this->callHook('afterValidate');
                 $data = $this->mutateFormDataBeforeCreate($data);
                 $this->callHook('beforeCreate');
+                
                 $this->record = $this->handleRecordCreation($data);
-                $this->form->model($this->getRecord())->saveRelationships();
+                
                 $this->callHook('afterCreate');
 
                 $this->commitDatabaseTransaction();
                 $this->rememberData();
 
-                // Reset form for next record
                 $this->form->model($this->getRecord()::class);
                 $this->record = null;
                 $this->fillForm();
@@ -74,11 +116,10 @@ class CreateDailyRecord extends CreateRecord
 
         $this->isCreating = false;
 
-        // Show persistent choice notification (dispatch real-time, bypass session)
         $notificacao = Notification::make()
             ->success()
             ->title('Registo guardado!')
-            ->body('O que pretende fazer a seguir?')
+            ->body('Os registos das piscinas foram guardados. O que pretende fazer a seguir?')
             ->persistent()
             ->actions([
                 NotificationAction::make('novoRegisto')
@@ -108,54 +149,39 @@ class CreateDailyRecord extends CreateRecord
                 ->label('Criar')
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar registo')
+                ->modalHeading('Confirmar registos')
                 ->modalContent(function () {
                     $data = $this->data;
-                    $pool = \App\Models\Pool::find($data['pool_id'] ?? null);
-                    $problemas = [];
-                    foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
-                        if (isset($data[$campo]) && $data[$campo] !== '') {
-                            $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $data[$campo], $pool);
+                    $poolsData = $data['pools'] ?? [];
+                    $problemasGlobais = [];
+                    
+                    foreach ($poolsData as $poolId => $poolData) {
+                        $pool = \App\Models\Pool::find($poolId);
+                        if (!$pool) continue;
+                        
+                        foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
+                            if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
+                                $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
+                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                                    $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
+                                }
+                            }
+                        }
+                        
+                        if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
+                            $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
+                            $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
                             if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                $problemas[] = $estado['mensagem'];
+                                $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
                             }
                         }
                     }
-                    if (isset($data['cloro_livre'], $data['cloro_total']) && $data['cloro_livre'] !== '' && $data['cloro_total'] !== '') {
-                        $combinado = (float)$data['cloro_total'] - (float)$data['cloro_livre'];
-                        $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
-                        if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                            $problemas[] = $estado['mensagem'];
-                        }
-                    }
-                    return view('filament.daily-record-modal-summary', ['problemas' => $problemas]);
+                    
+                    return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
                 })
                 ->modalSubmitActionLabel('Confirmar e guardar')
                 ->keyBindings(['mod+s']),
             $this->getCancelFormAction(),
         ];
     }
-
-    /**
-     * Depois de gravar o registo: (1) desconta do stock da instalação os químicos
-     * adicionados; (2) avisa os administradores se houver parâmetros fora dos limites.
-     * Delegado ao Job ProcessDailyRecordAfterCreate para não bloquear o request HTTP.
-     */
-    protected function afterCreate(): void
-    {
-        /** @var DailyRecord $registo */
-        $registo = $this->record;
-
-        // Delegar ao Job async — tem retry (3x), backoff, e não bloqueia o request.
-        \App\Jobs\ProcessDailyRecordAfterCreate::dispatch(
-            $registo->id,
-            (int) auth()->id()
-        );
-
-        // Invalida cache de alertas para que o dashboard reflicta o novo registo.
-        app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
-        // O AlertasService memoiza por-pedido, logo a próxima request HTTP já
-        // recalcula de fresco — não é preciso limpar nada aqui.
-    }
-
 }

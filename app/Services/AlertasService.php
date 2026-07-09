@@ -60,7 +60,7 @@ class AlertasService
         $cacheService = app(CacheService::class);
         $cached = $cacheService->getAlerts($utilizador?->id);
         if ($cached !== null) {
-            return $this->memo[$memoKey] = $cached;
+            return self::$memo[$memoKey] = $cached;
         }
 
         $alertas = [];
@@ -171,8 +171,8 @@ class AlertasService
 
         // Leituras em falta (registos legados) não são violações — a falta de
         // registo recente já é coberta pelo alerta "sem registo diário hoje".
-        if ($registo->ph !== null && ! $registo->phConforme()) {
-            $ph = (float) $registo->ph;
+        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
+            $ph = (float) $registo->ph_efetivo;
             $phMin = $settings->getFloat('ph_min', DailyRecord::PH_MIN);
             $phMax = $settings->getFloat('ph_max', DailyRecord::PH_MAX);
             $violacoes[] = $ph < $phMin
@@ -180,8 +180,8 @@ class AlertasService
                 : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')';
         }
 
-        if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
-            $cl = (float) $registo->cloro_livre;
+        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
+            $cl = (float) $registo->cloro_livre_efetivo;
             $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::CLORO_LIVRE_MIN);
             $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::CLORO_LIVRE_MAX);
             $violacoes[] = $cl < $clMin
@@ -189,7 +189,7 @@ class AlertasService
                 : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')';
         }
 
-        if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
+        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
             $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::CLORO_COMBINADO_MAX);
             $violacoes[] = 'cloro combinado '.$fmt((float) $registo->cloro_combinado)
                 .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')';
@@ -200,12 +200,12 @@ class AlertasService
 
     private function violacaoTemperatura(DailyRecord $registo, Pool $piscina): ?string
     {
-        if ($registo->temperatura === null || $registo->temperaturaConforme()) {
+        if ($registo->temperatura_efetivo === null || $registo->temperaturaConforme()) {
             return null;
         }
 
         $fmt = fn (float $v): string => number_format($v, 1, ',', '');
-        $temp = (float) $registo->temperatura;
+        $temp = (float) $registo->temperatura_efetivo;
 
         return $temp < (float) $piscina->temp_min
             ? 'temperatura '.$fmt($temp).' °C abaixo do mínimo ('.$fmt((float) $piscina->temp_min).')'

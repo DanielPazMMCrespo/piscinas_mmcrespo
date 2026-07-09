@@ -10,9 +10,12 @@ class Installation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'morada', 'active'];
+    protected $fillable = ['name', 'morada', 'active', 'tanques_verificaveis'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = [
+        'active' => 'boolean',
+        'tanques_verificaveis' => 'boolean',
+    ];
 
     protected static function booted(): void
     {

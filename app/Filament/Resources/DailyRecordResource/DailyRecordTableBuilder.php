@@ -50,14 +50,14 @@ class DailyRecordTableBuilder
                     ])->space(1),
 
                     Tables\Columns\Layout\Stack::make([
-                        Tables\Columns\TextColumn::make('ph')
+                        Tables\Columns\TextColumn::make('ph_efetivo')
                             ->label('pH')
                             ->formatStateUsing(fn ($state): string => 'pH '.$state)
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->phConforme() ? 'success' : 'danger')
                             ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::PH_MIN.'–'.DailyRecord::PH_MAX.')'),
-                        Tables\Columns\TextColumn::make('cloro_livre')
+                        Tables\Columns\TextColumn::make('cloro_livre_efetivo')
                             ->label('Cloro L.')
                             ->formatStateUsing(fn ($state): string => 'Cl '.$state.' mg/L')
                             ->numeric()
@@ -239,9 +239,45 @@ class DailyRecordTableBuilder
 
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
+        $isSwimmerRecord = fn (?DailyRecord $record): bool =>
+            $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
+            || ($record?->ns_ph !== null && $record?->ph === null);
+
         return $infolist
             ->schema([
+                // Swimmer (Nadador-Salvador) Simplified View
+                \Filament\Infolists\Components\Section::make('Registo do Nadador-Salvador')
+                    ->visible($isSwimmerRecord)
+                    ->schema([
+                        \Filament\Infolists\Components\Grid::make(3)
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('pool.name')
+                                    ->label('Piscina'),
+                                \Filament\Infolists\Components\TextEntry::make('user.name')
+                                    ->label('Operador'),
+                                \Filament\Infolists\Components\TextEntry::make('registado_em')
+                                    ->label('Data do Registo')
+                                    ->dateTime('d/m/Y H:i'),
+                            ]),
+                        \Filament\Infolists\Components\Section::make('Análises')
+                            ->schema([
+                                \Filament\Infolists\Components\Grid::make(4)
+                                    ->schema([
+                                        \Filament\Infolists\Components\TextEntry::make('ns_ph')->label('pH (NS)'),
+                                        \Filament\Infolists\Components\TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
+                                        \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
+                                        \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
+                                    ]),
+                                self::fotoEntry('ns_foto', 'Foto da Análise NS'),
+                            ]),
+                        \Filament\Infolists\Components\TextEntry::make('observacoes')
+                            ->label('Observações')
+                            ->visible(fn ($record) => filled($record?->observacoes)),
+                    ]),
+
+                // Full Infolist Tabs (for Technician/Admin)
                 \Filament\Infolists\Components\Tabs::make('Registo')
+                    ->visible(fn (?DailyRecord $record): bool => !$isSwimmerRecord($record))
                     ->tabs([
                         \Filament\Infolists\Components\Tabs\Tab::make('Geral')
                             ->schema([

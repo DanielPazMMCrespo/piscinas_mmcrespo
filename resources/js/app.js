@@ -408,6 +408,54 @@ document.addEventListener('alpine:init', () => {
             this.sortables.forEach((s) => s.destroy());
         },
     }));
+
+    window.Alpine.data('countdownTimer', (initialSeconds = 180) => ({
+        initialSeconds: initialSeconds,
+        remainingSeconds: initialSeconds,
+        timer: null,
+        isRunning: false,
+
+        get formattedTime() {
+            const isNeg = this.remainingSeconds < 0;
+            const absSecs = Math.abs(this.remainingSeconds);
+            const m = Math.floor(absSecs / 60).toString().padStart(2, '0');
+            const s = (absSecs % 60).toString().padStart(2, '0');
+            return `${isNeg ? '-' : ''}${m}:${s}`;
+        },
+        
+        get isExceeded() {
+            return this.remainingSeconds < 0;
+        },
+
+        toggleTimer() {
+            if (this.isRunning) {
+                this.pauseTimer();
+            } else {
+                this.startTimer();
+            }
+        },
+
+        startTimer() {
+            if (this.isRunning) return;
+            this.isRunning = true;
+            this.timer = setInterval(() => {
+                this.remainingSeconds--;
+            }, 1000);
+        },
+
+        pauseTimer() {
+            this.isRunning = false;
+            clearInterval(this.timer);
+        },
+        
+        adjustTime(seconds) {
+            this.initialSeconds += seconds;
+            if (this.initialSeconds < 60) this.initialSeconds = 60;
+            if (!this.isRunning && this.remainingSeconds > 0) {
+                this.remainingSeconds = this.initialSeconds;
+            }
+        }
+    }));
 });
 
 // Conversão e sanitização de vírgula para ponto em campos decimais.

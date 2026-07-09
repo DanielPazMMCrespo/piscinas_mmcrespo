@@ -65,24 +65,31 @@ class DailyRecordStockInsufficientTest extends TestCase
      */
     private function criarRegisto(array $adicoes): void
     {
-        $estado = [
-            'pool_id' => $this->pool->id,
-            'registado_em' => now(),
+        $poolData = [
+            'bomba_ferrada' => true,
             'ph' => 7.4,
             'cloro_livre' => 0.8,
             'cloro_total' => 1.5,
             'temperatura' => 27.0,
             'transparencia' => 1,
             'ns_ph' => 7.2,
-            'ns_cloro_livre' => 1.0,
-            'ns_cloro_total' => 1.2,
-            'ns_temperatura' => 26.0,
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'ns_cloro_livre' => 0.8,
+            'ns_cloro_total' => 1.5,
+            'ns_temperatura' => 27.0,
         ];
 
         if ($adicoes !== []) {
-            $estado['adicoes'] = $adicoes;
+            $poolData['adicoes'] = $adicoes;
         }
+
+        $estado = [
+            'installation_id' => $this->pool->installation_id,
+            'registado_em' => now(),
+            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'pools' => [
+                $this->pool->id => $poolData,
+            ]
+        ];
 
         Livewire::actingAs($this->user)
             ->test(CreateDailyRecord::class)
@@ -117,24 +124,17 @@ class DailyRecordStockInsufficientTest extends TestCase
         Livewire::actingAs($this->user)
             ->test(CreateDailyRecord::class)
             ->fillForm([
-                'pool_id' => $this->pool->id,
-                'registado_em' => now(),
-                'ph' => 7.4,
-                'cloro_livre' => 0.8,
-                'cloro_total' => 1.5,
-                'temperatura' => 27.0,
-                'transparencia' => 1,
-                'ns_ph' => 7.2,
-                'ns_cloro_livre' => 1.0,
-                'ns_cloro_total' => 1.2,
-                'ns_temperatura' => 26.0,
-                'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
-                'adicoes' => [
-                    ['product_id' => $this->product->id, 'quantity' => 10.0],
+                'installation_id' => $this->pool->installation_id,
+                'pools' => [
+                    $this->pool->id => [
+                        'adicoes' => [
+                            ['product_id' => $this->product->id, 'quantity' => 10.0],
+                        ],
+                    ]
                 ],
             ])
             ->call('create')
-            ->assertHasFormErrors(['adicoes.0.quantity']);
+            ->assertHasFormErrors(["pools.{$this->pool->id}.adicoes.0.quantity"]);
 
         $this->assertDatabaseCount('daily_records', 0);
         $this->assertSame(3.0, $this->stockAtual());
