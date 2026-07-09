@@ -196,6 +196,19 @@ class HannaCloudSync extends Command
         $foraDaBanda = abs($ph - $ds['setpoint']) > $ds['band'];
 
         if (! $foraDaBanda) {
+            // Uma única leitura a tocar a banda não limpa o episódio — só reseta
+            // depois de 2 leituras seguidas dentro da banda, para não perder o
+            // relógio por ruído pontual (a Hanna Cloud também não parece limpar
+            // o alarme "pH Overtime" com uma leitura isolada).
+            $anterior = $device->leituras()->latest('lida_em')->first();
+            $anteriorDentroDaBanda = $anterior === null
+                || $anterior->ph === null
+                || abs((float) $anterior->ph - $ds['setpoint']) <= $ds['band'];
+
+            if (! $anteriorDentroDaBanda) {
+                return;
+            }
+
             if ($device->ph_out_of_band_since !== null || $device->ph_overtime_notified_at !== null) {
                 $device->update(['ph_out_of_band_since' => null, 'ph_overtime_notified_at' => null]);
             }
@@ -203,13 +216,15 @@ class HannaCloudSync extends Command
             return;
         }
 
-        if ($device->ph_out_of_band_since === null) {
-            $device->update(['ph_out_of_band_since' => $this->inicioForaDaBanda($device, $ds)]);
+        // Recalcula sempre a partir do histórico (auto-corrige se um ciclo
+        // anterior tiver gravado um "desde" desatualizado).
+        $desde = $this->inicioForaDaBanda($device, $ds);
 
-            return;
+        if ($device->ph_out_of_band_since === null || ! $device->ph_out_of_band_since->equalTo($desde)) {
+            $device->update(['ph_out_of_band_since' => $desde]);
         }
 
-        $minutosDecorridos = $device->ph_out_of_band_since->diffInMinutes(now());
+        $minutosDecorridos = $desde->diffInMinutes(now());
 
         if ($minutosDecorridos >= $ds['overtimeMinutes'] && $device->ph_overtime_notified_at === null) {
             $device->update(['ph_overtime_notified_at' => now()]);
@@ -220,10 +235,12 @@ class HannaCloudSync extends Command
     }
 
     /**
-     * Retrocede pelo histórico de leituras já guardadas para encontrar o
-     * instante real em que o pH saiu da banda. Sem isto, o relógio de
-     * overtime reiniciaria do zero só porque esta funcionalidade acabou de
-     * ser lançada — a Hanna Cloud já vinha a contar overtime há horas.
+     * Repete a mesma máquina de estados de atualizarPhOvertime() sobre o
+     * histórico já guardado (2 leituras seguidas dentro da banda para
+     * limpar o episódio) para encontrar o instante real em que o pH saiu
+     * da banda. Sem isto, o relógio de overtime reiniciaria do zero só
+     * porque esta funcionalidade acabou de ser lançada — a Hanna Cloud já
+     * vinha a contar overtime há horas.
      *
      * @param array{setpoint: float, band: float, overtimeMinutes: int} $ds
      */
@@ -232,19 +249,32 @@ class HannaCloudSync extends Command
         $leituras = $device->leituras()
             ->latest('lida_em')
             ->limit(200)
-            ->get(['ph', 'lida_em']);
+            ->get(['ph', 'lida_em'])
+            ->reverse();
 
-        $inicio = now();
+        $desde = null;
+        $consecutivoDentro = 0;
 
         foreach ($leituras as $leitura) {
-            if ($leitura->ph === null || abs((float) $leitura->ph - $ds['setpoint']) <= $ds['band']) {
-                break;
+            if ($leitura->ph === null) {
+                continue;
             }
 
-            $inicio = $leitura->lida_em;
+            $dentroDaBanda = abs((float) $leitura->ph - $ds['setpoint']) <= $ds['band'];
+
+            if ($dentroDaBanda) {
+                if (++$consecutivoDentro >= 2) {
+                    $desde = null;
+                }
+
+                continue;
+            }
+
+            $consecutivoDentro = 0;
+            $desde ??= $leitura->lida_em;
         }
 
-        return $inicio;
+        return $desde ?? now();
     }
 
     private function discover(HannaCloudService $hanna): int
