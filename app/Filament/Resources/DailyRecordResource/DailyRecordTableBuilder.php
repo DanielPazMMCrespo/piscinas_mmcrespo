@@ -26,7 +26,7 @@ class DailyRecordTableBuilder
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
-            ->recordAction('view')
+            ->recordAction(Tables\Actions\ViewAction::class)
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
