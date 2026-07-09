@@ -155,6 +155,33 @@ class HannaCloudService
     }
 
     /**
+     * Escreve AS/GS/DS no dispositivo — mesma operação usada pelo botão
+     * "Save" da página Settings da Hanna Cloud (resolver messageToDevice).
+     * As 3 strings CSV têm de ir completas: qualquer campo omitido ou mal
+     * posicionado corrompe a configuração real do controlador. Confirma
+     * sempre com getDeviceSettings() depois de escrever.
+     */
+    public function updateDeviceSettings(string $deviceId, string $as, string $gs, string $ds): array
+    {
+        $query = <<<'GQL'
+        query DeviceSetting($deviceId: String!, $AS: String!, $GS: String!, $DS: String!) {
+          messageToDevice(deviceId: $deviceId, AS: $AS, GS: $GS, DS: $DS) {
+            data
+          }
+        }
+        GQL;
+
+        $data = $this->graphql('DeviceSetting', [
+            'deviceId' => $deviceId,
+            'AS' => $as,
+            'GS' => $gs,
+            'DS' => $ds,
+        ], $query);
+
+        return $data['messageToDevice'] ?? [];
+    }
+
+    /**
      * Definições completas de um dispositivo (inclui reportedSettings.DS —
      * setpoints/banda/overtime de dosagem — que a query de lista `devices()`
      * não devolve, só o cache reduzido com SY/GS).
