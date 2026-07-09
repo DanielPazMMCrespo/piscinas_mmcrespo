@@ -223,18 +223,47 @@ class HannaDeviceResource extends Resource
                         try {
                             $hanna = app(\App\Services\HannaCloudService::class);
                             $hanna->authenticate(config('services.hanna.email'), config('services.hanna.password'));
-                            $hanna->updateDeviceSettings($record->hanna_device_id, $as, $gs, $novoDs);
 
-                            $confirmado = $hanna->getDeviceSettings($record->hanna_device_id);
-                            if (! empty($confirmado)) {
-                                $record->update(['raw_info' => $confirmado]);
+                            $resultado = $hanna->updateDeviceSettings($record->hanna_device_id, $as, $gs, $novoDs);
+
+                            if (empty($resultado)) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Aviso: resposta vazia da Hanna')
+                                    ->body('A escrita pode não ter funcionado. Verifica o controlador e volta a sincronizar.')
+                                    ->persistent()
+                                    ->send();
+                                return;
                             }
 
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Setpoints actualizados')
-                                ->body('Novo DS: '.$novoDs)
-                                ->send();
+                            $confirmado = $hanna->getDeviceSettings($record->hanna_device_id);
+                            if (empty($confirmado)) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Falha ao confirmar escrita')
+                                    ->body('A escrita foi enviada, mas não conseguimos ler a confirmação do dispositivo.')
+                                    ->persistent()
+                                    ->send();
+                                return;
+                            }
+
+                            $record->update(['raw_info' => $confirmado]);
+                            $dsConfirmado = $confirmado['reportedSettings']['DS'] ?? null;
+
+                            if ($dsConfirmado === $novoDs) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Setpoints actualizados com sucesso')
+                                    ->body('Novo DS: '.$dsConfirmado)
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Escrita enviada, mas DS não corresponde')
+                                    ->body('Esperado: '.$novoDs.' | Recebido: '.$dsConfirmado)
+                                    ->persistent()
+                                    ->send();
+                            }
                         } catch (\Throwable $e) {
                             \Filament\Notifications\Notification::make()
                                 ->danger()
@@ -242,6 +271,7 @@ class HannaDeviceResource extends Resource
                                 ->body($e->getMessage())
                                 ->persistent()
                                 ->send();
+                            \Illuminate\Support\Facades\Log::error('HannaDevice setpoints update failed: '.$e->getMessage(), ['device' => $record->hanna_device_id]);
                         }
                     }),
 
