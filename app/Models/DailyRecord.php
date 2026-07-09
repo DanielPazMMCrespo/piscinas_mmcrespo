@@ -44,6 +44,36 @@ class DailyRecord extends Model
      */
     public const TRANSPARENCIA_MAX = 5.0;
 
+    public static function getTransparenciaMax(): float
+    {
+        return self::TRANSPARENCIA_MAX;
+    }
+
+    public static function getPhMin(): float
+    {
+        return self::PH_MIN;
+    }
+
+    public static function getPhMax(): float
+    {
+        return self::PH_MAX;
+    }
+
+    public static function getCloroLivreMin(): float
+    {
+        return self::CLORO_LIVRE_MIN;
+    }
+
+    public static function getCloroLivreMax(): float
+    {
+        return self::CLORO_LIVRE_MAX;
+    }
+
+    public static function getCloroCombinadoMax(): float
+    {
+        return self::CLORO_COMBINADO_MAX;
+    }
+
     /**
      * Mapa central das métricas com limites legais — fonte única para o semáforo
      * de conformidade do formulário, validações e relatórios.
