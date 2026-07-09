@@ -180,20 +180,20 @@ document.addEventListener('alpine:init', () => {
         },
 
         buildDataset(ds, yAxisID, cor) {
+            const isDense = ds.data.length > 25;
             return {
                 label: ds.label,
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor,
-                borderWidth: 2.5,
-                // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
-                pointRadius: ds.data.length <= 60 ? 3 : 0,
+                backgroundColor: cor + '1A', // 10% opacidade para um gradiente subtil e elegante
+                fill: true,
+                borderWidth: 2,
+                pointRadius: isDense ? 0 : 3, // Oculta bolinhas em séries densas para não criar grumos
                 pointHoverRadius: 5,
-                tension: 0.3,
+                tension: 0.2, // Suavização equilibrada que não distorce picos bruscos
                 spanGaps: false,
                 order: 1,
-                ...(ds.dashed ? { borderDash: [5, 5] } : {}),
             };
         },
 
@@ -270,11 +270,11 @@ document.addEventListener('alpine:init', () => {
                             zoom: {
                                 wheel: { enabled: true, modifierKey: 'ctrl' },
                                 pinch: { enabled: true },
-                                mode: 'x',
+                                mode: 'xy',
                             },
                             pan: {
                                 enabled: true,
-                                mode: 'x',
+                                mode: 'xy',
                             },
                         },
                         annotation: {
@@ -298,8 +298,8 @@ document.addEventListener('alpine:init', () => {
                         y: {
                             type: 'linear',
                             position: 'left',
-                            min: left.yMin,
-                            max: left.yMax,
+                            suggestedMin: left.yMin,
+                            suggestedMax: left.yMax,
                             grid: { color: c.grelha },
                             ticks: { color: left.cor },
                             title: {
@@ -312,8 +312,8 @@ document.addEventListener('alpine:init', () => {
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            min: right.yMin,
-                            max: right.yMax,
+                            suggestedMin: right.yMin,
+                            suggestedMax: right.yMax,
                             grid: { drawOnChartArea: false },
                             ticks: { color: right.cor },
                             title: {

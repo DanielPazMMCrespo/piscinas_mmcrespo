@@ -174,8 +174,8 @@ class AlertasService
         // registo recente já é coberta pelo alerta "sem registo diário hoje".
         if ($registo->ph !== null && ! $registo->phConforme()) {
             $ph = (float) $registo->ph;
-            $phMin = $settings->getFloat('ph_min', DailyRecord::PH_MIN);
-            $phMax = $settings->getFloat('ph_max', DailyRecord::PH_MAX);
+            $phMin = $settings->getFloat('ph_min', DailyRecord::getPhMin());
+            $phMax = $settings->getFloat('ph_max', DailyRecord::getPhMax());
             $violacoes[] = $ph < $phMin
                 ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
                 : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')';
@@ -183,15 +183,15 @@ class AlertasService
 
         if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
             $cl = (float) $registo->cloro_livre;
-            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::CLORO_LIVRE_MIN);
-            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::CLORO_LIVRE_MAX);
+            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::getCloroLivreMin());
+            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::getCloroLivreMax());
             $violacoes[] = $cl < $clMin
                 ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
                 : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')';
         }
 
         if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
-            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::CLORO_COMBINADO_MAX);
+            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::getCloroCombinadoMax());
             $violacoes[] = 'cloro combinado '.$fmt((float) $registo->cloro_combinado)
                 .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')';
         }

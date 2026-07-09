@@ -63,58 +63,60 @@ class DefinicoesSistema extends Page
                             ->label('pH Mínimo')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 6.9'),
                         TextInput::make('ph_max')
                             ->label('pH Máximo')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 8.0'),
                         TextInput::make('cloro_livre_min')
                             ->label('Cloro Livre Mínimo (mg/L)')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 0.5'),
                         TextInput::make('cloro_livre_max')
                             ->label('Cloro Livre Máximo (mg/L)')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 2.0'),
                         TextInput::make('cloro_combinado_max')
                             ->label('Cloro Combinado Máximo (mg/L)')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 0.6'),
                         TextInput::make('transparencia_max')
                             ->label('Turbidez Máxima (FNU)')
                             ->numeric()
                             ->step(0.1)
-                            ->required()
                             ->helperText('Padrão original: 5.0'),
                         TextInput::make('aviso_amarelo_margem')
                             ->label('Margem de Aviso Amarelo (%)')
                             ->numeric()
                             ->step(1)
-                            ->required()
                             ->suffix('%')
                             ->helperText('Aproximação do limite (Padrão: 10%)'),
                     ])->columns(2),
 
-                Section::make('Limitações de Uploads')
-                    ->description('Definições para fotos e ficheiros.')
-                    ->icon('heroicon-o-arrow-up-tray')
+                Section::make('Tempos e Prazos')
+                    ->description('Configuração de tempos de validade e alertas de falhas.')
+                    ->icon('heroicon-o-clock')
                     ->collapsible()
                     ->schema([
-                        TextInput::make('max_fotos_analise')
-                            ->label('Máx. Fotos por Análise')
+                        TextInput::make('sensor_fresco_minutos')
+                            ->label('Validade da Leitura do Dashboard (Minutos)')
                             ->numeric()
-                            ->required()
-                            ->helperText('Número máximo de fotos num registo diário (Padrão: 5)'),
+                            ->helperText('Até quanto tempo a leitura da sonda é considerada "válida" no painel. (Padrão: 240)'),
+                        TextInput::make('sensor_timeout_minutos')
+                            ->label('Timeout da Sonda (Minutos)')
+                            ->numeric()
+                            ->helperText('Tempo sem resposta da sonda até disparar o alerta de falha de comunicação. (Padrão: 30)'),
+                        TextInput::make('convite_validade_horas')
+                            ->label('Validade do Convite (Horas)')
+                            ->numeric()
+                            ->helperText('Quanto tempo o link do convite demora a expirar. (Padrão: 48)'),
                     ]),
+
+
 
                 Section::make('Templates de Email')
                     ->description('Personalize o assunto e corpo dos emails automáticos enviados pela aplicação.')
@@ -123,13 +125,11 @@ class DefinicoesSistema extends Page
                     ->schema([
                         TextInput::make('email_convite_assunto')
                             ->label('Assunto do Email (Convite)')
-                            ->required()
                             ->placeholder('Convite — Piscinas MMCrespo')
                             ->helperText('Predefinição: Convite — Piscinas MMCrespo')
                             ->columnSpanFull(),
                         \Filament\Forms\Components\Textarea::make('email_convite_mensagem')
                             ->label('Mensagem do Corpo (Convite)')
-                            ->required()
                             ->rows(3)
                             ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
                             ->helperText('Predefinição: Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')

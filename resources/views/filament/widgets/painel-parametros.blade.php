@@ -57,7 +57,7 @@
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Ctrl+Scroll para zoom &middot; Arrastar para pan
+                            Ctrl+Scroll para zoom &middot; Arrastar para mover
                         </span>
                         <button
                             x-on:click="resetZoom()"

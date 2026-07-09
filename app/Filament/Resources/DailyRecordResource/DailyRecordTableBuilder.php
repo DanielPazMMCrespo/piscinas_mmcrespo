@@ -56,14 +56,14 @@ class DailyRecordTableBuilder
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->phConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::PH_MIN.'–'.DailyRecord::PH_MAX.')'),
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::getPhMin().'–'.DailyRecord::getPhMax().')'),
                         Tables\Columns\TextColumn::make('cloro_livre')
                             ->label('Cloro L.')
                             ->formatStateUsing(fn ($state): string => 'Cl '.$state.' mg/L')
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->cloroLivreConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::CLORO_LIVRE_MIN.'–'.DailyRecord::CLORO_LIVRE_MAX.' mg/L)'),
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::getCloroLivreMin().'–'.DailyRecord::getCloroLivreMax().' mg/L)'),
                         Tables\Columns\TextColumn::make('transparencia')
                             ->label('Turbidez')
                             ->formatStateUsing(fn ($state): string => $state.' FNU')
@@ -170,7 +170,7 @@ class DailyRecordTableBuilder
                             ]),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::getTransparenciaMax()),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()

@@ -6,12 +6,16 @@ namespace App\Http\Middleware;
 
 use App\Models\SensorReading;
 use Closure;
+use App\Services\SettingsService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureHannaReadingsAreFresh
 {
+    public function __construct(
+        private SettingsService $settings
+    ) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         // Apenas em GET requests (não POST/PUT/DELETE).
@@ -26,9 +30,12 @@ class EnsureHannaReadingsAreFresh
             return $next($request);
         }
 
+        $timeoutMinutos = $this->settings->getInt('sensor_timeout_minutos', 30);
+
+        // Verifica se há alguma leitura mais recente que o timeout configurado.
         if (
             $ultimaLeitura === null
-            || abs((int) now()->diffInMinutes($ultimaLeitura)) > 30
+            || abs((int) now()->diffInMinutes($ultimaLeitura)) > $timeoutMinutos
         ) {
             // Leituras ausentes ou stale — sincroniza silenciosamente em background após a resposta.
             try {

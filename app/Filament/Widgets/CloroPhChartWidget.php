@@ -44,51 +44,54 @@ class CloroPhChartWidget extends Widget implements HasForms
         return $query;
     }
 
-    private const METRICAS = [
-        'cloro_livre' => [
-            'label' => 'Cloro Livre', 'unidade' => 'mg/L', 'casas' => 2,
-            'min' => 0.0, 'max' => 2.5, 'cor' => '#2b9cd8',
-            'banda' => ['min' => DailyRecord::CLORO_LIVRE_MIN, 'max' => DailyRecord::CLORO_LIVRE_MAX],
-        ],
-        'cloro_total' => [
-            'label' => 'Cloro Total', 'unidade' => 'mg/L', 'casas' => 2,
-            'min' => 0.0, 'max' => 3.0, 'cor' => '#0e7490',
-            'banda' => null,
-        ],
-        'ph' => [
-            'label' => 'pH', 'unidade' => '', 'casas' => 2,
-            'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
-            'banda' => ['min' => DailyRecord::PH_MIN, 'max' => DailyRecord::PH_MAX],
-        ],
-        'temperatura' => [
-            'label' => 'Temperatura', 'unidade' => '°C', 'casas' => 1,
-            'min' => 22.0, 'max' => 32.0, 'cor' => '#e0a800',
-            'banda' => null,
-        ],
-        'transparencia' => [
-            'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 2,
-            'min' => 0.0, 'max' => 1.0, 'cor' => '#8b5cf6',
-            'banda' => null,
-        ],
-        'controlador_ph' => [
-            'label' => 'Controlador — pH', 'unidade' => '', 'casas' => 2,
-            'min' => 6.5, 'max' => 8.5, 'cor' => '#059669',
-            'banda' => ['min' => DailyRecord::PH_MIN, 'max' => DailyRecord::PH_MAX],
-            'sensor_campo' => 'ph',
-        ],
-        'controlador_orp' => [
-            'label' => 'Controlador — ORP', 'unidade' => 'mV', 'casas' => 0,
-            'min' => 580.0, 'max' => 820.0, 'cor' => '#d97706',
-            'banda' => ['min' => 660, 'max' => 750],
-            'sensor_campo' => 'orp',
-        ],
-        'controlador_temp' => [
-            'label' => 'Controlador — Temp. Água', 'unidade' => '°C', 'casas' => 1,
-            'min' => 22.0, 'max' => 32.0, 'cor' => '#dc2626',
-            'banda' => null,
-            'sensor_campo' => 'temperatura_agua',
-        ],
-    ];
+    private static function getMetricas(): array
+    {
+        return [
+            'cloro_livre' => [
+                'label' => 'Cloro Livre', 'unidade' => 'mg/L', 'casas' => 2,
+                'min' => 0.0, 'max' => 2.5, 'cor' => '#2b9cd8',
+                'banda' => ['min' => DailyRecord::getCloroLivreMin(), 'max' => DailyRecord::getCloroLivreMax()],
+            ],
+            'cloro_total' => [
+                'label' => 'Cloro Total', 'unidade' => 'mg/L', 'casas' => 2,
+                'min' => 0.0, 'max' => 3.0, 'cor' => '#0e7490',
+                'banda' => null,
+            ],
+            'ph' => [
+                'label' => 'pH', 'unidade' => '', 'casas' => 2,
+                'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
+                'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
+            ],
+            'temperatura' => [
+                'label' => 'Temperatura', 'unidade' => '°C', 'casas' => 1,
+                'min' => 22.0, 'max' => 32.0, 'cor' => '#e0a800',
+                'banda' => null,
+            ],
+            'transparencia' => [
+                'label' => 'Turbidez', 'unidade' => 'FNU', 'casas' => 2,
+                'min' => 0.0, 'max' => 1.0, 'cor' => '#8b5cf6',
+                'banda' => null,
+            ],
+            'controlador_ph' => [
+                'label' => 'Controlador — pH', 'unidade' => '', 'casas' => 2,
+                'min' => 6.5, 'max' => 8.5, 'cor' => '#059669',
+                'banda' => ['min' => DailyRecord::getPhMin(), 'max' => DailyRecord::getPhMax()],
+                'sensor_campo' => 'ph',
+            ],
+            'controlador_orp' => [
+                'label' => 'Controlador — ORP', 'unidade' => 'mV', 'casas' => 0,
+                'min' => 580.0, 'max' => 820.0, 'cor' => '#d97706',
+                'banda' => ['min' => 660, 'max' => 750],
+                'sensor_campo' => 'orp',
+            ],
+            'controlador_temp' => [
+                'label' => 'Controlador — Temp. Água', 'unidade' => '°C', 'casas' => 1,
+                'min' => 22.0, 'max' => 32.0, 'cor' => '#dc2626',
+                'banda' => null,
+                'sensor_campo' => 'temperatura_agua',
+            ],
+        ];
+    }
 
     public function mount(): void
     {
@@ -119,7 +122,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
-        $opcoesMetricas = collect(self::METRICAS)
+        $opcoesMetricas = collect(self::getMetricas())
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
@@ -209,11 +212,12 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function buildMetricAxis(string $metricKey): array
     {
-        if (! array_key_exists($metricKey, self::METRICAS)) {
+        $metricas = self::getMetricas();
+        if (! array_key_exists($metricKey, $metricas)) {
             return [];
         }
 
-        $def = self::METRICAS[$metricKey];
+        $def = $metricas[$metricKey];
         $poolId = (int) $this->poolSelecionada;
         $start = $this->getPeriodStart();
         $end = $this->getPeriodEnd();
@@ -237,12 +241,19 @@ class CloroPhChartWidget extends Widget implements HasForms
                     'y' => round((float) $r->{$campo}, $def['casas']),
                 ])->values()->toArray();
 
-            $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => true];
+            $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => false];
         } else {
             $campo = $metricKey;
+            $campoNs = 'ns_' . $campo;
+            $hasNs = in_array($campoNs, ['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'], true);
+
+            $selects = ['registado_em', $campo];
+            if ($hasNs) {
+                $selects[] = $campoNs;
+            }
 
             $rows = DailyRecord::query()
-                ->select(['registado_em', $campo])
+                ->select($selects)
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
                 ->where('registado_em', '<=', $end)
@@ -250,10 +261,10 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
-            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
+            $data = $rows->filter(fn ($r) => $r->{$campo} !== null || ($hasNs && $r->{$campoNs} !== null))
                 ->map(fn ($r) => [
                     'x' => $r->registado_em->toIso8601String(),
-                    'y' => round((float) $r->{$campo}, $def['casas']),
+                    'y' => round((float) ($r->{$campo} ?? $r->{$campoNs}), $def['casas']),
                 ])->values()->toArray();
 
             $datasets[] = [
@@ -282,12 +293,13 @@ class CloroPhChartWidget extends Widget implements HasForms
             return [];
         }
 
-        $leftKey = array_key_exists($this->leftMetric, self::METRICAS) ? $this->leftMetric : 'ph';
-        $rightKey = array_key_exists($this->rightMetric, self::METRICAS) ? $this->rightMetric : 'controlador_orp';
+        $metricas = self::getMetricas();
+        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
+        $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
 
         // Cache only for long-period, manual-only queries (sensor data changes every 15 min).
-        $leftIsSensor = isset(self::METRICAS[$leftKey]['sensor_campo']);
-        $rightIsSensor = isset(self::METRICAS[$rightKey]['sensor_campo']);
+        $leftIsSensor = isset($metricas[$leftKey]['sensor_campo']);
+        $rightIsSensor = isset($metricas[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
         $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
@@ -329,7 +341,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         $end = $this->getPeriodEnd();
 
         $manual = DailyRecord::query()
-            ->select(['registado_em', 'ph', 'cloro_livre', 'cloro_total', 'transparencia', 'temperatura'])
+            ->select(['registado_em', 'ph', 'ns_ph', 'cloro_livre', 'ns_cloro_livre', 'cloro_total', 'ns_cloro_total', 'transparencia', 'temperatura', 'ns_temperatura'])
             ->where('pool_id', $poolId)
             ->where('registado_em', '>=', $start)
             ->where('registado_em', '<=', $end)
@@ -337,14 +349,21 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->orderByDesc('registado_em')
             ->limit(500)
             ->get()
-            ->map(fn ($r) => [
-                'data'        => $r->registado_em->format('d/m H:i'),
-                'ph'          => $r->ph !== null ? number_format((float) $r->ph, 2, ',', '') : '—',
-                'cloro_livre' => $r->cloro_livre !== null ? number_format((float) $r->cloro_livre, 2, ',', '') : '—',
-                'cloro_total' => $r->cloro_total !== null ? number_format((float) $r->cloro_total, 2, ',', '') : '—',
-                'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
-                'temperatura' => $r->temperatura !== null ? number_format((float) $r->temperatura, 1, ',', '') : '—',
-            ])->toArray();
+            ->map(function ($r) {
+                $ph = $r->ph ?? $r->ns_ph;
+                $cl = $r->cloro_livre ?? $r->ns_cloro_livre;
+                $ct = $r->cloro_total ?? $r->ns_cloro_total;
+                $temp = $r->temperatura ?? $r->ns_temperatura;
+                
+                return [
+                    'data'        => $r->registado_em->format('d/m H:i'),
+                    'ph'          => $ph !== null ? number_format((float) $ph, 2, ',', '') : '—',
+                    'cloro_livre' => $cl !== null ? number_format((float) $cl, 2, ',', '') : '—',
+                    'cloro_total' => $ct !== null ? number_format((float) $ct, 2, ',', '') : '—',
+                    'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
+                    'temperatura' => $temp !== null ? number_format((float) $temp, 1, ',', '') : '—',
+                ];
+            })->toArray();
 
         $sensor = SensorReading::query()
             ->select(['lida_em', 'ph', 'orp', 'temperatura_agua'])

@@ -1,9 +1,12 @@
 <?php declare(strict_types=1);
-namespace App\Filament\Pages;
 
+namespace App\Filament\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
+use Filament\Actions\Action;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Pages\Page;
 
 /**
@@ -11,8 +14,10 @@ use Filament\Pages\Page;
  * (Registos Diários, Incidentes), mostra um ecrã de escolha. Reduz o ruído
  * da sidebar sem esconder nenhuma das duas funcionalidades.
  */
-class OperacaoHub extends Page
+class OperacaoHub extends Page implements HasActions
 {
+    use InteractsWithActions;
+
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
 
     protected static ?string $navigationGroup = 'Operação';
@@ -28,6 +33,16 @@ class OperacaoHub extends Page
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
+    }
+
+    public function registoDiarioAction(): Action
+    {
+        return Action::make('registoDiario')
+            ->modalHeading('Registo Diário')
+            ->modalWidth('md')
+            ->modalSubmitAction(false)
+            ->modalCancelAction(false)
+            ->modalContent(view('filament.pages.operacao-hub-modal'));
     }
 
     public function getDailyRecordUrl(): ?string

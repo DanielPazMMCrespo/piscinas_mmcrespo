@@ -4,7 +4,7 @@
 <div class="flex items-center gap-3">
     <x-filament::button
         type="button"
-        wire:click="submeterFormulario"
+        wire:click="create"
         icon="heroicon-o-check-circle"
     >
         {{ $label }}
