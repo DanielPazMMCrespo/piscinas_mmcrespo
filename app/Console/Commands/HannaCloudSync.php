@@ -202,7 +202,7 @@ class HannaCloudSync extends Command
         }
 
         if ($device->ph_out_of_band_since === null) {
-            $device->update(['ph_out_of_band_since' => now()]);
+            $device->update(['ph_out_of_band_since' => $this->inicioForaDaBanda($device, $ds)]);
 
             return;
         }
@@ -215,6 +215,34 @@ class HannaCloudSync extends Command
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
             Notification::send($adminsETecnicos, new HannaOvertimeAlert($device, $ph, $ds));
         }
+    }
+
+    /**
+     * Retrocede pelo histórico de leituras já guardadas para encontrar o
+     * instante real em que o pH saiu da banda. Sem isto, o relógio de
+     * overtime reiniciaria do zero só porque esta funcionalidade acabou de
+     * ser lançada — a Hanna Cloud já vinha a contar overtime há horas.
+     *
+     * @param array{setpoint: float, band: float, overtimeMinutes: int} $ds
+     */
+    private function inicioForaDaBanda(HannaDevice $device, array $ds): Carbon
+    {
+        $leituras = $device->leituras()
+            ->latest('lida_em')
+            ->limit(200)
+            ->get(['ph', 'lida_em']);
+
+        $inicio = now();
+
+        foreach ($leituras as $leitura) {
+            if ($leitura->ph === null || abs((float) $leitura->ph - $ds['setpoint']) <= $ds['band']) {
+                break;
+            }
+
+            $inicio = $leitura->lida_em;
+        }
+
+        return $inicio;
     }
 
     private function discover(HannaCloudService $hanna): int
