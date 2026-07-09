@@ -34,14 +34,14 @@ use Illuminate\Support\Str;
 class AlertasService
 {
     /** Memo por-pedido: o hero e o Kanban partilham o mesmo cálculo. */
-    private array $memo = [];
+    private static array $memo = [];
 
     /**
      * Limpa o memo.
      */
-    public function resetMemo(): void
+    public static function resetMemo(): void
     {
-        $this->memo = [];
+        self::$memo = [];
     }
 
     /**
@@ -52,8 +52,8 @@ class AlertasService
         $memoKey = (string) ($utilizador?->id ?? 'guest');
 
         // Verifica memo em-memória primeiro (dentro do mesmo request).
-        if (isset($this->memo[$memoKey])) {
-            return $this->memo[$memoKey];
+        if (isset(self::$memo[$memoKey])) {
+            return self::$memo[$memoKey];
         }
 
         // Verifica cache (Redis/Database — 5 min TTL).
@@ -160,7 +160,7 @@ class AlertasService
         // Guarda em cache (5 min TTL — crítico para dashboard).
         $cacheService->cacheAlerts($utilizador?->id, $resultado, 5);
 
-        return $this->memo[$memoKey] = $resultado;
+        return self::$memo[$memoKey] = $resultado;
     }
 
     private function violacoesLegais(DailyRecord $registo): array
