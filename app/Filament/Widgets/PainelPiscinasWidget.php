@@ -17,7 +17,7 @@ use Filament\Widgets\Widget;
  *  - o último registo manual válido (não substituído por correção), avaliado
  *    contra os limites CN 14/DA;
  *  - a última leitura do controlador Hanna (BL132) mapeada à piscina, se existir,
- *    com indicação de idade (stale > 15 min, o intervalo de envio do BL132).
+ *    com indicação de idade (stale > 1h / 60 min).
  *
  * Ação direta: "Registar" por piscina (pré-seleciona a piscina no formulário).
  */
@@ -143,7 +143,7 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 15;
+            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60;
 
             $usarRegistoManual = ! $controladorOnline
                 && $registo !== null
