@@ -150,6 +150,28 @@ class HannaCloudService
     }
 
     /**
+     * Definições completas de um dispositivo (inclui reportedSettings.DS —
+     * setpoints/banda/overtime de dosagem — que a query de lista `devices()`
+     * não devolve, só o cache reduzido com SY/GS).
+     */
+    public function getDeviceSettings(string $deviceId): array
+    {
+        $query = <<<'GQL'
+        query getDeviceData($deviceId: String) {
+          getBlDeviceData(deviceId: $deviceId) {
+            DID DM modelGroup DT
+            DINFO { deviceName userId emailId tankId tankName }
+            reportedSettings
+          }
+        }
+        GQL;
+
+        $data = $this->graphql('getDeviceData', ['deviceId' => $deviceId], $query);
+
+        return $data['getBlDeviceData'] ?? [];
+    }
+
+    /**
      * Histórico de leituras para um device entre duas datas.
      * Devolve o array `deviceLogHistory` tal como vem da API.
      */
