@@ -7,16 +7,6 @@ const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').mat
 // Avoids duplicate plugin registration and duplicate dynamic imports.
 let ChartWithPlugins = null;
 
-// _hasData (payload.left/right existem) só diz que há uma piscina selecionada
-// e uma estrutura de eixos válida — não que haja pontos para desenhar. Sem
-// isto, um período sem registos mostra um gráfico vazio (só a banda legal)
-// em vez de uma mensagem clara.
-function payloadHasSeries(payload) {
-    if (!payload?.left || !payload?.right) return false;
-    const hasPoints = (axis) => (axis?.datasets ?? []).some((d) => (d?.data ?? []).length > 0);
-    return hasPoints(payload.left) || hasPoints(payload.right);
-}
-
 /**
  * Componente Alpine para os gráficos de parâmetros (dual Y-axis, zoom/pan, time scale).
  *
@@ -40,7 +30,6 @@ document.addEventListener('alpine:init', () => {
         _offChartUpdate: null,
         _payload: initialPayload,
         _hasData: !!(initialPayload?.left && initialPayload?.right),
-        _hasSeries: payloadHasSeries(initialPayload),
         _renderRetries: 0,
 
         async init() {
@@ -90,7 +79,6 @@ document.addEventListener('alpine:init', () => {
                     this._payload = payload;
                     const hadData = this._hasData;
                     this._hasData = !!(payload?.left && payload?.right);
-                    this._hasSeries = payloadHasSeries(payload);
 
                     if (this._hasData) {
                         // $nextTick garante que x-show já processou _hasData=true
@@ -180,20 +168,20 @@ document.addEventListener('alpine:init', () => {
         },
 
         buildDataset(ds, yAxisID, cor) {
-            const isDense = ds.data.length > 25;
             return {
                 label: ds.label,
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor + '1A', // 10% opacidade para um gradiente subtil e elegante
-                fill: true,
-                borderWidth: 2,
-                pointRadius: isDense ? 0 : 3, // Oculta bolinhas em séries densas para não criar grumos
+                backgroundColor: cor,
+                borderWidth: 2.5,
+                // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
+                pointRadius: ds.data.length <= 60 ? 3 : 0,
                 pointHoverRadius: 5,
-                tension: 0.2, // Suavização equilibrada que não distorce picos bruscos
+                tension: 0.3,
                 spanGaps: false,
                 order: 1,
+                ...(ds.dashed ? { borderDash: [5, 5] } : {}),
             };
         },
 
@@ -270,11 +258,11 @@ document.addEventListener('alpine:init', () => {
                             zoom: {
                                 wheel: { enabled: true, modifierKey: 'ctrl' },
                                 pinch: { enabled: true },
-                                mode: 'xy',
+                                mode: 'x',
                             },
                             pan: {
                                 enabled: true,
-                                mode: 'xy',
+                                mode: 'x',
                             },
                         },
                         annotation: {
@@ -298,8 +286,8 @@ document.addEventListener('alpine:init', () => {
                         y: {
                             type: 'linear',
                             position: 'left',
-                            suggestedMin: left.yMin,
-                            suggestedMax: left.yMax,
+                            min: left.yMin,
+                            max: left.yMax,
                             grid: { color: c.grelha },
                             ticks: { color: left.cor },
                             title: {
@@ -312,8 +300,8 @@ document.addEventListener('alpine:init', () => {
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            suggestedMin: right.yMin,
-                            suggestedMax: right.yMax,
+                            min: right.yMin,
+                            max: right.yMax,
                             grid: { drawOnChartArea: false },
                             ticks: { color: right.cor },
                             title: {
@@ -330,196 +318,94 @@ document.addEventListener('alpine:init', () => {
     }));
 
     /**
-     * Timer de retrolavagem: modal ecrã cheio ao iniciar, colapsa numa pill fixa
-     * no topo ao tocar fora. Persistido em localStorage (timestamp absoluto de
-     * fim, scoped por piscina) para sobreviver a reload/bloqueio de ecrã.
+     * Quadro Kanban operacional: drag-and-drop entre colunas (SortableJS)
+     * com persistência via Livewire (moverAlerta) e entrada animada (GSAP).
      */
-    window.Alpine.data('mmcTimerRetrolavagem', (configTimers) => ({
-        timers: {},
-        intervaloId: null,
-        ouvinteEvento: null,
+    window.Alpine.data('mmcKanban', () => ({
+        sortables: [],
+        SortableClass: null,
+        gsapObj: null,
 
-        init() {
-            configTimers.forEach((cfg) => {
-                this.timers[cfg.campo] = {
-                    label: cfg.label,
-                    duracaoSegundos: cfg.duracaoSegundos,
-                    fimEm: null,
-                    segundosRestantesPausado: null,
-                    pausado: false,
-                    terminado: false,
-                    modalAberto: false,
-                    pillVisivel: false,
-                    mostrarEditor: false,
-                };
-                this.restaurar(cfg.campo);
+        async init() {
+            if (!this.SortableClass || !this.gsapObj) {
+                const [sortableModule, gsapModule] = await Promise.all([
+                    import('sortablejs'),
+                    import('gsap')
+                ]);
+                this.SortableClass = sortableModule.default;
+                this.gsapObj = gsapModule.gsap;
+            }
+
+            this.montar();
+
+            // O Livewire substitui o DOM das listas após cada movimento/polling —
+            // destrói e volta a montar o Sortable para não ficar órfão.
+            Livewire.hook('morph.updated', ({ el }) => {
+                if (el === this.$el || this.$el.contains(el)) {
+                    clearTimeout(this._remount);
+                    this._remount = setTimeout(() => this.montar(), 50);
+                }
             });
 
-            this.intervaloId = setInterval(() => this.atualizarTodos(), 250);
+            if (!reduzMovimento) {
+                this.gsapObj.from(this.$el.querySelectorAll('.mmc-kb-card'), {
+                    y: 14, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'all',
+                });
+            }
+        },
 
-            this.ouvinteEvento = (evento) => {
-                const campo = evento.detail?.campo;
-                if (campo && this.timers[campo]) {
-                    this.iniciar(campo);
+        montar() {
+            this.sortables = this.sortables.filter((s) => {
+                if (!document.body.contains(s.el)) {
+                    s.destroy();
+                    return false;
                 }
-            };
-            window.addEventListener('mmc-timer-iniciar', this.ouvinteEvento);
+                return true;
+            });
+
+            this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
+                if (lista.dataset.sortableId) {
+                    return;
+                }
+
+                const sortableId = 'sortable_' + Math.random().toString(36).substr(2, 9);
+                lista.dataset.sortableId = sortableId;
+
+                this.sortables.push(this.SortableClass.create(lista, {
+                    group: 'mmc-kanban',
+                    animation: 150,
+                    ghostClass: 'mmc-kb-ghost',
+                    dragClass: 'mmc-kb-drag',
+                    // Nos ecrãs táteis o arrasto exige pressão longa para não
+                    // lutar com o scroll horizontal das colunas.
+                    delay: 150,
+                    delayOnTouchOnly: true,
+                    filter: '.mmc-kb-btn, a',
+                    preventOnFilter: false,
+                    onMove: (evt) => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                        evt.to?.closest('.mmc-kb-col')?.classList.add('mmc-kb-col--over');
+                        return true;
+                    },
+                    onEnd: () => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                    },
+                    onAdd: (evt) => {
+                        const key = evt.item?.dataset?.key;
+                        const status = evt.to?.dataset?.status;
+                        if (key && status) {
+                            if (!reduzMovimento) {
+                                this.gsapObj.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
+                            }
+                            this.$wire.moverAlerta(key, status);
+                        }
+                    },
+                }));
+            });
         },
 
         destroy() {
-            clearInterval(this.intervaloId);
-            if (this.ouvinteEvento) {
-                window.removeEventListener('mmc-timer-iniciar', this.ouvinteEvento);
-            }
-        },
-
-        poolIdAtual() {
-            return this.$wire?.data?.pool_id ?? 'sem_piscina';
-        },
-
-        chaveArmazenamento(campo) {
-            return `mmc_timer_${this.poolIdAtual()}_${campo}`;
-        },
-
-        restaurar(campo) {
-            const guardado = localStorage.getItem(this.chaveArmazenamento(campo));
-            if (!guardado) return;
-
-            let dados;
-            try {
-                dados = JSON.parse(guardado);
-            } catch (erro) {
-                localStorage.removeItem(this.chaveArmazenamento(campo));
-                return;
-            }
-
-            if (dados.fimEm && dados.fimEm > Date.now()) {
-                this.timers[campo].duracaoSegundos = dados.duracaoSegundos;
-                this.timers[campo].fimEm = dados.fimEm;
-                this.timers[campo].pillVisivel = true;
-            } else {
-                localStorage.removeItem(this.chaveArmazenamento(campo));
-            }
-        },
-
-        guardar(campo) {
-            const t = this.timers[campo];
-            localStorage.setItem(this.chaveArmazenamento(campo), JSON.stringify({
-                duracaoSegundos: t.duracaoSegundos,
-                fimEm: t.fimEm,
-            }));
-        },
-
-        limpar(campo) {
-            localStorage.removeItem(this.chaveArmazenamento(campo));
-        },
-
-        iniciar(campo) {
-            const t = this.timers[campo];
-            t.terminado = false;
-            t.pausado = false;
-            t.fimEm = Date.now() + t.duracaoSegundos * 1000;
-            t.modalAberto = true;
-            t.pillVisivel = false;
-            this.guardar(campo);
-        },
-
-        atualizarTodos() {
-            Object.keys(this.timers).forEach((campo) => this.atualizar(campo));
-        },
-
-        atualizar(campo) {
-            const t = this.timers[campo];
-            if (t.pausado || t.fimEm === null || t.terminado) return;
-
-            if (this.segundosRestantes(campo) <= 0) {
-                t.terminado = true;
-                t.pillVisivel = true;
-                this.guardar(campo);
-                this.notificarFim();
-            }
-        },
-
-        segundosRestantes(campo) {
-            const t = this.timers[campo];
-            if (t.fimEm === null) return 0;
-            return Math.max(0, Math.round((t.fimEm - Date.now()) / 1000));
-        },
-
-        progresso(campo) {
-            const t = this.timers[campo];
-            if (t.duracaoSegundos <= 0) return 0;
-            return Math.min(1, 1 - this.segundosRestantes(campo) / t.duracaoSegundos);
-        },
-
-        formatoTempo(campo) {
-            const total = this.segundosRestantes(campo);
-            const minutos = Math.floor(total / 60).toString().padStart(2, '0');
-            const segundos = (total % 60).toString().padStart(2, '0');
-            return `${minutos}:${segundos}`;
-        },
-
-        algumaPillVisivel() {
-            return Object.values(this.timers).some((t) => t.pillVisivel);
-        },
-
-        colapsar(campo) {
-            this.timers[campo].modalAberto = false;
-            this.timers[campo].pillVisivel = true;
-        },
-
-        expandir(campo) {
-            this.timers[campo].modalAberto = true;
-            this.timers[campo].pillVisivel = false;
-        },
-
-        cancelar(campo) {
-            const t = this.timers[campo];
-            t.modalAberto = false;
-            t.pillVisivel = false;
-            t.terminado = false;
-            t.pausado = false;
-            t.fimEm = null;
-            this.limpar(campo);
-        },
-
-        alternarPausa(campo) {
-            const t = this.timers[campo];
-            if (t.pausado) {
-                t.fimEm = Date.now() + t.segundosRestantesPausado;
-                t.pausado = false;
-            } else {
-                t.segundosRestantesPausado = t.fimEm - Date.now();
-                t.pausado = true;
-            }
-            this.guardar(campo);
-        },
-
-        ajustarMinutos(campo, delta) {
-            const t = this.timers[campo];
-            const novaDuracao = Math.max(60, t.duracaoSegundos + delta * 60);
-            const restanteAtual = this.segundosRestantes(campo);
-            t.duracaoSegundos = novaDuracao;
-            if (t.fimEm !== null) {
-                t.fimEm = Date.now() + Math.min(restanteAtual + delta * 60, novaDuracao) * 1000;
-            }
-            this.guardar(campo);
-        },
-
-        notificarFim() {
-            if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200]);
-            }
-            try {
-                const contexto = new (window.AudioContext || window.webkitAudioContext)();
-                const oscilador = contexto.createOscillator();
-                oscilador.frequency.value = 880;
-                oscilador.connect(contexto.destination);
-                oscilador.start();
-                oscilador.stop(contexto.currentTime + 0.3);
-            } catch (erro) {
-                // Ambiente sem suporte a Web Audio — pill já fica visível/vermelha.
-            }
+            this.sortables.forEach((s) => s.destroy());
         },
     }));
 
@@ -930,16 +816,3 @@ document.addEventListener('DOMContentLoaded', mmcSetup);
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     mmcSetup();
 }
-
-// A sidebar do Filament persiste `isOpen: true` por defeito (Alpine.$persist),
-// independente do viewport — em mobile isto mostra o menu em overlay por cima
-// do dashboard no primeiro acesso. 'alpine:initialized' corre depois do Alpine
-// arrancar por completo (após todos os stores serem registados), por isso não
-// há corrida com o store 'sidebar' do próprio Filament. Só força o fecho no
-// full-page-load: navegação Livewire (wire:navigate) não reinicializa o Alpine,
-// por isso um utilizador que abra o menu manualmente mantém-no aberto ao navegar.
-document.addEventListener('alpine:initialized', () => {
-    if (window.innerWidth < 1024 && window.Alpine?.store('sidebar')) {
-        window.Alpine.store('sidebar').close();
-    }
-});
