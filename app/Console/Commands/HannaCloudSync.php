@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
 use App\Models\User;
+use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCloudService;
 use App\Constants\UserRole;
@@ -64,16 +65,18 @@ class HannaCloudSync extends Command
             return self::SUCCESS;
         }
 
-        // Atualiza raw_info (setpoints + config) em cada ciclo de sync.
-        try {
-            $apiDevices = collect($hanna->getDevices())->keyBy('DID');
-            foreach ($devices as $device) {
-                if ($apiDevices->has($device->hanna_device_id)) {
-                    $device->update(['raw_info' => $apiDevices->get($device->hanna_device_id)]);
+        // Atualiza raw_info (setpoints + config, incl. DS) em cada ciclo de sync.
+        // getDeviceSettings() é por-dispositivo porque a query de lista devices()
+        // devolve reportedSettings reduzido (só SY/GS, sem DS/AS).
+        foreach ($devices as $device) {
+            try {
+                $info = $hanna->getDeviceSettings($device->hanna_device_id);
+                if (! empty($info)) {
+                    $device->update(['raw_info' => $info]);
                 }
+            } catch (\Throwable) {
+                // não-fatal: continua com o raw_info anterior
             }
-        } catch (\Throwable) {
-            // não-fatal: continua sem atualizar raw_info
         }
 
         $sincronizados = 0;
@@ -106,6 +109,8 @@ class HannaCloudSync extends Command
                     $this->warn("  ⚠ {$device->name}: API indisponível (circuit breaker aberto).");
                     continue;
                 }
+
+                $this->atualizarPhOvertime($device, $reading);
 
                 $lida_em = $reading['dt']
                     ? Carbon::parse($reading['dt'])
@@ -155,11 +160,11 @@ class HannaCloudSync extends Command
         $violacoes = [];
         $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
 
-        if ($ph !== null && ($ph < DailyRecord::PH_MIN || $ph > DailyRecord::PH_MAX)) {
-            $fmt = number_format($ph, 2, ',', '');
-            $violacoes[] = $ph < DailyRecord::PH_MIN
-                ? "pH {$fmt} abaixo do mínimo (".number_format(DailyRecord::PH_MIN, 1, ',', '').')'
-                : "pH {$fmt} acima do máximo (".number_format(DailyRecord::PH_MAX, 1, ',', '').')';
+        if ($ph !== null && ($ph < DailyRecord::getPhMin() || $ph > DailyRecord::getPhMax())) {
+            $fmt = number_format($ph, 1, ',', '');
+            $violacoes[] = $ph < DailyRecord::getPhMin()
+                ? "pH {$fmt} abaixo do mínimo (".number_format(DailyRecord::getPhMin(), 1, ',', '').')'
+                : "pH {$fmt} acima do máximo (".number_format(DailyRecord::getPhMax(), 1, ',', '').')';
         }
 
         if (empty($violacoes)) {
@@ -168,6 +173,134 @@ class HannaCloudSync extends Command
 
         $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
         Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
+    }
+
+    /**
+     * Rastreia se o pH está fora da banda proporcional do próprio controlador
+     * (setpoint ± banda, campo DS). Enquanto se mantiver fora por mais tempo
+     * que o "Overtime" configurado, notifica admins/técnicos uma única vez
+     * por episódio — a mesma condição que a Hanna Cloud assinala como
+     * "pH Overtime" no dashboard deles.
+     *
+     * @param array<string, mixed> $reading
+     */
+    private function atualizarPhOvertime(HannaDevice $device, array $reading): void
+    {
+        $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
+        $ds = $device->dosingSettings();
+
+        if ($ph === null || $ds === null) {
+            return;
+        }
+
+        // Verifica se a API reportou algum alarme de overtime
+        $apiOvertime = false;
+        foreach (['alarms', 'warnings', 'errors'] as $key) {
+            if (! empty($reading[$key]) && is_array($reading[$key])) {
+                foreach ($reading[$key] as $item) {
+                    $itemStr = is_string($item) ? $item : json_encode($item);
+                    if (stripos($itemStr, 'overtime') !== false) {
+                        $apiOvertime = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        // Usar round para evitar problemas de precisão de floats
+        $foraDaBanda = $apiOvertime || (round(abs($ph - $ds['setpoint']), 2) > round($ds['band'], 2));
+
+        if (! $foraDaBanda) {
+            // Uma única leitura a tocar a banda não limpa o episódio — só reseta
+            // depois de 2 leituras seguidas dentro da banda, para não perder o
+            // relógio por ruído pontual (a Hanna Cloud também não parece limpar
+            // o alarme "pH Overtime" com uma leitura isolada).
+            $anterior = $device->leituras()->latest('lida_em')->first();
+            $anteriorDentroDaBanda = $anterior === null
+                || $anterior->ph === null
+                || round(abs((float) $anterior->ph - $ds['setpoint']), 2) <= round($ds['band'], 2);
+
+            if (! $anteriorDentroDaBanda) {
+                return;
+            }
+
+            if ($device->ph_out_of_band_since !== null || $device->ph_overtime_notified_at !== null) {
+                $device->update(['ph_out_of_band_since' => null, 'ph_overtime_notified_at' => null]);
+            }
+
+            return;
+        }
+
+        // Recalcula sempre a partir do histórico (auto-corrige se um ciclo
+        // anterior tiver gravado um "desde" desatualizado).
+        $desde = $this->inicioForaDaBanda($device, $ds);
+
+        // Se a API diz que está em overtime mas a leitura local não detectou ou o histórico é curto,
+        // garantimos que $desde não é null e respeita a existência do alarme.
+        if ($desde === null || $desde->isFuture()) {
+            $desde = $reading['dt'] ? Carbon::parse($reading['dt']) : now();
+        }
+
+        if ($device->ph_out_of_band_since === null || ! $device->ph_out_of_band_since->equalTo($desde)) {
+            $device->update(['ph_out_of_band_since' => $desde]);
+        }
+
+        $minutosDecorridos = $desde->diffInMinutes(now());
+
+        // Se a API reporta overtime diretamente, forçamos o trigger do alerta mesmo que os minutos calculados
+        // localmente sejam menores (por falta de histórico local, por exemplo).
+        $forcarNotificacao = $apiOvertime && $device->ph_overtime_notified_at === null;
+
+        if (($forcarNotificacao || $minutosDecorridos >= $ds['overtimeMinutes']) && $device->ph_overtime_notified_at === null) {
+            $device->update(['ph_overtime_notified_at' => now()]);
+
+            $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+            Notification::send($adminsETecnicos, new HannaOvertimeAlert($device, $ph, $ds));
+        }
+    }
+
+    /**
+     * Repete a mesma máquina de estados de atualizarPhOvertime() sobre o
+     * histórico já guardado (2 leituras seguidas dentro da banda para
+     * limpar o episódio) para encontrar o instante real em que o pH saiu
+     * da banda. Sem isto, o relógio de overtime reiniciaria do zero só
+     * porque esta funcionalidade acabou de ser lançada — a Hanna Cloud já
+     * vinha a contar overtime há horas.
+     *
+     * @param array{setpoint: float, band: float, overtimeMinutes: int} $ds
+     */
+    private function inicioForaDaBanda(HannaDevice $device, array $ds): Carbon
+    {
+        $leituras = $device->leituras()
+            ->latest('lida_em')
+            ->limit(200)
+            ->get(['ph', 'lida_em'])
+            ->reverse();
+
+        $desde = null;
+        $consecutivoDentro = 0;
+
+        foreach ($leituras as $leitura) {
+            if ($leitura->ph === null) {
+                continue;
+            }
+
+            // Usar round para evitar problemas de precisão de floats
+            $dentroDaBanda = round(abs((float) $leitura->ph - $ds['setpoint']), 2) <= round($ds['band'], 2);
+
+            if ($dentroDaBanda) {
+                if (++$consecutivoDentro >= 2) {
+                    $desde = null;
+                }
+
+                continue;
+            }
+
+            $consecutivoDentro = 0;
+            $desde ??= $leitura->lida_em;
+        }
+
+        return $desde ?? now();
     }
 
     private function discover(HannaCloudService $hanna): int

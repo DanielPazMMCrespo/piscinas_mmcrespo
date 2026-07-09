@@ -22,7 +22,7 @@ class StockInstallationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
 
-    protected static ?string $navigationGroup = 'Inventário';
+    protected static ?string $navigationGroup = 'Stock';
 
     protected static ?string $modelLabel = 'Stock na Instalação';
 

@@ -1,12 +1,14 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">Estado das Piscinas</x-slot>
-        <x-slot name="description">Último registo válido de cada piscina. Vermelho = fora dos limites CN 14/DA.</x-slot>
-        <x-slot name="headerEnd">
-            <x-filament::button tag="a" href="{{ $urlRegistar }}" icon="heroicon-m-plus-circle" size="sm">
-                Registar agora
-            </x-filament::button>
-        </x-slot>
+        <x-slot name="description">Vermelho = fora dos limites CN 14/DA (leitura do controlador).</x-slot>
+        @can('create', \App\Models\DailyRecord::class)
+            <x-slot name="headerEnd">
+                <x-filament::button tag="a" href="{{ $urlRegistar }}" icon="heroicon-m-plus-circle" size="sm">
+                    Registar agora
+                </x-filament::button>
+            </x-slot>
+        @endcan
 
         @if ($totalPiscinas > 0)
             <div class="mmc-dashboard-status">
@@ -31,80 +33,107 @@
             </div>
         @endif
 
-        <div class="mmc-piscinas-grid">
-            @forelse ($piscinas as $item)
-                <div class="mmc-card">
-                    <div class="mmc-card-head">
-                        <span class="mmc-pool-name">{{ $item['piscina']->name }}</span>
-                        <span class="mmc-pool-inst">{{ $item['piscina']->instalacao?->name }}</span>
-                    </div>
+        <div x-data="{ allOpen: false }">
+            <div class="mmc-pool-section-head">
+                <span class="mmc-pool-section-label">Piscinas</span>
+                <button
+                    type="button"
+                    class="mmc-pool-expand-btn"
+                    x-on:click="allOpen = !allOpen; $dispatch('mmc-toggle-all-pools', { open: allOpen })"
+                    x-text="allOpen ? 'Recolher tudo' : 'Expandir tudo'"
+                ></button>
+            </div>
 
-                    {{-- Controlador Hanna (BL132): leitura automática em tempo real. --}}
-                    @if ($item['controlador'])
-                        <div class="mmc-section-divider">
-                            <span class="mmc-controlador-tag {{ $item['controlador']['stale'] ? 'mmc-controlador-tag--stale' : '' }}">Controlador</span>
-                            <span class="mmc-controlador-age {{ $item['controlador']['stale'] ? 'mmc-controlador-age--stale' : '' }}">{{ $item['controlador']['idade_txt'] }}</span>
-                        </div>
-                        <div class="mmc-metrics">
-                            @if ($item['controlador']['ph'] !== null)
-                                <div class="mmc-metric">
-                                    <span class="mmc-metric-label">pH</span>
-                                    <span class="mmc-metric-value {{ $item['controlador']['ph_ok'] === null ? 'mmc-na' : ($item['controlador']['ph_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['ph'] }}</span>
-                                </div>
-                            @endif
-                            @if ($item['controlador']['orp'] !== null)
-                                <div class="mmc-metric">
-                                    <span class="mmc-metric-label">ORP</span>
-                                    <span class="mmc-metric-value {{ $item['controlador']['orp_ok'] === null ? 'mmc-na' : ($item['controlador']['orp_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['orp'] }} mV</span>
-                                </div>
-                            @endif
-                            @if ($item['controlador']['temp'] !== null)
-                                <div class="mmc-metric">
-                                    <span class="mmc-metric-label">Temp. Água</span>
-                                    <span class="mmc-metric-value {{ $item['controlador']['temp_ok'] === null ? 'mmc-na' : ($item['controlador']['temp_ok'] ? 'mmc-sensor-ok' : 'mmc-bad') }}">{{ $item['controlador']['temp'] }} °C</span>
-                                </div>
-                            @endif
-                        </div>
+            <div class="mmc-pool-list">
+                @php
+                    $ultimaInstalacaoId = null;
+                @endphp
+                @forelse ($piscinas as $item)
+                    @php
+                        $piscina = $item['piscina'];
+                        $conformes = $item['parametros_conformes'];
+                        $numFora = count(array_filter($conformes, fn ($ok) => $ok === false));
+                        $temDados = $item['tem_dados_conformes'];
+                        $estadoDot = ! $temDados ? 'neutro' : ($numFora > 0 ? 'bad' : 'ok');
+                    @endphp
+
+                    @if ($piscina->installation_id !== $ultimaInstalacaoId)
+                        @php
+                            $ultimaInstalacaoId = $piscina->installation_id;
+                        @endphp
+                        <div class="mmc-pool-group-label">{{ $piscina->instalacao?->name }}</div>
                     @endif
 
-                    @if ($item['registo'])
-                        <div class="mmc-section-divider">
-                            <span class="mmc-registo-tag">Registo Manual</span>
-                            <span class="mmc-card-time {{ $item['sem_hoje'] ? 'mmc-warn' : '' }}">
-                                @if ($item['sem_hoje'])
-                                    ⚠ último em {{ $item['registo']->registado_em->format('d/m H:i') }}
+                    <div
+                        class="mmc-pool-row-wrap @if ($estadoDot === 'bad') mmc-pool-row-wrap--alert @endif"
+                        x-data="{ open: false }"
+                        x-on:mmc-toggle-all-pools.window="open = $event.detail.open"
+                        wire:key="pool-row-{{ $piscina->id }}"
+                    >
+                        <div class="mmc-pool-row-head" x-on:click="open = !open">
+                            <span class="mmc-pool-dot mmc-pool-dot--{{ $estadoDot }}"></span>
+                            <span class="mmc-pool-name">{{ $piscina->name }}</span>
+                            <span class="mmc-pool-badge @if ($estadoDot === 'bad') mmc-pool-badge--bad @endif">
+                                @if ($estadoDot === 'neutro')
+                                    sem dados
+                                @elseif ($numFora > 0)
+                                    {{ $numFora }} fora
                                 @else
-                                    {{ $item['registo']->registado_em->format('H:i') }} · {{ $item['ha_quanto'] }}
+                                    conforme
                                 @endif
                             </span>
+                            <x-filament::icon
+                                icon="heroicon-m-chevron-down"
+                                class="mmc-pool-chev"
+                                x-bind:class="{ 'mmc-pool-chev--open': open }"
+                            />
                         </div>
 
-                        <div class="mmc-metrics">
-                            @foreach ($item['metricas'] as $m)
-                                <div class="mmc-metric">
-                                    <span class="mmc-metric-label">{{ $m['label'] }}</span>
-                                    <span class="mmc-metric-value {{ $m['ok'] === null ? 'mmc-na' : ($m['ok'] ? 'mmc-ok' : 'mmc-bad') }}">{{ $m['valor'] }}</span>
+                        <div class="mmc-pool-detail" x-show="open" x-cloak>
+                            @if ($item['controlador'])
+                                <div class="mmc-pool-source-info">
+                                    @if ($item['controlador']['origem'] === 'controlador')
+                                        Controlador ({{ $item['controlador']['atualizado_ha'] }})
+                                    @elseif ($item['controlador']['origem'] === 'manual')
+                                        Registo manual ({{ $item['controlador']['atualizado_ha'] }})
+                                    @else
+                                        Controlador offline ({{ $item['controlador']['atualizado_ha'] }})
+                                    @endif
                                 </div>
-                            @endforeach
-                        </div>
-                    @elseif (!$item['controlador'])
-                        <div class="mmc-empty">Sem registos</div>
-                    @else
-                        <div class="mmc-section-divider">
-                            <span class="mmc-registo-tag">Registo Manual</span>
-                        </div>
-                        <div class="mmc-empty">Sem registos manuais</div>
-                    @endif
+                                <div class="mmc-pool-metric">
+                                    <span class="mmc-pool-metric-label">pH</span>
+                                    <span class="mmc-pool-metric-value @if ($item['controlador']['ph_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['ph_ok'] === true) mmc-pool-metric-value--ok @endif">
+                                        {{ $item['controlador']['ph'] ?? '—' }}
+                                    </span>
+                                </div>
+                                <div class="mmc-pool-metric">
+                                    <span class="mmc-pool-metric-label">{{ $item['controlador']['middle_label'] }}</span>
+                                    <span class="mmc-pool-metric-value @if ($item['controlador']['middle_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['middle_ok'] === true) mmc-pool-metric-value--ok @endif">
+                                        {{ $item['controlador']['middle_value'] ?? '—' }}
+                                    </span>
+                                </div>
+                                <div class="mmc-pool-metric">
+                                    <span class="mmc-pool-metric-label">Temp.</span>
+                                    <span class="mmc-pool-metric-value @if ($item['controlador']['temp_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['temp_ok'] === true) mmc-pool-metric-value--ok @endif">
+                                        {{ $item['controlador']['temp'] ?? '—' }}
+                                    </span>
+                                </div>
+                            @else
+                                <div class="mmc-pool-detail-empty">Sem dados recentes.</div>
+                            @endif
 
-                    <a href="{{ $item['url_registar'] }}" class="mmc-card-cta">
-                        <x-filament::icon icon="heroicon-m-pencil-square" class="mmc-card-cta-icon" />
-                        Registar
-                    </a>
-                </div>
-            @empty
-                <div class="mmc-empty">Nenhuma piscina ativa.</div>
-            @endforelse
+                            @can('create', \App\Models\DailyRecord::class)
+                                <a href="{{ $item['url_registar'] }}" class="mmc-pool-detail-cta">
+                                    <x-filament::icon icon="heroicon-m-pencil-square" class="mmc-pool-detail-cta-icon" />
+                                    Registar
+                                </a>
+                            @endcan
+                        </div>
+                    </div>
+                @empty
+                    <div class="mmc-pool-detail-empty" style="padding: 0.6rem 0.4rem;">Nenhuma piscina ativa.</div>
+                @endforelse
+            </div>
         </div>
     </x-filament::section>
-
 </x-filament-widgets::widget>

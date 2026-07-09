@@ -12,7 +12,7 @@ class RequirePasswordChange
     {
         if (auth()->check() && auth()->user()->must_change_password) {
             if ($request->path() !== 'primeiro-acesso') {
-                return redirect('/primeiro-acesso');
+                return response()->redirectTo('/primeiro-acesso');
             }
         }
 

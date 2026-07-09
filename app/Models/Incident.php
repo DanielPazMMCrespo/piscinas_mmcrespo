@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Incident extends Model
 {
@@ -48,6 +49,14 @@ class Incident extends Model
     public function resolvidoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolvido_por');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function mensagens(): HasMany
+    {
+        return $this->hasMany(IncidentMessage::class, 'incident_id')->orderBy('created_at');
     }
 
 }

@@ -38,11 +38,11 @@ class QuadroOperacionalWidget extends Widget
     }
 
     /**
-     * Move um cartão para outra coluna (chamado pelo drag-and-drop e botões).
+     * Move um alerta entre ativo e resolvido (chamado pelos botões "Resolver"/"Reabrir").
      */
     public function moverAlerta(string $key, string $status): void
     {
-        if (! in_array($status, ['pendente', 'em_curso', 'resolvido'], true)) {
+        if (! in_array($status, ['pendente', 'resolvido'], true)) {
             return;
         }
 
@@ -90,14 +90,15 @@ class QuadroOperacionalWidget extends Widget
         );
         $ativos = $resultado['alertas'];
 
-        // Poda: estados com mais de 7 dias já não interessam ao quadro (corre no máximo 1x por hora).
+        // Poda: estados com mais de 7 dias já não interessam (corre no máximo 1x por hora).
         \Illuminate\Support\Facades\Cache::remember('alert_state_pruning', 3600, function () {
             AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
             return true;
         });
 
         $estados = AlertState::query()
-            ->whereIn('status', ['pendente', 'em_curso'])
+            ->where('status', '!=', 'resolvido')
+            ->where('status', '!=', 'resolvido_auto')
             ->orWhere(function ($q) {
                 $q->whereIn('status', ['resolvido', 'resolvido_auto'])
                     ->whereDate('moved_at', today());
@@ -105,20 +106,63 @@ class QuadroOperacionalWidget extends Widget
             ->get()
             ->keyBy('alert_key');
 
-        $colunas = ['pendente' => [], 'em_curso' => [], 'resolvido' => []];
+        $listaAtivos = [];
+        $listaResolvidos = [];
+        $semRegisto = [];
+        $indiceGrupoSemRegisto = null;
 
-        // Alertas ativos: a coluna vem do estado guardado (default: pendente).
+        // Alertas ativos: qualquer status guardado que não seja resolvido/resolvido_auto
+        // conta como ativo — inclui o legado 'em_curso' de antes desta simplificação.
+        // Alertas "sem_registo" são agrupados num único cartão quando há 2+ (evita
+        // encher o quadro com uma linha por piscina em falta).
         foreach ($ativos as $key => $alerta) {
             $estado = $estados->get($key);
-            $status = $estado?->status ?? 'pendente';
-            $coluna = in_array($status, ['resolvido', 'resolvido_auto'], true) ? 'resolvido' : $status;
+            $resolvido = $estado && in_array($estado->status, ['resolvido', 'resolvido_auto'], true);
 
-            $colunas[$coluna][] = $alerta + [
+            if ($resolvido) {
+                continue;
+            }
+
+            $item = $alerta + [
                 'key' => $key,
                 'auto' => false,
                 'movido_em' => $estado?->moved_at?->format('H:i'),
             ];
+
+            if (str_starts_with($key, 'sem_registo|')) {
+                $semRegisto[] = $item;
+
+                if ($indiceGrupoSemRegisto === null) {
+                    $listaAtivos[] = null;
+                    $indiceGrupoSemRegisto = array_key_last($listaAtivos);
+                }
+
+                continue;
+            }
+
+            $listaAtivos[] = $item;
         }
+
+        if ($indiceGrupoSemRegisto !== null) {
+            if (count($semRegisto) === 1) {
+                $listaAtivos[$indiceGrupoSemRegisto] = $semRegisto[0];
+            } else {
+                $nomes = array_map(fn ($i) => trim(explode(':', $i['titulo'])[0]), $semRegisto);
+                $temVermelho = collect($semRegisto)->contains(fn ($i) => $i['nivel'] === \App\Constants\AlertLevel::VERMELHO);
+
+                $listaAtivos[$indiceGrupoSemRegisto] = [
+                    'key' => 'grupo_sem_registo',
+                    'grupo' => true,
+                    'nivel' => $temVermelho ? \App\Constants\AlertLevel::VERMELHO : \App\Constants\AlertLevel::AMARELO,
+                    'icone' => 'heroicon-o-clipboard-document-list',
+                    'titulo' => 'Sem registo diário hoje',
+                    'detalhe' => count($semRegisto).' piscinas: '.implode(', ', $nomes),
+                    'subalertas' => $semRegisto,
+                ];
+            }
+        }
+
+        $listaAtivos = array_values($listaAtivos);
 
         // Estados cuja condição desapareceu: resolvidos automáticos de hoje.
         \Illuminate\Support\Facades\DB::transaction(function () use ($estados, $ativos) {
@@ -127,7 +171,7 @@ class QuadroOperacionalWidget extends Widget
                     continue;
                 }
 
-                if (in_array($estado->status, ['pendente', 'em_curso'], true)) {
+                if (! in_array($estado->status, ['resolvido', 'resolvido_auto'], true)) {
                     $estado->update(['status' => 'resolvido_auto', 'moved_at' => now()]);
                 }
             }
@@ -142,7 +186,7 @@ class QuadroOperacionalWidget extends Widget
                 continue;
             }
 
-            $colunas['resolvido'][] = ($estado->payload ?? []) + [
+            $listaResolvidos[] = ($estado->payload ?? []) + [
                 'key' => $key,
                 'nivel' => $estado->payload['nivel'] ?? \App\Constants\AlertLevel::NEUTRO,
                 'icone' => $estado->payload['icone'] ?? 'heroicon-o-check-circle',
@@ -156,7 +200,8 @@ class QuadroOperacionalWidget extends Widget
         }
 
         return [
-            'colunas' => $colunas,
+            'ativos' => $listaAtivos,
+            'resolvidos' => $listaResolvidos,
             'totalPiscinas' => $resultado['totalPiscinas'],
             'conformesHoje' => $resultado['conformesHoje'],
         ];

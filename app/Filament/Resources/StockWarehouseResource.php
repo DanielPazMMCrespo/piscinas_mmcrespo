@@ -22,7 +22,7 @@ class StockWarehouseResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-archive-box';
 
-    protected static ?string $navigationGroup = 'Inventário';
+    protected static ?string $navigationGroup = 'Stock';
 
     protected static ?string $modelLabel = 'Stock de Armazém';
 
@@ -53,7 +53,19 @@ class StockWarehouseResource extends Resource
                     ->required()
                     ->preload()
                     ->searchable()
-                    ->unique(ignoreRecord: true),
+                    ->unique(ignoreRecord: true)
+                    // Criação rápida sem sair do Armazém; edição de categoria/concentração/
+                    // desativação continua só em Stock > Produtos Químicos.
+                    ->createOptionForm([
+                        Forms\Components\TextInput::make('name')
+                            ->label('Nome do Produto')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('unidade')
+                            ->label('Unidade de Medida (ex: kg, L)')
+                            ->required()
+                            ->maxLength(255),
+                    ]),
                 Forms\Components\TextInput::make('quantity')
                     ->label('Quantidade Inicial em Stock')
                     ->required()

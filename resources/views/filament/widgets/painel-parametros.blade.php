@@ -50,13 +50,14 @@
                 wire:ignore
             >
                 <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
-                <div x-show="_hasData" x-cloak>
+                <div x-show="_hasData && !_hasSeries" class="mmc-grafico-vazio" x-cloak>Sem registos neste período.</div>
+                <div x-show="_hasSeries" x-cloak>
                     <div class="mmc-grafico-canvas-wrap">
                         <canvas x-ref="canvas"></canvas>
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Ctrl+Scroll para zoom &middot; Arrastar para pan
+                            Ctrl+Scroll para zoom &middot; Arrastar para mover
                         </span>
                         <button
                             x-on:click="resetZoom()"

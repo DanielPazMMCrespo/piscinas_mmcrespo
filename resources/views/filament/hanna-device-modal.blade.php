@@ -53,6 +53,8 @@
                 ['Firmware',   $firmware],
                 ['Piscina',    $device->piscina?->name],
                 ['Tank Hanna', $dinfo['tankName'] ?? null],
+                ['pH fora da banda desde', $device->ph_out_of_band_since?->format('d/m/Y H:i:s') ?? 'não (dentro da banda)'],
+                ['pH overtime notificado em', $device->ph_overtime_notified_at?->format('d/m/Y H:i:s') ?? 'ainda não'],
             ] as [$label, $value])
                 @if ($value !== null)
                     <div class="contents">

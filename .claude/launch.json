@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "piscinas",
-      "runtimeExecutable": "C:\\php\\php.exe",
+      "runtimeExecutable": "php",
       "runtimeArgs": ["artisan", "serve", "--host=0.0.0.0", "--port=8001"],
       "port": 8001
     }

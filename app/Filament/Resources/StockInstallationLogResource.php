@@ -15,11 +15,13 @@ class StockInstallationLogResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-down';
 
-    protected static ?string $navigationGroup = 'Stock';
+    protected static ?string $navigationGroup = 'Logs';
 
     protected static ?string $modelLabel = 'Transação de Instalação';
 
     protected static ?string $pluralModelLabel = 'Histórico de Transações — Instalação';
+
+    protected static ?string $navigationLabel = 'Movimentos — Instalação';
 
     public static function canAccess(): bool
     {

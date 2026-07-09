@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Installation;
+use App\Models\Pool;
 use App\Models\User;
 use App\Models\UserInvitation;
 use App\Services\InvitationService;
@@ -25,6 +27,7 @@ class InvitationFlowTest extends TestCase
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         Role::firstOrCreate(['name' => 'admin',           'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'gestor',          'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico',         'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'nadador_salvador','guard_name' => 'web']);
     }
@@ -137,6 +140,98 @@ class InvitationFlowTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_send_stores_pool_ids_for_nadador_salvador(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $instalacao = Installation::factory()->create(['name' => 'Leiria']);
+        $poolA = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Competição']);
+        $poolB = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Lazer']);
+
+        $invitation = app(InvitationService::class)->send(
+            'ns@test.pt',
+            'nadador_salvador',
+            $admin,
+            [$poolA->id, $poolB->id],
+        );
+
+        $this->assertEqualsCanonicalizing([$poolA->id, $poolB->id], $invitation->pool_ids);
+    }
+
+    public function test_accept_syncs_pools_to_user(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $instalacao = Installation::factory()->create(['name' => 'Leiria']);
+        $poolA = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Competição']);
+        $poolB = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Lazer']);
+
+        $service    = app(InvitationService::class);
+        $invitation = $service->send('ns@test.pt', 'nadador_salvador', $admin, [$poolA->id, $poolB->id]);
+
+        $user = $service->accept($invitation, [
+            'first_name' => 'Rui',
+            'last_name'  => 'Costa',
+            'pin'        => '1234',
+        ]);
+
+        $this->assertEqualsCanonicalizing(
+            [$poolA->id, $poolB->id],
+            $user->piscinas()->pluck('pools.id')->all(),
+        );
+    }
+
+    public function test_pool_ids_null_for_non_ns_role(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $instalacao = Installation::factory()->create(['name' => 'Leiria']);
+        $pool = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Competição']);
+
+        $service    = app(InvitationService::class);
+        $invitation = $service->send('tec@test.pt', 'tecnico', $admin, [$pool->id]);
+
+        $this->assertNull($invitation->pool_ids);
+
+        $user = $service->accept($invitation, [
+            'first_name' => 'Ana',
+            'last_name'  => 'Silva',
+            'password'   => 'password123',
+        ]);
+
+        $this->assertCount(0, $user->piscinas()->get());
+    }
+
+    public function test_acao_convidar_monta_para_admin_e_visivel_para_gestor(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        // Montar a ação exercita o schema do form (CheckboxList de piscinas + Get)
+        // e apanha erros de import/render na página.
+        Livewire::actingAs($admin)
+            ->test(\App\Filament\Resources\UserResource\Pages\ListUsers::class)
+            ->assertActionVisible('convidar')
+            ->mountAction('convidar')
+            ->assertActionMounted('convidar');
+
+        $gestor = User::factory()->create();
+        $gestor->assignRole('gestor');
+
+        Livewire::actingAs($gestor)
+            ->test(\App\Filament\Resources\UserResource\Pages\ListUsers::class)
+            ->assertActionVisible('convidar');
     }
 
     public function test_findValid_returns_null_for_expired_token(): void

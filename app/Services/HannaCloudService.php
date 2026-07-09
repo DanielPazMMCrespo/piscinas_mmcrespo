@@ -135,7 +135,8 @@ class HannaCloudService
             throw new \RuntimeException("Hanna Cloud: nenhuma leitura para o dispositivo {$deviceId}.");
         }
 
-        $params = $readings['messages']['parameters'] ?? [];
+        $messages = $readings['messages'] ?? [];
+        $params = $messages['parameters'] ?? [];
 
         return [
             'dt' => $readings['DT'] ?? null,
@@ -146,7 +147,60 @@ class HannaCloudService
             'caudal_ph' => self::paramValue($params, ['PHF', 'pHFlow', 'pH_flow']),
             'caudal_cloro' => self::paramValue($params, ['CLF', 'chlorineFlow', 'cl_flow']),
             'raw_parameters' => $params,
+            'alarms' => $messages['alarms'] ?? [],
+            'warnings' => $messages['warnings'] ?? [],
+            'errors' => $messages['errors'] ?? [],
+            'status' => $messages['status'] ?? [],
         ];
+    }
+
+    /**
+     * Escreve AS/GS/DS no dispositivo — mesma operação usada pelo botão
+     * "Save" da página Settings da Hanna Cloud (resolver messageToDevice).
+     * As 3 strings CSV têm de ir completas: qualquer campo omitido ou mal
+     * posicionado corrompe a configuração real do controlador. Confirma
+     * sempre com getDeviceSettings() depois de escrever.
+     */
+    public function updateDeviceSettings(string $deviceId, string $as, string $gs, string $ds): array
+    {
+        $query = <<<'GQL'
+        query DeviceSetting($deviceId: String!, $AS: String!, $GS: String!, $DS: String!) {
+          messageToDevice(deviceId: $deviceId, AS: $AS, GS: $GS, DS: $DS) {
+            data
+          }
+        }
+        GQL;
+
+        $data = $this->graphql('DeviceSetting', [
+            'deviceId' => $deviceId,
+            'AS' => $as,
+            'GS' => $gs,
+            'DS' => $ds,
+        ], $query);
+
+        return $data['messageToDevice'] ?? [];
+    }
+
+    /**
+     * Definições completas de um dispositivo (inclui reportedSettings.DS —
+     * setpoints/banda/overtime de dosagem — que a query de lista `devices()`
+     * não devolve, só o cache reduzido com SY/GS).
+     */
+    public function getDeviceSettings(string $deviceId): array
+    {
+        $query = <<<'GQL'
+        query getDeviceData($deviceId: String) {
+          getBlDeviceData(deviceId: $deviceId) {
+            DID DM modelGroup DT
+            DINFO { deviceName userId emailId tankId tankName }
+            reportedSettings
+          }
+        }
+        GQL;
+
+        $data = $this->graphql('getDeviceData', ['deviceId' => $deviceId], $query);
+
+        return $data['getBlDeviceData'] ?? [];
     }
 
     /**

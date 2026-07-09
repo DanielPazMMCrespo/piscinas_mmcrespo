@@ -50,7 +50,15 @@ class UserResource extends Resource
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        if (! (auth()->user()?->hasRole(UserRole::ADMIN) ?? false)) {
+            return false;
+        }
+
+        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function canDeleteAny(): bool
@@ -85,6 +93,7 @@ class UserResource extends Resource
                     ->label('Palavra-passe')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
+                    ->hiddenOn('edit')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->dehydrateStateUsing(fn (string $state) => \Illuminate\Support\Facades\Hash::make($state))
                     ->minLength(8)
@@ -93,6 +102,7 @@ class UserResource extends Resource
                     ->label('PIN')
                     ->password()
                     ->required(fn (string $context): bool => $context === 'create')
+                    ->hiddenOn('edit')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->minLength(4)
                     ->maxLength(255)
@@ -170,6 +180,62 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('resetPassword')
+                    ->label('Enviar Email de Redefinição')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Enviar email de redefinição')
+                    ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
+                    ->modalSubmitActionLabel('Sim, enviar e-mail')
+                    ->action(function (User $record): void {
+                        \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $record->email]);
+                        Notification::make()
+                            ->title('E-mail enviado')
+                            ->body('As instruções para redefinir a palavra-passe foram enviadas.')
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('forceChangePassword')
+                    ->label('Forçar Pass / PIN')
+                    ->icon('heroicon-o-lock-closed')
+                    ->color('danger')
+                    ->form([
+                        Forms\Components\TextInput::make('password')
+                            ->label('Nova Palavra-passe')
+                            ->password()
+                            ->minLength(8)
+                            ->requiredWithout('pin'),
+                        Forms\Components\TextInput::make('pin')
+                            ->label('Novo PIN')
+                            ->password()
+                            ->minLength(4)
+                            ->requiredWithout('password'),
+                        Forms\Components\Checkbox::make('consciencia')
+                            ->label('Tenho consciência que vou alterar as credenciais deste utilizador')
+                            ->required()
+                    ])
+                    ->action(function (User $record, array $data): void {
+                        if (!empty($data['password'])) {
+                            $record->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+                        }
+                        if (!empty($data['pin'])) {
+                            $record->pin = \Illuminate\Support\Facades\Hash::make($data['pin']);
+                        }
+                        $record->save();
+                        Notification::make()
+                            ->title('Credenciais alteradas com sucesso')
+                            ->success()
+                            ->send();
+                    })
+                    ->modalHeading('Forçar Alteração Manual')
+                    ->modalDescription('Atenção: está prestes a definir manualmente a palavra-passe/PIN de um utilizador. Aguarde 5 segundos para confirmar.')
+                    ->modalSubmitActionLabel('Confirmar Alteração')
+                    ->modalSubmitAction(fn (\Filament\Actions\StaticAction $action) => $action->extraAttributes([
+                        'x-data' => '{ seconds: 5, init() { const i = setInterval(() => { if (this.seconds > 0) { this.seconds-- } else { clearInterval(i) } }, 1000) } }',
+                        'x-bind:disabled' => 'seconds > 0',
+                        'style' => 'transition: all 0.3s;',
+                    ])),
                 Tables\Actions\DeleteAction::make()
                     ->before(function ($record, Tables\Actions\DeleteAction $action): void {
                         if ($record->id === auth()->id()) {
@@ -178,6 +244,12 @@ class UserResource extends Resource
                         }
                         if ($record->hasRole(UserRole::ADMIN) && User::role(UserRole::ADMIN)->count() <= 1) {
                             Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
+                            $action->halt();
+                        }
+                        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                            Notification::make()->danger()->title('Não é possível eliminar este utilizador.')
+                                ->body('Existem registos diários ou incidentes associados. Contacte o administrador.')
+                                ->send();
                             $action->halt();
                         }
                     }),

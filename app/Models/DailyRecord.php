@@ -35,6 +35,7 @@ class DailyRecord extends Model
     public const CLORO_COMBINADO_MAX = 0.6;
     public const TRANSPARENCIA_MAX = 5.0;
 
+
     public const METRICAS = [
         'ph' => ['label' => 'pH', 'min' => self::PH_MIN, 'max' => self::PH_MAX, 'unidade' => ''],
         'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::CLORO_LIVRE_MIN, 'max' => self::CLORO_LIVRE_MAX, 'unidade' => 'mg/L'],

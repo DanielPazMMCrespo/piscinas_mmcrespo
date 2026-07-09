@@ -5,6 +5,13 @@ use Illuminate\Support\Facades\Route;
 // A app é o painel Filament — a raiz vai direta para lá.
 Route::redirect('/', '/admin');
 
+// Prevenção de MethodNotAllowedHttpException no login:
+// Quando gestores de palavras-passe (ex.: Bitwarden, 1Password, Chrome Autofill)
+// ou utilizadores submetem o formulário antes de o JS do Livewire inicializar,
+// é enviado um POST tradicional para /admin/login. Redirecionamos para o GET /admin/login.
+Route::match(['POST', 'PUT', 'PATCH', 'DELETE'], '/admin/login', fn () => redirect()->to('/admin/login'));
+Route::any('/login', fn () => redirect()->to('/admin/login'));
+
 Route::get('/convite/{token}', [\App\Http\Controllers\InvitationController::class, 'handleRedirect'])
     ->name('invitation.show');
 

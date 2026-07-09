@@ -20,7 +20,7 @@ class EnsureHannaFreshTest extends TestCase
 
     private function handle(Request $request): void
     {
-        $middleware = new EnsureHannaReadingsAreFresh();
+        $middleware = app(EnsureHannaReadingsAreFresh::class);
         $middleware->handle($request, fn ($r) => response('ok'));
 
         // afterResponse() registers a terminating callback on the Application.

@@ -3,6 +3,7 @@ namespace App\Filament\Resources\IncidentResource\Pages;
 
 
 use App\Filament\Resources\IncidentResource;
+use App\Filament\Widgets\IncidentChatWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -14,6 +15,13 @@ class ViewIncident extends ViewRecord
     {
         return [
             Actions\EditAction::make(),
+        ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [
+            IncidentChatWidget::class,
         ];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -15,9 +16,8 @@ use Spatie\Permission\Traits\HasRoles;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, LogsActivity, Notifiable;
@@ -41,33 +41,34 @@ class User extends Authenticatable implements FilamentUser
         return $hasRole;
     }
 
-    protected function fullName(): Attribute
+    public function getFilamentAvatarUrl(): ?string
     {
-        return Attribute::make(
-            get: fn () => ($this->first_name || $this->last_name) ? trim("{$this->first_name} {$this->last_name}") : $this->name,
-        );
+        $name = trim("{$this->first_name} {$this->last_name}");
+        if (empty($name)) {
+            $name = $this->name;
+        }
+        return 'https://ui-avatars.com/api/?name='.urlencode($name).'&color=FFFFFF&background=09090b';
     }
 
-    protected function firstName(): Attribute
+    public function getFullNameAttribute(): string
     {
-        return Attribute::make(
-            set: function (?string $value) {
-                $this->attributes['first_name'] = $value;
-                $this->syncNameField();
-                return $value;
-            }
-        );
+        if ($this->first_name || $this->last_name) {
+            return trim("{$this->first_name} {$this->last_name}");
+        }
+
+        return $this->name;
     }
 
-    protected function lastName(): Attribute
+    protected function setFirstNameAttribute(?string $value): void
     {
-        return Attribute::make(
-            set: function (?string $value) {
-                $this->attributes['last_name'] = $value;
-                $this->syncNameField();
-                return $value;
-            }
-        );
+        $this->attributes['first_name'] = $value;
+        $this->syncNameField();
+    }
+
+    protected function setLastNameAttribute(?string $value): void
+    {
+        $this->attributes['last_name'] = $value;
+        $this->syncNameField();
     }
 
     private function syncNameField(): void
@@ -87,29 +88,14 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsToMany(Pool::class, 'user_pools');
     }
 
-    public function dailyRecords(): HasMany
+    public function daily_records(): HasMany
     {
-        return $this->hasMany(DailyRecord::class, 'user_id');
+        return $this->hasMany(DailyRecord::class);
     }
 
     public function incidents(): HasMany
     {
-        return $this->hasMany(Incident::class, 'user_id');
-    }
-
-    public function stockWarehouseLogs(): HasMany
-    {
-        return $this->hasMany(StockWarehouseLog::class, 'user_id');
-    }
-
-    public function tapAlertsOpened(): HasMany
-    {
-        return $this->hasMany(TapAlert::class, 'opened_by');
-    }
-
-    public function tapAlertsResolved(): HasMany
-    {
-        return $this->hasMany(TapAlert::class, 'resolved_by');
+        return $this->hasMany(Incident::class);
     }
 
     /**
@@ -150,7 +136,6 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'pin' => 'hashed',
-            'must_change_password' => 'boolean',
         ];
     }
 }

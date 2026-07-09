@@ -20,9 +20,14 @@ class ProcessHannaSync implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 2;
+    public int $tries = 4;
 
     public int $timeout = 60;
+
+    public function backoff(): array
+    {
+        return [10, 30, 60, 120];
+    }
 
     public function __construct()
     {

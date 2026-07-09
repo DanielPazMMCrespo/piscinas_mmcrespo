@@ -51,10 +51,7 @@ class Login extends BaseLogin
             $this->rateLimit(5);
         } catch (TooManyRequestsException $exception) {
             throw ValidationException::withMessages([
-                'data.email' => __('filament-panels::pages/auth/login.messages.throttled', [
-                    'seconds' => $exception->secondsUntilAvailable,
-                    'minutes' => ceil($exception->secondsUntilAvailable / 60),
-                ]),
+                'data.email' => 'Demasiadas tentativas de acesso. Por favor, aguarde ' . ceil($exception->secondsUntilAvailable / 60) . ' minutos antes de tentar novamente.',
             ]);
         }
 

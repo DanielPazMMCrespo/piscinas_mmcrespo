@@ -15,11 +15,13 @@ class StockWarehouseLogResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-down';
 
-    protected static ?string $navigationGroup = 'Stock';
+    protected static ?string $navigationGroup = 'Logs';
 
     protected static ?string $modelLabel = 'Transação de Armazém';
 
     protected static ?string $pluralModelLabel = 'Histórico de Transações — Armazém Central';
+
+    protected static ?string $navigationLabel = 'Movimentos — Armazém';
 
     public static function canAccess(): bool
     {

@@ -10,6 +10,7 @@ final class AlertType
     public const TORNEIRA = 'tap';
     public const INCIDENTE = 'incidente';
     public const STOCK = 'stock';
+    public const PH_OVERTIME = 'ph_overtime';
 
     private function __construct()
     {
@@ -28,6 +29,7 @@ final class AlertType
             self::TORNEIRA,
             self::INCIDENTE,
             self::STOCK,
+            self::PH_OVERTIME,
         ];
     }
 
