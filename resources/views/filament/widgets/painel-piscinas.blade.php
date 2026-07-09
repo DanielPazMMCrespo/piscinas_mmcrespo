@@ -91,6 +91,15 @@
 
                         <div class="mmc-pool-detail" x-show="open" x-cloak>
                             @if ($item['controlador'])
+                                <div class="mmc-pool-source-info">
+                                    @if ($item['controlador']['origem'] === 'controlador')
+                                        Controlador ({{ $item['controlador']['atualizado_ha'] }})
+                                    @elseif ($item['controlador']['origem'] === 'manual')
+                                        Registo manual ({{ $item['controlador']['atualizado_ha'] }})
+                                    @else
+                                        Controlador offline ({{ $item['controlador']['atualizado_ha'] }})
+                                    @endif
+                                </div>
                                 <div class="mmc-pool-metric">
                                     <span class="mmc-pool-metric-label">pH</span>
                                     <span class="mmc-pool-metric-value @if ($item['controlador']['ph_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['ph_ok'] === true) mmc-pool-metric-value--ok @endif">
@@ -98,19 +107,19 @@
                                     </span>
                                 </div>
                                 <div class="mmc-pool-metric">
-                                    <span class="mmc-pool-metric-label">ORP</span>
-                                    <span class="mmc-pool-metric-value @if ($item['controlador']['orp_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['orp_ok'] === true) mmc-pool-metric-value--ok @endif">
-                                        {{ $item['controlador']['orp'] ? $item['controlador']['orp'].' mV' : '—' }}
+                                    <span class="mmc-pool-metric-label">{{ $item['controlador']['middle_label'] }}</span>
+                                    <span class="mmc-pool-metric-value @if ($item['controlador']['middle_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['middle_ok'] === true) mmc-pool-metric-value--ok @endif">
+                                        {{ $item['controlador']['middle_value'] ?? '—' }}
                                     </span>
                                 </div>
                                 <div class="mmc-pool-metric">
                                     <span class="mmc-pool-metric-label">Temp.</span>
                                     <span class="mmc-pool-metric-value @if ($item['controlador']['temp_ok'] === false) mmc-pool-metric-value--bad @elseif ($item['controlador']['temp_ok'] === true) mmc-pool-metric-value--ok @endif">
-                                        {{ $item['controlador']['temp'] ? $item['controlador']['temp'].'°C' : '—' }}
+                                        {{ $item['controlador']['temp'] ?? '—' }}
                                     </span>
                                 </div>
                             @else
-                                <div class="mmc-pool-detail-empty">Sem leitura recente do controlador.</div>
+                                <div class="mmc-pool-detail-empty">Sem dados recentes.</div>
                             @endif
 
                             @can('create', \App\Models\DailyRecord::class)

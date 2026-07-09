@@ -146,6 +146,12 @@
     gap: 1.2rem;
     padding: 0 0.4rem 0.8rem 1.4rem;
 }
+.mmc-pool-source-info {
+    width: 100%;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    margin-bottom: 0.2rem;
+}
 .mmc-pool-metric { display: flex; flex-direction: column; }
 .mmc-pool-metric-label { font-size: 0.7rem; opacity: var(--mmc-metric-label-opacity); }
 .mmc-pool-metric-value { font-size: 1rem; font-weight: 700; line-height: 1.2; }

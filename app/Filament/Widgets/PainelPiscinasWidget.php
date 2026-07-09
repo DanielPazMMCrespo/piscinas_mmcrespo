@@ -143,38 +143,89 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $sensorFrescoMinutos = app(\App\Services\SettingsService::class)->getInt('sensor_fresco_minutos', 240);
-            $sensorFresco = $idadeMin !== null && $idadeMin <= $sensorFrescoMinutos;
+            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 15;
 
-            // Conformes: prioriza a leitura da sonda (se fresca); cai para o registo diário caso contrário.
-            $phOkConformes = self::parametroOk(
-                $sensorFresco,
-                $ph,
-                $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null,
-                $registo?->ph !== null ? $registo->phConforme() : null,
-            );
+            $usarRegistoManual = ! $controladorOnline
+                && $registo !== null
+                && abs((int) $registo->registado_em->diffInHours(now())) <= 8;
 
-            $tempOkConformes = self::parametroOk(
-                $sensorFresco,
-                $tempAgua,
-                ($tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null)
+            $dadosApresentados = null;
+            $phOkConformes = null;
+            $cloroOkConformes = null;
+            $tempOkConformes = null;
+
+            if ($controladorOnline) {
+                $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
+                $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
                     ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
-                    : null,
-                $registo?->temperatura !== null ? $registo->temperaturaConforme() : null,
-            );
+                    : null;
 
-            // Não há sensor de cloro: o ORP dentro do range serve de proxy quando fresco.
-            $cloroOkRegisto = self::combinarOk(
-                $registo?->cloro_livre !== null ? $registo->cloroLivreConforme() : null,
-                ($registo?->cloro_total !== null && $registo?->cloro_livre !== null) ? $registo->cloroCombinadoConforme() : null,
-            );
+                $dadosApresentados = [
+                    'origem' => 'controlador',
+                    'atualizado_ha' => match (true) {
+                        $idadeMin < 1 => 'agora',
+                        $idadeMin < 60 => "há {$idadeMin}m",
+                        default => $leitura->lida_em->locale('pt')->diffForHumans(),
+                    },
+                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
+                    'ph_ok' => $phOk,
+                    'middle_label' => 'ORP',
+                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
+                    'middle_ok' => $orpOk,
+                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
+                    'temp_ok' => $tempOk,
+                    'stale' => false,
+                ];
 
-            $cloroOkConformes = self::parametroOk(
-                $sensorFresco,
-                $orp,
-                $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_CLORO_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_CLORO_MAX)) : null,
-                $cloroOkRegisto,
-            );
+                $phOkConformes = $phOk;
+                $cloroOkConformes = $orpOk;
+                $tempOkConformes = $tempOk;
+            } elseif ($usarRegistoManual) {
+                $phOk = $registo->ph !== null ? $registo->phConforme() : null;
+                $cloroOk = $registo->cloro_livre !== null ? $registo->cloroLivreConforme() : null;
+                $tempOk = $registo->temperatura !== null ? $registo->temperaturaConforme() : null;
+
+                $dadosApresentados = [
+                    'origem' => 'manual',
+                    'atualizado_ha' => $registo->registado_em->locale('pt')->diffForHumans(),
+                    'ph' => $registo->ph !== null ? number_format((float) $registo->ph, 2, ',', '') : null,
+                    'ph_ok' => $phOk,
+                    'middle_label' => 'Cl. Livre',
+                    'middle_value' => $registo->cloro_livre !== null ? number_format((float) $registo->cloro_livre, 2, ',', '') . ' mg/L' : null,
+                    'middle_ok' => $cloroOk,
+                    'temp' => $registo->temperatura !== null ? number_format((float) $registo->temperatura, 1, ',', '') . ' °C' : null,
+                    'temp_ok' => $tempOk,
+                    'stale' => false,
+                ];
+
+                $phOkConformes = $phOk;
+                $cloroOkConformes = $cloroOk;
+                $tempOkConformes = $tempOk;
+            } elseif ($leitura !== null) {
+                $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
+                $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
+                    ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                    : null;
+
+                $dadosApresentados = [
+                    'origem' => 'controlador_offline',
+                    'atualizado_ha' => $leitura->lida_em->locale('pt')->diffForHumans(),
+                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
+                    'ph_ok' => $phOk,
+                    'middle_label' => 'ORP',
+                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
+                    'middle_ok' => $orpOk,
+                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
+                    'temp_ok' => $tempOk,
+                    'stale' => true,
+                ];
+
+                $phOkConformes = $phOk;
+                $cloroOkConformes = $orpOk;
+                $tempOkConformes = $tempOk;
+            }
 
             return [
                 'piscina' => $piscina,
@@ -188,28 +239,8 @@ class PainelPiscinasWidget extends Widget
                     self::metrica('Temp.', $registo->temperatura, 1, ' °C', $registo->temperatura !== null ? $registo->temperaturaConforme() : null),
                 ] : [],
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
-                'tem_dados_conformes' => $registo !== null || $sensorFresco,
-                'controlador' => $leitura ? [
-                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
-                    'ph_ok' => $ph !== null
-                        ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX)
-                        : null,
-                    'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
-                    'orp_ok' => $orp !== null
-                        ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX))
-                        : null,
-                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') : null,
-                    'temp_ok' => $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
-                        ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
-                        : null,
-                    'idade_txt' => match (true) {
-                        $idadeMin === null => 'sem dados',
-                        $idadeMin < 1 => 'agora',
-                        $idadeMin < 60 => "há {$idadeMin}m",
-                        default => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    },
-                    'stale' => $idadeMin !== null && $idadeMin > 15,
-                ] : null,
+                'tem_dados_conformes' => $dadosApresentados !== null,
+                'controlador' => $dadosApresentados,
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
             ];
         });
