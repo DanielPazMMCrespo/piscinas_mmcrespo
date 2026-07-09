@@ -21,6 +21,8 @@ class IncidentChatWidget extends Widget
 {
     protected static string $view = 'filament.widgets.incident-chat';
 
+    protected static bool $shouldRegister = false;
+
     protected int|string|array $columnSpan = 'full';
 
     public ?Incident $record = null;
