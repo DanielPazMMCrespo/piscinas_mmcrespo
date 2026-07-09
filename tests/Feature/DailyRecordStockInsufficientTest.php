@@ -65,9 +65,7 @@ class DailyRecordStockInsufficientTest extends TestCase
      */
     private function criarRegisto(array $adicoes): void
     {
-        $estado = [
-            'pool_id' => $this->pool->id,
-            'registado_em' => now(),
+        $slot = [
             'ph' => 7.4,
             'cloro_livre' => 0.8,
             'cloro_total' => 1.5,
@@ -77,12 +75,18 @@ class DailyRecordStockInsufficientTest extends TestCase
             'ns_cloro_livre' => 1.0,
             'ns_cloro_total' => 1.2,
             'ns_temperatura' => 26.0,
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
         ];
 
         if ($adicoes !== []) {
-            $estado['adicoes'] = $adicoes;
+            $slot['adicoes'] = $adicoes;
         }
+
+        $estado = [
+            'pool_id' => $this->pool->id,
+            'registado_em' => now(),
+            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'piscinas' => [0 => $slot],
+        ];
 
         Livewire::actingAs($this->user)
             ->test(CreateDailyRecord::class)
@@ -119,22 +123,26 @@ class DailyRecordStockInsufficientTest extends TestCase
             ->fillForm([
                 'pool_id' => $this->pool->id,
                 'registado_em' => now(),
-                'ph' => 7.4,
-                'cloro_livre' => 0.8,
-                'cloro_total' => 1.5,
-                'temperatura' => 27.0,
-                'transparencia' => 1,
-                'ns_ph' => 7.2,
-                'ns_cloro_livre' => 1.0,
-                'ns_cloro_total' => 1.2,
-                'ns_temperatura' => 26.0,
                 'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
-                'adicoes' => [
-                    ['product_id' => $this->product->id, 'quantity' => 10.0],
+                'piscinas' => [
+                    0 => [
+                        'ph' => 7.4,
+                        'cloro_livre' => 0.8,
+                        'cloro_total' => 1.5,
+                        'temperatura' => 27.0,
+                        'transparencia' => 1,
+                        'ns_ph' => 7.2,
+                        'ns_cloro_livre' => 1.0,
+                        'ns_cloro_total' => 1.2,
+                        'ns_temperatura' => 26.0,
+                        'adicoes' => [
+                            ['product_id' => $this->product->id, 'quantity' => 10.0],
+                        ],
+                    ],
                 ],
             ])
             ->call('create')
-            ->assertHasFormErrors(['adicoes.0.quantity']);
+            ->assertHasFormErrors(['piscinas.0.adicoes.0.quantity']);
 
         $this->assertDatabaseCount('daily_records', 0);
         $this->assertSame(3.0, $this->stockAtual());

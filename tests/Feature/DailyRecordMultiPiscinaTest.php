@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
+use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -66,79 +68,78 @@ class DailyRecordMultiPiscinaTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function estadoValido(int $poolId): array
+    private function valoresSlot(float $ph, float $cloroLivre, float $nsPh): array
     {
         return [
-            'pool_id' => $poolId,
-            'registado_em' => now(),
-            'ph' => 7.4,
-            'cloro_livre' => 0.8,
-            'cloro_total' => 1.5,
+            'ph' => $ph,
+            'cloro_livre' => $cloroLivre,
+            'cloro_total' => $cloroLivre + 0.5,
             'temperatura' => 27.0,
             'transparencia' => 1,
-            'ns_ph' => 7.2,
+            'ns_ph' => $nsPh,
             'ns_cloro_livre' => 1.0,
             'ns_cloro_total' => 1.2,
             'ns_temperatura' => 26.0,
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
         ];
     }
 
-    public function test_guardar_e_avancar_cria_registo_e_avanca_para_a_proxima_piscina(): void
+    public function test_selecionar_multiplas_piscinas_cria_registos_separados_com_valores_distintos(): void
     {
-        $estado = $this->estadoValido($this->competicao->id);
-        $estado['outras_piscinas_visita'] = [$this->lazer->id, $this->infantil->id];
-
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
-            ->fillForm($estado)
-            ->call('guardarEAvancar')
-            ->assertHasNoFormErrors()
-            ->assertSet('data.pool_id', $this->lazer->id)
-            ->assertSet('filaRestante', [$this->infantil->id])
-            ->assertSet('filaTotal', 3);
-
-        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->competicao->id]);
-        $this->assertDatabaseCount('daily_records', 1);
-    }
-
-    public function test_fila_completa_cria_um_registo_por_piscina(): void
-    {
-        $estado1 = $this->estadoValido($this->competicao->id);
-        $estado1['outras_piscinas_visita'] = [$this->lazer->id, $this->infantil->id];
-
-        $componente = Livewire::actingAs($this->tecnico)
-            ->test(CreateDailyRecord::class)
-            ->fillForm($estado1)
-            ->call('guardarEAvancar')
-            ->assertHasNoFormErrors();
-
-        $componente
-            ->fillForm($this->estadoValido($this->lazer->id))
-            ->call('guardarEAvancar')
-            ->assertHasNoFormErrors()
-            ->assertSet('data.pool_id', $this->infantil->id)
-            ->assertSet('filaRestante', []);
-
-        $componente
-            ->fillForm($this->estadoValido($this->infantil->id))
+            ->fillForm([
+                'pool_id' => $this->competicao->id,
+                'outras_piscinas_visita' => [$this->lazer->id, $this->infantil->id],
+                'registado_em' => now(),
+                'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
+                'piscinas' => [
+                    0 => $this->valoresSlot(7.4, 0.8, 7.2),
+                    1 => $this->valoresSlot(7.1, 1.0, 7.0),
+                    2 => $this->valoresSlot(7.6, 0.6, 7.3),
+                ],
+            ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $this->assertDatabaseCount('daily_records', 3);
-        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->competicao->id]);
-        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->lazer->id]);
-        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->infantil->id]);
+
+        $competicao = DailyRecord::where('pool_id', $this->competicao->id)->first();
+        $lazer = DailyRecord::where('pool_id', $this->lazer->id)->first();
+        $infantil = DailyRecord::where('pool_id', $this->infantil->id)->first();
+
+        $this->assertNotNull($competicao);
+        $this->assertNotNull($lazer);
+        $this->assertNotNull($infantil);
+
+        $this->assertSame(7.4, (float) $competicao->ph);
+        $this->assertSame(7.1, (float) $lazer->ph);
+        $this->assertSame(7.6, (float) $infantil->ph);
+
+        $this->assertSame(7.2, (float) $competicao->ns_ph);
+        $this->assertSame(7.0, (float) $lazer->ns_ph);
+        $this->assertSame(7.3, (float) $infantil->ns_ph);
+
+        $this->assertNotEmpty($competicao->ns_foto);
+        $this->assertSame($competicao->ns_foto, $lazer->ns_foto);
+        $this->assertSame($competicao->ns_foto, $infantil->ns_foto);
     }
 
     public function test_registo_sem_selecionar_outras_piscinas_mantem_fluxo_normal(): void
     {
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
-            ->fillForm($this->estadoValido($this->competicao->id))
+            ->fillForm([
+                'pool_id' => $this->competicao->id,
+                'registado_em' => now(),
+                'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
+                'piscinas' => [
+                    0 => $this->valoresSlot(7.4, 0.8, 7.2),
+                ],
+            ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $this->assertDatabaseCount('daily_records', 1);
+        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->competicao->id]);
     }
 }

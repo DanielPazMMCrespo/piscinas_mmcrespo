@@ -39,7 +39,7 @@ class DailyRecordTimerRetrolavagemTest extends TestCase
     {
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
-            ->fillForm(['pool_id' => $this->pool->id, 'filtro_faz_retrolavagem' => false])
+            ->fillForm(['pool_id' => $this->pool->id, 'piscinas' => [0 => ['filtro_faz_retrolavagem' => false]]])
             ->assertDontSee('Timer — Retrolavagem');
     }
 
@@ -47,7 +47,7 @@ class DailyRecordTimerRetrolavagemTest extends TestCase
     {
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
-            ->fillForm(['pool_id' => $this->pool->id, 'filtro_faz_retrolavagem' => true])
+            ->fillForm(['pool_id' => $this->pool->id, 'piscinas' => [0 => ['filtro_faz_retrolavagem' => true]]])
             ->assertSee('Timer — Retrolavagem')
             ->assertSee('duracaoDefaultSegundos: 300', false)
             ->assertSee('Timer — Enxaguamento')

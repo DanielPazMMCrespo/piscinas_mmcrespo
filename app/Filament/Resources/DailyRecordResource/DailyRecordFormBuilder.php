@@ -106,21 +106,24 @@ class DailyRecordFormBuilder
             $fileUpload,
         ];
     }
+
     /**
      * @return array<int, array{campo: string, label: string, duracaoSegundos: int}>
      */
-    public static function timerRetrolavagemConfig(): array
+    public static function timerRetrolavagemConfig(?int $slot = null): array
     {
+        $sufixo = $slot !== null ? "_{$slot}" : '';
+
         return [
-            ['campo' => 'filtro_foto_retrolavagem', 'label' => 'Timer — Retrolavagem', 'duracaoSegundos' => 300],
-            ['campo' => 'filtro_foto_enxaguamento', 'label' => 'Timer — Enxaguamento', 'duracaoSegundos' => 120],
+            ['campo' => "filtro_foto_retrolavagem{$sufixo}", 'label' => 'Timer — Retrolavagem', 'duracaoSegundos' => 300],
+            ['campo' => "filtro_foto_enxaguamento{$sufixo}", 'label' => 'Timer — Enxaguamento', 'duracaoSegundos' => 120],
         ];
     }
 
-    private static function timerRetrolavagemView(): Forms\Components\View
+    private static function timerRetrolavagemView(?int $slot = null): Forms\Components\View
     {
         return Forms\Components\View::make('filament.forms.components.timer-retrolavagem')
-            ->viewData(['timers' => self::timerRetrolavagemConfig()])
+            ->viewData(['timers' => self::timerRetrolavagemConfig($slot)])
             ->visible(fn (Get $get): bool => $get('filtro_faz_retrolavagem') === true);
     }
 
@@ -151,6 +154,60 @@ class DailyRecordFormBuilder
         }
 
         return $query->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * @return array<int, int> Ids das piscinas selecionadas para esta visita
+     *                          (principal + "também registar"), na ordem em
+     *                          que foram escolhidas — o índice é o "slot".
+     *
+     * $prefix permite chamar isto a partir de dentro do Group de um slot
+     * (onde é preciso "../../" para escapar de "piscinas.{slot}" e chegar
+     * aos campos pool_id/outras_piscinas_visita da raiz).
+     */
+    private static function piscinaIdsSelecionadas(Get $get, string $prefix = ''): array
+    {
+        $principal = $get($prefix.'pool_id');
+        $outras = $get($prefix.'outras_piscinas_visita') ?? [];
+
+        return array_values(array_filter(array_unique(array_merge(
+            [$principal ? (int) $principal : null],
+            array_map('intval', $outras)
+        ))));
+    }
+
+    private static function piscinaIdDoSlot(int $slot, Get $get, string $prefix = ''): ?int
+    {
+        return self::piscinaIdsSelecionadas($get, $prefix)[$slot] ?? null;
+    }
+
+    private static function labelSlot(int $slot, Get $get): string
+    {
+        $ids = self::piscinaIdsSelecionadas($get);
+        $poolId = $ids[$slot] ?? null;
+
+        if ($poolId === null) {
+            return 'Piscina '.($slot + 1);
+        }
+
+        $nome = Pool::find($poolId)?->name;
+
+        return 'Piscina '.($slot + 1).' de '.count($ids).($nome ? ' — '.$nome : '');
+    }
+
+    private static function sincronizarSlots(Set $set, Get $get): void
+    {
+        $ids = self::piscinaIdsSelecionadas($get);
+
+        for ($slot = 0; $slot < 3; $slot++) {
+            $poolId = $ids[$slot] ?? null;
+            $set("piscinas.{$slot}.pool_id", $poolId);
+
+            $ultimo = self::ultimoRegisto($poolId);
+            $set("piscinas.{$slot}.bomba_ferrada", $ultimo?->bomba_ferrada);
+            $set("piscinas.{$slot}.agua_modo", $ultimo?->agua_modo);
+            $set("piscinas.{$slot}.tanque_ok", $ultimo?->tanque_ok);
+        }
     }
 
     public static function ultimoRegisto(?int $poolId): ?DailyRecord
@@ -403,9 +460,9 @@ class DailyRecordFormBuilder
         return $preenchidos.'/'.count($campos).' preenchidos';
     }
 
-    public static function form(Form $form): Form
+    private static function schemaInformacaoGeral(): array
     {
-        $step1 = [
+        return [
             Forms\Components\Section::make('Informação Geral')
                 ->icon('heroicon-o-identification')
                 ->collapsible()
@@ -452,26 +509,26 @@ class DailyRecordFormBuilder
                                     ->value('pool_id');
                         })
                         ->live()
-                        ->afterStateUpdated(function (Set $set, $state): void {
+                        ->afterStateUpdated(function (Set $set, Get $get, string $operation, $state): void {
                             $ultimo = self::ultimoRegisto($state ? (int) $state : null);
                             $set('bomba_ferrada', $ultimo?->bomba_ferrada);
                             $set('agua_modo', $ultimo?->agua_modo);
                             $set('tanque_ok', $ultimo?->tanque_ok);
+
+                            if ($operation === 'create') {
+                                self::sincronizarSlots($set, $get);
+                            }
                         }),
                     Forms\Components\CheckboxList::make('outras_piscinas_visita')
                         ->label('Também registar nesta visita')
                         ->helperText('As piscinas marcadas serão registadas a seguir, uma de cada vez, nesta mesma visita.')
                         ->options(fn (Get $get): array => self::outrasPiscinasDaInstalacao($get('pool_id') ? (int) $get('pool_id') : null))
-                        ->visible(function (Get $get, string $operation, $livewire): bool {
-                            if ($operation !== 'create') {
-                                return false;
-                            }
-
-                            return ($livewire->filaTotal ?? 0) === 0
-                                && empty($livewire->filaRestante ?? [])
-                                && self::outrasPiscinasDaInstalacao($get('pool_id') ? (int) $get('pool_id') : null) !== [];
-                        })
-                        ->dehydrated(false)
+                        ->visible(fn (Get $get, string $operation): bool =>
+                            $operation === 'create'
+                            && self::outrasPiscinasDaInstalacao($get('pool_id') ? (int) $get('pool_id') : null) !== []
+                        )
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set, Get $get) => self::sincronizarSlots($set, $get))
                         ->columnSpanFull(),
                     Forms\Components\Select::make('user_id')
                         ->label('Responsável')
@@ -488,7 +545,12 @@ class DailyRecordFormBuilder
                         ->dehydrated()
                         ->live(onBlur: true),
                 ]),
+        ];
+    }
 
+    private static function schemaOperacional(): array
+    {
+        return [
             Forms\Components\Section::make('Bomba')
                 ->description('A bomba está ferrada?')
                 ->icon('heroicon-o-bolt')
@@ -575,8 +637,11 @@ class DailyRecordFormBuilder
                     ...self::fotoField('tanque_foto', 'Foto do Tanque', 'tanque', false, 5, null, 'Foto opcional do tanque de compensação para documentação'),
                 ]),
         ];
+    }
 
-        $step2 = [
+    private static function schemaAnalises(bool $incluirNsFoto): array
+    {
+        return [
             Forms\Components\Section::make('Análises — Nadador-Salvador')
                 ->description(fn (Get $get): string => 'Leituras feitas pelo Nadador-Salvador. '.self::progresso(['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'], $get))
                 ->icon('heroicon-o-eye')
@@ -586,7 +651,7 @@ class DailyRecordFormBuilder
                     filled($get('ns_ph')) && filled($get('ns_cloro_livre'))
                 ))
                 ->schema([
-                    ...self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos', required: true),
+                    ...($incluirNsFoto ? self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos', required: true) : []),
                     self::comSemaforo(
                         Forms\Components\TextInput::make('ns_ph')
                             ->label('pH (NS)')
@@ -681,11 +746,17 @@ class DailyRecordFormBuilder
                     ...self::fotoField('analises_fotos', 'Fotos das análises (até 5)', 'analises', true, 5),
                 ]),
         ];
+    }
 
-        $step3 = [
+    private static function schemaFiltros(?int $slot): array
+    {
+        $sufixo = $slot !== null ? "_{$slot}" : '';
+
+        return [
             Forms\Components\Section::make('Filtros')
                 ->description(fn (Get $get): string => self::descricaoFiltros($get))
                 ->icon('heroicon-o-funnel')
+                ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                 ->collapsible()
                 ->extraAttributes(fn (): array => self::sectionRing(true))
                 ->schema([
@@ -694,7 +765,7 @@ class DailyRecordFormBuilder
                         ->helperText(fn (Get $get): string => self::helperRetrolavagem($get))
                         ->default(false)
                         ->live(),
-                    self::timerRetrolavagemView(),
+                    self::timerRetrolavagemView($slot),
                     ...self::fotoField(
                         'filtro_foto_retrolavagem',
                         'Foto — Posição Retrolavagem',
@@ -705,7 +776,7 @@ class DailyRecordFormBuilder
                         null,
                         false,
                         fn ($state, \Livewire\Component $livewire) => filled($state)
-                            ? $livewire->dispatch('mmc-timer-iniciar', campo: 'filtro_foto_retrolavagem')
+                            ? $livewire->dispatch('mmc-timer-iniciar', campo: "filtro_foto_retrolavagem{$sufixo}")
                             : null,
                     ),
                     ...self::fotoField(
@@ -718,113 +789,122 @@ class DailyRecordFormBuilder
                         null,
                         false,
                         fn ($state, \Livewire\Component $livewire) => filled($state)
-                            ? $livewire->dispatch('mmc-timer-iniciar', campo: 'filtro_foto_enxaguamento')
+                            ? $livewire->dispatch('mmc-timer-iniciar', campo: "filtro_foto_enxaguamento{$sufixo}")
                             : null,
                     ),
                     ...self::fotoField('filtro_foto_posicao_normal', 'Foto — Retorno à Posição Normal', 'filtros', false, 5, fn ($record, Get $get): bool => $get('filtro_faz_retrolavagem') === true),
                 ]),
         ];
+    }
 
-        $step4 = [
+    private static function schemaAdicoesRepeater(bool $comRelationship): Forms\Components\Repeater
+    {
+        $repeater = Forms\Components\Repeater::make('adicoes')
+            ->label('')
+            ->columns(2)
+            ->defaultItems(0)
+            ->addActionLabel('Adicionar produto')
+            ->schema([
+                Forms\Components\Select::make('product_id')
+                    ->label('Produto')
+                    ->options(fn (): array => \App\Models\Product::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->required()
+                    ->searchable()
+                    ->preload()
+                    ->live(),
+                Forms\Components\TextInput::make('quantity')
+                    ->label('Quantidade')
+                    ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
+                    ->numeric()
+                    ->required()
+                    ->minValue(0)
+                    ->step(0.001)
+                    ->rules([
+                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                            $disponivel = self::quantidadeDisponivel($get);
+                            if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
+                                $productId = $get('product_id');
+                                $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
+                                $fail("Quantidade insuficiente. Disponível: {$disponivel} {$unidade}.");
+                            }
+                        },
+                    ])
+                    ->suffixAction(
+                        Forms\Components\Actions\Action::make('calcular_dose')
+                            ->icon('heroicon-m-calculator')
+                            ->tooltip('Calculadora de dosagem de cloro')
+                            ->mountUsing(function (Forms\Form $form, Get $get): void {
+                                $cloroAtual = (float) ($get('../../cloro_livre') ?? 0);
+                                $deficit = max(0.0, round(1.7 - $cloroAtual, 3));
+                                $productId = $get('product_id');
+                                $concentracao = $productId
+                                    ? (\App\Models\Product::find($productId)?->concentracao_cl)
+                                    : null;
+                                $form->fill([
+                                    'dosagem' => $deficit > 0 ? $deficit : null,
+                                    'concentracao' => $concentracao,
+                                ]);
+                            })
+                            ->form([
+                                Forms\Components\TextInput::make('dosagem')
+                                    ->label('Dosagem em falta (mg/L)')
+                                    ->helperText('Défice até ao alvo de 1,7 mg/L de cloro livre.')
+                                    ->numeric()
+                                    ->required()
+                                    ->step(0.001)
+                                    ->minValue(0),
+                                Forms\Components\TextInput::make('concentracao')
+                                    ->label('Concentração de cloro ativo (%)')
+                                    ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio.')
+                                    ->numeric()
+                                    ->required()
+                                    ->step(0.01)
+                                    ->minValue(0.01)
+                                    ->maxValue(100.00)
+                                    ->suffix('%'),
+                            ])
+                            ->action(function (array $data, Set $set, Get $get): void {
+                                $poolId = $get('../../pool_id');
+                                $pool = Pool::find($poolId);
+
+                                if (! $pool || ! $pool->volume || (float) $data['concentracao'] <= 0) {
+                                    Notification::make()
+                                        ->warning()
+                                        ->title('Cálculo impossível')
+                                        ->body('O volume da piscina não está definido ou a concentração é inválida.')
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $resultado = round(
+                                    ((float) $pool->volume * (float) $data['dosagem'])
+                                    / ((float) $data['concentracao'] * 10),
+                                    2
+                                );
+                                $set('quantity', $resultado);
+                            })
+                    ),
+                Forms\Components\Textarea::make('acao_corretiva')
+                    ->label('Ação corretiva tomada (opcional)')
+                    ->helperText('Descreva a correção ou medida aplicada (ex.: dose de ácido, reforço de cloro, pausa de funcionamento).')
+                    ->rows(2)
+                    ->columnSpanFull(),
+            ]);
+
+        return $comRelationship ? $repeater->relationship() : $repeater;
+    }
+
+    private static function schemaQuimicosNotas(bool $comRelationship, bool $incluirCorrecao): array
+    {
+        $secoes = [
             Forms\Components\Section::make('Adições de Químicos')
                 ->icon('heroicon-o-sparkles')
                 ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
                 ->collapsible()
                 ->extraAttributes(fn (): array => self::sectionRing(true))
                 ->schema([
-                    Forms\Components\Repeater::make('adicoes')
-                        ->relationship()
-                        ->label('')
-                        ->columns(2)
-                        ->defaultItems(0)
-                        ->addActionLabel('Adicionar produto')
-                        ->schema([
-                            Forms\Components\Select::make('product_id')
-                                ->label('Produto')
-                                ->relationship('produto', 'name')
-                                ->required()
-                                ->searchable()
-                                ->preload()
-                                ->live(),
-                            Forms\Components\TextInput::make('quantity')
-                                ->label('Quantidade')
-                                ->helperText(fn (Get $get): string => self::helperQuantidadeDisponivel($get))
-                                ->numeric()
-                                ->required()
-                                ->minValue(0)
-                                ->step(0.001)
-                                ->rules([
-                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        $disponivel = self::quantidadeDisponivel($get);
-                                        if ($disponivel !== null && filled($value) && (float) $value > $disponivel) {
-                                            $productId = $get('product_id');
-                                            $unidade = $productId ? (\App\Models\Product::find($productId)?->unidade ?? 'unid.') : 'unid.';
-                                            $fail("Quantidade insuficiente. Disponível: {$disponivel} {$unidade}.");
-                                        }
-                                    },
-                                ])
-                                ->suffixAction(
-                                    Forms\Components\Actions\Action::make('calcular_dose')
-                                        ->icon('heroicon-m-calculator')
-                                        ->tooltip('Calculadora de dosagem de cloro')
-                                        ->mountUsing(function (Forms\Form $form, Get $get): void {
-                                            $cloroAtual = (float) ($get('../../cloro_livre') ?? 0);
-                                            $deficit = max(0.0, round(1.7 - $cloroAtual, 3));
-                                            $productId = $get('product_id');
-                                            $concentracao = $productId
-                                                ? (\App\Models\Product::find($productId)?->concentracao_cl)
-                                                : null;
-                                            $form->fill([
-                                                'dosagem' => $deficit > 0 ? $deficit : null,
-                                                'concentracao' => $concentracao,
-                                            ]);
-                                        })
-                                        ->form([
-                                            Forms\Components\TextInput::make('dosagem')
-                                                ->label('Dosagem em falta (mg/L)')
-                                                ->helperText('Défice até ao alvo de 1,7 mg/L de cloro livre.')
-                                                ->numeric()
-                                                ->required()
-                                                ->step(0.001)
-                                                ->minValue(0),
-                                            Forms\Components\TextInput::make('concentracao')
-                                                ->label('Concentração de cloro ativo (%)')
-                                                ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio.')
-                                                ->numeric()
-                                                ->required()
-                                                ->step(0.01)
-                                                ->minValue(0.01)
-                                                ->maxValue(100.00)
-                                                ->suffix('%'),
-                                        ])
-                                        ->action(function (array $data, Set $set, Get $get): void {
-                                            $poolId = $get('../../pool_id');
-                                            $pool = Pool::find($poolId);
-
-                                            if (! $pool || ! $pool->volume || (float) $data['concentracao'] <= 0) {
-                                                Notification::make()
-                                                    ->warning()
-                                                    ->title('Cálculo impossível')
-                                                    ->body('O volume da piscina não está definido ou a concentração é inválida.')
-                                                    ->send();
-
-                                                return;
-                                            }
-
-                                            $resultado = round(
-                                                ((float) $pool->volume * (float) $data['dosagem'])
-                                                / ((float) $data['concentracao'] * 10),
-                                                2
-                                            );
-                                            $set('quantity', $resultado);
-                                        })
-                                ),
-                            Forms\Components\Textarea::make('acao_corretiva')
-                                ->label('Ação corretiva tomada (opcional)')
-                                ->helperText('Descreva a correção ou medida aplicada (ex.: dose de ácido, reforço de cloro, pausa de funcionamento).')
-                                ->rows(2)
-                                ->columnSpanFull(),
-                        ]),
+                    self::schemaAdicoesRepeater($comRelationship),
                 ]),
 
             Forms\Components\Section::make('Observações')
@@ -837,8 +917,10 @@ class DailyRecordFormBuilder
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
+        ];
 
-            Forms\Components\Section::make('Informação de Correção')
+        if ($incluirCorrecao) {
+            $secoes[] = Forms\Components\Section::make('Informação de Correção')
                 ->icon('heroicon-o-exclamation-triangle')
                 ->collapsible()
                 ->visible(fn (Get $get): bool => (bool) $get('e_correcao'))
@@ -855,26 +937,59 @@ class DailyRecordFormBuilder
                         ->minLength(5)
                         ->live(onBlur: true)
                         ->columnSpanFull(),
+                ]);
+        }
+
+        return $secoes;
+    }
+
+    private static function schemaSlotPiscina(int $slot): array
+    {
+        return [
+            Forms\Components\Group::make()
+                ->statePath("piscinas.{$slot}")
+                ->schema([
+                    Forms\Components\Hidden::make('pool_id')
+                        ->default(fn (Get $get) => self::piscinaIdDoSlot($slot, $get, '../../'))
+                        ->dehydrated(),
+                    ...self::schemaOperacional(),
+                    ...self::schemaAnalises(false),
+                    ...self::schemaFiltros($slot),
+                    ...self::schemaQuimicosNotas(false, false),
                 ]),
         ];
+    }
 
+    private static function stepPiscina(int $slot): Forms\Components\Wizard\Step
+    {
+        return Forms\Components\Wizard\Step::make("piscina_slot_{$slot}")
+            ->label(fn (Get $get): string => self::labelSlot($slot, $get))
+            ->icon('heroicon-o-home-modern')
+            ->hidden(fn (Get $get): bool => self::piscinaIdDoSlot($slot, $get) === null)
+            ->schema(self::schemaSlotPiscina($slot));
+    }
+
+    public static function form(Form $form): Form
+    {
         if ($form->getOperation() === 'create') {
             return $form
                 ->schema([
                     Forms\Components\Wizard::make([
-                        Forms\Components\Wizard\Step::make('Piscina & Estado')
+                        Forms\Components\Wizard\Step::make('Informação Geral')
                             ->icon('heroicon-o-home')
-                            ->schema($step1),
-                        Forms\Components\Wizard\Step::make('Análises')
-                            ->icon('heroicon-o-beaker')
-                            ->schema($step2),
-                        Forms\Components\Wizard\Step::make('Filtros')
-                            ->icon('heroicon-o-funnel')
-                            ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                            ->schema($step3),
-                        Forms\Components\Wizard\Step::make('Químicos & Notas')
-                            ->icon('heroicon-o-sparkles')
-                            ->schema($step4),
+                            ->schema([
+                                ...self::schemaInformacaoGeral(),
+                                Forms\Components\Section::make('Fotografia da Análise (Nadador-Salvador)')
+                                    ->icon('heroicon-o-camera')
+                                    ->collapsible()
+                                    ->description('Esta foto é partilhada entre todas as piscinas selecionadas nesta visita.')
+                                    ->schema([
+                                        ...self::fotoField('ns_foto', 'Foto da Análise NS', 'ns-fotos', required: true),
+                                    ]),
+                            ]),
+                        self::stepPiscina(0),
+                        self::stepPiscina(1),
+                        self::stepPiscina(2),
                     ])
                     ->skippable()
                     ->submitAction(
@@ -892,17 +1007,20 @@ class DailyRecordFormBuilder
                     ->tabs([
                         Forms\Components\Tabs\Tab::make('Operacional')
                             ->icon('heroicon-o-clipboard-document-check')
-                            ->schema($step1),
+                            ->schema([
+                                ...self::schemaInformacaoGeral(),
+                                ...self::schemaOperacional(),
+                            ]),
                         Forms\Components\Tabs\Tab::make('Química')
                             ->icon('heroicon-o-beaker')
-                            ->schema($step2),
+                            ->schema(self::schemaAnalises(true)),
                         Forms\Components\Tabs\Tab::make('Filtros')
                             ->icon('heroicon-o-funnel')
                             ->hidden(fn (): bool => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false)
-                            ->schema($step3),
+                            ->schema(self::schemaFiltros(null)),
                         Forms\Components\Tabs\Tab::make('Notas')
                             ->icon('heroicon-o-wrench-screwdriver')
-                            ->schema($step4),
+                            ->schema(self::schemaQuimicosNotas(true, true)),
                     ])
                     ->columnSpanFull(),
             ]);

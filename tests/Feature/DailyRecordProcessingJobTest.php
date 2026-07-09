@@ -92,17 +92,21 @@ test('a validação crítica de stock impede a criação do registo e o despacho
         ->fillForm([
             'pool_id' => $this->pool->id,
             'registado_em' => now(),
-            'ph' => 7.4,
-            'cloro_livre' => 0.8,
-            'cloro_total' => 1.5,
-            'temperatura' => 27.0,
-            'transparencia' => 1,
-            'adicoes' => [
-                ['product_id' => $this->product->id, 'quantity' => 10.000],
+            'piscinas' => [
+                0 => [
+                    'ph' => 7.4,
+                    'cloro_livre' => 0.8,
+                    'cloro_total' => 1.5,
+                    'temperatura' => 27.0,
+                    'transparencia' => 1,
+                    'adicoes' => [
+                        ['product_id' => $this->product->id, 'quantity' => 10.000],
+                    ],
+                ],
             ],
         ])
         ->call('create')
-        ->assertHasFormErrors(['adicoes.0.quantity']);
+        ->assertHasFormErrors(['piscinas.0.adicoes.0.quantity']);
 
     $this->assertDatabaseCount('daily_records', 0);
     expect((float) $this->stock->fresh()->quantity)->toBe(3.0);
