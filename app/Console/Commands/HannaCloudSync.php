@@ -193,7 +193,22 @@ class HannaCloudSync extends Command
             return;
         }
 
-        $foraDaBanda = abs($ph - $ds['setpoint']) > $ds['band'];
+        // Verifica se a API reportou algum alarme de overtime
+        $apiOvertime = false;
+        foreach (['alarms', 'warnings', 'errors'] as $key) {
+            if (! empty($reading[$key]) && is_array($reading[$key])) {
+                foreach ($reading[$key] as $item) {
+                    $itemStr = is_string($item) ? $item : json_encode($item);
+                    if (stripos($itemStr, 'overtime') !== false) {
+                        $apiOvertime = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        // Usar round para evitar problemas de precisão de floats
+        $foraDaBanda = $apiOvertime || (round(abs($ph - $ds['setpoint']), 2) > round($ds['band'], 2));
 
         if (! $foraDaBanda) {
             // Uma única leitura a tocar a banda não limpa o episódio — só reseta
@@ -203,7 +218,7 @@ class HannaCloudSync extends Command
             $anterior = $device->leituras()->latest('lida_em')->first();
             $anteriorDentroDaBanda = $anterior === null
                 || $anterior->ph === null
-                || abs((float) $anterior->ph - $ds['setpoint']) <= $ds['band'];
+                || round(abs((float) $anterior->ph - $ds['setpoint']), 2) <= round($ds['band'], 2);
 
             if (! $anteriorDentroDaBanda) {
                 return;
@@ -220,13 +235,23 @@ class HannaCloudSync extends Command
         // anterior tiver gravado um "desde" desatualizado).
         $desde = $this->inicioForaDaBanda($device, $ds);
 
+        // Se a API diz que está em overtime mas a leitura local não detectou ou o histórico é curto,
+        // garantimos que $desde não é null e respeita a existência do alarme.
+        if ($desde === null || $desde->isFuture()) {
+            $desde = $reading['dt'] ? Carbon::parse($reading['dt']) : now();
+        }
+
         if ($device->ph_out_of_band_since === null || ! $device->ph_out_of_band_since->equalTo($desde)) {
             $device->update(['ph_out_of_band_since' => $desde]);
         }
 
         $minutosDecorridos = $desde->diffInMinutes(now());
 
-        if ($minutosDecorridos >= $ds['overtimeMinutes'] && $device->ph_overtime_notified_at === null) {
+        // Se a API reporta overtime diretamente, forçamos o trigger do alerta mesmo que os minutos calculados
+        // localmente sejam menores (por falta de histórico local, por exemplo).
+        $forcarNotificacao = $apiOvertime && $device->ph_overtime_notified_at === null;
+
+        if (($forcarNotificacao || $minutosDecorridos >= $ds['overtimeMinutes']) && $device->ph_overtime_notified_at === null) {
             $device->update(['ph_overtime_notified_at' => now()]);
 
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
@@ -260,7 +285,8 @@ class HannaCloudSync extends Command
                 continue;
             }
 
-            $dentroDaBanda = abs((float) $leitura->ph - $ds['setpoint']) <= $ds['band'];
+            // Usar round para evitar problemas de precisão de floats
+            $dentroDaBanda = round(abs((float) $leitura->ph - $ds['setpoint']), 2) <= round($ds['band'], 2);
 
             if ($dentroDaBanda) {
                 if (++$consecutivoDentro >= 2) {

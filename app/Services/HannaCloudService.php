@@ -135,7 +135,8 @@ class HannaCloudService
             throw new \RuntimeException("Hanna Cloud: nenhuma leitura para o dispositivo {$deviceId}.");
         }
 
-        $params = $readings['messages']['parameters'] ?? [];
+        $messages = $readings['messages'] ?? [];
+        $params = $messages['parameters'] ?? [];
 
         return [
             'dt' => $readings['DT'] ?? null,
@@ -146,6 +147,10 @@ class HannaCloudService
             'caudal_ph' => self::paramValue($params, ['PHF', 'pHFlow', 'pH_flow']),
             'caudal_cloro' => self::paramValue($params, ['CLF', 'chlorineFlow', 'cl_flow']),
             'raw_parameters' => $params,
+            'alarms' => $messages['alarms'] ?? [],
+            'warnings' => $messages['warnings'] ?? [],
+            'errors' => $messages['errors'] ?? [],
+            'status' => $messages['status'] ?? [],
         ];
     }
 
