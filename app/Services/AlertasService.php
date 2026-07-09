@@ -237,7 +237,7 @@ class AlertasService
                     ? 'Último registo em '.$registo->registado_em->format('d/m H:i')
                     : 'Nunca teve registos',
                 'url' => DailyRecordResource::getUrl('create'),
-                'acao' => 'Criar registo',
+                'acao' => 'Resolver',
             ];
         }
 
