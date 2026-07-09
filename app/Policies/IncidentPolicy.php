@@ -27,7 +27,7 @@ class IncidentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::NADADOR_SALVADOR]);
+        return $user->hasAnyRole(UserRole::all());
     }
 
     public function update(User $user, Incident $incident): bool
