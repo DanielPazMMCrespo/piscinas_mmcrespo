@@ -60,7 +60,7 @@ class AlertasService
         $cacheService = app(CacheService::class);
         $cached = $cacheService->getAlerts($utilizador?->id);
         if ($cached !== null) {
-            return $this->memo[$memoKey] = $cached;
+            return self::$memo[$memoKey] = $cached;
         }
 
         $alertas = [];
