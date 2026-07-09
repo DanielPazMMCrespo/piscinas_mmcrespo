@@ -70,6 +70,8 @@ class DailyRecordFormBuilder
             ->disk(DailyRecord::getStorageDisk())->visibility('public')
             ->directory($directory)
             ->image()
+            ->imageResizeTargetWidth('1200')
+            ->imageResizeMode('contain')
             ->multiple($multiple)
             ->maxFiles($multiple ? $maxFiles : null)
             ->reorderable($multiple)
