@@ -10,6 +10,7 @@ use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
 use App\Models\DailyRecord;
+use App\Models\HannaDevice;
 use App\Models\Incident;
 use App\Models\Pool;
 use App\Models\StockInstallation;
@@ -83,6 +84,11 @@ class AlertasService
             ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
             : collect();
 
+        // Sensores Hanna com pH fora da banda proporcional do controlador (candidatos a overtime).
+        $sensoresPhOvertime = Schema::hasTable('hanna_devices')
+            ? HannaDevice::where('active', true)->whereNotNull('ph_out_of_band_since')->get()->groupBy('pool_id')
+            : collect();
+
         // Otimização: obter apenas o último registo válido de cada piscina numa só query.
         $ultimosRegistos = DailyRecord::latestPerPool()
             ->whereIn('pool_id', $piscinas->pluck('id'))
@@ -107,6 +113,10 @@ class AlertasService
             // Alertas de torneiras
             $alertasTorneiras = $this->gerarAlertasTorneiras($piscina, $nome, $taps);
             $alertas = array_merge($alertas, $alertasTorneiras);
+
+            // Alertas de pH em overtime (sensor Hanna)
+            $alertasPhOvertime = $this->gerarAlertasPhOvertime($piscina, $nome, $sensoresPhOvertime);
+            $alertas = array_merge($alertas, $alertasPhOvertime);
         }
 
         if (! $soPiscinas) {
@@ -296,6 +306,50 @@ class AlertasService
                 'detalhe' => 'Aberta desde '.Carbon::parse($tap->opened_at)->format('d/m H:i'),
                 'url' => DailyRecordResource::getUrl('create'),
                 'acao' => 'Registar fecho',
+            ];
+        }
+
+        return $alertas;
+    }
+
+    /**
+     * Gera alertas de "pH overtime": o pH mantém-se fora da banda proporcional
+     * do controlador Hanna (setpoint ± banda) há mais tempo que o "Overtime"
+     * configurado no próprio dispositivo — a mesma condição que a Hanna Cloud
+     * assinala no dashboard deles.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function gerarAlertasPhOvertime(Pool $piscina, string $nome, \Illuminate\Support\Collection $sensores): array
+    {
+        $alertas = [];
+        $fmt = fn (float $v): string => number_format($v, 2, ',', '');
+
+        foreach ($sensores->get($piscina->id, collect()) as $device) {
+            $ds = $device->dosingSettings();
+
+            if ($ds === null || $device->ph_out_of_band_since === null) {
+                continue;
+            }
+
+            $minutosDecorridos = $device->ph_out_of_band_since->diffInMinutes(now());
+
+            if ($minutosDecorridos < $ds['overtimeMinutes']) {
+                continue;
+            }
+
+            $ph = $device->ultimaLeitura()?->ph;
+            $horas = intdiv($ds['overtimeMinutes'], 60);
+
+            $alertas[AlertType::PH_OVERTIME."|{$device->id}"] = [
+                'nivel' => AlertLevel::VERMELHO,
+                'icone' => 'heroicon-o-beaker',
+                'titulo' => "{$nome}: pH em overtime — dosagem sem corrigir há mais de {$horas}h",
+                'detalhe' => 'pH '.($ph !== null ? $fmt((float) $ph) : '—')
+                    ." fora do setpoint {$fmt($ds['setpoint'])} ± {$fmt($ds['band'])} desde "
+                    .$device->ph_out_of_band_since->format('d/m H:i'),
+                'url' => \App\Filament\Resources\HannaDeviceResource::getUrl('index'),
+                'acao' => 'Ver sensor',
             ];
         }
 

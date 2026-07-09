@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
 use App\Models\User;
+use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCloudService;
 use App\Constants\UserRole;
@@ -107,6 +108,8 @@ class HannaCloudSync extends Command
                     continue;
                 }
 
+                $this->atualizarPhOvertime($device, $reading);
+
                 $lida_em = $reading['dt']
                     ? Carbon::parse($reading['dt'])
                     : now();
@@ -168,6 +171,50 @@ class HannaCloudSync extends Command
 
         $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
         Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
+    }
+
+    /**
+     * Rastreia se o pH está fora da banda proporcional do próprio controlador
+     * (setpoint ± banda, campo DS). Enquanto se mantiver fora por mais tempo
+     * que o "Overtime" configurado, notifica admins/técnicos uma única vez
+     * por episódio — a mesma condição que a Hanna Cloud assinala como
+     * "pH Overtime" no dashboard deles.
+     *
+     * @param array<string, mixed> $reading
+     */
+    private function atualizarPhOvertime(HannaDevice $device, array $reading): void
+    {
+        $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
+        $ds = $device->dosingSettings();
+
+        if ($ph === null || $ds === null) {
+            return;
+        }
+
+        $foraDaBanda = abs($ph - $ds['setpoint']) > $ds['band'];
+
+        if (! $foraDaBanda) {
+            if ($device->ph_out_of_band_since !== null || $device->ph_overtime_notified_at !== null) {
+                $device->update(['ph_out_of_band_since' => null, 'ph_overtime_notified_at' => null]);
+            }
+
+            return;
+        }
+
+        if ($device->ph_out_of_band_since === null) {
+            $device->update(['ph_out_of_band_since' => now()]);
+
+            return;
+        }
+
+        $minutosDecorridos = $device->ph_out_of_band_since->diffInMinutes(now());
+
+        if ($minutosDecorridos >= $ds['overtimeMinutes'] && $device->ph_overtime_notified_at === null) {
+            $device->update(['ph_overtime_notified_at' => now()]);
+
+            $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+            Notification::send($adminsETecnicos, new HannaOvertimeAlert($device, $ph, $ds));
+        }
     }
 
     private function discover(HannaCloudService $hanna): int

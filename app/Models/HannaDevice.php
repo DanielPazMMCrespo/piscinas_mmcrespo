@@ -7,11 +7,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HannaDevice extends Model
 {
-    protected $fillable = ['hanna_device_id', 'name', 'pool_id', 'active', 'raw_info'];
+    protected $fillable = [
+        'hanna_device_id', 'name', 'pool_id', 'active', 'raw_info',
+        'ph_out_of_band_since', 'ph_overtime_notified_at',
+    ];
 
     protected $casts = [
         'active' => 'boolean',
         'raw_info' => 'array',
+        'ph_out_of_band_since' => 'datetime',
+        'ph_overtime_notified_at' => 'datetime',
     ];
 
     public function piscina(): BelongsTo
@@ -28,6 +33,34 @@ class HannaDevice extends Model
     public function ultimaLeitura(): ?SensorReading
     {
         return $this->leituras()->latest('lida_em')->first();
+    }
+
+    /**
+     * Configuração de dosagem (campo DS) tal como reportada pelo próprio
+     * controlador Hanna. Formato CSV:
+     * Tipo,phSetpoint,phBanda,phOvertimeMin,orpSetpoint,orpBanda,orpOvertimeMin,caudalPh,caudalCl,delayPh,delayOrp
+     *
+     * @return array{setpoint: float, band: float, overtimeMinutes: int}|null
+     */
+    public function dosingSettings(): ?array
+    {
+        $ds = $this->raw_info['reportedSettings']['DS'] ?? null;
+
+        if (! is_string($ds) || $ds === '') {
+            return null;
+        }
+
+        $parts = explode(',', $ds);
+
+        if (count($parts) < 4) {
+            return null;
+        }
+
+        return [
+            'setpoint' => (float) $parts[1],
+            'band' => (float) $parts[2],
+            'overtimeMinutes' => (int) $parts[3],
+        ];
     }
 }
 
