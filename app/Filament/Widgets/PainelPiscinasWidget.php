@@ -182,19 +182,19 @@ class PainelPiscinasWidget extends Widget
                 $cloroOkConformes = $orpOk;
                 $tempOkConformes = $tempOk;
             } elseif ($usarRegistoManual) {
-                $phOk = $registo->ph !== null ? $registo->phConforme() : null;
-                $cloroOk = $registo->cloro_livre !== null ? $registo->cloroLivreConforme() : null;
-                $tempOk = $registo->temperatura !== null ? $registo->temperaturaConforme() : null;
+                $phOk = $registo->ph_efetivo !== null ? $registo->phConforme() : null;
+                $cloroOk = $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
+                $tempOk = $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null;
 
                 $dadosApresentados = [
                     'origem' => 'manual',
                     'atualizado_ha' => $registo->registado_em->locale('pt')->diffForHumans(),
-                    'ph' => $registo->ph !== null ? number_format((float) $registo->ph, 2, ',', '') : null,
+                    'ph' => $registo->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : null,
                     'ph_ok' => $phOk,
                     'middle_label' => 'Cl. Livre',
-                    'middle_value' => $registo->cloro_livre !== null ? number_format((float) $registo->cloro_livre, 2, ',', '') . ' mg/L' : null,
+                    'middle_value' => $registo->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L' : null,
                     'middle_ok' => $cloroOk,
-                    'temp' => $registo->temperatura !== null ? number_format((float) $registo->temperatura, 1, ',', '') . ' °C' : null,
+                    'temp' => $registo->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '') . ' °C' : null,
                     'temp_ok' => $tempOk,
                     'stale' => false,
                 ];
@@ -233,10 +233,10 @@ class PainelPiscinasWidget extends Widget
                 'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
                 'ha_quanto' => $registo?->registado_em->diffForHumans(),
                 'metricas' => $registo ? [
-                    self::metrica('pH', $registo->ph, 2, '', $registo->ph !== null ? $registo->phConforme() : null),
-                    self::metrica('Cl. Livre', $registo->cloro_livre, 2, ' mg/L', $registo->cloro_livre !== null ? $registo->cloroLivreConforme() : null),
-                    self::metrica('Cl. Total', $registo->cloro_total, 2, ' mg/L', $registo->cloro_total !== null && $registo->cloro_livre !== null ? $registo->cloroCombinadoConforme() : null),
-                    self::metrica('Temp.', $registo->temperatura, 1, ' °C', $registo->temperatura !== null ? $registo->temperaturaConforme() : null),
+                    self::metrica('pH', $registo->ph_efetivo, 2, '', $registo->ph_efetivo !== null ? $registo->phConforme() : null),
+                    self::metrica('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null),
+                    self::metrica('Cl. Total', $registo->cloro_total_efetivo, 2, ' mg/L', $registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null ? $registo->cloroCombinadoConforme() : null),
+                    self::metrica('Temp.', $registo->temperatura_efetivo, 1, ' °C', $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null),
                 ] : [],
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
                 'tem_dados_conformes' => $dadosApresentados !== null,

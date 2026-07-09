@@ -50,20 +50,20 @@ class DailyRecordTableBuilder
                     ])->space(1),
 
                     Tables\Columns\Layout\Stack::make([
-                        Tables\Columns\TextColumn::make('ph')
+                        Tables\Columns\TextColumn::make('ph_efetivo')
                             ->label('pH')
                             ->formatStateUsing(fn ($state): string => 'pH '.$state)
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->phConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::getPhMin().'–'.DailyRecord::getPhMax().')'),
-                        Tables\Columns\TextColumn::make('cloro_livre')
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::PH_MIN.'–'.DailyRecord::PH_MAX.')'),
+                        Tables\Columns\TextColumn::make('cloro_livre_efetivo')
                             ->label('Cloro L.')
                             ->formatStateUsing(fn ($state): string => 'Cl '.$state.' mg/L')
                             ->numeric()
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->cloroLivreConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::getCloroLivreMin().'–'.DailyRecord::getCloroLivreMax().' mg/L)'),
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::CLORO_LIVRE_MIN.'–'.DailyRecord::CLORO_LIVRE_MAX.' mg/L)'),
                         Tables\Columns\TextColumn::make('transparencia')
                             ->label('Turbidez')
                             ->formatStateUsing(fn ($state): string => $state.' FNU')
@@ -170,7 +170,7 @@ class DailyRecordTableBuilder
                             ]),
                         Forms\Components\TextInput::make('transparencia')
                             ->label('Turbidez (FNU)')
-                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::getTransparenciaMax()),
+                            ->required()->numeric()->step(0.01)->minValue(0)->maxValue(DailyRecord::TRANSPARENCIA_MAX),
                         Forms\Components\Textarea::make('razao_correcao')
                             ->label('Razão da correção')
                             ->required()
@@ -237,14 +237,6 @@ class DailyRecordTableBuilder
             ->visible(fn ($record) => filled($record?->{$field}));
     }
 
-    private static function numeroEntry(string $field): \Filament\Infolists\Components\TextEntry
-    {
-        return \Filament\Infolists\Components\TextEntry::make($field)
-            ->formatStateUsing(fn ($state) => $state !== null && $state !== ''
-                ? number_format((float) $state, 2, ',', '')
-                : '—');
-    }
-
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
         return $infolist
@@ -255,9 +247,9 @@ class DailyRecordTableBuilder
                             ->schema([
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('piscina.name')
+                                        \Filament\Infolists\Components\TextEntry::make('pool.name')
                                             ->label('Piscina'),
-                                        \Filament\Infolists\Components\TextEntry::make('utilizador.name')
+                                        \Filament\Infolists\Components\TextEntry::make('user.name')
                                             ->label('Operador'),
                                         \Filament\Infolists\Components\TextEntry::make('registado_em')
                                             ->label('Data do Registo')
@@ -269,7 +261,7 @@ class DailyRecordTableBuilder
                                 self::fotoEntry('bomba_foto', 'Foto da Bomba'),
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
-                                        self::numeroEntry('contador_valor')
+                                        \Filament\Infolists\Components\TextEntry::make('contador_valor')
                                             ->label('Leitura do Contador'),
                                         \Filament\Infolists\Components\TextEntry::make('agua_modo')
                                             ->label('Entrada de Água'),
@@ -291,10 +283,10 @@ class DailyRecordTableBuilder
                                     ->schema([
                                         \Filament\Infolists\Components\Grid::make(2)
                                             ->schema([
-                                                self::numeroEntry('ns_ph')->label('pH (NS)'),
-                                                self::numeroEntry('ns_cloro_livre')->label('Cloro Livre (NS)'),
-                                                self::numeroEntry('ns_cloro_total')->label('Cloro Total (NS)'),
-                                                self::numeroEntry('ns_temperatura')->label('Temperatura (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_ph')->label('pH (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                             ]),
                                         self::fotoEntry('ns_foto', 'Foto da Análise NS'),
                                     ]),
@@ -302,11 +294,11 @@ class DailyRecordTableBuilder
                                     ->schema([
                                         \Filament\Infolists\Components\Grid::make(2)
                                             ->schema([
-                                                self::numeroEntry('ph')->label('pH (Técnico)'),
-                                                self::numeroEntry('cloro_livre')->label('Cloro Livre (Técnico)'),
-                                                self::numeroEntry('cloro_total')->label('Cloro Total (Técnico)'),
-                                                self::numeroEntry('temperatura')->label('Temperatura (Técnico)'),
-                                                self::numeroEntry('transparencia')->label('Turbidez (FNU)'),
+                                                \Filament\Infolists\Components\TextEntry::make('ph')->label('pH (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('cloro_livre')->label('Cloro Livre (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('cloro_total')->label('Cloro Total (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('temperatura')->label('Temperatura (Técnico)'),
+                                                \Filament\Infolists\Components\TextEntry::make('transparencia')->label('Turbidez (FNU)'),
                                             ]),
                                         self::fotoEntry('analises_fotos', 'Fotos das Análises'),
                                     ]),
@@ -330,8 +322,8 @@ class DailyRecordTableBuilder
                                     ->schema([
                                         \Filament\Infolists\Components\Grid::make(2)
                                             ->schema([
-                                                \Filament\Infolists\Components\TextEntry::make('produto.name')->label('Produto'),
-                                                self::numeroEntry('quantity')->label('Quantidade'),
+                                                \Filament\Infolists\Components\TextEntry::make('product.name')->label('Produto'),
+                                                \Filament\Infolists\Components\TextEntry::make('quantity')->label('Quantidade'),
                                             ]),
                                     ]),
                                 \Filament\Infolists\Components\TextEntry::make('observacoes')

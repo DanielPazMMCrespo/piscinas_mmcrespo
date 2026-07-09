@@ -10,7 +10,6 @@ use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
 use App\Models\DailyRecord;
-use App\Models\HannaDevice;
 use App\Models\Incident;
 use App\Models\Pool;
 use App\Models\StockInstallation;
@@ -38,9 +37,7 @@ class AlertasService
     private static array $memo = [];
 
     /**
-     * Limpa o memo estático. Em produção o memo é por-pedido (processo efémero),
-     * mas em testes o mesmo processo corre vários "pedidos" — chamar entre testes
-     * evita que resultados memoizados poluam asserções seguintes.
+     * Limpa o memo.
      */
     public static function resetMemo(): void
     {
@@ -63,7 +60,7 @@ class AlertasService
         $cacheService = app(CacheService::class);
         $cached = $cacheService->getAlerts($utilizador?->id);
         if ($cached !== null) {
-            return self::$memo[$memoKey] = $cached;
+            return $this->memo[$memoKey] = $cached;
         }
 
         $alertas = [];
@@ -80,13 +77,9 @@ class AlertasService
         $conformesHoje = 0;
 
         // Torneiras abertas: uma query única fora do loop.
-        $taps = Schema::hasTable('tap_alerts')
+        $hasTable = \Illuminate\Support\Facades\Cache::remember('schema_has_tap_alerts', 3600, fn() => Schema::hasTable('tap_alerts'));
+        $taps = $hasTable
             ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
-            : collect();
-
-        // Sensores Hanna com pH fora da banda proporcional do controlador (candidatos a overtime).
-        $sensoresPhOvertime = Schema::hasTable('hanna_devices')
-            ? HannaDevice::where('active', true)->whereNotNull('ph_out_of_band_since')->get()->groupBy('pool_id')
             : collect();
 
         // Otimização: obter apenas o último registo válido de cada piscina numa só query.
@@ -113,10 +106,6 @@ class AlertasService
             // Alertas de torneiras
             $alertasTorneiras = $this->gerarAlertasTorneiras($piscina, $nome, $taps);
             $alertas = array_merge($alertas, $alertasTorneiras);
-
-            // Alertas de pH em overtime (sensor Hanna)
-            $alertasPhOvertime = $this->gerarAlertasPhOvertime($piscina, $nome, $sensoresPhOvertime);
-            $alertas = array_merge($alertas, $alertasPhOvertime);
         }
 
         if (! $soPiscinas) {
@@ -182,26 +171,26 @@ class AlertasService
 
         // Leituras em falta (registos legados) não são violações — a falta de
         // registo recente já é coberta pelo alerta "sem registo diário hoje".
-        if ($registo->ph !== null && ! $registo->phConforme()) {
-            $ph = (float) $registo->ph;
-            $phMin = $settings->getFloat('ph_min', DailyRecord::getPhMin());
-            $phMax = $settings->getFloat('ph_max', DailyRecord::getPhMax());
+        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
+            $ph = (float) $registo->ph_efetivo;
+            $phMin = $settings->getFloat('ph_min', DailyRecord::PH_MIN);
+            $phMax = $settings->getFloat('ph_max', DailyRecord::PH_MAX);
             $violacoes[] = $ph < $phMin
                 ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
                 : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')';
         }
 
-        if ($registo->cloro_livre !== null && ! $registo->cloroLivreConforme()) {
-            $cl = (float) $registo->cloro_livre;
-            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::getCloroLivreMin());
-            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::getCloroLivreMax());
+        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
+            $cl = (float) $registo->cloro_livre_efetivo;
+            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::CLORO_LIVRE_MIN);
+            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::CLORO_LIVRE_MAX);
             $violacoes[] = $cl < $clMin
                 ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
                 : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')';
         }
 
-        if ($registo->cloro_total !== null && $registo->cloro_livre !== null && ! $registo->cloroCombinadoConforme()) {
-            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::getCloroCombinadoMax());
+        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
+            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::CLORO_COMBINADO_MAX);
             $violacoes[] = 'cloro combinado '.$fmt((float) $registo->cloro_combinado)
                 .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')';
         }
@@ -211,12 +200,12 @@ class AlertasService
 
     private function violacaoTemperatura(DailyRecord $registo, Pool $piscina): ?string
     {
-        if ($registo->temperatura === null || $registo->temperaturaConforme()) {
+        if ($registo->temperatura_efetivo === null || $registo->temperaturaConforme()) {
             return null;
         }
 
         $fmt = fn (float $v): string => number_format($v, 1, ',', '');
-        $temp = (float) $registo->temperatura;
+        $temp = (float) $registo->temperatura_efetivo;
 
         return $temp < (float) $piscina->temp_min
             ? 'temperatura '.$fmt($temp).' °C abaixo do mínimo ('.$fmt((float) $piscina->temp_min).')'
@@ -247,7 +236,7 @@ class AlertasService
                     ? 'Último registo em '.$registo->registado_em->format('d/m H:i')
                     : 'Nunca teve registos',
                 'url' => DailyRecordResource::getUrl('create'),
-                'acao' => 'Resolver',
+                'acao' => 'Criar registo',
             ];
         }
 
@@ -306,50 +295,6 @@ class AlertasService
                 'detalhe' => 'Aberta desde '.Carbon::parse($tap->opened_at)->format('d/m H:i'),
                 'url' => DailyRecordResource::getUrl('create'),
                 'acao' => 'Registar fecho',
-            ];
-        }
-
-        return $alertas;
-    }
-
-    /**
-     * Gera alertas de "pH overtime": o pH mantém-se fora da banda proporcional
-     * do controlador Hanna (setpoint ± banda) há mais tempo que o "Overtime"
-     * configurado no próprio dispositivo — a mesma condição que a Hanna Cloud
-     * assinala no dashboard deles.
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    private function gerarAlertasPhOvertime(Pool $piscina, string $nome, \Illuminate\Support\Collection $sensores): array
-    {
-        $alertas = [];
-        $fmt = fn (float $v): string => number_format($v, 2, ',', '');
-
-        foreach ($sensores->get($piscina->id, collect()) as $device) {
-            $ds = $device->dosingSettings();
-
-            if ($ds === null || $device->ph_out_of_band_since === null) {
-                continue;
-            }
-
-            $minutosDecorridos = $device->ph_out_of_band_since->diffInMinutes(now());
-
-            if ($minutosDecorridos < $ds['overtimeMinutes']) {
-                continue;
-            }
-
-            $ph = $device->ultimaLeitura()?->ph;
-            $horas = intdiv($ds['overtimeMinutes'], 60);
-
-            $alertas[AlertType::PH_OVERTIME."|{$device->id}"] = [
-                'nivel' => AlertLevel::VERMELHO,
-                'icone' => 'heroicon-o-beaker',
-                'titulo' => "{$nome}: pH em overtime — dosagem sem corrigir há mais de {$horas}h",
-                'detalhe' => 'pH '.($ph !== null ? $fmt((float) $ph) : '—')
-                    ." fora do setpoint {$fmt($ds['setpoint'])} ± {$fmt($ds['band'])} desde "
-                    .$device->ph_out_of_band_since->format('d/m H:i'),
-                'url' => \App\Filament\Resources\HannaDeviceResource::getUrl('index'),
-                'acao' => 'Ver sensor',
             ];
         }
 

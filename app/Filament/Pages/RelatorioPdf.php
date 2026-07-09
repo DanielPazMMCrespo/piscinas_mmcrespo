@@ -39,7 +39,7 @@ class RelatorioPdf extends Page implements HasForms
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Dados';
+    protected static ?string $navigationGroup = 'Operação';
 
     protected static ?string $navigationLabel = 'Relatório PDF (CN 14/DA)';
 
@@ -290,10 +290,10 @@ class RelatorioPdf extends Page implements HasForms
                     ->map(function ($grupo, $dataStr) use ($piscina) {
                         $dia = Carbon::parse($dataStr);
                         
-                        $phAvg = $grupo->whereNotNull('ph')->avg('ph');
-                        $cloroLivreAvg = $grupo->whereNotNull('cloro_livre')->avg('cloro_livre');
-                        $cloroTotalAvg = $grupo->whereNotNull('cloro_total')->avg('cloro_total');
-                        $tempAvg = $grupo->whereNotNull('temperatura')->avg('temperatura');
+                        $phAvg = $grupo->map(fn ($r) => $r->ph ?? $r->ns_ph)->filter(fn ($v) => $v !== null)->average();
+                        $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre ?? $r->ns_cloro_livre)->filter(fn ($v) => $v !== null)->average();
+                        $cloroTotalAvg = $grupo->map(fn ($r) => $r->cloro_total ?? $r->ns_cloro_total)->filter(fn ($v) => $v !== null)->average();
+                        $tempAvg = $grupo->map(fn ($r) => $r->temperatura ?? $r->ns_temperatura)->filter(fn ($v) => $v !== null)->average();
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
                         

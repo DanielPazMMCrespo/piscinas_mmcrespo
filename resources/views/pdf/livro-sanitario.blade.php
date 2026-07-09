@@ -272,12 +272,12 @@
                             @php
                                 $conforme = $conformidade[$registo->id] ?? true;
                                 // Negrito apenas quando o valor existe E está fora de gama.
-                                $phFora = $registo->ph !== null && ! $registo->phConforme();
-                                $clFora = $registo->cloro_livre !== null && ! $registo->cloroLivreConforme();
-                                $combFora = $registo->cloro_total !== null
-                                    && $registo->cloro_livre !== null
+                                $phFora = $registo->ph_efetivo !== null && ! $registo->phConforme();
+                                $clFora = $registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme();
+                                $combFora = $registo->cloro_total_efetivo !== null
+                                    && $registo->cloro_livre_efetivo !== null
                                     && ! $registo->cloroCombinadoConforme();
-                                $tempFora = $registo->temperatura !== null && ! $registo->temperaturaConforme();
+                                $tempFora = $registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme();
                                 // Campo em implementação noutro fluxo — acesso defensivo.
                                 $acaoCorretiva = $registo->acao_corretiva ?? null;
                             @endphp
@@ -296,32 +296,32 @@
                                 @endif
                                 @if (in_array('ph', $colunasVisiveis))
                                     <td>
-                                        @if ($registo->ph !== null)
-                                            <span @class(['fora-gama' => $phFora])>{{ $registo->ph }}</span>
+                                        @if ($registo->ph_efetivo !== null)
+                                            <span @class(['fora-gama' => $phFora])>{{ $registo->ph_efetivo }}</span>
                                         @else — @endif
                                     </td>
                                 @endif
                                 @if (in_array('cloro_livre', $colunasVisiveis))
                                     <td>
-                                        @if ($registo->cloro_livre !== null)
-                                            <span @class(['fora-gama' => $clFora])>{{ $registo->cloro_livre }}</span>
+                                        @if ($registo->cloro_livre_efetivo !== null)
+                                            <span @class(['fora-gama' => $clFora])>{{ $registo->cloro_livre_efetivo }}</span>
                                         @else — @endif
                                     </td>
                                 @endif
                                 @if (in_array('cloro_total', $colunasVisiveis))
-                                    <td>{{ $registo->cloro_total ?? '—' }}</td>
+                                    <td>{{ $registo->cloro_total_efetivo ?? '—' }}</td>
                                 @endif
                                 @if (in_array('cloro_combinado', $colunasVisiveis))
                                     <td>
-                                        @if ($registo->cloro_total !== null && $registo->cloro_livre !== null)
+                                        @if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null)
                                             <span @class(['fora-gama' => $combFora])>{{ number_format($registo->cloro_combinado, 2) }}</span>
                                         @else — @endif
                                     </td>
                                 @endif
                                 @if (in_array('temperatura', $colunasVisiveis))
                                     <td>
-                                        @if ($registo->temperatura !== null)
-                                            <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura }}</span>
+                                        @if ($registo->temperatura_efetivo !== null)
+                                            <span @class(['fora-gama' => $tempFora])>{{ $registo->temperatura_efetivo }}</span>
                                         @else — @endif
                                     </td>
                                 @endif

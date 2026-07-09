@@ -29,12 +29,27 @@ class DailyRecord extends Model
      * Fonte única de verdade — usados em validação, tabelas e dashboard.
      */
     public const PH_MIN = 6.9;
+
     public const PH_MAX = 8.0;
+
     public const CLORO_LIVRE_MIN = 0.5;
+
     public const CLORO_LIVRE_MAX = 2.0;
+
     public const CLORO_COMBINADO_MAX = 0.6;
+
+    /**
+     * Limite máximo de turbidez (FNU). A CN 14/DA exige água límpida com o fundo
+     * perfeitamente visível; usa-se 5 FNU como limiar operacional de alerta.
+     */
     public const TRANSPARENCIA_MAX = 5.0;
 
+    /**
+     * Mapa central das métricas com limites legais — fonte única para o semáforo
+     * de conformidade do formulário, validações e relatórios.
+     * `min`/`max` a null significam "sem limite fixo" (a temperatura usa os
+     * limites próprios da piscina — Pool::temp_min/temp_max).
+     */
     public const METRICAS = [
         'ph' => ['label' => 'pH', 'min' => self::PH_MIN, 'max' => self::PH_MAX, 'unidade' => ''],
         'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::CLORO_LIVRE_MIN, 'max' => self::CLORO_LIVRE_MAX, 'unidade' => 'mg/L'],
@@ -43,27 +58,7 @@ class DailyRecord extends Model
         'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
     ];
 
-    public static function getPhMin(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN); }
-    public static function getPhMax(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX); }
-    public static function getCloroLivreMin(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN); }
-    public static function getCloroLivreMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX); }
-    public static function getCloroCombinadoMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX); }
-    public static function getTransparenciaMax(): float { return app(\App\Services\SettingsService::class)->getFloat('transparencia_max', self::TRANSPARENCIA_MAX); }
-
-    /**
-     * Mapa central das métricas com limites legais dinâmicos — fonte única para o semáforo
-     * de conformidade do formulário, validações e relatórios.
-     */
-    public static function getMetricas(): array
-    {
-        return [
-            'ph' => ['label' => 'pH', 'min' => self::getPhMin(), 'max' => self::getPhMax(), 'unidade' => ''],
-            'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::getCloroLivreMin(), 'max' => self::getCloroLivreMax(), 'unidade' => 'mg/L'],
-            'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::getCloroCombinadoMax(), 'unidade' => 'mg/L'],
-            'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::getTransparenciaMax(), 'unidade' => 'FNU'],
-            'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
-        ];
-    }
+    protected $appends = ['cloro_combinado'];
 
     protected $fillable = [
         'pool_id', 'user_id', 'registado_em',
@@ -96,6 +91,7 @@ class DailyRecord extends Model
         'ns_cloro_livre' => 'decimal:2',
         'ns_cloro_total' => 'decimal:2',
         'ns_temperatura' => 'decimal:2',
+        'transparencia' => 'decimal:2',
         'contador_valor' => 'decimal:2',
         'caleira_feita' => 'boolean',
         'renovacao_agua' => 'boolean',
@@ -112,9 +108,37 @@ class DailyRecord extends Model
         // Sem ambas as leituras não há combinado calculável — devolve null em vez
         // de um valor falso (ex: cloro_total null daria 0 - cloro_livre, negativo).
         return Attribute::make(
-            get: fn () => ($this->cloro_total === null || $this->cloro_livre === null)
+            get: fn () => ($this->cloro_total_efetivo === null || $this->cloro_livre_efetivo === null)
                 ? null
-                : round((float) $this->cloro_total - (float) $this->cloro_livre, 2)
+                : round((float) $this->cloro_total_efetivo - (float) $this->cloro_livre_efetivo, 2)
+        );
+    }
+
+    protected function phEfetivo(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->ph ?? $this->ns_ph
+        );
+    }
+
+    protected function cloroLivreEfetivo(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->cloro_livre ?? $this->ns_cloro_livre
+        );
+    }
+
+    protected function cloroTotalEfetivo(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->cloro_total ?? $this->ns_cloro_total
+        );
+    }
+
+    protected function temperaturaEfetivo(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->temperatura ?? $this->ns_temperatura
         );
     }
 
@@ -131,7 +155,7 @@ class DailyRecord extends Model
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
-        $meta = self::getMetricas()[$campo] ?? null;
+        $meta = self::METRICAS[$campo] ?? null;
         if ($meta === null) {
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
@@ -179,20 +203,28 @@ class DailyRecord extends Model
 
     public function phConforme(): bool
     {
-        if ($this->ph === null) {
+        $val = $this->ph_efetivo;
+        if ($val === null) {
             return true; // sem leitura não é violação
         }
 
-        return (float) $this->ph >= self::getPhMin() && (float) $this->ph <= self::getPhMax();
+        $min = app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN);
+        $max = app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX);
+
+        return (float) $val >= $min && (float) $val <= $max;
     }
 
     public function cloroLivreConforme(): bool
     {
-        if ($this->cloro_livre === null) {
+        $val = $this->cloro_livre_efetivo;
+        if ($val === null) {
             return true; // sem leitura não é violação
         }
 
-        return (float) $this->cloro_livre >= self::getCloroLivreMin() && (float) $this->cloro_livre <= self::getCloroLivreMax();
+        $min = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
+        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+
+        return (float) $val >= $min && (float) $val <= $max;
     }
 
     public function cloroCombinadoConforme(): bool
@@ -202,7 +234,9 @@ class DailyRecord extends Model
             return true;
         }
 
-        return $this->cloro_combinado <= self::getCloroCombinadoMax();
+        $max = app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+
+        return $this->cloro_combinado <= $max;
     }
 
     /**
@@ -211,12 +245,13 @@ class DailyRecord extends Model
      */
     public function temperaturaConforme(): bool
     {
-        if (! $this->piscina || $this->piscina->temp_min === null || $this->piscina->temp_max === null) {
+        $val = $this->temperatura_efetivo;
+        if ($val === null || ! $this->piscina || $this->piscina->temp_min === null || $this->piscina->temp_max === null) {
             return true;
         }
 
-        return $this->temperatura >= $this->piscina->temp_min
-            && $this->temperatura <= $this->piscina->temp_max;
+        return $val >= $this->piscina->temp_min
+            && $val <= $this->piscina->temp_max;
     }
 
     /**
@@ -274,16 +309,13 @@ class DailyRecord extends Model
      * Utiliza uma sub-query window function para performance (evita N+1 queries).
      *
      * @param Builder $query
-     * @param int|null $dias Limita a janela analisada (a window function varre a
-     *                       tabela inteira se não for limitada — custo cresce com o histórico)
      * @return Builder
      */
-    public function scopeLatestPerPool(Builder $query, ?int $dias = null): Builder
+    public function scopeLatestPerPool(Builder $query): Builder
     {
         return $query->fromSub(
             static::query()
                 ->selectRaw('*, ROW_NUMBER() OVER (PARTITION BY pool_id ORDER BY registado_em DESC, id DESC) as rn')
-                ->when($dias !== null, fn (Builder $q): Builder => $q->where('registado_em', '>=', now()->subDays($dias)))
                 ->whereDoesntHave('correcoes'),
             'sub'
         )->where('rn', 1);
