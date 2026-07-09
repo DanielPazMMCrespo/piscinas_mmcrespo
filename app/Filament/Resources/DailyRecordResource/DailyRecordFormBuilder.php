@@ -257,7 +257,8 @@ class DailyRecordFormBuilder
                             $stepPosicaoNormal,
                             $stepNS,
                             $stepObservacoes,
-                        ])->submitAction(new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render(<<<'BLADE'
+                        ])->skippable()
+                        ->submitAction(new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render(<<<'BLADE'
                             <x-filament::button type="submit" size="sm">Confirmar Registo</x-filament::button>
                         BLADE)))
                     ];
