@@ -69,4 +69,41 @@ class IncidentChatTest extends TestCase
         Notification::assertSentTo($tecnico, IncidentCreatedNotification::class);
         Notification::assertNotSentTo($ns, IncidentCreatedNotification::class);
     }
+
+    public function test_resolving_incident_posts_system_message_and_notifies_reporter(): void
+    {
+        Notification::fake();
+
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'aberto',
+        ]);
+
+        $this->actingAs($tecnico);
+
+        Livewire::test(\App\Filament\Resources\IncidentResource\Pages\ListIncidents::class)
+            ->callTableAction('resolver', $incidente, data: [
+                'resolucao' => 'Junta do filtro substituída, sem fugas após 30 min de teste.',
+            ]);
+
+        $incidente->refresh();
+        $this->assertSame('resolvido', $incidente->status);
+
+        $mensagem = $incidente->mensagens()->latest('id')->first();
+        $this->assertSame(IncidentMessage::TIPO_SISTEMA, $mensagem->tipo);
+        $this->assertStringContainsString('Resolvido', $mensagem->texto);
+        $this->assertStringContainsString('Junta do filtro substituída', $mensagem->texto);
+
+        Notification::assertSentTo($ns, \App\Notifications\IncidentMessageNotification::class);
+    }
 }

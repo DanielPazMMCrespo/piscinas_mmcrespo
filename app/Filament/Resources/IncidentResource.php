@@ -195,6 +195,21 @@ class IncidentResource extends Resource
                             'resolucao' => $data['resolucao'],
                         ]);
 
+                        $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
+
+                        \App\Models\IncidentMessage::create([
+                            'incident_id' => $record->id,
+                            'user_id' => auth()->id(),
+                            'tipo' => \App\Models\IncidentMessage::TIPO_SISTEMA,
+                            'texto' => $texto,
+                        ]);
+
+                        $record->utilizador?->notify(new \App\Notifications\IncidentMessageNotification(
+                            $record,
+                            auth()->user(),
+                            $texto,
+                        ));
+
                         Notification::make()
                             ->success()
                             ->title('Incidente resolvido')
