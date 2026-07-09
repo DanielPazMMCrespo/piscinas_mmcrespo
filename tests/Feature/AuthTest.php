@@ -36,4 +36,20 @@ class AuthTest extends TestCase
 
         $response->assertRedirect('/admin/login');
     }
+
+    public function test_post_to_admin_login_redirects_cleanly_to_login_get(): void
+    {
+        $response = $this->post('/admin/login');
+
+        $response->assertRedirect('/admin/login');
+    }
+
+    public function test_generic_login_route_redirects_to_admin_login(): void
+    {
+        $responseGet = $this->get('/login');
+        $responseGet->assertRedirect('/admin/login');
+
+        $responsePost = $this->post('/login');
+        $responsePost->assertRedirect('/admin/login');
+    }
 }
