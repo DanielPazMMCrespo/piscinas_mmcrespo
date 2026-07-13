@@ -1,32 +1,27 @@
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import {
+    GridComponent,
+    TooltipComponent,
+    LegendComponent,
+    DataZoomComponent,
+    MarkAreaComponent,
+    VisualMapComponent
+} from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+
+echarts.use([
+    LineChart,
+    GridComponent,
+    TooltipComponent,
+    LegendComponent,
+    DataZoomComponent,
+    MarkAreaComponent,
+    VisualMapComponent,
+    CanvasRenderer
+]);
+
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-// ECharts core partilhado entre instâncias (import tree-shaken, uma só vez).
-let EChartsCore = null;
-
-async function carregarECharts() {
-    if (EChartsCore) return EChartsCore;
-
-    const [core, charts, comps, renderers] = await Promise.all([
-        import('echarts/core'),
-        import('echarts/charts'),
-        import('echarts/components'),
-        import('echarts/renderers'),
-    ]);
-
-    core.use([
-        charts.LineChart,
-        comps.GridComponent,
-        comps.TooltipComponent,
-        comps.LegendComponent,
-        comps.DataZoomComponent,
-        comps.MarkAreaComponent,
-        comps.VisualMapComponent,
-        renderers.CanvasRenderer,
-    ]);
-
-    EChartsCore = core;
-    return core;
-}
 
 export function registarMmcEcharts(Alpine) {
     Alpine.data('mmcEcharts', (initialPayload = null) => ({
@@ -45,13 +40,7 @@ export function registarMmcEcharts(Alpine) {
             return Array.isArray(s) && s.some((serie) => (serie.data || []).length > 0);
         },
 
-        async init() {
-            await carregarECharts();
-
-            if (this._hasData) {
-                this.$nextTick(() => { if (!this._destroyed) this.render(); });
-            }
-
+        init() {
             if (typeof Livewire !== 'undefined') {
                 this._offChartUpdate = Livewire.on('mmc-chart-update', (eventData) => {
                     if (this._destroyed) return;
@@ -81,9 +70,20 @@ export function registarMmcEcharts(Alpine) {
 
             this.resizeObserver = new ResizeObserver(() => {
                 clearTimeout(this.resizeTimer);
-                this.resizeTimer = setTimeout(() => { if (!this._destroyed) this.chart?.resize(); }, 100);
+                this.resizeTimer = setTimeout(() => {
+                    if (this._destroyed) return;
+                    if (this.chart) {
+                        this.chart.resize();
+                    } else if (this._hasData) {
+                        this.render();
+                    }
+                }, 100);
             });
             this.resizeObserver.observe(this.$el);
+
+            if (this._hasData) {
+                this.$nextTick(() => { if (!this._destroyed) this.render(); });
+            }
         },
 
         destroy() {
@@ -113,7 +113,7 @@ export function registarMmcEcharts(Alpine) {
             };
         },
 
-        // Cada ponto é [xIso, valorTracado, valorReal]. Em dual/multi-piscina
+        // Cada ponto é [xTimestamp, valorTracado, valorReal]. Em dual/multi-piscina
         // tracado === real; em multi-metrica tracado é normalizado 0-100.
         pontos(serie, normalizar) {
             return (serie.data || []).map((d) => {
@@ -147,7 +147,7 @@ export function registarMmcEcharts(Alpine) {
             if (!p || !Array.isArray(p.series)) return;
 
             if (!this.chart) {
-                this.chart = EChartsCore.init(el, null, { renderer: 'canvas' });
+                this.chart = echarts.init(el, null, { renderer: 'canvas' });
             }
 
             const c = this.cores();
@@ -169,8 +169,11 @@ export function registarMmcEcharts(Alpine) {
                     splitLine: { lineStyle: { color: c.grelha } },
                 });
             } else {
+                const firstSerie = p.series[0];
                 yAxis.push({
                     type: 'value', scale: true,
+                    min: (value) => firstSerie && isFinite(value.min) ? Math.min(value.min, firstSerie.yMin) : undefined,
+                    max: (value) => firstSerie && isFinite(value.max) ? Math.max(value.max, firstSerie.yMax) : undefined,
                     name: p.metrica?.unidade || '',
                     nameTextStyle: { color: c.texto, fontSize: 11 },
                     axisLabel: { color: c.texto },
@@ -300,6 +303,8 @@ export function registarMmcEcharts(Alpine) {
                 type: 'value',
                 position: lado,
                 scale: true,
+                min: (value) => isFinite(value.min) ? Math.min(value.min, serie.yMin) : serie.yMin,
+                max: (value) => isFinite(value.max) ? Math.max(value.max, serie.yMax) : serie.yMax,
                 name: serie.unidade ? `${serie.label} (${serie.unidade})` : serie.label,
                 nameTextStyle: { color: serie.cor, fontSize: 11 },
                 axisLabel: { color: serie.cor },

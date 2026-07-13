@@ -289,7 +289,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
             $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
                 ->map(fn ($r) => [
-                    'x' => $r->lida_em->toIso8601String(),
+                    'x' => $r->lida_em->timestamp * 1000,
                     'y' => round((float) $r->{$campo}, $def['casas']),
                 ])->values()->toArray();
         } else {
@@ -308,7 +308,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             $data = $rows->map(fn ($r) => ['val' => $r->{$campo} ?? $r->{$nsCampo}, 'r' => $r])
                 ->filter(fn ($item) => $item['val'] !== null)
                 ->map(fn ($item) => [
-                    'x' => $item['r']->registado_em->toIso8601String(),
+                    'x' => $item['r']->registado_em->timestamp * 1000,
                     'y' => round((float) $item['val'], $def['casas']),
                 ])->values()->toArray();
         }
