@@ -8,14 +8,17 @@ use App\Models\SensorReading;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
-class CloroPhChartWidget extends Widget implements HasForms
+class CloroPhChartWidget extends Widget implements HasForms, HasActions
 {
     use InteractsWithForms;
+    use InteractsWithActions;
 
     protected static ?int $sort = 2;
     protected int|string|array $columnSpan = 'full';
@@ -23,12 +26,18 @@ class CloroPhChartWidget extends Widget implements HasForms
     protected static string $view = 'filament.widgets.painel-parametros';
 
     public ?string $poolSelecionada = null;
-    public string $leftMetric = 'ph';
-    public string $rightMetric = 'controlador_orp';
     public string $period = '7d';
     public string $tabAtiva = 'graph';
     public ?string $customStartDate = null;
     public ?string $customEndDate = null;
+
+    public array $graphsConfig = [
+        ['visible' => true, 'metrics' => ['ph', 'controlador_ph']],
+        ['visible' => true, 'metrics' => ['cloro_livre', 'controlador_orp']],
+        ['visible' => true, 'metrics' => ['temperatura']],
+        ['visible' => false, 'metrics' => []],
+        ['visible' => false, 'metrics' => []],
+    ];
 
     private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
@@ -106,8 +115,6 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->form->fill([
             'poolSelecionada' => $this->poolSelecionada,
-            'leftMetric'      => $this->leftMetric,
-            'rightMetric'     => $this->rightMetric,
             'customStartDate' => $this->customStartDate,
             'customEndDate'   => $this->customEndDate,
         ]);
@@ -122,9 +129,6 @@ class CloroPhChartWidget extends Widget implements HasForms
                 (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
-        $opcoesMetricas = collect(self::getMetricas())
-            ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
-
         return [
             Forms\Components\Grid::make(3)->schema([
                 Forms\Components\Select::make('poolSelecionada')
@@ -133,20 +137,6 @@ class CloroPhChartWidget extends Widget implements HasForms
                     ->required()
                     ->live()
                     ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('leftMetric')
-                    ->label('Eixo Esquerdo')
-                    ->options($opcoesMetricas)
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('rightMetric')
-                    ->label('Eixo Direito')
-                    ->options($opcoesMetricas)
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-            ]),
-            Forms\Components\Grid::make(2)->schema([
                 Forms\Components\DatePicker::make('customStartDate')
                     ->label('Data Início')
                     ->hidden(fn () => $this->period !== 'custom')
@@ -161,6 +151,42 @@ class CloroPhChartWidget extends Widget implements HasForms
         ];
     }
 
+    public function configurarGraficosAction(): Action
+    {
+        $opcoesMetricas = collect(self::getMetricas())
+            ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
+
+        return Action::make('configurarGraficos')
+            ->label('Graph Settings')
+            ->icon('heroicon-m-cog-8-tooth')
+            ->color('primary')
+            ->fillForm([
+                'graphs' => $this->graphsConfig,
+            ])
+            ->form([
+                Forms\Components\Repeater::make('graphs')
+                    ->label('Configuração dos Gráficos')
+                    ->schema([
+                        Forms\Components\Toggle::make('visible')
+                            ->label('Gráfico Visível')
+                            ->default(true),
+                        Forms\Components\CheckboxList::make('metrics')
+                            ->label('Parâmetros')
+                            ->options($opcoesMetricas)
+                            ->columns(2),
+                    ])
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false)
+                    ->grid(2)
+            ])
+            ->modalWidth('4xl')
+            ->action(function (array $data): void {
+                $this->graphsConfig = $data['graphs'];
+                $this->dispatchChartRefresh();
+            });
+    }
+
     public function setPeriod(string $p): void
     {
         if (! in_array($p, self::PERIODOS_VALIDOS, true)) {
@@ -172,9 +198,10 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function dispatchChartRefresh(): void
     {
-        if ($this->tabAtiva === 'graph' && $this->poolSelecionada !== null) {
-            $this->dispatch('mmc-chart-update', payload: $this->getChartPayload());
+        if ($this->tabAtiva !== 'graph' || $this->poolSelecionada === null) {
+            return;
         }
+        $this->dispatch('mmc-chart-update', payload: $this->getChartPayload());
     }
 
     public function setTab(string $t): void
@@ -210,19 +237,35 @@ class CloroPhChartWidget extends Widget implements HasForms
         return in_array($this->period, ['6h', '24h'], true);
     }
 
-    private function buildMetricAxis(string $metricKey): array
+    private function remember(string $key, bool $hasSensor, \Closure $build): array
     {
-        $metricas = self::getMetricas();
-        if (! array_key_exists($metricKey, $metricas)) {
-            return [];
+        $canCache = ! $this->isShortPeriod() && ! $hasSensor;
+
+        if ($canCache) {
+            $cached = Cache::get($key);
+            if ($cached !== null) {
+                return $cached;
+            }
         }
 
-        $def = $metricas[$metricKey];
-        $poolId = (int) $this->poolSelecionada;
+        $payload = $build();
+
+        if ($canCache) {
+            $cached = Cache::get($key);
+            if ($cached !== null) {
+                return $cached;
+            }
+        }
+
+        return $payload;
+    }
+
+    private function buildSerie(string $metricKey, int $poolId, ?string $labelOverride = null): array
+    {
+        $def = self::getMetricas()[$metricKey];
         $start = $this->getPeriodStart();
         $end = $this->getPeriodEnd();
         $isSensor = isset($def['sensor_campo']);
-        $datasets = [];
 
         if ($isSensor) {
             $campo = $def['sensor_campo'];
@@ -237,15 +280,13 @@ class CloroPhChartWidget extends Widget implements HasForms
 
             $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
                 ->map(fn ($r) => [
-                    'x' => $r->lida_em->toIso8601String(),
+                    'x' => $r->lida_em->timestamp * 1000,
                     'y' => round((float) $r->{$campo}, $def['casas']),
                 ])->values()->toArray();
-
-            $datasets[] = ['label' => $def['label'], 'data' => $data, 'dashed' => true];
         } else {
             $campo = $metricKey;
-
             $nsCampo = 'ns_' . $campo;
+
             $rows = DailyRecord::query()
                 ->select(['registado_em', $campo, $nsCampo])
                 ->where('pool_id', $poolId)
@@ -255,33 +296,24 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
-            $data = $rows->map(fn ($r) => [
-                    'val' => $r->{$campo} ?? $r->{$nsCampo},
-                    'r' => $r
-                ])
+            $data = $rows->map(fn ($r) => ['val' => $r->{$campo} ?? $r->{$nsCampo}, 'r' => $r])
                 ->filter(fn ($item) => $item['val'] !== null)
                 ->map(fn ($item) => [
-                    'x' => $item['r']->registado_em->toIso8601String(),
+                    'x' => $item['r']->registado_em->timestamp * 1000,
                     'y' => round((float) $item['val'], $def['casas']),
                 ])->values()->toArray();
-
-            $datasets[] = [
-                'label'  => $def['label'],
-                'data'   => $data,
-                'dashed' => false,
-            ];
         }
 
         return [
-            'key'      => $metricKey,
-            'label'    => $def['label'],
-            'unidade'  => $def['unidade'],
-            'casas'    => $def['casas'],
-            'yMin'     => $def['min'],
-            'yMax'     => $def['max'],
-            'cor'      => $def['cor'],
-            'banda'    => $def['banda'],
-            'datasets' => $datasets,
+            'key'     => $metricKey,
+            'label'   => $labelOverride ?? $def['label'],
+            'unidade' => $def['unidade'],
+            'casas'   => $def['casas'],
+            'cor'     => $def['cor'],
+            'banda'   => $def['banda'],
+            'yMin'    => $def['min'],
+            'yMax'    => $def['max'],
+            'data'    => $data,
         ];
     }
 
@@ -292,40 +324,41 @@ class CloroPhChartWidget extends Widget implements HasForms
         }
 
         $metricas = self::getMetricas();
-        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
-        $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
+        $poolId = (int) $this->poolSelecionada;
+        $hasSensor = false;
 
-        // Cache only for long-period, manual-only queries (sensor data changes every 15 min).
-        $leftIsSensor = isset($metricas[$leftKey]['sensor_campo']);
-        $rightIsSensor = isset($metricas[$rightKey]['sensor_campo']);
-        $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
+        $graphs = [];
+        foreach ($this->graphsConfig as $idx => $gConfig) {
+            if (! $gConfig['visible'] || empty($gConfig['metrics'])) {
+                continue;
+            }
 
-        $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
+            $series = [];
+            foreach ($gConfig['metrics'] as $metricKey) {
+                if (! isset($metricas[$metricKey])) continue;
+                if (isset($metricas[$metricKey]['sensor_campo'])) {
+                    $hasSensor = true;
+                }
+                $series[] = $this->buildSerie($metricKey, $poolId);
+            }
 
-        if ($canCache) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
+            if (! empty($series)) {
+                $graphs[] = [
+                    'id' => 'graph_' . $idx,
+                    'series' => $series,
+                ];
             }
         }
 
-        $pool = Pool::with('instalacao')->find((int) $this->poolSelecionada);
-        $titulo = $pool
-            ? (($pool->instalacao?->name ? $pool->instalacao->name.' — ' : '').$pool->name)
-            : '';
+        $key = "chart_v5_stacked_{$poolId}_" . md5(json_encode($this->graphsConfig)) . "_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
 
-        $payload = [
-            'titulo' => $titulo,
-            'period' => $this->period,
-            'left'   => $this->buildMetricAxis($leftKey),
-            'right'  => $this->buildMetricAxis($rightKey),
-        ];
-
-        if ($canCache) {
-            Cache::put($cacheKey, $payload, now()->addMinutes(10));
-        }
-
-        return $payload;
+        return $this->remember($key, $hasSensor, function () use ($graphs) {
+            return [
+                'mode'   => 'stacked',
+                'period' => $this->period,
+                'graphs' => $graphs,
+            ];
+        });
     }
 
     public function getTableRows(): array

@@ -1,6 +1,9 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">Evolução dos Parâmetros</x-slot>
+        <x-slot name="headerEnd">
+            {{ $this->configurarGraficosAction }}
+        </x-slot>
 
         {{-- Seletores: piscina + eixo esquerdo + eixo direito --}}
         <div class="mb-4">
@@ -46,18 +49,18 @@
             @php($payload = $this->getChartPayload())
 
             <div
-                x-data="mmcChart({{ Illuminate\Support\Js::from($payload ?: null) }})"
+                x-data="mmcEcharts({{ Illuminate\Support\Js::from($payload ?: null) }})"
                 wire:ignore
             >
-                <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
+                <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina ou configura gráficos visíveis.</div>
                 <div x-show="_hasData && !_hasSeries" class="mmc-grafico-vazio" x-cloak>Sem registos neste período.</div>
                 <div x-show="_hasSeries" x-cloak>
                     <div class="mmc-grafico-canvas-wrap">
-                        <canvas x-ref="canvas"></canvas>
+                        <div x-ref="container" :style="`width: 100%; height: ${Math.max(400, (_payload?.graphs?.length || 1) * 320 + 60)}px;`"></div>
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Ctrl+Scroll para zoom &middot; Arrastar para mover
+                            Dica: A barra inferior permite navegar em todos os gráficos em simultâneo.
                         </span>
                         <button
                             x-on:click="resetZoom()"
@@ -187,4 +190,5 @@
             .mmc-grafico-canvas-wrap { height: 260px; }
         }
     </style>
+    <x-filament-actions::modals />
 </x-filament-widgets::widget>
