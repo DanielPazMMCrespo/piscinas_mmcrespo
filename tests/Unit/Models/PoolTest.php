@@ -174,4 +174,35 @@ class PoolTest extends TestCase
         $this->assertEquals(600.0, $pool->volume);
         $this->assertTrue($pool->active);
     }
+
+    public function test_pool_nome_completo_accessor(): void
+    {
+        $instLeiria = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $poolLeiria = Pool::create([
+            'installation_id' => $instLeiria->id,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => 26,
+            'temp_max' => 27,
+            'volume' => 900,
+            'active' => true,
+        ]);
+
+        $this->assertEquals('Leiria Competição', $poolLeiria->nome_completo);
+        $this->assertEquals('Leiria — Competição', $poolLeiria->nomeCompleto(' — '));
+
+        $instMaceira = Installation::create(['name' => 'Maceira', 'morada' => 'Rua Y', 'active' => true]);
+        $poolMaceira = Pool::create([
+            'installation_id' => $instMaceira->id,
+            'name' => 'Maceira',
+            'type' => 'Polivalente',
+            'temp_min' => 28,
+            'temp_max' => 30,
+            'volume' => 170,
+            'active' => true,
+        ]);
+
+        $this->assertEquals('Maceira', $poolMaceira->nome_completo);
+        $this->assertEquals('Maceira', $poolMaceira->nomeCompleto(' — '));
+    }
 }

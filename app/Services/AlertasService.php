@@ -89,9 +89,7 @@ class AlertasService
             ->keyBy('pool_id');
 
         foreach ($piscinas as $piscina) {
-            $nome = $piscina->instalacao?->name
-                ? "{$piscina->instalacao->name} {$piscina->name}"
-                : $piscina->name;
+            $nome = $piscina->nome_completo;
 
             $registo = $ultimosRegistos->get($piscina->id);
             $temRegistoHoje = $registo && $registo->registado_em->isToday();

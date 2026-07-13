@@ -119,7 +119,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->orderBy('installation_id')->orderBy('name')
             ->get()
             ->mapWithKeys(fn (Pool $p) => [
-                (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
+                (string) $p->id => $p->nomeCompleto(' — '),
             ])->toArray();
 
         $opcoesMetricas = collect(self::getMetricas())
@@ -310,9 +310,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         }
 
         $pool = Pool::with('instalacao')->find((int) $this->poolSelecionada);
-        $titulo = $pool
-            ? (($pool->instalacao?->name ? $pool->instalacao->name.' — ' : '').$pool->name)
-            : '';
+        $titulo = $pool ? $pool->nomeCompleto(' — ') : '';
 
         $payload = [
             'titulo' => $titulo,

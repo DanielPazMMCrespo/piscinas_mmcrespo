@@ -57,6 +57,25 @@ class Pool extends Model
         return $this->belongsTo(Installation::class, 'installation_id');
     }
 
+    public function nomeCompleto(string $separator = ' '): string
+    {
+        $instalacaoNome = $this->instalacao?->name;
+        if (! $instalacaoNome) {
+            return $this->name;
+        }
+
+        if ($instalacaoNome === $this->name) {
+            return $this->name;
+        }
+
+        return "{$instalacaoNome}{$separator}{$this->name}";
+    }
+
+    public function getNomeCompletoAttribute(): string
+    {
+        return $this->nomeCompleto();
+    }
+
     public function registosDiarios(): HasMany
     {
         return $this->hasMany(DailyRecord::class);
