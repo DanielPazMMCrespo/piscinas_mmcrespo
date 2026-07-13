@@ -63,7 +63,7 @@ class Login extends BaseLogin
                     RateLimiter::clear($throttleKey);
                 }
                 $this->clearRateLimiter();
-                Auth::login($user, $data['remember'] ?? false);
+                Auth::login($user, $data['remember'] ?? true);
 
                 return app(LoginResponse::class);
             }
@@ -74,7 +74,7 @@ class Login extends BaseLogin
                     RateLimiter::clear($throttleKey);
                 }
                 $this->clearRateLimiter();
-                Auth::login($user, $data['remember'] ?? false);
+                Auth::login($user, $data['remember'] ?? true);
 
                 return app(LoginResponse::class);
             }
@@ -101,5 +101,11 @@ class Login extends BaseLogin
         throw ValidationException::withMessages([
             'data.email' => __('filament-panels::pages/auth/login.messages.failed'),
         ]);
+    }
+
+    protected function getRememberFormComponent(): \Filament\Forms\Components\Component
+    {
+        return parent::getRememberFormComponent()
+            ->default(true);
     }
 }

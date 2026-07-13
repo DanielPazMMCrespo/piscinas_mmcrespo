@@ -31,7 +31,7 @@ class DailyRecordResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with(['piscina.instalacao']);
 
         if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->whereIn('pool_id', auth()->user()->piscinas()->pluck('pools.id'));

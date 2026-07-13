@@ -3,6 +3,7 @@ namespace App\Services;
 
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class AlertingService
@@ -182,8 +183,6 @@ class AlertingService
                 default => 'good',
             };
 
-            $client = new \GuzzleHttp\Client();
-
             $payload = [
                 'channel' => config('alerting.channels.slack.channel'),
                 'attachments' => [
@@ -197,17 +196,14 @@ class AlertingService
                 ],
             ];
 
-            $client->post(
-                config('services.slack.notifications.bot_user_oauth_token')
-                    ? 'https://slack.com/api/chat.postMessage'
-                    : '',
-                [
-                    'json' => $payload,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . config('services.slack.notifications.bot_user_oauth_token'),
-                    ],
-                ]
-            );
+            $url = config('services.slack.notifications.bot_user_oauth_token')
+                ? 'https://slack.com/api/chat.postMessage'
+                : '';
+
+            if ($url) {
+                Http::withToken(config('services.slack.notifications.bot_user_oauth_token'))
+                    ->post($url, $payload);
+            }
         } catch (\Throwable $e) {
             Log::error('Failed to send Slack alert', [
                 'error' => $e->getMessage(),

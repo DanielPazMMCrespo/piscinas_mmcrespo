@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Alerta de "torneira de água aberta": criado quando um registo diário marca a
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class TapAlert extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'pool_id', 'opened_record_id', 'opened_by', 'opened_at',
         'resolved_at', 'resolved_by', 'resolved_record_id', 'resolution',
@@ -27,5 +29,25 @@ class TapAlert extends Model
     public function piscina(): BelongsTo
     {
         return $this->belongsTo(Pool::class, 'pool_id');
+    }
+
+    public function openedRecord(): BelongsTo
+    {
+        return $this->belongsTo(DailyRecord::class, 'opened_record_id');
+    }
+
+    public function resolvedRecord(): BelongsTo
+    {
+        return $this->belongsTo(DailyRecord::class, 'resolved_record_id');
+    }
+
+    public function openedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'opened_by');
+    }
+
+    public function resolvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 }

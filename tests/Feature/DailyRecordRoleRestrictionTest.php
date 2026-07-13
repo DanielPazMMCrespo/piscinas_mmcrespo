@@ -82,20 +82,18 @@ class DailyRecordRoleRestrictionTest extends TestCase
     }
 
     /**
-     * Teste: Nadador-salvador só vê as piscinas às quais está associado.
+     * Teste: Nadador-salvador tem por padrão a instalação do seu pool atribuído.
      */
-    public function test_swimmer_only_sees_assigned_pools_in_dropdown(): void
+    public function test_swimmer_defaults_to_assigned_pool_installation(): void
     {
-        // Associar apenas a piscina de Competição ao nadador
+        // Associar piscina de Leiria ao nadador
         $this->nadador->piscinas()->attach($this->competicao->id);
 
         Livewire::actingAs($this->nadador)
             ->test(CreateDailyRecord::class)
-            ->assertFormFieldExists('pool_id');
-        
-        // Verificamos que na query do select do pool_id apenas a de Competição está listada
-        $this->assertTrue($this->nadador->piscinas()->exists());
-        $this->assertSame(1, $this->nadador->piscinas()->count());
-        $this->assertSame($this->competicao->id, $this->nadador->piscinas()->first()->id);
+            ->assertFormFieldExists('installation_id')
+            ->assertFormSet([
+                'installation_id' => $this->leiria->id,
+            ]);
     }
 }

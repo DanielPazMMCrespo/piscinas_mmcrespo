@@ -56,50 +56,23 @@ class DailyRecordFormValidationTest extends TestCase
     /**
      * Teste: Cloro total não pode ser menor que cloro livre.
      */
-    public function test_cloro_total_cannot_be_less_than_cloro_livre(): void
-    {
-        Livewire::actingAs($this->tecnico)
-            ->test(CreateDailyRecord::class)
-            ->fillForm([
-                'pool_id' => $this->competicao->id,
-                'registado_em' => now(),
-                'piscinas' => [
-                    0 => [
-                        'pool_id' => $this->competicao->id,
-                        'ph' => 7.2,
-                        'cloro_livre' => 2.0,
-                        'cloro_total' => 1.5, // menor que cloro_livre
-                        'temperatura' => 27.0,
-                        'transparencia' => 1,
-                    ]
-                ]
-            ])
-            ->call('create')
-            ->assertHasFormErrors(['piscinas.0.cloro_total']);
-    }
-
-    /**
-     * Teste: Cloro total (NS) não pode ser menor que cloro livre (NS).
-     */
     public function test_ns_cloro_total_cannot_be_less_than_ns_cloro_livre(): void
     {
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
             ->fillForm([
-                'pool_id' => $this->competicao->id,
-                'registado_em' => now(),
-                'piscinas' => [
-                    0 => [
-                        'pool_id' => $this->competicao->id,
+                'installation_id' => $this->leiria->id,
+                'pools' => [
+                    $this->competicao->id => [
                         'ns_ph' => 7.2,
-                        'ns_cloro_livre' => 1.8,
-                        'ns_cloro_total' => 1.2, // menor que ns_cloro_livre
+                        'ns_cloro_livre' => 2.0,
+                        'ns_cloro_total' => 1.5, // menor que ns_cloro_livre
                         'ns_temperatura' => 27.0,
                     ]
                 ]
             ])
             ->call('create')
-            ->assertHasFormErrors(['piscinas.0.ns_cloro_total']);
+            ->assertHasFormErrors(["pools.{$this->competicao->id}.ns_cloro_total"]);
     }
 
     /**
@@ -113,33 +86,29 @@ class DailyRecordFormValidationTest extends TestCase
             'user_id' => $this->tecnico->id,
             'registado_em' => now()->subHours(2),
             'contador_valor' => 150.5,
-            'ph' => 7.2,
-            'cloro_livre' => 1.0,
-            'cloro_total' => 1.2,
-            'temperatura' => 27.0,
-            'transparencia' => 1,
+            'ns_ph' => 7.2,
+            'ns_cloro_livre' => 1.0,
+            'ns_cloro_total' => 1.2,
+            'ns_temperatura' => 27.0,
         ]);
 
         // Tentar preencher contador = 150.4 (retrocesso)
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
             ->fillForm([
-                'pool_id' => $this->competicao->id,
-                'registado_em' => now(),
-                'piscinas' => [
-                    0 => [
-                        'pool_id' => $this->competicao->id,
+                'installation_id' => $this->leiria->id,
+                'pools' => [
+                    $this->competicao->id => [
                         'contador_valor' => 150.4, // menor que 150.5
-                        'ph' => 7.2,
-                        'cloro_livre' => 1.0,
-                        'cloro_total' => 1.2,
-                        'temperatura' => 27.0,
-                        'transparencia' => 1,
+                        'ns_ph' => 7.2,
+                        'ns_cloro_livre' => 1.0,
+                        'ns_cloro_total' => 1.2,
+                        'ns_temperatura' => 27.0,
                     ]
                 ]
             ])
             ->call('create')
-            ->assertHasFormErrors(['piscinas.0.contador_valor']);
+            ->assertHasFormErrors(["pools.{$this->competicao->id}.contador_valor"]);
     }
 
     /**
@@ -159,16 +128,13 @@ class DailyRecordFormValidationTest extends TestCase
         Livewire::actingAs($this->tecnico)
             ->test(CreateDailyRecord::class)
             ->fillForm([
-                'pool_id' => $this->competicao->id,
-                'registado_em' => now(),
-                'piscinas' => [
-                    0 => [
-                        'pool_id' => $this->competicao->id,
-                        'ph' => 7.2,
-                        'cloro_livre' => 1.0,
-                        'cloro_total' => 1.2,
-                        'temperatura' => 27.0,
-                        'transparencia' => 1,
+                'installation_id' => $this->leiria->id,
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.2,
+                        'ns_cloro_livre' => 1.0,
+                        'ns_cloro_total' => 1.2,
+                        'ns_temperatura' => 27.0,
                         'adicoes' => [
                             [
                                 'product_id' => $this->cloro->id,
@@ -179,7 +145,7 @@ class DailyRecordFormValidationTest extends TestCase
                 ]
             ])
             ->call('create')
-            ->assertHasFormErrors(['piscinas.0.adicoes.0.quantity']);
+            ->assertHasFormErrors(["pools.{$this->competicao->id}.adicoes.0.quantity"]);
     }
 
     /**
@@ -190,23 +156,27 @@ class DailyRecordFormValidationTest extends TestCase
         // pH fora dos limites (CN 14/DA: 6.9 - 8.0) -> pH 8.5
         $page = new CreateDailyRecord();
         $page->data = [
-            'pool_id' => $this->competicao->id,
-            'piscinas' => [
-                0 => [
-                    'ph' => 8.5, // Fora do limite
-                    'cloro_livre' => 1.2,
-                    'temperatura' => 27.0,
-                    'transparencia' => 1,
+            'installation_id' => $this->leiria->id,
+            'pools' => [
+                $this->competicao->id => [
+                    'ns_ph' => 8.5, // Fora do limite
+                    'ns_cloro_livre' => 1.2,
+                    'ns_temperatura' => 27.0,
                 ]
             ]
         ];
 
         // Usar reflexão para aceder ao método privado conteudoModalConfirmacao
-        $method = new \ReflectionMethod(CreateDailyRecord::class, 'conteudoModalConfirmacao');
+        $method = new \ReflectionMethod(CreateDailyRecord::class, 'getFormActions');
         $method->setAccessible(true);
-        $view = $method->invoke($page);
+        $actions = $method->invoke($page);
 
+        // A primeira ação é 'create'
+        $createAction = $actions[0];
+        $view = $createAction->getModalContent();
+        
         $viewData = $view->getData();
+        
         $this->assertNotEmpty($viewData['problemas']);
         $this->assertStringContainsString('pH 8,5 — acima do máximo (8)', $viewData['problemas'][0]);
     }

@@ -10,20 +10,19 @@ class Installation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'morada', 'active'];
+    protected $fillable = ['name', 'morada', 'active', 'tanques_verificaveis'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = [
+        'active' => 'boolean',
+        'tanques_verificaveis' => 'boolean',
+    ];
 
-    protected static function boot(): void
+    protected static function booted(): void
     {
-        parent::boot();
-
         static::deleting(function (Installation $installation): void {
             $installation->incidentes()->delete();
-            // Apaga pools em cascata (FK cascadeOnDelete cuida dos daily_records filhos).
-            $installation->piscinas()->each(fn (Pool $pool) => $pool->delete());
-            // Stock da instalação
-            StockInstallation::where('installation_id', $installation->id)->delete();
+            $installation->piscinas()->delete();
+            $installation->stockInstallations()->delete();
         });
     }
 
@@ -43,4 +42,11 @@ class Installation extends Model
         return $this->hasMany(Incident::class);
     }
 
+    /**
+     * @return HasMany
+     */
+    public function stockInstallations(): HasMany
+    {
+        return $this->hasMany(StockInstallation::class);
+    }
 }

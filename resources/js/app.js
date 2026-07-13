@@ -7,16 +7,6 @@ const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').mat
 // Avoids duplicate plugin registration and duplicate dynamic imports.
 let ChartWithPlugins = null;
 
-// _hasData (payload.left/right existem) só diz que há uma piscina selecionada
-// e uma estrutura de eixos válida — não que haja pontos para desenhar. Sem
-// isto, um período sem registos mostra um gráfico vazio (só a banda legal)
-// em vez de uma mensagem clara.
-function payloadHasSeries(payload) {
-    if (!payload?.left || !payload?.right) return false;
-    const hasPoints = (axis) => (axis?.datasets ?? []).some((d) => (d?.data ?? []).length > 0);
-    return hasPoints(payload.left) || hasPoints(payload.right);
-}
-
 /**
  * Componente Alpine para os gráficos de parâmetros (dual Y-axis, zoom/pan, time scale).
  *
@@ -40,8 +30,14 @@ document.addEventListener('alpine:init', () => {
         _offChartUpdate: null,
         _payload: initialPayload,
         _hasData: !!(initialPayload?.left && initialPayload?.right),
-        _hasSeries: payloadHasSeries(initialPayload),
         _renderRetries: 0,
+
+        get _hasSeries() {
+            const p = this._payload;
+            if (!p || !p.left || !p.right) return false;
+            const hasPoints = (axis) => (axis.datasets || []).some((ds) => (ds.data || []).length > 0);
+            return hasPoints(p.left) || hasPoints(p.right);
+        },
 
         async init() {
             if (!ChartWithPlugins) {
@@ -90,7 +86,6 @@ document.addEventListener('alpine:init', () => {
                     this._payload = payload;
                     const hadData = this._hasData;
                     this._hasData = !!(payload?.left && payload?.right);
-                    this._hasSeries = payloadHasSeries(payload);
 
                     if (this._hasData) {
                         // $nextTick garante que x-show já processou _hasData=true
@@ -180,20 +175,20 @@ document.addEventListener('alpine:init', () => {
         },
 
         buildDataset(ds, yAxisID, cor) {
-            const isDense = ds.data.length > 25;
             return {
                 label: ds.label,
                 data: ds.data,
                 yAxisID,
                 borderColor: cor,
-                backgroundColor: cor + '1A', // 10% opacidade para um gradiente subtil e elegante
-                fill: true,
-                borderWidth: 2,
-                pointRadius: isDense ? 0 : 3, // Oculta bolinhas em séries densas para não criar grumos
+                backgroundColor: cor,
+                borderWidth: 2.5,
+                // Mostrar pontos apenas quando há poucos (registos manuais ou curtos períodos)
+                pointRadius: ds.data.length <= 60 ? 3 : 0,
                 pointHoverRadius: 5,
-                tension: 0.2, // Suavização equilibrada que não distorce picos bruscos
+                tension: 0.3,
                 spanGaps: false,
                 order: 1,
+                ...(ds.dashed ? { borderDash: [5, 5] } : {}),
             };
         },
 
@@ -290,7 +285,7 @@ document.addEventListener('alpine:init', () => {
                                     hour: 'HH:mm',
                                     day:  'dd/MM',
                                 },
-                                tooltipFormat: isShort ? 'dd/MM HH:mm' : 'dd/MM/yyyy',
+                                tooltipFormat: 'dd/MM/yyyy HH:mm',
                             },
                             grid: { display: false },
                             ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 },
@@ -330,197 +325,196 @@ document.addEventListener('alpine:init', () => {
     }));
 
     /**
-     * Timer de retrolavagem: modal ecrã cheio ao iniciar, colapsa numa pill fixa
-     * no topo ao tocar fora. Persistido em localStorage (timestamp absoluto de
-     * fim, scoped por piscina) para sobreviver a reload/bloqueio de ecrã.
+     * Quadro Kanban operacional: drag-and-drop entre colunas (SortableJS)
+     * com persistência via Livewire (moverAlerta) e entrada animada (GSAP).
      */
-    window.Alpine.data('mmcTimerRetrolavagem', (configTimers) => ({
-        timers: {},
-        intervaloId: null,
-        ouvinteEvento: null,
+    window.Alpine.data('mmcKanban', () => ({
+        sortables: [],
+        SortableClass: null,
+        gsapObj: null,
 
-        init() {
-            configTimers.forEach((cfg) => {
-                this.timers[cfg.campo] = {
-                    label: cfg.label,
-                    duracaoSegundos: cfg.duracaoSegundos,
-                    fimEm: null,
-                    segundosRestantesPausado: null,
-                    pausado: false,
-                    terminado: false,
-                    modalAberto: false,
-                    pillVisivel: false,
-                    mostrarEditor: false,
-                };
-                this.restaurar(cfg.campo);
+        async init() {
+            if (!this.SortableClass || !this.gsapObj) {
+                const [sortableModule, gsapModule] = await Promise.all([
+                    import('sortablejs'),
+                    import('gsap')
+                ]);
+                this.SortableClass = sortableModule.default;
+                this.gsapObj = gsapModule.gsap;
+            }
+
+            this.montar();
+
+            // O Livewire substitui o DOM das listas após cada movimento/polling —
+            // destrói e volta a montar o Sortable para não ficar órfão.
+            Livewire.hook('morph.updated', ({ el }) => {
+                if (el === this.$el || this.$el.contains(el)) {
+                    clearTimeout(this._remount);
+                    this._remount = setTimeout(() => this.montar(), 50);
+                }
             });
 
-            this.intervaloId = setInterval(() => this.atualizarTodos(), 250);
+            if (!reduzMovimento) {
+                this.gsapObj.from(this.$el.querySelectorAll('.mmc-kb-card'), {
+                    y: 14, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'all',
+                });
+            }
+        },
 
-            this.ouvinteEvento = (evento) => {
-                const campo = evento.detail?.campo;
-                if (campo && this.timers[campo]) {
-                    this.iniciar(campo);
+        montar() {
+            this.sortables = this.sortables.filter((s) => {
+                if (!document.body.contains(s.el)) {
+                    s.destroy();
+                    return false;
                 }
-            };
-            window.addEventListener('mmc-timer-iniciar', this.ouvinteEvento);
+                return true;
+            });
+
+            this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
+                if (lista.dataset.sortableId) {
+                    return;
+                }
+
+                const sortableId = 'sortable_' + Math.random().toString(36).substr(2, 9);
+                lista.dataset.sortableId = sortableId;
+
+                this.sortables.push(this.SortableClass.create(lista, {
+                    group: 'mmc-kanban',
+                    animation: 150,
+                    ghostClass: 'mmc-kb-ghost',
+                    dragClass: 'mmc-kb-drag',
+                    // Nos ecrãs táteis o arrasto exige pressão longa para não
+                    // lutar com o scroll horizontal das colunas.
+                    delay: 150,
+                    delayOnTouchOnly: true,
+                    filter: '.mmc-kb-btn, a',
+                    preventOnFilter: false,
+                    onMove: (evt) => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                        evt.to?.closest('.mmc-kb-col')?.classList.add('mmc-kb-col--over');
+                        return true;
+                    },
+                    onEnd: () => {
+                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
+                    },
+                    onAdd: (evt) => {
+                        const key = evt.item?.dataset?.key;
+                        const status = evt.to?.dataset?.status;
+                        if (key && status) {
+                            if (!reduzMovimento) {
+                                this.gsapObj.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
+                            }
+                            this.$wire.moverAlerta(key, status);
+                        }
+                    },
+                }));
+            });
         },
 
         destroy() {
-            clearInterval(this.intervaloId);
-            if (this.ouvinteEvento) {
-                window.removeEventListener('mmc-timer-iniciar', this.ouvinteEvento);
-            }
+            this.sortables.forEach((s) => s.destroy());
+        },
+    }));
+
+    window.Alpine.data('countdownTimer', (statePath, defaultSeconds = 180) => ({
+        statePath: statePath,
+        initialSeconds: defaultSeconds,
+        remainingSeconds: defaultSeconds,
+        timer: null,
+        isRunning: false,
+
+        get formattedTime() {
+            const isNeg = this.remainingSeconds < 0;
+            const absSecs = Math.abs(this.remainingSeconds);
+            const m = Math.floor(absSecs / 60).toString().padStart(2, '0');
+            const s = (absSecs % 60).toString().padStart(2, '0');
+            return `${isNeg ? '-' : ''}${m}:${s}`;
+        },
+        
+        get isExceeded() {
+            return this.remainingSeconds < 0;
         },
 
-        poolIdAtual() {
-            return this.$wire?.data?.pool_id ?? 'sem_piscina';
-        },
-
-        chaveArmazenamento(campo) {
-            return `mmc_timer_${this.poolIdAtual()}_${campo}`;
-        },
-
-        restaurar(campo) {
-            const guardado = localStorage.getItem(this.chaveArmazenamento(campo));
-            if (!guardado) return;
-
-            let dados;
-            try {
-                dados = JSON.parse(guardado);
-            } catch (erro) {
-                localStorage.removeItem(this.chaveArmazenamento(campo));
-                return;
-            }
-
-            if (dados.fimEm && dados.fimEm > Date.now()) {
-                this.timers[campo].duracaoSegundos = dados.duracaoSegundos;
-                this.timers[campo].fimEm = dados.fimEm;
-                this.timers[campo].pillVisivel = true;
+        init() {
+            const storageKey = 'mmc_timer_' + this.statePath;
+            const saved = localStorage.getItem(storageKey);
+            
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    this.initialSeconds = data.initialSeconds ?? defaultSeconds;
+                    this.isRunning = data.isRunning ?? false;
+                    
+                    if (this.isRunning && data.endTime) {
+                        const remaining = Math.round((data.endTime - Date.now()) / 1000);
+                        this.remainingSeconds = remaining;
+                        this.startTimer();
+                    } else {
+                        this.remainingSeconds = data.remainingSeconds ?? defaultSeconds;
+                    }
+                } catch (e) {
+                    console.error('Error loading timer:', e);
+                }
             } else {
-                localStorage.removeItem(this.chaveArmazenamento(campo));
+                this.remainingSeconds = defaultSeconds;
             }
+
+            // Auto-save on any change
+            this.$watch('remainingSeconds', () => this.saveState());
+            this.$watch('initialSeconds', () => this.saveState());
+            this.$watch('isRunning', () => this.saveState());
         },
 
-        guardar(campo) {
-            const t = this.timers[campo];
-            localStorage.setItem(this.chaveArmazenamento(campo), JSON.stringify({
-                duracaoSegundos: t.duracaoSegundos,
-                fimEm: t.fimEm,
-            }));
-        },
-
-        limpar(campo) {
-            localStorage.removeItem(this.chaveArmazenamento(campo));
-        },
-
-        iniciar(campo) {
-            const t = this.timers[campo];
-            t.terminado = false;
-            t.pausado = false;
-            t.fimEm = Date.now() + t.duracaoSegundos * 1000;
-            t.modalAberto = true;
-            t.pillVisivel = false;
-            this.guardar(campo);
-        },
-
-        atualizarTodos() {
-            Object.keys(this.timers).forEach((campo) => this.atualizar(campo));
-        },
-
-        atualizar(campo) {
-            const t = this.timers[campo];
-            if (t.pausado || t.fimEm === null || t.terminado) return;
-
-            if (this.segundosRestantes(campo) <= 0) {
-                t.terminado = true;
-                t.pillVisivel = true;
-                this.guardar(campo);
-                this.notificarFim();
+        saveState() {
+            const storageKey = 'mmc_timer_' + this.statePath;
+            const data = {
+                initialSeconds: this.initialSeconds,
+                remainingSeconds: this.remainingSeconds,
+                isRunning: this.isRunning
+            };
+            if (this.isRunning) {
+                data.endTime = Date.now() + (this.remainingSeconds * 1000);
             }
+            localStorage.setItem(storageKey, JSON.stringify(data));
         },
 
-        segundosRestantes(campo) {
-            const t = this.timers[campo];
-            if (t.fimEm === null) return 0;
-            return Math.max(0, Math.round((t.fimEm - Date.now()) / 1000));
-        },
-
-        progresso(campo) {
-            const t = this.timers[campo];
-            if (t.duracaoSegundos <= 0) return 0;
-            return Math.min(1, 1 - this.segundosRestantes(campo) / t.duracaoSegundos);
-        },
-
-        formatoTempo(campo) {
-            const total = this.segundosRestantes(campo);
-            const minutos = Math.floor(total / 60).toString().padStart(2, '0');
-            const segundos = (total % 60).toString().padStart(2, '0');
-            return `${minutos}:${segundos}`;
-        },
-
-        algumaPillVisivel() {
-            return Object.values(this.timers).some((t) => t.pillVisivel);
-        },
-
-        colapsar(campo) {
-            this.timers[campo].modalAberto = false;
-            this.timers[campo].pillVisivel = true;
-        },
-
-        expandir(campo) {
-            this.timers[campo].modalAberto = true;
-            this.timers[campo].pillVisivel = false;
-        },
-
-        cancelar(campo) {
-            const t = this.timers[campo];
-            t.modalAberto = false;
-            t.pillVisivel = false;
-            t.terminado = false;
-            t.pausado = false;
-            t.fimEm = null;
-            this.limpar(campo);
-        },
-
-        alternarPausa(campo) {
-            const t = this.timers[campo];
-            if (t.pausado) {
-                t.fimEm = Date.now() + t.segundosRestantesPausado;
-                t.pausado = false;
+        toggleTimer() {
+            if (this.isRunning) {
+                this.pauseTimer();
             } else {
-                t.segundosRestantesPausado = t.fimEm - Date.now();
-                t.pausado = true;
+                this.startTimer();
             }
-            this.guardar(campo);
         },
 
-        ajustarMinutos(campo, delta) {
-            const t = this.timers[campo];
-            const novaDuracao = Math.max(60, t.duracaoSegundos + delta * 60);
-            const restanteAtual = this.segundosRestantes(campo);
-            t.duracaoSegundos = novaDuracao;
-            if (t.fimEm !== null) {
-                t.fimEm = Date.now() + Math.min(restanteAtual + delta * 60, novaDuracao) * 1000;
-            }
-            this.guardar(campo);
+        startTimer() {
+            if (this.isRunning && this.timer) return;
+            this.isRunning = true;
+            this.timer = setInterval(() => {
+                this.remainingSeconds--;
+            }, 1000);
         },
 
-        notificarFim() {
-            if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200]);
-            }
-            try {
-                const contexto = new (window.AudioContext || window.webkitAudioContext)();
-                const oscilador = contexto.createOscillator();
-                oscilador.frequency.value = 880;
-                oscilador.connect(contexto.destination);
-                oscilador.start();
-                oscilador.stop(contexto.currentTime + 0.3);
-            } catch (erro) {
-                // Ambiente sem suporte a Web Audio — pill já fica visível/vermelha.
+        pauseTimer() {
+            this.isRunning = false;
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
             }
         },
+        
+        adjustTime(seconds) {
+            this.initialSeconds += seconds;
+            if (this.initialSeconds < 60) this.initialSeconds = 60;
+            if (!this.isRunning && this.remainingSeconds > 0) {
+                this.remainingSeconds = this.initialSeconds;
+            }
+        },
+
+        destroy() {
+            if (this.timer) {
+                clearInterval(this.timer);
+            }
+        }
     }));
 });
 
@@ -706,74 +700,101 @@ const setupAutoScroll = () => {
     form.addEventListener('input', scrollDebounced);
 };
 
+// Toast notification when draft is restored
+const showDraftRestoredToast = (formKey, component) => {
+    if (document.getElementById('mmc-draft-toast')) return;
+
+    const toast = document.createElement('div');
+    toast.id = 'mmc-draft-toast';
+    toast.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 bg-gray-900/95 backdrop-blur text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-between gap-4 border border-white/10 z-50 transition-all duration-300 transform translate-y-10 opacity-0';
+    toast.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <p class="text-sm font-medium">Rascunho anterior restaurado automaticamente.</p>
+        </div>
+        <button id="clear-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-rose-400 hover:text-rose-300 transition px-2 py-1 rounded bg-white/5 hover:bg-white/10">
+            Limpar
+        </button>
+    `;
+    document.body.appendChild(toast);
+
+    // Slide in
+    setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+    }, 50);
+
+    document.getElementById('clear-draft-btn').addEventListener('click', () => {
+        localStorage.removeItem(formKey);
+        // Clear all timers as well
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('mmc_timer_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        toast.remove();
+        // Reset Livewire form state and reload
+        component.set('data', {});
+        window.location.reload();
+    });
+
+    // Auto-fade out after 8 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.classList.add('translate-y-10', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 8000);
+};
+
 // Auto-save form draft in localStorage for Daily Record creation
 const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
-    const form = document.querySelector('form');
-    if (!form) return;
+    const findAndRestore = () => {
+        const mainComponentEl = document.querySelector('[wire\\:id]');
+        if (!mainComponentEl) return;
+        const componentId = mainComponentEl.getAttribute('wire:id');
+        const component = window.Livewire ? window.Livewire.find(componentId) : null;
+        
+        if (!component) {
+            // Try again in 100ms
+            setTimeout(findAndRestore, 100);
+            return;
+        }
 
-    const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+        const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
 
-    // Restore draft after a small timeout to let Livewire/Filament bindings initialize
-    setTimeout(() => {
+        // 1. Restore draft
         const draft = localStorage.getItem(formKey);
         if (draft) {
             try {
-                const data = JSON.parse(draft);
-                Object.entries(data).forEach(([name, val]) => {
-                    const input = form.querySelector(`[name="${name}"], [name*="${name}"]`);
-                    if (input) {
-                        if (input.type === 'checkbox' || input.type === 'radio') {
-                            input.checked = !!val;
-                        } else {
-                            input.value = val;
-                        }
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
+                const draftData = JSON.parse(draft);
+                if (draftData && Object.keys(draftData).length > 0) {
+                    component.set('data', draftData);
+                    showDraftRestoredToast(formKey, component);
+                }
             } catch (e) {
-                console.error('Error restoring draft:', e);
+                console.error('Error restoring daily record draft:', e);
             }
         }
-    }, 500);
 
-    // Save draft on input
-    form.addEventListener('input', (e) => {
-        const el = e.target;
-        if (!el.name) return;
-
-        const currentDraft = localStorage.getItem(formKey);
-        let data = {};
-        try {
-            data = currentDraft ? JSON.parse(currentDraft) : {};
-        } catch (e) {
-            data = {};
+        // 2. Setup local input change listener for quick updates
+        const form = document.querySelector('form');
+        if (form) {
+            let debounceTimeout;
+            form.addEventListener('input', () => {
+                clearTimeout(debounceTimeout);
+                debounceTimeout = setTimeout(() => {
+                    const currentData = component.get('data');
+                    if (currentData) {
+                        localStorage.setItem(formKey, JSON.stringify(currentData));
+                    }
+                }, 500);
+            });
         }
+    };
 
-        if (el.type === 'checkbox' || el.type === 'radio') {
-            data[el.name] = el.checked;
-        } else {
-            data[el.name] = el.value;
-        }
-
-        localStorage.setItem(formKey, JSON.stringify(data));
-    });
-
-    // Clear draft on form submit
-    form.addEventListener('submit', () => {
-        localStorage.removeItem(formKey);
-    });
-
-    // Also clear draft when Filament notifies that the record was successfully saved
-    if (window.Livewire) {
-        window.Livewire.on('dailyRecordSaved', (event) => {
-            if (event.notification && event.notification.status === 'success') {
-                localStorage.removeItem(formKey);
-            }
-        });
-    }
+    findAndRestore();
 };
 
 const setupGlobalImageLightbox = () => {
@@ -883,15 +904,35 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     mmcSetup();
 }
 
-// A sidebar do Filament persiste `isOpen: true` por defeito (Alpine.$persist),
-// independente do viewport — em mobile isto mostra o menu em overlay por cima
-// do dashboard no primeiro acesso. 'alpine:initialized' corre depois do Alpine
-// arrancar por completo (após todos os stores serem registados), por isso não
-// há corrida com o store 'sidebar' do próprio Filament. Só força o fecho no
-// full-page-load: navegação Livewire (wire:navigate) não reinicializa o Alpine,
-// por isso um utilizador que abra o menu manualmente mantém-no aberto ao navegar.
-document.addEventListener('alpine:initialized', () => {
-    if (window.innerWidth < 1024 && window.Alpine?.store('sidebar')) {
-        window.Alpine.store('sidebar').close();
-    }
+// Global Livewire 3 init hooks
+document.addEventListener('livewire:init', () => {
+    // Watch Livewire request lifecycle to auto-save drafts on server updates (e.g. toggles, selections)
+    Livewire.hook('request', ({ component, respond }) => {
+        if (component.name === 'app.filament.resources.daily-record-resource.pages.create-daily-record' || 
+            window.location.pathname.includes('/daily-records/create')) {
+            respond(() => {
+                const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+                const currentData = component.get('data');
+                if (currentData) {
+                    localStorage.setItem(formKey, JSON.stringify(currentData));
+                }
+            });
+        }
+    });
+
+    // Clear draft and all active timers when dailyRecordSaved event is emitted
+    Livewire.on('dailyRecordSaved', () => {
+        const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+        localStorage.removeItem(formKey);
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('mmc_timer_')) {
+                localStorage.removeItem(key);
+            }
+        });
+    });
+});
+
+// Setup form draft on Livewire SPA page transitions
+document.addEventListener('livewire:navigated', () => {
+    setupFormDraft();
 });
