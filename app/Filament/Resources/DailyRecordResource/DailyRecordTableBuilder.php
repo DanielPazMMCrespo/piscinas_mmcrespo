@@ -240,8 +240,7 @@ class DailyRecordTableBuilder
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
         $isSwimmerRecord = fn (?DailyRecord $record): bool =>
-            $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
-            || ($record?->ns_ph !== null && $record?->ph === null);
+            $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
         $viewerIsNS = auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
