@@ -19,6 +19,52 @@ class DailyRecordFormBuilder
         return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
     }
 
+    /**
+     * Estado inicial de cada piscina no array `data.pools`. Necessário registar
+     * estas chaves cedo: os campos das piscinas são construídos num schema dinâmico
+     * (dependente de installation_id), e sem as chaves pré-existentes o @entangle
+     * do Livewire falha ('property cannot be found') e parte a reatividade live().
+     */
+    private static function estadoInicialPiscinas(Installation $installation): array
+    {
+        $base = [
+            'bomba_ferrada' => true,
+            'contador_valor' => null,
+            'agua_modo' => null,
+            'bomba_foto' => null,
+            'contador_foto' => null,
+            'tanque_ok' => true,
+            'tanque_observacoes' => null,
+            'tanque_foto' => null,
+            'filtro_faz_retrolavagem' => false,
+            'timer_lavagem' => 3,
+            'filtro_foto_retrolavagem' => null,
+            'timer_enxaguamento' => 2,
+            'filtro_foto_enxaguamento' => null,
+            'filtro_foto_posicao_normal' => null,
+            'ns_ph' => null,
+            'ns_cloro_livre' => null,
+            'ns_cloro_total' => null,
+            'ns_temperatura' => null,
+            'acao_corretiva' => null,
+            'adicoes' => [],
+            'observacoes' => null,
+        ];
+
+        return $installation->piscinas()
+            ->pluck('id')
+            ->mapWithKeys(fn ($id) => [(string) $id => $base])
+            ->toArray();
+    }
+
+    private static function semearEstadoPiscinas(Set $set, int|string|null $installationId): void
+    {
+        $installation = $installationId ? Installation::find($installationId) : null;
+
+        $set('pools', $installation ? self::estadoInicialPiscinas($installation) : []);
+        $set('ns_foto', null);
+    }
+
     private static function fotoField(string $field, string $label, string $directory, bool $required = false): array
     {
         return [
@@ -74,7 +120,13 @@ class DailyRecordFormBuilder
                         ->default(function() {
                              $pool = Pool::whereHas('users', fn($q) => $q->where('users.id', auth()->id()))->first();
                              return $pool?->installation_id;
-                        }),
+                        })
+                        ->afterStateHydrated(function (Set $set, Get $get, $state) {
+                            if (filled($state) && blank($get('pools'))) {
+                                self::semearEstadoPiscinas($set, $state);
+                            }
+                        })
+                        ->afterStateUpdated(fn (Set $set, $state) => self::semearEstadoPiscinas($set, $state)),
                     Forms\Components\Select::make('user_id')
                         ->label('Responsável')
                         ->relationship('utilizador', 'name')
