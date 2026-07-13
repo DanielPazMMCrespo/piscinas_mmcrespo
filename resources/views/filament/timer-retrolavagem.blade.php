@@ -7,7 +7,7 @@
     @endphp
 
     <div x-data="countdownTimer('{{ $getStatePath() }}', {{ $defaultMinutes * 60 }})"
-         class="flex items-center gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 w-full">
+         class="flex items-center gap-4 mmc-timer-container p-4 rounded-xl border w-full">
         
         <div class="flex items-center gap-2">
             <x-filament::button
@@ -18,7 +18,7 @@
                 x-bind:disabled="isRunning"
                 tooltip="Menos 1 minuto"
             />
-            <span class="text-sm font-medium" x-text="Math.floor(initialSeconds / 60) + ' min'"></span>
+            <span class="text-sm font-medium text-inherit" x-text="Math.floor(initialSeconds / 60) + ' min'"></span>
             <x-filament::button
                 color="gray"
                 icon="heroicon-m-plus"
@@ -30,7 +30,7 @@
         </div>
 
         <div class="text-3xl font-mono tracking-wider ml-auto"
-             x-bind:class="{ 'text-danger-600 dark:text-danger-400': isExceeded, 'text-gray-900 dark:text-white': !isExceeded }"
+             x-bind:class="{ 'mmc-timer-clock--exceeded': isExceeded, 'mmc-timer-clock--normal': !isExceeded }"
              x-text="formattedTime">
         </div>
 
