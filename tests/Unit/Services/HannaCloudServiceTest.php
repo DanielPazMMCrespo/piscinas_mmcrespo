@@ -154,7 +154,7 @@ class HannaCloudServiceTest extends TestCase
         $this->assertSame(['pH high alarm'], $reading['alarms']);
     }
 
-    public function test_update_device_settings_sends_mutation(): void
+    public function test_update_device_settings_sends_query(): void
     {
         Cache::put('hanna_cloud_access_token', 'mock_access_token_123', 3600);
         $this->service->authenticate('test@mmcrespo.pt', 'secret_password');
@@ -182,7 +182,7 @@ class HannaCloudServiceTest extends TestCase
             $payload = $request->data();
             return $request->url() === 'https://www.hannacloud.com/api/graphql'
                 && $payload['operationName'] === 'DeviceSetting'
-                && str_contains($payload['query'], 'mutation DeviceSetting') // VERIFY FIX
+                && str_contains($payload['query'], 'query DeviceSetting') // VERIFY FIX
                 && $payload['variables']['deviceId'] === 'DID-001'
                 && $payload['variables']['AS'] === 'AS_VALS'
                 && $payload['variables']['GS'] === 'GS_VALS'
