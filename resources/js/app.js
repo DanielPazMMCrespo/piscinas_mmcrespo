@@ -285,7 +285,7 @@ document.addEventListener('alpine:init', () => {
                                     hour: 'HH:mm',
                                     day:  'dd/MM',
                                 },
-                                tooltipFormat: isShort ? 'dd/MM HH:mm' : 'dd/MM/yyyy',
+                                tooltipFormat: 'dd/MM/yyyy HH:mm',
                             },
                             grid: { display: false },
                             ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 },
