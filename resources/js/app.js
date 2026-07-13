@@ -751,8 +751,16 @@ const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
     const findAndRestore = () => {
-        const mainComponentEl = document.querySelector('[wire\\:id]');
-        if (!mainComponentEl) return;
+        // Find the main Livewire component container that actually contains the form
+        const mainComponentEl = Array.from(document.querySelectorAll('[wire\\:id]'))
+            .find(el => el.querySelector('form') !== null);
+
+        if (!mainComponentEl) {
+            // Try again in 100ms
+            setTimeout(findAndRestore, 100);
+            return;
+        }
+
         const componentId = mainComponentEl.getAttribute('wire:id');
         const component = window.Livewire ? window.Livewire.find(componentId) : null;
         
@@ -908,13 +916,16 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 document.addEventListener('livewire:init', () => {
     // Watch Livewire request lifecycle to auto-save drafts on server updates (e.g. toggles, selections)
     Livewire.hook('request', ({ component, respond }) => {
-        if (component.name === 'app.filament.resources.daily-record-resource.pages.create-daily-record' || 
-            window.location.pathname.includes('/daily-records/create')) {
+        if (component && component.name && component.name.includes('create-daily-record')) {
             respond(() => {
                 const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
-                const currentData = component.get('data');
-                if (currentData) {
-                    localStorage.setItem(formKey, JSON.stringify(currentData));
+                try {
+                    const currentData = component.get('data');
+                    if (currentData) {
+                        localStorage.setItem(formKey, JSON.stringify(currentData));
+                    }
+                } catch (e) {
+                    console.error('Error saving daily record draft:', e);
                 }
             });
         }
