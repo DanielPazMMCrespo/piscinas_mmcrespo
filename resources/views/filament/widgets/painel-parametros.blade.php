@@ -145,7 +145,7 @@
     <style>
         .mmc-grafico-canvas-wrap {
             position: relative;
-            height: 380px;
+            min-height: 400px;
         }
         .mmc-grafico-vazio {
             opacity: 0.55;
@@ -186,9 +186,6 @@
             background: rgba(255,255,255,0.03);
         }
 
-        @media (max-width: 640px) {
-            .mmc-grafico-canvas-wrap { height: 260px; }
-        }
     </style>
     <x-filament-actions::modals />
 </x-filament-widgets::widget>

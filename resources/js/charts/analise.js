@@ -167,8 +167,9 @@ export function registarMmcEcharts(Alpine) {
                 grids.push({
                     top: gridTop,
                     height: graphHeight,
-                    left: 56,
-                    right: 56,
+                    left: 20,
+                    right: 20,
+                    containLabel: true
                 });
 
                 xAxis.push({
