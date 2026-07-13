@@ -32,6 +32,13 @@ document.addEventListener('alpine:init', () => {
         _hasData: !!(initialPayload?.left && initialPayload?.right),
         _renderRetries: 0,
 
+        get _hasSeries() {
+            const p = this._payload;
+            if (!p || !p.left || !p.right) return false;
+            const hasPoints = (axis) => (axis.datasets || []).some((ds) => (ds.data || []).length > 0);
+            return hasPoints(p.left) || hasPoints(p.right);
+        },
+
         async init() {
             if (!ChartWithPlugins) {
                 // hammerjs precisa de estar em window.Hammer antes do zoom plugin tratar eventos táteis
