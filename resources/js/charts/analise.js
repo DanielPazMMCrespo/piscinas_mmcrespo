@@ -121,7 +121,9 @@ export function registarMmcEcharts(Alpine) {
                 let tracado = real;
                 if (normalizar) {
                     const span = (serie.yMax - serie.yMin) || 1;
-                    tracado = ((real - serie.yMin) / span) * 100;
+                    // Clamp a [0,100]: valores fora do intervalo do eixo ficam na borda
+                    // (visíveis e pintados de vermelho pelo visualMap) em vez de cortados.
+                    tracado = Math.max(0, Math.min(100, ((real - serie.yMin) / span) * 100));
                 }
                 return { value: [d.x, tracado, real] };
             });
@@ -195,7 +197,8 @@ export function registarMmcEcharts(Alpine) {
                 };
 
                 // markArea da banda legal — só nos modos com eixo real.
-                if (banda && modo !== 'multi-metrica') {
+                // Em multi-piscina a banda é partilhada: desenha uma só vez.
+                if (banda && modo !== 'multi-metrica' && (modo !== 'multi-piscina' || i === 0)) {
                     s.markArea = {
                         silent: true,
                         itemStyle: { color: c.banda },
