@@ -8,14 +8,17 @@ use App\Models\SensorReading;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
-class CloroPhChartWidget extends Widget implements HasForms
+class CloroPhChartWidget extends Widget implements HasForms, HasActions
 {
     use InteractsWithForms;
+    use InteractsWithActions;
 
     protected static ?int $sort = 2;
     protected int|string|array $columnSpan = 'full';
@@ -23,20 +26,21 @@ class CloroPhChartWidget extends Widget implements HasForms
     protected static string $view = 'filament.widgets.painel-parametros';
 
     public ?string $poolSelecionada = null;
-    public string $leftMetric = 'ph';
-    public string $rightMetric = 'controlador_orp';
-    public string $mode = 'dual';
-    public array $selectedMetrics = ['ph', 'cloro_livre'];
-    public string $selectedMetric = 'ph';
     public string $period = '7d';
     public string $tabAtiva = 'graph';
     public ?string $customStartDate = null;
     public ?string $customEndDate = null;
 
+    public array $graphsConfig = [
+        ['visible' => true, 'metrics' => ['ph', 'controlador_ph']],
+        ['visible' => true, 'metrics' => ['cloro_livre', 'controlador_orp']],
+        ['visible' => true, 'metrics' => ['temperatura']],
+        ['visible' => false, 'metrics' => []],
+        ['visible' => false, 'metrics' => []],
+    ];
+
     private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
-    private const MODOS_VALIDOS = ['dual', 'multi-metrica', 'multi-piscina'];
-    private const PALETA_PISCINAS = ['#76b82a', '#2b9cd8', '#d97706', '#8b5cf6', '#dc2626'];
 
     private function poolsQuery()
     {
@@ -111,11 +115,6 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->form->fill([
             'poolSelecionada' => $this->poolSelecionada,
-            'leftMetric'      => $this->leftMetric,
-            'rightMetric'     => $this->rightMetric,
-            'mode'            => $this->mode,
-            'selectedMetrics' => $this->selectedMetrics,
-            'selectedMetric'  => $this->selectedMetric,
             'customStartDate' => $this->customStartDate,
             'customEndDate'   => $this->customEndDate,
         ]);
@@ -130,9 +129,6 @@ class CloroPhChartWidget extends Widget implements HasForms
                 (string) $p->id => ($p->instalacao?->name ? $p->instalacao->name.' — ' : '').$p->name,
             ])->toArray();
 
-        $opcoesMetricas = collect(self::getMetricas())
-            ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
-
         return [
             Forms\Components\Grid::make(3)->schema([
                 Forms\Components\Select::make('poolSelecionada')
@@ -140,39 +136,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                     ->options($opcoesPiscinas)
                     ->required()
                     ->live()
-                    ->hidden(fn () => $this->mode === 'multi-piscina')
                     ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('leftMetric')
-                    ->label('Eixo Esquerdo')
-                    ->options($opcoesMetricas)
-                    ->required()
-                    ->live()
-                    ->hidden(fn () => $this->mode !== 'dual')
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('rightMetric')
-                    ->label('Eixo Direito')
-                    ->options($opcoesMetricas)
-                    ->required()
-                    ->live()
-                    ->hidden(fn () => $this->mode !== 'dual')
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('selectedMetrics')
-                    ->label('Métricas')
-                    ->options($opcoesMetricas)
-                    ->multiple()
-                    ->required()
-                    ->live()
-                    ->hidden(fn () => $this->mode !== 'multi-metrica')
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-                Forms\Components\Select::make('selectedMetric')
-                    ->label('Métrica')
-                    ->options($opcoesMetricas)
-                    ->required()
-                    ->live()
-                    ->hidden(fn () => $this->mode !== 'multi-piscina')
-                    ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
-            ]),
-            Forms\Components\Grid::make(2)->schema([
                 Forms\Components\DatePicker::make('customStartDate')
                     ->label('Data Início')
                     ->hidden(fn () => $this->period !== 'custom')
@@ -187,13 +151,40 @@ class CloroPhChartWidget extends Widget implements HasForms
         ];
     }
 
-    public function setMode(string $m): void
+    public function configurarGraficosAction(): Action
     {
-        if (! in_array($m, self::MODOS_VALIDOS, true)) {
-            return;
-        }
-        $this->mode = $m;
-        $this->dispatchChartRefresh();
+        $opcoesMetricas = collect(self::getMetricas())
+            ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
+
+        return Action::make('configurarGraficos')
+            ->label('Graph Settings')
+            ->icon('heroicon-m-cog-8-tooth')
+            ->color('primary')
+            ->fillForm([
+                'graphs' => $this->graphsConfig,
+            ])
+            ->form([
+                Forms\Components\Repeater::make('graphs')
+                    ->label('Configuração dos Gráficos')
+                    ->schema([
+                        Forms\Components\Toggle::make('visible')
+                            ->label('Gráfico Visível')
+                            ->default(true),
+                        Forms\Components\CheckboxList::make('metrics')
+                            ->label('Parâmetros')
+                            ->options($opcoesMetricas)
+                            ->columns(2),
+                    ])
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false)
+                    ->grid(2)
+            ])
+            ->modalWidth('4xl')
+            ->action(function (array $data): void {
+                $this->graphsConfig = $data['graphs'];
+                $this->dispatchChartRefresh();
+            });
     }
 
     public function setPeriod(string $p): void
@@ -207,10 +198,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function dispatchChartRefresh(): void
     {
-        if ($this->tabAtiva !== 'graph') {
-            return;
-        }
-        if ($this->mode !== 'multi-piscina' && $this->poolSelecionada === null) {
+        if ($this->tabAtiva !== 'graph' || $this->poolSelecionada === null) {
             return;
         }
         $this->dispatch('mmc-chart-update', payload: $this->getChartPayload());
@@ -263,7 +251,10 @@ class CloroPhChartWidget extends Widget implements HasForms
         $payload = $build();
 
         if ($canCache) {
-            Cache::put($key, $payload, now()->addMinutes(10));
+            $cached = Cache::get($key);
+            if ($cached !== null) {
+                return $cached;
+            }
         }
 
         return $payload;
@@ -328,95 +319,44 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public function getChartPayload(): array
     {
-        if ($this->mode !== 'multi-piscina' && $this->poolSelecionada === null) {
+        if ($this->poolSelecionada === null) {
             return [];
         }
 
         $metricas = self::getMetricas();
-
-        return match ($this->mode) {
-            'multi-metrica' => $this->payloadMultiMetrica($metricas),
-            'multi-piscina' => $this->payloadMultiPiscina($metricas),
-            default         => $this->payloadDual($metricas),
-        };
-    }
-
-    private function payloadDual(array $metricas): array
-    {
-        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
-        $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
         $poolId = (int) $this->poolSelecionada;
-        $hasSensor = isset($metricas[$leftKey]['sensor_campo']) || isset($metricas[$rightKey]['sensor_campo']);
-        $key = "chart_v4_dual_{$poolId}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
+        $hasSensor = false;
 
-        return $this->remember($key, $hasSensor, function () use ($leftKey, $rightKey, $poolId) {
-            $left = $this->buildSerie($leftKey, $poolId);
-            $left['axis'] = 'left';
-            $right = $this->buildSerie($rightKey, $poolId);
-            $right['axis'] = 'right';
-
-            return [
-                'mode'   => 'dual',
-                'period' => $this->period,
-                'series' => [$left, $right],
-            ];
-        });
-    }
-
-    private function payloadMultiMetrica(array $metricas): array
-    {
-        $poolId = (int) $this->poolSelecionada;
-        $keys = array_values(array_filter($this->selectedMetrics, fn ($k) => array_key_exists($k, $metricas)));
-        if ($keys === []) {
-            $keys = ['ph'];
-        }
-        $hasSensor = collect($keys)->contains(fn ($k) => isset($metricas[$k]['sensor_campo']));
-        $keysStr = implode('-', $keys);
-        $key = "chart_v4_multimet_{$poolId}_{$keysStr}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
-
-        return $this->remember($key, $hasSensor, function () use ($keys, $poolId) {
-            $series = array_map(fn ($k) => $this->buildSerie($k, $poolId), $keys);
-
-            return [
-                'mode'   => 'multi-metrica',
-                'period' => $this->period,
-                'series' => $series,
-            ];
-        });
-    }
-
-    private function payloadMultiPiscina(array $metricas): array
-    {
-        $metricKey = array_key_exists($this->selectedMetric, $metricas) ? $this->selectedMetric : 'ph';
-        $def = $metricas[$metricKey];
-        $hasSensor = isset($def['sensor_campo']);
-
-        $pools = $this->poolsQuery()->with('instalacao')
-            ->orderBy('installation_id')->orderBy('name')
-            ->get()
-            ->values();
-
-        $poolIds = $pools->pluck('id')->implode('-');
-        $key = "chart_v4_multipool_{$metricKey}_{$poolIds}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
-
-        return $this->remember($key, $hasSensor, function () use ($metricKey, $def, $pools) {
-            $series = [];
-            foreach ($pools as $i => $pool) {
-                $label = ($pool->instalacao?->name ? $pool->instalacao->name.' — ' : '').$pool->name;
-                $serie = $this->buildSerie($metricKey, (int) $pool->id, $label);
-                $serie['cor'] = self::PALETA_PISCINAS[$i % count(self::PALETA_PISCINAS)];
-                $series[] = $serie;
+        $graphs = [];
+        foreach ($this->graphsConfig as $idx => $gConfig) {
+            if (! $gConfig['visible'] || empty($gConfig['metrics'])) {
+                continue;
             }
 
+            $series = [];
+            foreach ($gConfig['metrics'] as $metricKey) {
+                if (! isset($metricas[$metricKey])) continue;
+                if (isset($metricas[$metricKey]['sensor_campo'])) {
+                    $hasSensor = true;
+                }
+                $series[] = $this->buildSerie($metricKey, $poolId);
+            }
+
+            if (! empty($series)) {
+                $graphs[] = [
+                    'id' => 'graph_' . $idx,
+                    'series' => $series,
+                ];
+            }
+        }
+
+        $key = "chart_v5_stacked_{$poolId}_" . md5(json_encode($this->graphsConfig)) . "_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
+
+        return $this->remember($key, $hasSensor, function () use ($graphs) {
             return [
-                'mode'    => 'multi-piscina',
-                'period'  => $this->period,
-                'metrica' => [
-                    'label'   => $def['label'],
-                    'unidade' => $def['unidade'],
-                    'banda'   => $def['banda'],
-                ],
-                'series'  => $series,
+                'mode'   => 'stacked',
+                'period' => $this->period,
+                'graphs' => $graphs,
             ];
         });
     }

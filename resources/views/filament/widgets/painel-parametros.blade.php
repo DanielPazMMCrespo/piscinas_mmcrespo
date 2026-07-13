@@ -1,22 +1,11 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">Evolução dos Parâmetros</x-slot>
+        <x-slot name="headerEnd">
+            {{ $this->configurarGraficosAction }}
+        </x-slot>
 
-        {{-- Seletor de modo --}}
-        <div class="flex gap-1 mb-3">
-            @foreach(['dual' => '2 Eixos', 'multi-metrica' => 'Multi-métrica', 'multi-piscina' => 'Multi-piscina'] as $key => $label)
-                <button
-                    wire:click="setMode('{{ $key }}')"
-                    @class([
-                        'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                        'bg-primary-600 text-white shadow-sm' => $this->mode === $key,
-                        'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->mode !== $key,
-                    ])
-                >{{ $label }}</button>
-            @endforeach
-        </div>
-
-        {{-- Seletores: piscina + métricas --}}
+        {{-- Seletores: piscina + datas --}}
         <div class="mb-4">
             {{ $this->form }}
         </div>
@@ -63,15 +52,15 @@
                 x-data="mmcEcharts({{ Illuminate\Support\Js::from($payload ?: null) }})"
                 wire:ignore
             >
-                <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
+                <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina ou configura gráficos visíveis.</div>
                 <div x-show="_hasData && !_hasSeries" class="mmc-grafico-vazio" x-cloak>Sem registos neste período.</div>
                 <div x-show="_hasSeries" x-cloak>
-                    <div class="mmc-grafico-canvas-wrap">
+                    <div class="mmc-grafico-canvas-wrap" :style="`height: ${Math.max(400, (_payload?.graphs?.length || 1) * 350 + 80)}px;`">
                         <div x-ref="container" style="width: 100%; height: 100%;"></div>
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Arrasta a barra inferior para navegar &middot; scroll para zoom
+                            Dica: A barra inferior permite navegar em todos os gráficos em simultâneo.
                         </span>
                         <button
                             x-on:click="resetZoom()"
@@ -153,10 +142,12 @@
         @endif
     </x-filament::section>
 
+    <x-filament-actions::modals />
+
     <style>
         .mmc-grafico-canvas-wrap {
             position: relative;
-            height: 420px;
+            min-height: 400px;
         }
         .mmc-grafico-vazio {
             opacity: 0.55;
@@ -195,10 +186,6 @@
         }
         .dark .mmc-tabela tbody tr:hover td {
             background: rgba(255,255,255,0.03);
-        }
-
-        @media (max-width: 640px) {
-            .mmc-grafico-canvas-wrap { height: 320px; }
         }
     </style>
 </x-filament-widgets::widget>

@@ -8,7 +8,8 @@ import {
     DataZoomSliderComponent,
     MarkAreaComponent,
     VisualMapPiecewiseComponent,
-    AxisPointerComponent
+    AxisPointerComponent,
+    ToolboxComponent
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -22,6 +23,7 @@ echarts.use([
     MarkAreaComponent,
     VisualMapPiecewiseComponent,
     AxisPointerComponent,
+    ToolboxComponent,
     CanvasRenderer
 ]);
 
@@ -36,12 +38,12 @@ export function registarMmcEcharts(Alpine) {
         _rafId: null,
         _offChartUpdate: null,
         _payload: initialPayload,
-        _hasData: !!(initialPayload && Array.isArray(initialPayload.series)),
+        _hasData: !!(initialPayload && Array.isArray(initialPayload.graphs) && initialPayload.graphs.length > 0),
         _renderRetries: 0,
 
         get _hasSeries() {
-            const s = this._payload?.series;
-            return Array.isArray(s) && s.some((serie) => (serie.data || []).length > 0);
+            const g = this._payload?.graphs;
+            return Array.isArray(g) && g.some(graph => Array.isArray(graph.series) && graph.series.some(s => (s.data || []).length > 0));
         },
 
         init() {
@@ -52,7 +54,7 @@ export function registarMmcEcharts(Alpine) {
                     if (!payload) return;
 
                     this._payload = payload;
-                    this._hasData = Array.isArray(payload.series);
+                    this._hasData = Array.isArray(payload.graphs) && payload.graphs.length > 0;
 
                     if (this._hasData) {
                         this.$nextTick(() => { if (!this._destroyed) this.render(); });
@@ -117,19 +119,10 @@ export function registarMmcEcharts(Alpine) {
             };
         },
 
-        // Cada ponto é [xTimestamp, valorTracado, valorReal]. Em dual/multi-piscina
-        // tracado === real; em multi-metrica tracado é normalizado 0-100.
-        pontos(serie, normalizar) {
+        pontos(serie) {
             return (serie.data || []).map((d) => {
                 const real = d.y;
-                let tracado = real;
-                if (normalizar) {
-                    const span = (serie.yMax - serie.yMin) || 1;
-                    // Clamp a [0,100]: valores fora do intervalo do eixo ficam na borda
-                    // (visíveis e pintados de vermelho pelo visualMap) em vez de cortados.
-                    tracado = Math.max(0, Math.min(100, ((real - serie.yMin) / span) * 100));
-                }
-                return { value: [d.x, tracado, real] };
+                return { value: [d.x, real, real] };
             });
         },
 
@@ -148,98 +141,119 @@ export function registarMmcEcharts(Alpine) {
             this._renderRetries = 0;
 
             const p = this._payload;
-            if (!p || !Array.isArray(p.series)) return;
+            if (!p || !Array.isArray(p.graphs)) return;
 
             if (!this.chart) {
                 this.chart = echarts.init(el, null, { renderer: 'canvas' });
             }
 
             const c = this.cores();
-            const modo = p.mode;
-            const normalizar = modo === 'multi-metrica';
-
             const seriesEcharts = [];
             const visualMaps = [];
             const yAxis = [];
+            const xAxis = [];
+            const grids = [];
 
-            if (modo === 'dual') {
-                yAxis.push(this.yAxisReal(p.series[0], 'left', c));
-                yAxis.push(this.yAxisReal(p.series[1], 'right', c));
-            } else if (normalizar) {
-                yAxis.push({
-                    type: 'value', min: 0, max: 100, scale: false,
-                    name: '% do intervalo', nameTextStyle: { color: c.texto, fontSize: 11 },
-                    axisLabel: { color: c.texto, formatter: '{value}%' },
-                    splitLine: { lineStyle: { color: c.grelha } },
+            const totalGraphs = p.graphs.length;
+            const topMargin = 50;
+            const bottomMargin = 80;
+            const availableHeight = el.offsetHeight - topMargin - bottomMargin;
+            const graphHeight = totalGraphs > 0 ? (availableHeight / totalGraphs) - 20 : 0;
+
+            p.graphs.forEach((graph, gridIndex) => {
+                const isLast = gridIndex === totalGraphs - 1;
+                const gridTop = topMargin + (gridIndex * (graphHeight + 20));
+
+                grids.push({
+                    top: gridTop,
+                    height: graphHeight,
+                    left: 56,
+                    right: 56,
                 });
-            } else {
-                const firstSerie = p.series[0];
-                yAxis.push({
-                    type: 'value', scale: true,
-                    min: (value) => firstSerie && isFinite(value.min) ? Math.min(value.min, firstSerie.yMin) : undefined,
-                    max: (value) => firstSerie && isFinite(value.max) ? Math.max(value.max, firstSerie.yMax) : undefined,
-                    name: p.metrica?.unidade || '',
-                    nameTextStyle: { color: c.texto, fontSize: 11 },
-                    axisLabel: { color: c.texto },
-                    splitLine: { lineStyle: { color: c.grelha } },
+
+                xAxis.push({
+                    gridIndex: gridIndex,
+                    type: 'time',
+                    axisLine: { lineStyle: { color: c.grelha } },
+                    axisLabel: {
+                        show: isLast,
+                        color: c.texto,
+                        formatter: {
+                            year: '{yyyy}', month: '{dd}/{MM}', day: '{dd}/{MM}',
+                            hour: '{HH}:{mm}', minute: '{HH}:{mm}',
+                        },
+                    },
+                    splitLine: { show: false },
+                    axisPointer: { show: true, type: 'cross', label: { show: false } }
                 });
-            }
 
-            p.series.forEach((serie, i) => {
-                const yAxisIndex = modo === 'dual' ? (serie.axis === 'right' ? 1 : 0) : 0;
-                const banda = modo === 'multi-piscina' ? p.metrica?.banda : serie.banda;
+                graph.series.forEach((serie, seriesIndexInGraph) => {
+                    const isRightAxis = seriesIndexInGraph > 0;
+                    
+                    yAxis.push(this.yAxisReal(serie, isRightAxis ? 'right' : 'left', c, gridIndex));
+                    const yAxisIndex = yAxis.length - 1;
+                    const banda = serie.banda;
 
-                const s = {
-                    name: serie.label,
-                    type: 'line',
-                    yAxisIndex,
-                    smooth: 0.3,
-                    showSymbol: (serie.data || []).length <= 60,
-                    symbolSize: 6,
-                    lineStyle: { width: 2.5, color: serie.cor },
-                    itemStyle: { color: serie.cor },
-                    connectNulls: false,
-                    data: this.pontos(serie, normalizar),
-                    encode: { x: 0, y: 1 },
-                };
-
-                // markArea da banda legal — só nos modos com eixo real.
-                // Em multi-piscina a banda é partilhada: desenha uma só vez.
-                if (banda && modo !== 'multi-metrica' && (modo !== 'multi-piscina' || i === 0)) {
-                    s.markArea = {
-                        silent: true,
-                        itemStyle: { color: c.banda },
-                        data: [[{ yAxis: banda.min }, { yAxis: banda.max }]],
+                    const s = {
+                        name: serie.label,
+                        type: 'line',
+                        xAxisIndex: gridIndex,
+                        yAxisIndex: yAxisIndex,
+                        smooth: 0.3,
+                        showSymbol: (serie.data || []).length <= 60,
+                        symbolSize: 6,
+                        lineStyle: { width: 2.5, color: serie.cor },
+                        itemStyle: { color: serie.cor },
+                        connectNulls: false,
+                        data: this.pontos(serie),
+                        encode: { x: 0, y: 1 },
+                        _casas: serie.casas,
+                        _unidade: serie.unidade
                     };
-                }
 
-                // visualMap pinta a vermelho o troço fora da banda (dim 2 = valor real).
-                if (banda) {
-                    visualMaps.push({
-                        show: false,
-                        type: 'piecewise',
-                        seriesIndex: i,
-                        dimension: 2,
-                        pieces: [
-                            { lt: banda.min, color: '#dc2626' },
-                            { gte: banda.min, lte: banda.max, color: serie.cor },
-                            { gt: banda.max, color: '#dc2626' },
-                        ],
-                        outOfRange: { color: serie.cor },
-                    });
-                }
-
-                seriesEcharts.push(s);
+                    if (banda) {
+                        s.markArea = {
+                            silent: true,
+                            itemStyle: { color: c.banda },
+                            data: [[{ yAxis: banda.min }, { yAxis: banda.max }]],
+                        };
+                        visualMaps.push({
+                            show: false,
+                            type: 'piecewise',
+                            seriesIndex: seriesEcharts.length,
+                            dimension: 2,
+                            pieces: [
+                                { lt: banda.min, color: '#dc2626' },
+                                { gte: banda.min, lte: banda.max, color: serie.cor },
+                                { gt: banda.max, color: '#dc2626' },
+                            ],
+                            outOfRange: { color: serie.cor },
+                        });
+                    }
+                    seriesEcharts.push(s);
+                });
             });
 
             const isShort = p.period === '6h' || p.period === '24h';
 
             const option = {
                 animation: !reduzMovimento,
-                grid: { left: 48, right: modo === 'dual' ? 56 : 20, top: 24, bottom: 74 },
+                grid: grids,
+                toolbox: {
+                    show: true,
+                    feature: {
+                        dataZoom: { yAxisIndex: 'none' },
+                        restore: {},
+                        saveAsImage: {}
+                    },
+                    iconStyle: { borderColor: c.texto },
+                    top: 10,
+                    right: 48
+                },
+                axisPointer: { link: { xAxisIndex: 'all' } },
                 legend: {
-                    show: modo !== 'dual' || p.series.length > 1,
-                    bottom: 44,
+                    show: true,
+                    bottom: 40,
                     textStyle: { color: c.texto },
                     icon: 'roundRect',
                 },
@@ -258,13 +272,12 @@ export function registarMmcEcharts(Alpine) {
                         const hh = String(dt.getHours()).padStart(2, '0');
                         const mi = String(dt.getMinutes()).padStart(2, '0');
                         const head = isShort ? `${dd}/${mm} ${hh}:${mi}` : `${dd}/${mm}/${dt.getFullYear()}`;
+                        
                         const linhas = params.map((it) => {
-                            const serie = p.series[it.seriesIndex];
                             const real = it.value[2];
-                            const casas = serie?.casas ?? 2;
-                            const u = modo === 'multi-piscina'
-                                ? (p.metrica?.unidade ? ' ' + p.metrica.unidade : '')
-                                : (serie?.unidade ? ' ' + serie.unidade : '');
+                            const sEchart = option.series[it.seriesIndex];
+                            const casas = sEchart._casas ?? 2;
+                            const u = sEchart._unidade ? ' ' + sEchart._unidade : '';
                             const v = Number(real).toLocaleString('pt-PT', {
                                 minimumFractionDigits: casas, maximumFractionDigits: casas,
                             });
@@ -274,25 +287,14 @@ export function registarMmcEcharts(Alpine) {
                     },
                 },
                 dataZoom: [
-                    { type: 'inside', throttle: 50 },
+                    { type: 'inside', xAxisIndex: xAxis.map((_, i) => i), throttle: 50 },
                     {
-                        type: 'slider', height: 34, bottom: 4,
+                        type: 'slider', xAxisIndex: xAxis.map((_, i) => i), height: 34, bottom: 4,
                         handleSize: 44, moveHandleSize: 8,
                         borderColor: c.grelha,
                     },
                 ],
-                xAxis: {
-                    type: 'time',
-                    axisLine: { lineStyle: { color: c.grelha } },
-                    axisLabel: {
-                        color: c.texto,
-                        formatter: {
-                            year: '{yyyy}', month: '{dd}/{MM}', day: '{dd}/{MM}',
-                            hour: '{HH}:{mm}', minute: '{HH}:{mm}',
-                        },
-                    },
-                    splitLine: { show: false },
-                },
+                xAxis,
                 yAxis,
                 series: seriesEcharts,
                 visualMap: visualMaps,
@@ -302,8 +304,9 @@ export function registarMmcEcharts(Alpine) {
             this.chart.resize();
         },
 
-        yAxisReal(serie, lado, c) {
+        yAxisReal(serie, lado, c, gridIndex) {
             return {
+                gridIndex: gridIndex,
                 type: 'value',
                 position: lado,
                 scale: true,

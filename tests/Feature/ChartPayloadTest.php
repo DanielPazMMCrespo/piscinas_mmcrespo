@@ -58,7 +58,7 @@ class ChartPayloadTest extends TestCase
         ], $attrs));
     }
 
-    public function test_dual_mode_returns_two_series_with_axis_and_band(): void
+    public function test_stacked_mode_returns_multiple_graphs_with_series(): void
     {
         $this->actingAs($this->admin());
         $inst = Installation::create(['name' => 'Leiria', 'morada' => 'X', 'active' => true]);
@@ -66,24 +66,26 @@ class ChartPayloadTest extends TestCase
         $this->record($pool, ['ph' => 7.4, 'cloro_livre' => 1.2]);
 
         $widget = Livewire::test(CloroPhChartWidget::class)
-            ->set('mode', 'dual')
-            ->set('leftMetric', 'ph')
-            ->set('rightMetric', 'cloro_livre')
-            ->set('poolSelecionada', (string) $pool->id);
+            ->set('poolSelecionada', (string) $pool->id)
+            ->set('graphsConfig', [
+                ['visible' => true, 'metrics' => ['ph']],
+                ['visible' => true, 'metrics' => ['cloro_livre']],
+                ['visible' => false, 'metrics' => ['temperatura']],
+            ]);
 
         $payload = $widget->instance()->getChartPayload();
 
-        $this->assertSame('dual', $payload['mode']);
-        $this->assertCount(2, $payload['series']);
-        $this->assertSame('left', $payload['series'][0]['axis']);
-        $this->assertSame('right', $payload['series'][1]['axis']);
-        $this->assertSame('ph', $payload['series'][0]['key']);
-        $this->assertNotNull($payload['series'][0]['banda']);
-        $this->assertCount(1, $payload['series'][0]['data']);
-        $this->assertEqualsWithDelta(7.4, $payload['series'][0]['data'][0]['y'], 0.001);
+        $this->assertSame('stacked', $payload['mode']);
+        $this->assertCount(2, $payload['graphs']); // Only the two visible ones
+
+        $this->assertCount(1, $payload['graphs'][0]['series']);
+        $this->assertSame('ph', $payload['graphs'][0]['series'][0]['key']);
+        
+        $this->assertCount(1, $payload['graphs'][1]['series']);
+        $this->assertSame('cloro_livre', $payload['graphs'][1]['series'][0]['key']);
     }
 
-    public function test_multi_metrica_filters_invalid_keys_and_carries_ymin_ymax(): void
+    public function test_stacked_mode_filters_invalid_keys(): void
     {
         $this->actingAs($this->admin());
         $inst = Installation::create(['name' => 'Leiria', 'morada' => 'X', 'active' => true]);
@@ -91,63 +93,21 @@ class ChartPayloadTest extends TestCase
         $this->record($pool, ['ph' => 7.4, 'cloro_livre' => 1.2]);
 
         $widget = Livewire::test(CloroPhChartWidget::class)
-            ->set('mode', 'multi-metrica')
-            ->set('selectedMetrics', ['ph', 'cloro_livre', 'inexistente'])
-            ->set('poolSelecionada', (string) $pool->id);
+            ->set('poolSelecionada', (string) $pool->id)
+            ->set('graphsConfig', [
+                ['visible' => true, 'metrics' => ['ph', 'cloro_livre', 'inexistente']],
+            ]);
 
         $payload = $widget->instance()->getChartPayload();
 
-        $this->assertSame('multi-metrica', $payload['mode']);
-        $this->assertCount(2, $payload['series']);
-        $keys = array_column($payload['series'], 'key');
+        $this->assertSame('stacked', $payload['mode']);
+        $this->assertCount(1, $payload['graphs']);
+        $this->assertCount(2, $payload['graphs'][0]['series']);
+        
+        $keys = array_column($payload['graphs'][0]['series'], 'key');
         $this->assertSame(['ph', 'cloro_livre'], $keys);
-        $this->assertArrayHasKey('yMin', $payload['series'][0]);
-        $this->assertArrayHasKey('yMax', $payload['series'][0]);
-    }
-
-    public function test_multi_piscina_one_series_per_active_pool(): void
-    {
-        $this->actingAs($this->admin());
-        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'X', 'active' => true]);
-        $p1 = $this->pool('Competição', $inst);
-        $p2 = $this->pool('Lazer', $inst);
-        $this->record($p1, ['ph' => 7.4]);
-        $this->record($p2, ['ph' => 7.1]);
-
-        $widget = Livewire::test(CloroPhChartWidget::class)
-            ->set('mode', 'multi-piscina')
-            ->set('selectedMetric', 'ph');
-
-        $payload = $widget->instance()->getChartPayload();
-
-        $this->assertSame('multi-piscina', $payload['mode']);
-        $this->assertCount(2, $payload['series']);
-        $this->assertSame('Leiria — Competição', $payload['series'][0]['label']);
-        $this->assertNotSame($payload['series'][0]['cor'], $payload['series'][1]['cor']);
-        $this->assertSame('pH', $payload['metrica']['label']);
-    }
-
-    public function test_multi_piscina_respects_nadador_salvador_scope(): void
-    {
-        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'X', 'active' => true]);
-        $p1 = $this->pool('Competição', $inst);
-        $p2 = $this->pool('Lazer', $inst);
-        $this->record($p1, ['ph' => 7.4]);
-        $this->record($p2, ['ph' => 7.1]);
-
-        $ns = User::factory()->create();
-        $ns->syncRoles(['nadador_salvador']);
-        $ns->piscinas()->sync([$p1->id]);
-        $this->actingAs($ns);
-
-        $widget = Livewire::test(CloroPhChartWidget::class)
-            ->set('mode', 'multi-piscina')
-            ->set('selectedMetric', 'ph');
-
-        $payload = $widget->instance()->getChartPayload();
-
-        $this->assertCount(1, $payload['series']);
-        $this->assertSame('Leiria — Competição', $payload['series'][0]['label']);
+        $this->assertArrayHasKey('yMin', $payload['graphs'][0]['series'][0]);
+        $this->assertArrayHasKey('yMax', $payload['graphs'][0]['series'][0]);
     }
 
     public function test_corrected_records_excluded_and_ns_fallback_used(): void
@@ -161,13 +121,13 @@ class ChartPayloadTest extends TestCase
         $this->record($pool, ['ph' => null, 'ns_ph' => 7.2]);
 
         $widget = Livewire::test(CloroPhChartWidget::class)
-            ->set('mode', 'dual')
-            ->set('leftMetric', 'ph')
-            ->set('rightMetric', 'cloro_livre')
-            ->set('poolSelecionada', (string) $pool->id);
+            ->set('poolSelecionada', (string) $pool->id)
+            ->set('graphsConfig', [
+                ['visible' => true, 'metrics' => ['ph']],
+            ]);
 
         $payload = $widget->instance()->getChartPayload();
-        $ys = array_column($payload['series'][0]['data'], 'y');
+        $ys = array_column($payload['graphs'][0]['series'][0]['data'], 'y');
 
         $this->assertNotContains(6.0, $ys);
         $this->assertContains(7.2, $ys);
