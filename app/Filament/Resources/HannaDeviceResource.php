@@ -211,11 +211,11 @@ class HannaDeviceResource extends Resource
                             return;
                         }
 
-                        $parts[1] = (string) $data['ph_setpoint'];
-                        $parts[2] = (string) $data['ph_band'];
+                        $parts[1] = str_replace(',', '.', (string) $data['ph_setpoint']);
+                        $parts[2] = str_replace(',', '.', (string) $data['ph_band']);
                         $parts[3] = (string) (int) $data['ph_overtime'];
-                        $parts[4] = (string) $data['orp_setpoint'];
-                        $parts[5] = (string) $data['orp_band'];
+                        $parts[4] = (string) (int) $data['orp_setpoint'];
+                        $parts[5] = (string) (int) $data['orp_band'];
                         $parts[6] = (string) (int) $data['orp_overtime'];
 
                         $novoDs = implode(',', $parts);
