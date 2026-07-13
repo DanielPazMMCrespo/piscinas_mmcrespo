@@ -54,9 +54,9 @@ class HannaThresholdService
         }
 
         // Se há violações, notifica os admins/técnicos
-        $poolName = $device->pool?->instalacao?->name
-            ? $device->pool->instalacao->name.' '.$device->pool->name
-            : ($device->pool?->name ?? 'piscina desconhecida');
+        $poolName = $device->pool
+            ? $device->pool->nome_completo
+            : 'piscina desconhecida';
 
         $message = $poolName.' — '.implode(', ', $parts);
 

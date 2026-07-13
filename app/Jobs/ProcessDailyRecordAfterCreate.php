@@ -215,9 +215,9 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             return;
         }
 
-        $nome = $registo->piscina?->instalacao?->name
-            ? $registo->piscina->instalacao->name.' '.$registo->piscina->name
-            : ($registo->piscina?->name ?? 'piscina');
+        $nome = $registo->piscina
+            ? $registo->piscina->nome_completo
+            : 'piscina';
 
         $destinatarios = User::role('admin')->get();
         if ($destinatarios->isEmpty()) {
