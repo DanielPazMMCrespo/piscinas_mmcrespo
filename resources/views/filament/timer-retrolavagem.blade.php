@@ -6,7 +6,7 @@
         $defaultMinutes = $getDefaultState() ?? 3;
     @endphp
 
-    <div x-data="countdownTimer({{ $defaultMinutes * 60 }})"
+    <div x-data="countdownTimer('{{ $getStatePath() }}', {{ $defaultMinutes * 60 }})"
          class="flex items-center gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 w-full">
         
         <div class="flex items-center gap-2">

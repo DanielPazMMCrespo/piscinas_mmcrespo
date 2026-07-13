@@ -409,9 +409,10 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
-    window.Alpine.data('countdownTimer', (initialSeconds = 180) => ({
-        initialSeconds: initialSeconds,
-        remainingSeconds: initialSeconds,
+    window.Alpine.data('countdownTimer', (statePath, defaultSeconds = 180) => ({
+        statePath: statePath,
+        initialSeconds: defaultSeconds,
+        remainingSeconds: defaultSeconds,
         timer: null,
         isRunning: false,
 
@@ -427,6 +428,49 @@ document.addEventListener('alpine:init', () => {
             return this.remainingSeconds < 0;
         },
 
+        init() {
+            const storageKey = 'mmc_timer_' + this.statePath;
+            const saved = localStorage.getItem(storageKey);
+            
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    this.initialSeconds = data.initialSeconds ?? defaultSeconds;
+                    this.isRunning = data.isRunning ?? false;
+                    
+                    if (this.isRunning && data.endTime) {
+                        const remaining = Math.round((data.endTime - Date.now()) / 1000);
+                        this.remainingSeconds = remaining;
+                        this.startTimer();
+                    } else {
+                        this.remainingSeconds = data.remainingSeconds ?? defaultSeconds;
+                    }
+                } catch (e) {
+                    console.error('Error loading timer:', e);
+                }
+            } else {
+                this.remainingSeconds = defaultSeconds;
+            }
+
+            // Auto-save on any change
+            this.$watch('remainingSeconds', () => this.saveState());
+            this.$watch('initialSeconds', () => this.saveState());
+            this.$watch('isRunning', () => this.saveState());
+        },
+
+        saveState() {
+            const storageKey = 'mmc_timer_' + this.statePath;
+            const data = {
+                initialSeconds: this.initialSeconds,
+                remainingSeconds: this.remainingSeconds,
+                isRunning: this.isRunning
+            };
+            if (this.isRunning) {
+                data.endTime = Date.now() + (this.remainingSeconds * 1000);
+            }
+            localStorage.setItem(storageKey, JSON.stringify(data));
+        },
+
         toggleTimer() {
             if (this.isRunning) {
                 this.pauseTimer();
@@ -436,7 +480,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         startTimer() {
-            if (this.isRunning) return;
+            if (this.isRunning && this.timer) return;
             this.isRunning = true;
             this.timer = setInterval(() => {
                 this.remainingSeconds--;
@@ -445,7 +489,10 @@ document.addEventListener('alpine:init', () => {
 
         pauseTimer() {
             this.isRunning = false;
-            clearInterval(this.timer);
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+            }
         },
         
         adjustTime(seconds) {
@@ -453,6 +500,12 @@ document.addEventListener('alpine:init', () => {
             if (this.initialSeconds < 60) this.initialSeconds = 60;
             if (!this.isRunning && this.remainingSeconds > 0) {
                 this.remainingSeconds = this.initialSeconds;
+            }
+        },
+
+        destroy() {
+            if (this.timer) {
+                clearInterval(this.timer);
             }
         }
     }));
@@ -640,74 +693,101 @@ const setupAutoScroll = () => {
     form.addEventListener('input', scrollDebounced);
 };
 
+// Toast notification when draft is restored
+const showDraftRestoredToast = (formKey, component) => {
+    if (document.getElementById('mmc-draft-toast')) return;
+
+    const toast = document.createElement('div');
+    toast.id = 'mmc-draft-toast';
+    toast.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 bg-gray-900/95 backdrop-blur text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-between gap-4 border border-white/10 z-50 transition-all duration-300 transform translate-y-10 opacity-0';
+    toast.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <p class="text-sm font-medium">Rascunho anterior restaurado automaticamente.</p>
+        </div>
+        <button id="clear-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-rose-400 hover:text-rose-300 transition px-2 py-1 rounded bg-white/5 hover:bg-white/10">
+            Limpar
+        </button>
+    `;
+    document.body.appendChild(toast);
+
+    // Slide in
+    setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+    }, 50);
+
+    document.getElementById('clear-draft-btn').addEventListener('click', () => {
+        localStorage.removeItem(formKey);
+        // Clear all timers as well
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('mmc_timer_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        toast.remove();
+        // Reset Livewire form state and reload
+        component.set('data', {});
+        window.location.reload();
+    });
+
+    // Auto-fade out after 8 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.classList.add('translate-y-10', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 8000);
+};
+
 // Auto-save form draft in localStorage for Daily Record creation
 const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
-    const form = document.querySelector('form');
-    if (!form) return;
+    const findAndRestore = () => {
+        const mainComponentEl = document.querySelector('[wire\\:id]');
+        if (!mainComponentEl) return;
+        const componentId = mainComponentEl.getAttribute('wire:id');
+        const component = window.Livewire ? window.Livewire.find(componentId) : null;
+        
+        if (!component) {
+            // Try again in 100ms
+            setTimeout(findAndRestore, 100);
+            return;
+        }
 
-    const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+        const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
 
-    // Restore draft after a small timeout to let Livewire/Filament bindings initialize
-    setTimeout(() => {
+        // 1. Restore draft
         const draft = localStorage.getItem(formKey);
         if (draft) {
             try {
-                const data = JSON.parse(draft);
-                Object.entries(data).forEach(([name, val]) => {
-                    const input = form.querySelector(`[name="${name}"], [name*="${name}"]`);
-                    if (input) {
-                        if (input.type === 'checkbox' || input.type === 'radio') {
-                            input.checked = !!val;
-                        } else {
-                            input.value = val;
-                        }
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
+                const draftData = JSON.parse(draft);
+                if (draftData && Object.keys(draftData).length > 0) {
+                    component.set('data', draftData);
+                    showDraftRestoredToast(formKey, component);
+                }
             } catch (e) {
-                console.error('Error restoring draft:', e);
+                console.error('Error restoring daily record draft:', e);
             }
         }
-    }, 500);
 
-    // Save draft on input
-    form.addEventListener('input', (e) => {
-        const el = e.target;
-        if (!el.name) return;
-
-        const currentDraft = localStorage.getItem(formKey);
-        let data = {};
-        try {
-            data = currentDraft ? JSON.parse(currentDraft) : {};
-        } catch (e) {
-            data = {};
+        // 2. Setup local input change listener for quick updates
+        const form = document.querySelector('form');
+        if (form) {
+            let debounceTimeout;
+            form.addEventListener('input', () => {
+                clearTimeout(debounceTimeout);
+                debounceTimeout = setTimeout(() => {
+                    const currentData = component.get('data');
+                    if (currentData) {
+                        localStorage.setItem(formKey, JSON.stringify(currentData));
+                    }
+                }, 500);
+            });
         }
+    };
 
-        if (el.type === 'checkbox' || el.type === 'radio') {
-            data[el.name] = el.checked;
-        } else {
-            data[el.name] = el.value;
-        }
-
-        localStorage.setItem(formKey, JSON.stringify(data));
-    });
-
-    // Clear draft on form submit
-    form.addEventListener('submit', () => {
-        localStorage.removeItem(formKey);
-    });
-
-    // Also clear draft when Filament notifies that the record was successfully saved
-    if (window.Livewire) {
-        window.Livewire.on('dailyRecordSaved', (event) => {
-            if (event.notification && event.notification.status === 'success') {
-                localStorage.removeItem(formKey);
-            }
-        });
-    }
+    findAndRestore();
 };
 
 const setupGlobalImageLightbox = () => {
@@ -816,3 +896,36 @@ document.addEventListener('DOMContentLoaded', mmcSetup);
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     mmcSetup();
 }
+
+// Global Livewire 3 init hooks
+document.addEventListener('livewire:init', () => {
+    // Watch Livewire request lifecycle to auto-save drafts on server updates (e.g. toggles, selections)
+    Livewire.hook('request', ({ component, respond }) => {
+        if (component.name === 'app.filament.resources.daily-record-resource.pages.create-daily-record' || 
+            window.location.pathname.includes('/daily-records/create')) {
+            respond(() => {
+                const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+                const currentData = component.get('data');
+                if (currentData) {
+                    localStorage.setItem(formKey, JSON.stringify(currentData));
+                }
+            });
+        }
+    });
+
+    // Clear draft and all active timers when dailyRecordSaved event is emitted
+    Livewire.on('dailyRecordSaved', () => {
+        const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+        localStorage.removeItem(formKey);
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('mmc_timer_')) {
+                localStorage.removeItem(key);
+            }
+        });
+    });
+});
+
+// Setup form draft on Livewire SPA page transitions
+document.addEventListener('livewire:navigated', () => {
+    setupFormDraft();
+});
