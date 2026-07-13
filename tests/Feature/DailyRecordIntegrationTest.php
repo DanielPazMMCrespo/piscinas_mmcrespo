@@ -555,4 +555,66 @@ class DailyRecordIntegrationTest extends TestCase
         $total_quantity = $additions->sum('quantity');
         $this->assertEquals(3.500, $total_quantity);
     }
+
+    public function test_multiple_pools_photo_isolation(): void
+    {
+        $env = $this->createTestEnvironment();
+        $installation = $env['installation'];
+        $technician = $env['technician'];
+
+        $pool1 = $env['pool'];
+        $pool2 = Pool::create([
+            'installation_id' => $installation->id,
+            'name' => 'Piscina Lazer',
+            'type' => 'leisure',
+            'temp_min' => 26.0,
+            'temp_max' => 27.0,
+            'volume' => 500.00,
+            'active' => true,
+        ]);
+        $pool3 = Pool::create([
+            'installation_id' => $installation->id,
+            'name' => 'Piscina Infantil',
+            'type' => 'children',
+            'temp_min' => 28.0,
+            'temp_max' => 30.0,
+            'volume' => 100.00,
+            'active' => true,
+        ]);
+
+        $createPage = new \App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord();
+
+        $data = [
+            'installation_id' => $installation->id,
+            'user_id' => $technician->id,
+            'registado_em' => now(),
+            'pools' => [
+                $pool1->id => [
+                    'bomba_ferrada' => true,
+                    'bomba_foto' => null,
+                ],
+                $pool2->id => [
+                    'bomba_ferrada' => true,
+                    'bomba_foto' => '',
+                ],
+                $pool3->id => [
+                    'bomba_ferrada' => true,
+                    'bomba_foto' => ['bomba/infantil_bomba.jpg'],
+                ],
+            ],
+        ];
+
+        $method = new \ReflectionMethod($createPage, 'handleRecordCreation');
+        $method->setAccessible(true);
+        $method->invoke($createPage, $data);
+
+        $record1 = DailyRecord::where('pool_id', $pool1->id)->latest('id')->first();
+        $record2 = DailyRecord::where('pool_id', $pool2->id)->latest('id')->first();
+        $record3 = DailyRecord::where('pool_id', $pool3->id)->latest('id')->first();
+
+        $this->assertNull($record1->bomba_foto);
+        $this->assertNull($record2->bomba_foto);
+        $this->assertEquals('bomba/infantil_bomba.jpg', $record3->bomba_foto);
+    }
 }
+

@@ -65,22 +65,26 @@ class DailyRecordFormBuilder
         $set('ns_foto', null);
     }
 
-    private static function fotoField(string $field, string $label, string $directory, bool $required = false): array
+    private static function fotoField(string $field, string $label, string $directory, bool $required = false, ?string $uniqueId = null): array
     {
-        return [
-            Forms\Components\FileUpload::make($field)
-                ->label($label)
-                ->disk(DailyRecord::getStorageDisk())->visibility('public')
-                ->directory($directory)
-                ->image()
-                ->imageEditor()
-                ->imageResizeMode('cover')
-                ->imageResizeTargetWidth('1024')
-                ->maxSize(5120)
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
-                ->required($required)
-                ->columnSpanFull(),
-        ];
+        $component = Forms\Components\FileUpload::make($field)
+            ->label($label)
+            ->disk(DailyRecord::getStorageDisk())->visibility('public')
+            ->directory($directory)
+            ->image()
+            ->imageEditor()
+            ->imageResizeMode('cover')
+            ->imageResizeTargetWidth('1024')
+            ->maxSize(5120)
+            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            ->required($required)
+            ->columnSpanFull();
+
+        if ($uniqueId !== null) {
+            $component->id($uniqueId);
+        }
+
+        return [$component];
     }
 
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
@@ -161,9 +165,11 @@ class DailyRecordFormBuilder
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
                                         Forms\Components\Toggle::make('bomba_ferrada')
+                                            ->id("bomba_ferrada_{$pool->id}")
                                             ->label('Bomba ferrada')
                                             ->default(true),
                                         Forms\Components\TextInput::make('contador_valor')
+                                            ->id("contador_valor_{$pool->id}")
                                             ->label('Contador (m³)')
                                             ->numeric()->step(0.01)->minValue(0)
                                             ->rules([
@@ -181,6 +187,7 @@ class DailyRecordFormBuilder
                                                  },
                                              ]),
                                         Forms\Components\Select::make('agua_modo')
+                                            ->id("agua_modo_{$pool->id}")
                                             ->label('Água')
                                             ->options([
                                                 'auto_com_agua' => 'Auto com água',
@@ -189,8 +196,8 @@ class DailyRecordFormBuilder
                                                 'on_sem_agua' => 'ON sem água',
                                                 'off' => 'OFF sem água',
                                             ]),
-                                        ...self::fotoField('bomba_foto', 'Foto bomba', 'bomba'),
-                                        ...self::fotoField('contador_foto', 'Foto contador', 'contador'),
+                                        ...self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
+                                        ...self::fotoField('contador_foto', 'Foto contador', 'contador', false, "contador_foto_{$pool->id}"),
                                     ])->columns(3)
                             )->toArray()
                         );
@@ -204,9 +211,12 @@ class DailyRecordFormBuilder
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
                                         Forms\Components\Toggle::make('tanque_ok')
+                                            ->id("tanque_ok_{$pool->id}")
                                             ->label('Tanque OK')->default(true),
-                                        Forms\Components\Textarea::make('tanque_observacoes')->label('Observações'),
-                                        ...self::fotoField('tanque_foto', 'Foto Tanque', 'tanque'),
+                                        Forms\Components\Textarea::make('tanque_observacoes')
+                                            ->id("tanque_observacoes_{$pool->id}")
+                                            ->label('Observações'),
+                                        ...self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
                                     ])
                             )->toArray()
                         );
@@ -219,12 +229,14 @@ class DailyRecordFormBuilder
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
                                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
+                                            ->id("filtro_faz_retrolavagem_{$pool->id}")
                                             ->label('Fazer retrolavagem?')->default(false)->live(),
                                         Forms\Components\ViewField::make('timer_lavagem')
+                                            ->id("timer_lavagem_{$pool->id}")
                                             ->view('filament.timer-retrolavagem')
                                             ->default(3)
                                             ->visible(fn(Get $get) => $get('filtro_faz_retrolavagem')),
-                                        ...self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros'),
+                                        ...self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
                                     ])
                             )->toArray()
                         );
@@ -238,9 +250,10 @@ class DailyRecordFormBuilder
                                     ->visible(fn(Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
                                     ->schema([
                                         Forms\Components\ViewField::make('timer_enxaguamento')
+                                            ->id("timer_enxaguamento_{$pool->id}")
                                             ->view('filament.timer-retrolavagem')
                                             ->default(2),
-                                        ...self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros'),
+                                        ...self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
                                     ])
                             )->toArray()
                         );
@@ -253,7 +266,7 @@ class DailyRecordFormBuilder
                                     ->statePath("pools.{$pool->id}")
                                     ->visible(fn(Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
                                     ->schema([
-                                        ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros'),
+                                        ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
                                     ])
                             )->toArray()
                         );
@@ -261,14 +274,15 @@ class DailyRecordFormBuilder
                     $stepNS = Forms\Components\Wizard\Step::make('Nadadores-salvadores')
                         ->icon('heroicon-o-users')
                         ->schema([
-                            ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true),
+                            ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn(Pool $pool) => 
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->label('pH')->numeric()->step(0.01), 'ns_ph', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->label('Cl livre')->numeric()->step(0.01), 'ns_cloro_livre', $pool),
+                                        self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01), 'ns_ph', $pool),
+                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01), 'ns_cloro_livre', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
+                                            ->id("ns_cloro_total_{$pool->id}")
                                             ->label('Cl total')
                                             ->numeric()
                                             ->step(0.01)
@@ -279,7 +293,7 @@ class DailyRecordFormBuilder
                                                     }
                                                 },
                                             ]), 'ns_cloro_total', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->label('Temp')->numeric()->step(0.01), 'ns_temperatura', $pool),
+                                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01), 'ns_temperatura', $pool),
                                     ])->columns(4)
                             )->toArray()
                         ]);
@@ -291,8 +305,9 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
-                                        Forms\Components\Textarea::make('acao_corretiva')->label('Ação corretiva (Químicos, etc)'),
+                                        Forms\Components\Textarea::make('acao_corretiva')->id("acao_corretiva_{$pool->id}")->label('Ação corretiva (Químicos, etc)'),
                                         Forms\Components\Repeater::make('adicoes')
+                                            ->id("adicoes_{$pool->id}")
                                             ->label('Adições de Químicos')
                                             ->schema([
                                                 Forms\Components\Select::make('product_id')
@@ -319,7 +334,7 @@ class DailyRecordFormBuilder
                                                         },
                                                     ]),
                                             ])->columns(2),
-                                        Forms\Components\Textarea::make('observacoes')->label('Observações gerais'),
+                                        Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                                     ])
                             )->toArray()
                         );

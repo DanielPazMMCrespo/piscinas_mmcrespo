@@ -35,8 +35,14 @@ class CreateDailyRecord extends CreateRecord
             
             $photoFields = ['bomba_foto', 'contador_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
             foreach ($photoFields as $pf) {
-                if (isset($poolData[$pf]) && is_array($poolData[$pf])) {
-                    $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                if (isset($poolData[$pf])) {
+                    if (is_array($poolData[$pf])) {
+                        $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                    } elseif ($poolData[$pf] === '') {
+                        $poolData[$pf] = null;
+                    }
+                } else {
+                    $poolData[$pf] = null;
                 }
             }
 
