@@ -265,11 +265,11 @@ document.addEventListener('alpine:init', () => {
                             zoom: {
                                 wheel: { enabled: true, modifierKey: 'ctrl' },
                                 pinch: { enabled: true },
-                                mode: 'x',
+                                mode: 'xy',
                             },
                             pan: {
                                 enabled: true,
-                                mode: 'x',
+                                mode: 'xy',
                             },
                         },
                         annotation: {
@@ -293,8 +293,8 @@ document.addEventListener('alpine:init', () => {
                         y: {
                             type: 'linear',
                             position: 'left',
-                            min: left.yMin,
-                            max: left.yMax,
+                            suggestedMin: left.yMin,
+                            suggestedMax: left.yMax,
                             grid: { color: c.grelha },
                             ticks: { color: left.cor },
                             title: {
@@ -307,8 +307,8 @@ document.addEventListener('alpine:init', () => {
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            min: right.yMin,
-                            max: right.yMax,
+                            suggestedMin: right.yMin,
+                            suggestedMax: right.yMax,
                             grid: { drawOnChartArea: false },
                             ticks: { color: right.cor },
                             title: {
