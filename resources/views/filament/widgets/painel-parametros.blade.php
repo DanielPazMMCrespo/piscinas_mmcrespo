@@ -2,7 +2,21 @@
     <x-filament::section>
         <x-slot name="heading">Evolução dos Parâmetros</x-slot>
 
-        {{-- Seletores: piscina + eixo esquerdo + eixo direito --}}
+        {{-- Seletor de modo --}}
+        <div class="flex gap-1 mb-3">
+            @foreach(['dual' => '2 Eixos', 'multi-metrica' => 'Multi-métrica', 'multi-piscina' => 'Multi-piscina'] as $key => $label)
+                <button
+                    wire:click="setMode('{{ $key }}')"
+                    @class([
+                        'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                        'bg-primary-600 text-white shadow-sm' => $this->mode === $key,
+                        'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->mode !== $key,
+                    ])
+                >{{ $label }}</button>
+            @endforeach
+        </div>
+
+        {{-- Seletores: piscina + métricas --}}
         <div class="mb-4">
             {{ $this->form }}
         </div>
@@ -46,18 +60,18 @@
             @php($payload = $this->getChartPayload())
 
             <div
-                x-data="mmcChart({{ Illuminate\Support\Js::from($payload ?: null) }})"
+                x-data="mmcEcharts({{ Illuminate\Support\Js::from($payload ?: null) }})"
                 wire:ignore
             >
                 <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
                 <div x-show="_hasData && !_hasSeries" class="mmc-grafico-vazio" x-cloak>Sem registos neste período.</div>
                 <div x-show="_hasSeries" x-cloak>
                     <div class="mmc-grafico-canvas-wrap">
-                        <canvas x-ref="canvas"></canvas>
+                        <div x-ref="container" style="width: 100%; height: 100%;"></div>
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
-                            Ctrl+Scroll para zoom &middot; Arrastar para mover
+                            Arrasta a barra inferior para navegar &middot; scroll para zoom
                         </span>
                         <button
                             x-on:click="resetZoom()"
@@ -142,7 +156,7 @@
     <style>
         .mmc-grafico-canvas-wrap {
             position: relative;
-            height: 380px;
+            height: 420px;
         }
         .mmc-grafico-vazio {
             opacity: 0.55;
@@ -184,7 +198,7 @@
         }
 
         @media (max-width: 640px) {
-            .mmc-grafico-canvas-wrap { height: 260px; }
+            .mmc-grafico-canvas-wrap { height: 320px; }
         }
     </style>
 </x-filament-widgets::widget>
