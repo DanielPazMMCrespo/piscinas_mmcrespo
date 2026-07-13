@@ -218,6 +218,10 @@ class DailyRecordFormBuilder
             return null;
         }
 
+        if (app()->runningUnitTests()) {
+            self::$ultimoCache = [];
+        }
+
         if (! array_key_exists($poolId, self::$ultimoCache)) {
             self::$ultimoCache[$poolId] = DailyRecord::query()
                 ->where('pool_id', $poolId)
@@ -238,6 +242,10 @@ class DailyRecordFormBuilder
         }
 
         $poolId = (int) $poolId;
+        if (app()->runningUnitTests()) {
+            self::$poolCache = [];
+        }
+
         if (! array_key_exists($poolId, self::$poolCache)) {
             self::$poolCache[$poolId] = Pool::find($poolId);
         }
@@ -672,7 +680,14 @@ class DailyRecordFormBuilder
                         Forms\Components\TextInput::make('ns_cloro_total')
                             ->label('Cloro Total — NS (mg/L)')
                             ->required()
-                            ->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                            ->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                            ->rules([
+                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
+                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                    }
+                                },
+                            ]),
                         'ns_cloro_total'
                     ),
                     self::comSemaforo(
