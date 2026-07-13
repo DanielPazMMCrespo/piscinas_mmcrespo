@@ -164,7 +164,7 @@ class HannaCloudService
     public function updateDeviceSettings(string $deviceId, string $as, string $gs, string $ds): array
     {
         $query = <<<'GQL'
-        query DeviceSetting($deviceId: String!, $AS: String!, $GS: String!, $DS: String!) {
+        mutation DeviceSetting($deviceId: String!, $AS: String!, $GS: String!, $DS: String!) {
           messageToDevice(deviceId: $deviceId, AS: $AS, GS: $GS, DS: $DS) {
             data
           }
