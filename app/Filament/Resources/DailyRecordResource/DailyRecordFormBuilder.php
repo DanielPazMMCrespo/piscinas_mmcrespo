@@ -339,8 +339,9 @@ class DailyRecordFormBuilder
                             )->toArray()
                         );
 
-                    return [
-                        Forms\Components\Wizard::make([
+                    $steps = self::isNS()
+                        ? [$stepNS]
+                        : [
                             $stepBombas,
                             $stepTanques,
                             $stepLavagem,
@@ -348,7 +349,10 @@ class DailyRecordFormBuilder
                             $stepPosicaoNormal,
                             $stepNS,
                             $stepObservacoes,
-                        ])->skippable()
+                        ];
+
+                    return [
+                        Forms\Components\Wizard::make($steps)->skippable()
                         ->submitAction(new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render(<<<'BLADE'
                             <x-filament::button type="submit" size="sm">Confirmar Registo</x-filament::button>
                         BLADE)))
