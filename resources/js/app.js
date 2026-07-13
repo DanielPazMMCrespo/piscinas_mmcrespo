@@ -32,6 +32,13 @@ document.addEventListener('alpine:init', () => {
         _hasData: !!(initialPayload?.left && initialPayload?.right),
         _renderRetries: 0,
 
+        get _hasSeries() {
+            const p = this._payload;
+            if (!p || !p.left || !p.right) return false;
+            const hasPoints = (axis) => (axis.datasets || []).some((ds) => (ds.data || []).length > 0);
+            return hasPoints(p.left) || hasPoints(p.right);
+        },
+
         async init() {
             if (!ChartWithPlugins) {
                 // hammerjs precisa de estar em window.Hammer antes do zoom plugin tratar eventos táteis
@@ -258,11 +265,11 @@ document.addEventListener('alpine:init', () => {
                             zoom: {
                                 wheel: { enabled: true, modifierKey: 'ctrl' },
                                 pinch: { enabled: true },
-                                mode: 'x',
+                                mode: 'xy',
                             },
                             pan: {
                                 enabled: true,
-                                mode: 'x',
+                                mode: 'xy',
                             },
                         },
                         annotation: {
@@ -278,7 +285,7 @@ document.addEventListener('alpine:init', () => {
                                     hour: 'HH:mm',
                                     day:  'dd/MM',
                                 },
-                                tooltipFormat: isShort ? 'dd/MM HH:mm' : 'dd/MM/yyyy',
+                                tooltipFormat: 'dd/MM/yyyy HH:mm',
                             },
                             grid: { display: false },
                             ticks: { color: c.texto, maxRotation: 0, autoSkipPadding: 16 },
@@ -286,8 +293,8 @@ document.addEventListener('alpine:init', () => {
                         y: {
                             type: 'linear',
                             position: 'left',
-                            min: left.yMin,
-                            max: left.yMax,
+                            suggestedMin: left.yMin,
+                            suggestedMax: left.yMax,
                             grid: { color: c.grelha },
                             ticks: { color: left.cor },
                             title: {
@@ -300,8 +307,8 @@ document.addEventListener('alpine:init', () => {
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            min: right.yMin,
-                            max: right.yMax,
+                            suggestedMin: right.yMin,
+                            suggestedMax: right.yMax,
                             grid: { drawOnChartArea: false },
                             ticks: { color: right.cor },
                             title: {
