@@ -165,7 +165,21 @@ class DailyRecordFormBuilder
                                             ->default(true),
                                         Forms\Components\TextInput::make('contador_valor')
                                             ->label('Contador (m³)')
-                                            ->numeric()->step(0.01)->minValue(0),
+                                            ->numeric()->step(0.01)->minValue(0)
+                                            ->rules([
+                                                 fn (): Closure => function (string $attribute, $value, Closure $fail) use ($pool) {
+                                                     $ultimo = DailyRecord::query()
+                                                         ->where('pool_id', $pool->id)
+                                                         ->whereDoesntHave('correcoes')
+                                                         ->orderByDesc('registado_em')
+                                                         ->orderByDesc('id')
+                                                         ->first();
+                                                     if (filled($value) && $ultimo && $ultimo->contador_valor !== null
+                                                         && (float) $value < (float) $ultimo->contador_valor) {
+                                                         $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
+                                                     }
+                                                 },
+                                             ]),
                                         Forms\Components\Select::make('agua_modo')
                                             ->label('Água')
                                             ->options([
@@ -254,7 +268,17 @@ class DailyRecordFormBuilder
                                     ->schema([
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->label('pH')->numeric()->step(0.01), 'ns_ph', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->label('Cl livre')->numeric()->step(0.01), 'ns_cloro_livre', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')->label('Cl total')->numeric()->step(0.01), 'ns_cloro_total', $pool),
+                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
+                                            ->label('Cl total')
+                                            ->numeric()
+                                            ->step(0.01)
+                                            ->rules([
+                                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                                    if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
+                                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                                    }
+                                                },
+                                            ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->label('Temp')->numeric()->step(0.01), 'ns_temperatura', $pool),
                                     ])->columns(4)
                             )->toArray()

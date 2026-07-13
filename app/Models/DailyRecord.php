@@ -160,7 +160,8 @@ class DailyRecord extends Model
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
-        $meta = self::getMetricas()[$campo] ?? null;
+        $campoReal = str_starts_with($campo, 'ns_') ? substr($campo, 3) : $campo;
+        $meta = self::getMetricas()[$campoReal] ?? null;
         if ($meta === null) {
             return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
