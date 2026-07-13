@@ -1,4 +1,5 @@
 import './bootstrap';
+import { registarMmcEcharts } from './charts/analise.js';
 
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -21,6 +22,7 @@ let ChartWithPlugins = null;
  *   - hammerjs  (peer dep do zoom plugin para pinch/touch)
  */
 document.addEventListener('alpine:init', () => {
+    registarMmcEcharts(window.Alpine);
     window.Alpine.data('mmcChart', (initialPayload = null) => ({
         chart: null,
         resizeObserver: null,
