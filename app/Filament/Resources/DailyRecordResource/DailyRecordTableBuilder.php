@@ -243,11 +243,13 @@ class DailyRecordTableBuilder
             $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
             || ($record?->ns_ph !== null && $record?->ph === null);
 
+        $viewerIsNS = auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+
         return $infolist
             ->schema([
                 // Swimmer (Nadador-Salvador) Simplified View
                 \Filament\Infolists\Components\Section::make('Registo do Nadador-Salvador')
-                    ->visible($isSwimmerRecord)
+                    ->visible(fn (?DailyRecord $record): bool => $viewerIsNS || $isSwimmerRecord($record))
                     ->schema([
                         \Filament\Infolists\Components\Grid::make(3)
                             ->schema([
@@ -277,7 +279,7 @@ class DailyRecordTableBuilder
 
                 // Full Infolist Tabs (for Technician/Admin)
                 \Filament\Infolists\Components\Tabs::make('Registo')
-                    ->visible(fn (?DailyRecord $record): bool => !$isSwimmerRecord($record))
+                    ->visible(fn (?DailyRecord $record): bool => !$viewerIsNS && !$isSwimmerRecord($record))
                     ->tabs([
                         \Filament\Infolists\Components\Tabs\Tab::make('Geral')
                             ->schema([
