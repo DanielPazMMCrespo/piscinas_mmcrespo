@@ -30,6 +30,7 @@ class CloroPhChartWidget extends Widget implements HasForms
     public ?string $customStartDate = null;
     public ?string $customEndDate = null;
 
+    private const NS_CAMPOS = ['ph', 'cloro_livre', 'cloro_total', 'temperatura'];
     private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
 
@@ -262,9 +263,10 @@ class CloroPhChartWidget extends Widget implements HasForms
         } else {
             $campo = $metricKey;
 
-            $nsCampo = 'ns_' . $campo;
+            $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_' . $campo : null;
+            $colunas = $nsCampo !== null ? ['registado_em', $campo, $nsCampo] : ['registado_em', $campo];
             $rows = DailyRecord::query()
-                ->select(['registado_em', $campo, $nsCampo])
+                ->select($colunas)
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
                 ->where('registado_em', '<=', $end)
@@ -273,7 +275,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->get();
 
             $data = $rows->map(fn ($r) => [
-                    'val' => $r->{$campo} ?? $r->{$nsCampo},
+                    'val' => $r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null),
                     'r' => $r
                 ])
                 ->filter(fn ($item) => $item['val'] !== null)
