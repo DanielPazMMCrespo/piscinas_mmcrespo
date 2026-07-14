@@ -375,9 +375,6 @@ class DailyRecordFormBuilder
 
                     return [
                         Forms\Components\Wizard::make($steps)->skippable()
-                        ->submitAction(new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render(<<<'BLADE'
-                            <x-filament::button type="submit" size="sm">Confirmar Registo</x-filament::button>
-                        BLADE)))
                     ];
                 })
         ])->columns(1);
