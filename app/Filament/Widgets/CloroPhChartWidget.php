@@ -23,7 +23,7 @@ class CloroPhChartWidget extends Widget implements HasForms
     protected static string $view = 'filament.widgets.painel-parametros';
 
     public ?string $poolSelecionada = null;
-    public string $leftMetric = 'ph';
+    public string $leftMetric = 'controlador_ph';
     public string $rightMetric = 'controlador_orp';
     public string $period = '7d';
     public string $tabAtiva = 'graph';
@@ -311,7 +311,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         }
 
         $metricas = self::getMetricas();
-        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
+        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'controlador_ph';
         $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
 
         // Cache only for long-period, manual-only queries (sensor data changes every 15 min).
