@@ -258,7 +258,35 @@ class UserResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
                         ->action(function (Collection $records): void {
-                            $records->reject(fn ($r) => $r->id === auth()->id())->each->delete();
+                            $adminCount = User::role(UserRole::ADMIN)->count();
+                            $skipped = [];
+
+                            $records->each(function (User $record) use (&$adminCount, &$skipped): void {
+                                if ($record->id === auth()->id()) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->hasRole(UserRole::ADMIN) && $adminCount <= 1) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->hasRole(UserRole::ADMIN)) {
+                                    $adminCount--;
+                                }
+                                $record->delete();
+                            });
+
+                            if (! empty($skipped)) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Alguns utilizadores não foram eliminados')
+                                    ->body('Têm registos diários/incidentes associados, são o único admin, ou é a sua própria conta: ' . implode(', ', $skipped))
+                                    ->send();
+                            }
                         }),
                 ]),
             ]);
