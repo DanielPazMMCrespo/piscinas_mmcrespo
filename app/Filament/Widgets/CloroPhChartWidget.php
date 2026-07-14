@@ -30,14 +30,22 @@ class CloroPhChartWidget extends Widget implements HasForms
     public ?string $customStartDate = null;
     public ?string $customEndDate = null;
 
-    private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d', 'custom'];
+    private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
+
+    /** Métricas escondidas do Nadador-Salvador (sem relevância operacional para o seu papel). */
+    private const METRICAS_OCULTAS_NS = ['transparencia'];
+
+    public function isNS(): bool
+    {
+        return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+    }
 
     private function poolsQuery()
     {
         $query = Pool::query()->where('active', true);
 
-        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if ($this->isNS()) {
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
@@ -101,6 +109,10 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->poolSelecionada = $primeiraPool !== null ? (string) $primeiraPool : null;
 
+        if ($this->isNS()) {
+            $this->period = '12h';
+        }
+
         $this->customStartDate = now()->subDays(7)->format('Y-m-d');
         $this->customEndDate = now()->format('Y-m-d');
 
@@ -123,6 +135,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ])->toArray();
 
         $opcoesMetricas = collect(self::getMetricas())
+            ->reject(fn ($m, $k) => $this->isNS() && in_array($k, self::METRICAS_OCULTAS_NS, true))
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
@@ -163,6 +176,9 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public function setPeriod(string $p): void
     {
+        if ($this->isNS()) {
+            return;
+        }
         if (! in_array($p, self::PERIODOS_VALIDOS, true)) {
             return;
         }
@@ -188,6 +204,7 @@ class CloroPhChartWidget extends Widget implements HasForms
     private function getPeriodStart(): Carbon
     {
         return match ($this->period) {
+            '12h'    => now()->subHours(12),
             '6h'     => now()->subHours(6),
             '24h'    => now()->subHours(24),
             '7d'     => now()->subDays(7)->startOfDay(),
@@ -207,7 +224,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function isShortPeriod(): bool
     {
-        return in_array($this->period, ['6h', '24h'], true);
+        return in_array($this->period, ['12h', '6h', '24h'], true);
     }
 
     private function buildMetricAxis(string $metricKey): array

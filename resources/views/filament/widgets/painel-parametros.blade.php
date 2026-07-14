@@ -29,16 +29,20 @@
             </div>
 
             <div class="flex gap-1">
-                @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
-                    <button
-                        wire:click="setPeriod('{{ $key }}')"
-                        @class([
-                            'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                            'bg-primary-600 text-white shadow-sm' => $this->period === $key,
-                            'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->period !== $key,
-                        ])
-                    >{{ $label }}</button>
-                @endforeach
+                @if ($this->isNS())
+                    <span class="px-3 py-1.5 text-xs font-medium rounded-md bg-primary-600 text-white shadow-sm">Últimas 12h</span>
+                @else
+                    @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
+                        <button
+                            wire:click="setPeriod('{{ $key }}')"
+                            @class([
+                                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                'bg-primary-600 text-white shadow-sm' => $this->period === $key,
+                                'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->period !== $key,
+                            ])
+                        >{{ $label }}</button>
+                    @endforeach
+                @endif
             </div>
         </div>
 

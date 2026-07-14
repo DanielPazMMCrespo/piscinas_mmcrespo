@@ -260,6 +260,7 @@ class PainelPiscinasWidget extends Widget
             'conformes' => $conformes,
             'percentagemRegisto' => $percentagemRegisto,
             'percentagemConforme' => $percentagemConforme,
+            'isNS' => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false,
         ];
     }
 

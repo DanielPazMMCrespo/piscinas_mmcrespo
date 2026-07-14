@@ -12,15 +12,17 @@
 
         @if ($totalPiscinas > 0)
             <div class="mmc-dashboard-status">
-                <div class="mmc-status-item">
-                    <div class="mmc-status-info">
-                        <span class="mmc-status-title">Registos Diários de Hoje</span>
-                        <span class="mmc-status-value">{{ $registadasHoje }} / {{ $totalPiscinas }}</span>
+                @unless ($isNS)
+                    <div class="mmc-status-item">
+                        <div class="mmc-status-info">
+                            <span class="mmc-status-title">Registos Diários de Hoje</span>
+                            <span class="mmc-status-value">{{ $registadasHoje }} / {{ $totalPiscinas }}</span>
+                        </div>
+                        <div class="mmc-progress-bar-bg">
+                            <div class="mmc-progress-bar-fill mmc-progress-registo" style="width: {{ $percentagemRegisto }}%"></div>
+                        </div>
                     </div>
-                    <div class="mmc-progress-bar-bg">
-                        <div class="mmc-progress-bar-fill mmc-progress-registo" style="width: {{ $percentagemRegisto }}%"></div>
-                    </div>
-                </div>
+                @endunless
                 <div class="mmc-status-item">
                     <div class="mmc-status-info">
                         <span class="mmc-status-title">Piscinas Conformes (Limites Legais)</span>
