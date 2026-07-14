@@ -89,24 +89,10 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('password')
-                    ->label('Palavra-passe')
-                    ->password()
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->hiddenOn('edit')
-                    ->dehydrated(fn (?string $state) => filled($state))
-                    ->dehydrateStateUsing(fn (string $state) => \Illuminate\Support\Facades\Hash::make($state))
-                    ->minLength(8)
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('pin')
-                    ->label('PIN')
-                    ->password()
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->hiddenOn('edit')
-                    ->dehydrated(fn (?string $state) => filled($state))
-                    ->minLength(4)
-                    ->maxLength(255)
-                    ->helperText('Insira um PIN que se lembrará facilmente. Este PIN será utilizado em todos os logins.'),
+                Forms\Components\Placeholder::make('primeiro_acesso_info')
+                    ->label('Palavra-passe / PIN')
+                    ->content('Não definidas aqui. O utilizador recebe a password inicial "password" e é obrigado a defini-las no primeiro acesso.')
+                    ->visibleOn('create'),
                 Forms\Components\Select::make('roles')
                     ->label('Cargo')
                     ->relationship('roles', 'name')

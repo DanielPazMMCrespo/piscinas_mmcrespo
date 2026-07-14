@@ -32,11 +32,12 @@ class PasswordChangeController extends Controller
             'pin.digits_between'    => 'O PIN deve ter entre 4 e 6 dígitos.',
         ]);
 
-        // Bloqueio: não deixar usar a password padrão (comparação directa — ambos são plaintext aqui)
-        $defaultPassword = config('auth.default_password');
-        if ($defaultPassword !== '' && $validated['password'] === $defaultPassword) {
+        // Bloqueio: não deixar usar a password padrão nem a inicial fixa "password"
+        // (comparação directa — ambas são plaintext aqui, nunca hashed)
+        $blockedPasswords = array_unique(array_filter(['password', config('auth.default_password')], fn (string $value) => $value !== ''));
+        if (in_array($validated['password'], $blockedPasswords, true)) {
             return back()
-                ->withErrors(['password' => 'Não pode utilizar a password padrão. Escolha uma palavra-passe pessoal.'])
+                ->withErrors(['password' => 'Não pode utilizar a password inicial. Escolha uma palavra-passe pessoal.'])
                 ->withInput();
         }
 
