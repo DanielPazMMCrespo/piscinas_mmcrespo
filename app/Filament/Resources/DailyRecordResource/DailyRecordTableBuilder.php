@@ -64,6 +64,13 @@ class DailyRecordTableBuilder
                             ->badge()
                             ->color(fn (DailyRecord $record): string => $record->cloroLivreConforme() ? 'success' : 'danger')
                             ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::CLORO_LIVRE_MIN.'–'.DailyRecord::CLORO_LIVRE_MAX.' mg/L)'),
+                        Tables\Columns\TextColumn::make('cloro_total_efetivo')
+                            ->label('Cloro T.')
+                            ->formatStateUsing(fn ($state): string => 'Cl.T '.$state.' mg/L')
+                            ->numeric()
+                            ->badge()
+                            ->color(fn (DailyRecord $record): string => $record->cloroCombinadoConforme() ? 'success' : 'danger')
+                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroCombinadoConforme() ? null : 'Cloro combinado acima do limite legal (máx. '.DailyRecord::getCloroCombinadoMax().' mg/L)'),
                         Tables\Columns\TextColumn::make('transparencia')
                             ->label('Turbidez')
                             ->formatStateUsing(fn ($state): string => $state.' FNU')
