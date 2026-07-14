@@ -20,6 +20,19 @@ class DailyRecordFormBuilder
     }
 
     /**
+     * Piscinas permitidas para o utilizador atual: todas para Admin/Técnico,
+     * apenas as atribuídas via user_pools para Nadador-Salvador.
+     */
+    private static function piscinasPermitidas(Builder|\Illuminate\Database\Eloquent\Relations\HasMany $query): Builder|\Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        if (self::isNS()) {
+            $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
+        }
+
+        return $query;
+    }
+
+    /**
      * Estado inicial de cada piscina no array `data.pools`. Necessário registar
      * estas chaves cedo: os campos das piscinas são construídos num schema dinâmico
      * (dependente de installation_id), e sem as chaves pré-existentes o @entangle
@@ -51,7 +64,7 @@ class DailyRecordFormBuilder
             'observacoes' => null,
         ];
 
-        return $installation->piscinas()
+        return self::piscinasPermitidas($installation->piscinas())
             ->pluck('id')
             ->mapWithKeys(fn ($id) => [(string) $id => $base])
             ->toArray();
@@ -118,7 +131,16 @@ class DailyRecordFormBuilder
                 ->schema([
                     Forms\Components\Select::make('installation_id')
                         ->label('Instalação')
-                        ->options(Installation::query()->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Installation::query();
+
+                            if (self::isNS()) {
+                                $poolIds = auth()->user()->piscinas()->pluck('pools.id');
+                                $query->whereHas('piscinas', fn (Builder $q) => $q->whereIn('id', $poolIds));
+                            }
+
+                            return $query->pluck('name', 'id');
+                        })
                         ->required()
                         ->live()
                         ->default(function() {
@@ -154,8 +176,8 @@ class DailyRecordFormBuilder
                     $installation = Installation::find($installationId);
                     if (!$installation) return [];
 
-                    $poolsByBombas = $installation->piscinas()->orderBy('ordem_bombas')->get();
-                    $poolsByFiltros = $installation->piscinas()->orderBy('ordem_filtros')->get();
+                    $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
+                    $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
 
                     $stepBombas = Forms\Components\Wizard\Step::make('Bombas e contadores')
                         ->icon('heroicon-o-bolt')

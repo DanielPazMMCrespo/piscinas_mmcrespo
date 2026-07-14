@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use Filament\Actions\Action;
@@ -28,7 +29,15 @@ class CreateDailyRecord extends CreateRecord
         
         $poolsData = $data['pools'] ?? [];
         $lastRecord = null;
-        
+
+        $user = auth()->user();
+        if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
+            foreach (array_keys($poolsData) as $poolId) {
+                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
+            }
+        }
+
         foreach ($poolsData as $poolId => $poolData) {
             $adicoes = $poolData['adicoes'] ?? [];
             unset($poolData['adicoes']); // Remove from attributes
