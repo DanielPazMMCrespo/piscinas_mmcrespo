@@ -157,11 +157,28 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
+    /**
+     * Botão visível: valida o formulário (campos obrigatórios, regra cloro total ≥ cloro
+     * livre, etc.) antes de sequer abrir o modal de confirmação. Sem isto, o modal
+     * "Confirmar e guardar" aparecia por cima de erros de validação ainda por resolver.
+     */
+    public function validarERegistosGuardar(): void
+    {
+        $this->form->getState();
+
+        $this->mountAction('confirmarCriacao');
+    }
+
     protected function getFormActions(): array
     {
         return [
             Action::make('create')
                 ->label('Criar')
+                ->action('validarERegistosGuardar')
+                ->keyBindings(['mod+s']),
+            Action::make('confirmarCriacao')
+                ->label('Confirmar e guardar')
+                ->hidden()
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registos')
@@ -169,11 +186,11 @@ class CreateDailyRecord extends CreateRecord
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
                     $problemasGlobais = [];
-                    
+
                     foreach ($poolsData as $poolId => $poolData) {
                         $pool = \App\Models\Pool::find($poolId);
                         if (!$pool) continue;
-                        
+
                         foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
                             if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
                                 $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
@@ -182,7 +199,7 @@ class CreateDailyRecord extends CreateRecord
                                 }
                             }
                         }
-                        
+
                         if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
                             $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
                             $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
@@ -191,11 +208,10 @@ class CreateDailyRecord extends CreateRecord
                             }
                         }
                     }
-                    
+
                     return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
                 })
-                ->modalSubmitActionLabel('Confirmar e guardar')
-                ->keyBindings(['mod+s']),
+                ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),
         ];
     }
