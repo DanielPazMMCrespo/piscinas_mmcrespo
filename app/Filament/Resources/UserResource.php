@@ -3,6 +3,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -66,6 +67,17 @@ class UserResource extends Resource
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
+    private static function rolesIncluemNS(Forms\Get $get): bool
+    {
+        $roleIds = (array) ($get('roles') ?? []);
+        if (empty($roleIds)) {
+            return false;
+        }
+        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
+            ->where('name', UserRole::NADADOR_SALVADOR)
+            ->exists();
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -110,20 +122,20 @@ class UserResource extends Resource
                     ->relationship('piscinas', 'name')
                     ->multiple()
                     ->preload()
-                    ->visible(function (Forms\Get $get): bool {
-                        $user = auth()->user();
-                        if ($user?->hasRole(UserRole::GESTOR)) {
-                            return true;
-                        }
-                        $roleIds = (array) ($get('roles') ?? []);
-                        if (empty($roleIds)) {
-                            return false;
-                        }
-                        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
-                            ->where('name', UserRole::NADADOR_SALVADOR)
-                            ->exists();
-                    })
+                    ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
+                        || self::rolesIncluemNS($get))
                     ->helperText('Piscinas às quais o nadador salvador tem acesso.'),
+                Forms\Components\CheckboxList::make('ns_permissions')
+                    ->label('O que este utilizador consegue ver')
+                    ->options(NSPermission::labels())
+                    ->default(NSPermission::all())
+                    ->afterStateHydrated(fn (Forms\Components\CheckboxList $component, $state) => $state === null
+                        ? $component->state(NSPermission::all())
+                        : null)
+                    ->columns(1)
+                    ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
+                        || self::rolesIncluemNS($get))
+                    ->helperText('Secções visíveis para este nadador salvador. Sem seleção, não vê nada.'),
             ]);
     }
 

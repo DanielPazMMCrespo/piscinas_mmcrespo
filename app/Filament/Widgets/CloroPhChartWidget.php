@@ -102,8 +102,15 @@ class CloroPhChartWidget extends Widget implements HasForms
         ];
     }
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->podeVer(\App\Constants\NSPermission::ANALISE_PARAMETROS);
+    }
+
     public function mount(): void
     {
+        abort_unless(static::canView(), 403);
+
         $primeiraPool = $this->poolsQuery()
             ->orderBy('installation_id')->orderBy('name')
             ->value('id');
