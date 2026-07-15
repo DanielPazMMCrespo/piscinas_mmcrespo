@@ -813,18 +813,17 @@ const setupFormDraft = () => {
 };
 
 const setupImageEditorFix = () => {
-    // Simples monitorização: esconder bottom nav quando há modais abertos
     const checkModalState = () => {
         const bottomNav = document.getElementById('mmc-bottom-nav');
         if (!bottomNav) return;
 
-        // Check if any modal/dialog is open
-        const hasModal = document.querySelector('[role="dialog"]') !== null;
+        // Check if any modal/dialog is open (Filament uses [role="dialog"] and .fi-modal)
+        const hasModal = document.querySelector('[role="dialog"], .fi-modal, .filepond--root') !== null;
 
         if (hasModal) {
-            bottomNav.classList.add('hidden');
+            bottomNav.classList.add('modal-open');
         } else {
-            bottomNav.classList.remove('hidden');
+            bottomNav.classList.remove('modal-open');
         }
     };
 
