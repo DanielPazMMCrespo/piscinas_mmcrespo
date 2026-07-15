@@ -130,10 +130,15 @@
     background: rgba(255, 255, 255, 0.32);
 }
 
+.mmc-esq__svg-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 .mmc-esq__svg {
     display: block;
     width: 100%;
     height: auto;
+    min-width: 560px;
     max-width: 860px;
     margin: 0 auto;
 }

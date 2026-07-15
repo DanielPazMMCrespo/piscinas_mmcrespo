@@ -50,6 +50,7 @@
             @endif
 
             <x-filament::section>
+                <div class="mmc-esq__svg-wrap">
                 <svg
                     viewBox="0 0 800 440"
                     class="mmc-esq__svg"
@@ -58,7 +59,7 @@
                 >
                     <defs>
                         <marker id="mmc-esq-seta" viewBox="0 0 10 10" refX="8" refY="5"
-                                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
                             <path d="M 0 0 L 10 5 L 0 10 z" class="mmc-esq__seta" />
                         </marker>
                     </defs>
@@ -69,12 +70,12 @@
                     {{-- Saída: piscina → (tanque →) bomba --}}
                     @if ($tanque)
                         <path class="mmc-esq__pipe" d="M 252 212 V 278" marker-end="url(#mmc-esq-seta)" />
-                        <path class="mmc-esq__pipe" d="M 252 326 V 352 H 268" marker-end="url(#mmc-esq-seta)" />
+                        <path class="mmc-esq__pipe" d="M 252 326 V 352 H 304" marker-end="url(#mmc-esq-seta)" />
                     @else
-                        <path class="mmc-esq__pipe" d="M 252 212 V 352 H 268" marker-end="url(#mmc-esq-seta)" />
+                        <path class="mmc-esq__pipe" d="M 252 212 V 352 H 304" marker-end="url(#mmc-esq-seta)" />
                     @endif
                     {{-- Bomba → filtro --}}
-                    <path class="mmc-esq__pipe" d="M 332 352 H 441" marker-end="url(#mmc-esq-seta)" />
+                    <path class="mmc-esq__pipe" d="M 376 352 H 441" marker-end="url(#mmc-esq-seta)" />
                     {{-- Filtro → retorno à piscina --}}
                     <path class="mmc-esq__pipe" d="M 519 352 H 564 V 216" marker-end="url(#mmc-esq-seta)" />
 
@@ -85,11 +86,11 @@
                     @if ($bombaATrabalhar)
                         @if ($tanque)
                             <path class="mmc-esq__flow" d="M 252 212 V 276" />
-                            <path class="mmc-esq__flow" d="M 252 326 V 352 H 266" />
+                            <path class="mmc-esq__flow" d="M 252 326 V 352 H 302" />
                         @else
-                            <path class="mmc-esq__flow" d="M 252 212 V 352 H 266" />
+                            <path class="mmc-esq__flow" d="M 252 212 V 352 H 302" />
                         @endif
-                        <path class="mmc-esq__flow" d="M 332 352 H 439" />
+                        <path class="mmc-esq__flow" d="M 376 352 H 439" />
                         <path class="mmc-esq__flow" d="M 519 352 H 564 V 218" />
                     @endif
 
@@ -106,8 +107,8 @@
                         <text x="66" y="114" class="mmc-esq__node-nome">Contador</text>
                         @if ($torneiraAberta)
                             <g class="mmc-esq__badge mmc-esq__badge--pulso">
-                                <rect x="10" y="34" width="112" height="26" rx="13" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--vermelho" />
-                                <text x="66" y="51" class="mmc-esq__badge-texto">Aberta {{ $torneira['desde'] }}</text>
+                                <rect x="8" y="30" width="152" height="26" rx="13" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--vermelho" />
+                                <text x="84" y="47" class="mmc-esq__badge-texto">Aberta {{ $torneira['desde'] }}</text>
                             </g>
                             {{-- gotas a cair da torneira --}}
                             <g class="mmc-esq__gotas">
@@ -170,7 +171,7 @@
                         >
                             <rect x="222" y="282" width="60" height="44" rx="8" class="mmc-esq__node-caixa" />
                             <rect x="228" y="298" width="48" height="22" rx="4" class="mmc-esq__agua-mini" />
-                            <text x="252" y="342" class="mmc-esq__node-nome" dy="8">Tanque</text>
+                            <text x="176" y="308" class="mmc-esq__node-nome">Tanque</text>
                             @if ($tanque['estado'] === 'verificar')
                                 <g class="mmc-esq__badge">
                                     <circle cx="282" cy="282" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--amarelo" />
@@ -192,22 +193,22 @@
                         x-on:click="toggle('bomba')" x-on:keydown.enter.prevent="toggle('bomba')"
                         x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'bomba' }"
                     >
-                        <circle cx="300" cy="352" r="32" class="mmc-esq__node-caixa" />
+                        <circle cx="340" cy="352" r="32" class="mmc-esq__node-caixa" />
                         <g class="mmc-esq__rotor {{ $bombaATrabalhar ? 'mmc-esq__rotor--spin' : '' }}">
-                            <path d="M 300 352 L 300 332 M 300 352 L 320 352 M 300 352 L 300 372 M 300 352 L 280 352"
+                            <path d="M 340 352 L 340 332 M 340 352 L 360 352 M 340 352 L 340 372 M 340 352 L 320 352"
                                   class="mmc-esq__icone" fill="none" />
-                            <circle cx="300" cy="352" r="5" class="mmc-esq__rotor-centro" />
+                            <circle cx="340" cy="352" r="5" class="mmc-esq__rotor-centro" />
                         </g>
-                        <text x="300" y="404" class="mmc-esq__node-nome">Bomba</text>
+                        <text x="340" y="404" class="mmc-esq__node-nome">Bomba</text>
                         @if ($bomba['estado'] === 'parada')
                             <g class="mmc-esq__badge">
-                                <rect x="252" y="300" width="96" height="24" rx="12" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--amarelo" />
-                                <text x="300" y="316" class="mmc-esq__badge-texto">Não ferrada</text>
+                                <rect x="292" y="300" width="96" height="24" rx="12" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--amarelo" />
+                                <text x="340" y="316" class="mmc-esq__badge-texto">Não ferrada</text>
                             </g>
                         @elseif ($bomba['estado'] === 'desconhecido')
                             <g class="mmc-esq__badge">
-                                <circle cx="326" cy="326" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--cinza" />
-                                <text x="326" y="331" class="mmc-esq__badge-texto">?</text>
+                                <circle cx="366" cy="326" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--cinza" />
+                                <text x="366" y="331" class="mmc-esq__badge-texto">?</text>
                             </g>
                         @endif
                     </g>
@@ -231,6 +232,7 @@
                         @endif
                     </g>
                 </svg>
+                </div>
 
                 {{-- ============ Painéis de detalhe ============ --}}
                 <div class="mmc-esq__detalhes">
