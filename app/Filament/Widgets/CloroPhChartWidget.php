@@ -23,21 +23,30 @@ class CloroPhChartWidget extends Widget implements HasForms
     protected static string $view = 'filament.widgets.painel-parametros';
 
     public ?string $poolSelecionada = null;
-    public string $leftMetric = 'ph';
+    public string $leftMetric = 'controlador_ph';
     public string $rightMetric = 'controlador_orp';
     public string $period = '7d';
     public string $tabAtiva = 'graph';
     public ?string $customStartDate = null;
     public ?string $customEndDate = null;
 
-    private const PERIODOS_VALIDOS = ['6h', '24h', '7d', '14d', 'custom'];
+    private const NS_CAMPOS = ['ph', 'cloro_livre', 'cloro_total', 'temperatura'];
+    private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', 'custom'];
     private const TABS_VALIDAS = ['graph', 'table'];
+
+    /** Métricas escondidas do Nadador-Salvador (sem relevância operacional para o seu papel). */
+    private const METRICAS_OCULTAS_NS = ['transparencia'];
+
+    public function isNS(): bool
+    {
+        return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+    }
 
     private function poolsQuery()
     {
         $query = Pool::query()->where('active', true);
 
-        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if ($this->isNS()) {
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
@@ -93,13 +102,24 @@ class CloroPhChartWidget extends Widget implements HasForms
         ];
     }
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->podeVer(\App\Constants\NSPermission::ANALISE_PARAMETROS);
+    }
+
     public function mount(): void
     {
+        abort_unless(static::canView(), 403);
+
         $primeiraPool = $this->poolsQuery()
             ->orderBy('installation_id')->orderBy('name')
             ->value('id');
 
         $this->poolSelecionada = $primeiraPool !== null ? (string) $primeiraPool : null;
+
+        if ($this->isNS()) {
+            $this->period = '12h';
+        }
 
         $this->customStartDate = now()->subDays(7)->format('Y-m-d');
         $this->customEndDate = now()->format('Y-m-d');
@@ -123,6 +143,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ])->toArray();
 
         $opcoesMetricas = collect(self::getMetricas())
+            ->reject(fn ($m, $k) => $this->isNS() && in_array($k, self::METRICAS_OCULTAS_NS, true))
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
@@ -163,6 +184,9 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public function setPeriod(string $p): void
     {
+        if ($this->isNS()) {
+            return;
+        }
         if (! in_array($p, self::PERIODOS_VALIDOS, true)) {
             return;
         }
@@ -188,6 +212,7 @@ class CloroPhChartWidget extends Widget implements HasForms
     private function getPeriodStart(): Carbon
     {
         return match ($this->period) {
+            '12h'    => now()->subHours(12),
             '6h'     => now()->subHours(6),
             '24h'    => now()->subHours(24),
             '7d'     => now()->subDays(7)->startOfDay(),
@@ -207,7 +232,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function isShortPeriod(): bool
     {
-        return in_array($this->period, ['6h', '24h'], true);
+        return in_array($this->period, ['12h', '6h', '24h'], true);
     }
 
     private function buildMetricAxis(string $metricKey): array
@@ -245,9 +270,10 @@ class CloroPhChartWidget extends Widget implements HasForms
         } else {
             $campo = $metricKey;
 
-            $nsCampo = 'ns_' . $campo;
+            $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_' . $campo : null;
+            $colunas = $nsCampo !== null ? ['registado_em', $campo, $nsCampo] : ['registado_em', $campo];
             $rows = DailyRecord::query()
-                ->select(['registado_em', $campo, $nsCampo])
+                ->select($colunas)
                 ->where('pool_id', $poolId)
                 ->where('registado_em', '>=', $start)
                 ->where('registado_em', '<=', $end)
@@ -256,7 +282,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->get();
 
             $data = $rows->map(fn ($r) => [
-                    'val' => $r->{$campo} ?? $r->{$nsCampo},
+                    'val' => $r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null),
                     'r' => $r
                 ])
                 ->filter(fn ($item) => $item['val'] !== null)
@@ -292,7 +318,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         }
 
         $metricas = self::getMetricas();
-        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'ph';
+        $leftKey = array_key_exists($this->leftMetric, $metricas) ? $this->leftMetric : 'controlador_ph';
         $rightKey = array_key_exists($this->rightMetric, $metricas) ? $this->rightMetric : 'controlador_orp';
 
         // Cache only for long-period, manual-only queries (sensor data changes every 15 min).

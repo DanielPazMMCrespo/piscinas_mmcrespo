@@ -2,6 +2,7 @@
 namespace App\Filament\Pages;
 
 
+use App\Constants\NSPermission;
 use Filament\Pages\Page;
 
 /**
@@ -23,9 +24,8 @@ class AnaliseParametros extends Page
 
     protected static string $view = 'filament.pages.analise-parametros';
 
-    // Todos os utilizadores autenticados (incluindo gestor) podem consultar.
     public static function canAccess(): bool
     {
-        return (bool) auth()->user();
+        return (bool) auth()->user()?->podeVer(NSPermission::ANALISE_PARAMETROS);
     }
 }

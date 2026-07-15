@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use Filament\Actions\Action;
@@ -28,15 +29,29 @@ class CreateDailyRecord extends CreateRecord
         
         $poolsData = $data['pools'] ?? [];
         $lastRecord = null;
-        
+
+        $user = auth()->user();
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
+            foreach (array_keys($poolsData) as $poolId) {
+                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
+            }
+        }
+
         foreach ($poolsData as $poolId => $poolData) {
             $adicoes = $poolData['adicoes'] ?? [];
             unset($poolData['adicoes']); // Remove from attributes
             
             $photoFields = ['bomba_foto', 'contador_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
             foreach ($photoFields as $pf) {
-                if (isset($poolData[$pf]) && is_array($poolData[$pf])) {
-                    $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                if (isset($poolData[$pf])) {
+                    if (is_array($poolData[$pf])) {
+                        $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                    } elseif ($poolData[$pf] === '') {
+                        $poolData[$pf] = null;
+                    }
+                } else {
+                    $poolData[$pf] = null;
                 }
             }
 
@@ -142,11 +157,28 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
+    /**
+     * Botão visível: valida o formulário (campos obrigatórios, regra cloro total ≥ cloro
+     * livre, etc.) antes de sequer abrir o modal de confirmação. Sem isto, o modal
+     * "Confirmar e guardar" aparecia por cima de erros de validação ainda por resolver.
+     */
+    public function validarERegistosGuardar(): void
+    {
+        $this->form->getState();
+
+        $this->mountAction('confirmarCriacao');
+    }
+
     protected function getFormActions(): array
     {
         return [
             Action::make('create')
                 ->label('Criar')
+                ->action('validarERegistosGuardar')
+                ->keyBindings(['mod+s']),
+            Action::make('confirmarCriacao')
+                ->label('Confirmar e guardar')
+                ->hidden()
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registos')
@@ -154,11 +186,11 @@ class CreateDailyRecord extends CreateRecord
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
                     $problemasGlobais = [];
-                    
+
                     foreach ($poolsData as $poolId => $poolData) {
                         $pool = \App\Models\Pool::find($poolId);
                         if (!$pool) continue;
-                        
+
                         foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
                             if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
                                 $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
@@ -167,7 +199,7 @@ class CreateDailyRecord extends CreateRecord
                                 }
                             }
                         }
-                        
+
                         if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
                             $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
                             $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
@@ -176,11 +208,10 @@ class CreateDailyRecord extends CreateRecord
                             }
                         }
                     }
-                    
+
                     return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
                 })
-                ->modalSubmitActionLabel('Confirmar e guardar')
-                ->keyBindings(['mod+s']),
+                ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),
         ];
     }

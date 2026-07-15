@@ -3,6 +3,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -66,6 +67,17 @@ class UserResource extends Resource
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
+    private static function rolesIncluemNS(Forms\Get $get): bool
+    {
+        $roleIds = (array) ($get('roles') ?? []);
+        if (empty($roleIds)) {
+            return false;
+        }
+        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
+            ->where('name', UserRole::NADADOR_SALVADOR)
+            ->exists();
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -89,24 +101,10 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('password')
-                    ->label('Palavra-passe')
-                    ->password()
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->hiddenOn('edit')
-                    ->dehydrated(fn (?string $state) => filled($state))
-                    ->dehydrateStateUsing(fn (string $state) => \Illuminate\Support\Facades\Hash::make($state))
-                    ->minLength(8)
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('pin')
-                    ->label('PIN')
-                    ->password()
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->hiddenOn('edit')
-                    ->dehydrated(fn (?string $state) => filled($state))
-                    ->minLength(4)
-                    ->maxLength(255)
-                    ->helperText('Insira um PIN que se lembrará facilmente. Este PIN será utilizado em todos os logins.'),
+                Forms\Components\Placeholder::make('primeiro_acesso_info')
+                    ->label('Palavra-passe / PIN')
+                    ->content('Não definidas aqui. O utilizador recebe a password inicial "password" e é obrigado a defini-las no primeiro acesso.')
+                    ->visibleOn('create'),
                 Forms\Components\Select::make('roles')
                     ->label('Cargo')
                     ->relationship('roles', 'name')
@@ -124,20 +122,20 @@ class UserResource extends Resource
                     ->relationship('piscinas', 'name')
                     ->multiple()
                     ->preload()
-                    ->visible(function (Forms\Get $get): bool {
-                        $user = auth()->user();
-                        if ($user?->hasRole(UserRole::GESTOR)) {
-                            return true;
-                        }
-                        $roleIds = (array) ($get('roles') ?? []);
-                        if (empty($roleIds)) {
-                            return false;
-                        }
-                        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
-                            ->where('name', UserRole::NADADOR_SALVADOR)
-                            ->exists();
-                    })
+                    ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
+                        || self::rolesIncluemNS($get))
                     ->helperText('Piscinas às quais o nadador salvador tem acesso.'),
+                Forms\Components\CheckboxList::make('ns_permissions')
+                    ->label('O que este utilizador consegue ver')
+                    ->options(NSPermission::labels())
+                    ->default(NSPermission::all())
+                    ->afterStateHydrated(fn (Forms\Components\CheckboxList $component, $state) => $state === null
+                        ? $component->state(NSPermission::all())
+                        : null)
+                    ->columns(1)
+                    ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
+                        || self::rolesIncluemNS($get))
+                    ->helperText('Secções visíveis para este nadador salvador. Sem seleção, não vê nada.'),
             ]);
     }
 
@@ -258,7 +256,35 @@ class UserResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
                         ->action(function (Collection $records): void {
-                            $records->reject(fn ($r) => $r->id === auth()->id())->each->delete();
+                            $adminCount = User::role(UserRole::ADMIN)->count();
+                            $skipped = [];
+
+                            $records->each(function (User $record) use (&$adminCount, &$skipped): void {
+                                if ($record->id === auth()->id()) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->hasRole(UserRole::ADMIN) && $adminCount <= 1) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                                    $skipped[] = $record->full_name;
+                                    return;
+                                }
+                                if ($record->hasRole(UserRole::ADMIN)) {
+                                    $adminCount--;
+                                }
+                                $record->delete();
+                            });
+
+                            if (! empty($skipped)) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Alguns utilizadores não foram eliminados')
+                                    ->body('Têm registos diários/incidentes associados, são o único admin, ou é a sua própria conta: ' . implode(', ', $skipped))
+                                    ->send();
+                            }
                         }),
                 ]),
             ]);

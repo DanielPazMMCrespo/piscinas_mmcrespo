@@ -11,6 +11,7 @@
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <div class="flex gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-sm font-medium">
                 <button
+                    type="button"
                     wire:click="setTab('graph')"
                     @class([
                         'px-4 py-1.5 transition-colors',
@@ -19,6 +20,7 @@
                     ])
                 >Gráfico</button>
                 <button
+                    type="button"
                     wire:click="setTab('table')"
                     @class([
                         'px-4 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700',
@@ -29,16 +31,21 @@
             </div>
 
             <div class="flex gap-1">
-                @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
-                    <button
-                        wire:click="setPeriod('{{ $key }}')"
-                        @class([
-                            'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                            'bg-primary-600 text-white shadow-sm' => $this->period === $key,
-                            'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->period !== $key,
-                        ])
-                    >{{ $label }}</button>
-                @endforeach
+                @if ($this->isNS())
+                    <span class="px-3 py-1.5 text-xs font-medium rounded-md bg-primary-600 text-white shadow-sm">Últimas 12h</span>
+                @else
+                    @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
+                        <button
+                            type="button"
+                            wire:click="setPeriod('{{ $key }}')"
+                            @class([
+                                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                'bg-primary-600 text-white shadow-sm' => $this->period === $key,
+                                'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->period !== $key,
+                            ])
+                        >{{ $label }}</button>
+                    @endforeach
+                @endif
             </div>
         </div>
 
@@ -60,6 +67,7 @@
                             Ctrl+Scroll para zoom &middot; Arrastar para mover
                         </span>
                         <button
+                            type="button"
                             x-on:click="resetZoom()"
                             class="text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 underline ml-auto"
                         >Repor zoom</button>

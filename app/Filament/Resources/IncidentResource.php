@@ -66,7 +66,13 @@ class IncidentResource extends Resource
             ->schema([
                 Forms\Components\Select::make('installation_id')
                     ->label('Instalação')
-                    ->relationship('instalacao', 'name')
+                    ->relationship(
+                        'instalacao',
+                        'name',
+                        modifyQueryUsing: fn (Builder $query) => auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)
+                            ? $query->whereHas('piscinas', fn (Builder $q) => $q->whereIn('id', auth()->user()->piscinas()->pluck('pools.id')))
+                            : $query,
+                    )
                     ->required()
                     ->preload()
                     ->searchable(),

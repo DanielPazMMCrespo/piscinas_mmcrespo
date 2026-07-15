@@ -13,6 +13,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -43,11 +44,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
 
     public function getFilamentAvatarUrl(): ?string
     {
-        $name = trim("{$this->first_name} {$this->last_name}");
-        if (empty($name)) {
-            $name = $this->name;
-        }
-        return 'https://ui-avatars.com/api/?name='.urlencode($name).'&color=FFFFFF&background=09090b';
+        return asset('images/user-placeholder.svg');
     }
 
     public function getFullNameAttribute(): string
@@ -99,6 +96,20 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     }
 
     /**
+     * Se este utilizador consegue ver/usar a secção indicada. Para cargos
+     * que não sejam Nadador-Salvador não há restrição. Para NS sem
+     * `ns_permissions` definido (registo antigo), assume-se tudo visível.
+     */
+    public function podeVer(string $seccao): bool
+    {
+        if (! $this->hasRole(UserRole::NADADOR_SALVADOR)) {
+            return true;
+        }
+
+        return in_array($seccao, $this->ns_permissions ?? NSPermission::all(), true);
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -112,6 +123,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'phone',
         'pin',
         'must_change_password',
+        'ns_permissions',
     ];
 
     /**
@@ -136,6 +148,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'pin' => 'hashed',
+            'ns_permissions' => 'array',
         ];
     }
 }

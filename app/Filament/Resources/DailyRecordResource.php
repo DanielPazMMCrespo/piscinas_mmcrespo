@@ -2,6 +2,7 @@
 namespace App\Filament\Resources;
 
 
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
@@ -51,7 +52,7 @@ class DailyRecordResource extends Resource
             return true;
         }
         if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return $user->piscinas()->exists();
+            return $user->podeVer(NSPermission::REGISTO_DIARIO) && $user->piscinas()->exists();
         }
         return false;
     }

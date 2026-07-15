@@ -2,6 +2,7 @@
 namespace App\Providers\Filament;
 
 
+use App\Filament\AvatarProviders\GenericAvatarProvider;
 use Filament\Forms\Components\TextInput;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -58,6 +59,7 @@ class AdminPanelProvider extends PanelProvider
                 'gray' => Color::Zinc,
             ])
             ->databaseNotifications()
+            ->defaultAvatarProvider(GenericAvatarProvider::class)
             // Light mode por defeito: legibilidade à beira da piscina, ao sol direto
             // (o utilizador pode na mesma alternar para escuro).
             ->defaultThemeMode(ThemeMode::Light)
