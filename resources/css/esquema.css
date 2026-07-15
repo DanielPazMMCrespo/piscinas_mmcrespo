@@ -1,0 +1,435 @@
+:root {
+    --mmc-esq-pipe: #94a3b8;
+    --mmc-esq-flow: #38bdf8;
+    --mmc-esq-flow-alerta: #ef4444;
+    --mmc-esq-node-bg: #f8fafc;
+    --mmc-esq-node-border: #64748b;
+    --mmc-esq-node-cinza-bg: #f1f5f9;
+    --mmc-esq-node-cinza-border: #cbd5e1;
+    --mmc-esq-agua: #7dd3fc;
+    --mmc-esq-agua-mau: #fca5a5;
+    --mmc-esq-agua-sem-dados: #e2e8f0;
+    --mmc-esq-onda: #38bdf8;
+    --mmc-esq-areia: #fde68a;
+    --mmc-esq-texto: #334155;
+    --mmc-esq-texto-suave: #64748b;
+    --mmc-esq-valor: #0f172a;
+    --mmc-esq-badge-vermelho: #dc2626;
+    --mmc-esq-badge-amarelo: #d97706;
+    --mmc-esq-badge-azul: #0284c7;
+    --mmc-esq-badge-cinza: #94a3b8;
+    --mmc-esq-tab-bg: #f1f5f9;
+    --mmc-esq-tab-ativa-bg: #e0f2fe;
+    --mmc-esq-tab-ativa-cor: #0369a1;
+    --mmc-esq-tab-ativa-borda: #7dd3fc;
+    --mmc-esq-detalhe-bg: #f8fafc;
+    --mmc-esq-detalhe-borda: #e2e8f0;
+}
+
+.dark {
+    --mmc-esq-pipe: #52525b;
+    --mmc-esq-flow: #38bdf8;
+    --mmc-esq-flow-alerta: #f87171;
+    --mmc-esq-node-bg: #27272a;
+    --mmc-esq-node-border: #a1a1aa;
+    --mmc-esq-node-cinza-bg: #1f1f23;
+    --mmc-esq-node-cinza-border: #3f3f46;
+    --mmc-esq-agua: #075985;
+    --mmc-esq-agua-mau: #7f1d1d;
+    --mmc-esq-agua-sem-dados: #3f3f46;
+    --mmc-esq-onda: #38bdf8;
+    --mmc-esq-areia: #a16207;
+    --mmc-esq-texto: #d4d4d8;
+    --mmc-esq-texto-suave: #a1a1aa;
+    --mmc-esq-valor: #fafafa;
+    --mmc-esq-badge-vermelho: #dc2626;
+    --mmc-esq-badge-amarelo: #b45309;
+    --mmc-esq-badge-azul: #0369a1;
+    --mmc-esq-badge-cinza: #52525b;
+    --mmc-esq-tab-bg: rgba(255, 255, 255, 0.05);
+    --mmc-esq-tab-ativa-bg: rgba(43, 156, 216, 0.15);
+    --mmc-esq-tab-ativa-cor: #7cc4e8;
+    --mmc-esq-tab-ativa-borda: rgba(43, 156, 216, 0.4);
+    --mmc-esq-detalhe-bg: rgba(255, 255, 255, 0.03);
+    --mmc-esq-detalhe-borda: #3f3f46;
+}
+
+/* =====================================================================
+ * Esquema do Circuito de Água
+ * ===================================================================== */
+
+.mmc-esq-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.mmc-esq-tabs__grupo {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mmc-esq-texto-suave);
+    margin-left: 0.25rem;
+}
+.mmc-esq-tabs__grupo:not(:first-child) {
+    margin-left: 0.75rem;
+}
+.mmc-esq-tabs__tab {
+    min-height: 40px;
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--mmc-esq-tab-bg);
+    color: var(--mmc-esq-texto);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.mmc-esq-tabs__tab--ativa {
+    background: var(--mmc-esq-tab-ativa-bg);
+    color: var(--mmc-esq-tab-ativa-cor);
+    border-color: var(--mmc-esq-tab-ativa-borda);
+    font-weight: 600;
+}
+
+.mmc-esq__alerta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.75rem;
+    background: var(--mmc-esq-badge-vermelho);
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    animation: mmc-esq-pulso-alerta 1.4s ease-in-out infinite;
+}
+.mmc-esq__alerta-icone {
+    width: 1.375rem;
+    height: 1.375rem;
+    flex-shrink: 0;
+}
+.mmc-esq__alerta-cta {
+    margin-left: auto;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 1rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+.mmc-esq__alerta-cta:hover {
+    background: rgba(255, 255, 255, 0.32);
+}
+
+.mmc-esq__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+/* --- Tubos e fluxo --- */
+.mmc-esq__pipe {
+    fill: none;
+    stroke: var(--mmc-esq-pipe);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.mmc-esq__seta {
+    fill: var(--mmc-esq-pipe);
+}
+.mmc-esq__flow {
+    fill: none;
+    stroke: var(--mmc-esq-flow);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 10 8;
+    animation: mmc-esq-fluxo 0.9s linear infinite;
+    pointer-events: none;
+}
+.mmc-esq__flow--alerta {
+    stroke: var(--mmc-esq-flow-alerta);
+    stroke-width: 5;
+    animation-duration: 0.6s;
+}
+@keyframes mmc-esq-fluxo {
+    to { stroke-dashoffset: -18; }
+}
+
+/* --- Nós --- */
+.mmc-esq__node {
+    cursor: pointer;
+    outline: none;
+}
+.mmc-esq__node:focus-visible .mmc-esq__node-caixa,
+.mmc-esq__node--selecionado .mmc-esq__node-caixa,
+.mmc-esq__node--selecionado .mmc-esq__piscina-borda {
+    stroke: var(--mmc-esq-tab-ativa-cor);
+    stroke-width: 3;
+}
+.mmc-esq__node-caixa {
+    fill: var(--mmc-esq-node-bg);
+    stroke: var(--mmc-esq-node-border);
+    stroke-width: 2;
+}
+.mmc-esq__node--desconhecido .mmc-esq__node-caixa {
+    fill: var(--mmc-esq-node-cinza-bg);
+    stroke: var(--mmc-esq-node-cinza-border);
+}
+.mmc-esq__node--desconhecido .mmc-esq__icone {
+    stroke: var(--mmc-esq-node-cinza-border);
+}
+.mmc-esq__icone {
+    stroke: var(--mmc-esq-texto);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+.mmc-esq__node-nome {
+    fill: var(--mmc-esq-texto-suave);
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+}
+
+/* --- Piscina --- */
+.mmc-esq__piscina-borda {
+    fill: none;
+    stroke: var(--mmc-esq-node-border);
+    stroke-width: 3;
+}
+.mmc-esq__piscina-borda--mau {
+    stroke: var(--mmc-esq-badge-vermelho);
+}
+.mmc-esq__agua {
+    fill: var(--mmc-esq-agua);
+    transition: fill 0.4s ease;
+}
+.mmc-esq__agua--mau {
+    fill: var(--mmc-esq-agua-mau);
+}
+.mmc-esq__agua--sem-dados {
+    fill: var(--mmc-esq-agua-sem-dados);
+}
+.mmc-esq__onda {
+    fill: var(--mmc-esq-onda);
+    opacity: 0.55;
+    animation: mmc-esq-onda 4s ease-in-out infinite;
+}
+.mmc-esq__onda--enchendo {
+    animation: mmc-esq-onda 1.2s ease-in-out infinite, mmc-esq-encher 2.4s ease-in-out infinite;
+}
+@keyframes mmc-esq-onda {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-14px); }
+}
+@keyframes mmc-esq-encher {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+}
+.mmc-esq__agua-mini {
+    fill: var(--mmc-esq-agua);
+}
+.mmc-esq__piscina-nome {
+    fill: var(--mmc-esq-valor);
+    font-size: 19px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+.mmc-esq__valor-label {
+    fill: var(--mmc-esq-texto);
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+    opacity: 0.75;
+}
+.mmc-esq__valor {
+    fill: var(--mmc-esq-valor);
+    font-size: 18px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+.mmc-esq__valor--mau {
+    fill: var(--mmc-esq-badge-vermelho);
+}
+.mmc-esq__valor--neutro {
+    opacity: 0.55;
+}
+.mmc-esq__origem {
+    fill: var(--mmc-esq-texto);
+    font-size: 11px;
+    text-anchor: middle;
+    opacity: 0.75;
+}
+.mmc-esq__origem--stale {
+    opacity: 0.55;
+    font-style: italic;
+}
+
+/* --- Rotor da bomba --- */
+.mmc-esq__rotor-centro {
+    fill: var(--mmc-esq-texto);
+}
+.mmc-esq__rotor--spin {
+    animation: mmc-esq-spin 1.4s linear infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+@keyframes mmc-esq-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Filtro --- */
+.mmc-esq__areia {
+    fill: var(--mmc-esq-areia);
+    opacity: 0.8;
+}
+
+/* --- Badges --- */
+.mmc-esq__badge-caixa {
+    stroke: none;
+}
+.mmc-esq__badge-caixa--vermelho { fill: var(--mmc-esq-badge-vermelho); }
+.mmc-esq__badge-caixa--amarelo { fill: var(--mmc-esq-badge-amarelo); }
+.mmc-esq__badge-caixa--azul { fill: var(--mmc-esq-badge-azul); }
+.mmc-esq__badge-caixa--cinza { fill: var(--mmc-esq-badge-cinza); }
+.mmc-esq__badge-texto {
+    fill: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+.mmc-esq__badge--pulso {
+    animation: mmc-esq-pulso 1.2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+@keyframes mmc-esq-pulso {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.75; transform: scale(1.05); }
+}
+@keyframes mmc-esq-pulso-alerta {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.82; }
+}
+
+/* --- Gotas da torneira aberta --- */
+.mmc-esq__gota {
+    fill: var(--mmc-esq-flow);
+    animation: mmc-esq-gota 1s linear infinite;
+}
+.mmc-esq__gota--2 { animation-delay: 0.33s; }
+.mmc-esq__gota--3 { animation-delay: 0.66s; }
+@keyframes mmc-esq-gota {
+    0% { transform: translateY(0); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translateY(-14px); opacity: 0; }
+}
+
+/* --- Painéis de detalhe --- */
+.mmc-esq__detalhes {
+    margin-top: 1rem;
+    border-top: 1px solid var(--mmc-esq-detalhe-borda);
+    padding-top: 1rem;
+}
+.mmc-esq__detalhe {
+    background: var(--mmc-esq-detalhe-bg);
+    border: 1px solid var(--mmc-esq-detalhe-borda);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+}
+.mmc-esq__detalhe-titulo {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--mmc-esq-valor);
+    margin-bottom: 0.75rem;
+}
+.mmc-esq__detalhe-grelha {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
+}
+@media (min-width: 640px) {
+    .mmc-esq__detalhe-grelha {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+.mmc-esq__detalhe-grelha dt {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--mmc-esq-texto-suave);
+    margin-bottom: 0.125rem;
+}
+.mmc-esq__detalhe-grelha dd {
+    font-size: 0.9375rem;
+    color: var(--mmc-esq-valor);
+}
+.mmc-esq__detalhe-mau {
+    color: var(--mmc-esq-badge-vermelho);
+    font-weight: 700;
+}
+.mmc-esq__tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: var(--mmc-esq-tab-bg);
+    color: var(--mmc-esq-texto);
+}
+.mmc-esq__tag--vermelho { background: var(--mmc-esq-badge-vermelho); color: #fff; }
+.mmc-esq__tag--amarelo { background: var(--mmc-esq-badge-amarelo); color: #fff; }
+.mmc-esq__tag--azul { background: var(--mmc-esq-badge-azul); color: #fff; }
+.mmc-esq__tag--verde { background: var(--mmc-ok-color, #16a34a); color: #fff; }
+.mmc-esq__link {
+    color: var(--mmc-esq-tab-ativa-cor);
+    text-decoration: underline;
+}
+.mmc-esq__cta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.5rem 1.25rem;
+    border-radius: 9999px;
+    background: var(--mmc-cta-bg, #f2f9fd);
+    border: 1px solid var(--mmc-cta-border, #d3e9f6);
+    color: var(--mmc-cta-color, #1573a8);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.mmc-esq__cta:hover {
+    background: var(--mmc-cta-hover-bg, #e2f1fa);
+}
+.mmc-esq__dica {
+    font-size: 0.875rem;
+    color: var(--mmc-esq-texto-suave);
+}
+
+/* --- Acessibilidade: movimento reduzido --- */
+@media (prefers-reduced-motion: reduce) {
+    .mmc-esq__flow,
+    .mmc-esq__rotor--spin,
+    .mmc-esq__onda,
+    .mmc-esq__onda--enchendo,
+    .mmc-esq__badge--pulso,
+    .mmc-esq__gota,
+    .mmc-esq__alerta {
+        animation: none;
+    }
+}

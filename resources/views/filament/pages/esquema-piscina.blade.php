@@ -1,0 +1,339 @@
+<x-filament-panels::page>
+    @if (! $esquema)
+        <x-filament::section>
+            <p class="text-sm text-gray-500">Sem piscinas disponíveis.</p>
+        </x-filament::section>
+    @else
+        <div class="mmc-esq-tabs">
+            @foreach ($grupos as $instalacao => $piscinas)
+                <span class="mmc-esq-tabs__grupo">{{ $instalacao }}</span>
+                @foreach ($piscinas as $p)
+                    <button
+                        type="button"
+                        wire:click="selecionarPiscina({{ $p->id }})"
+                        class="mmc-esq-tabs__tab {{ $p->id === $poolId ? 'mmc-esq-tabs__tab--ativa' : '' }}"
+                    >
+                        {{ $p->name }}
+                    </button>
+                @endforeach
+            @endforeach
+        </div>
+
+        @php
+            $torneira = $esquema['torneira'];
+            $bomba = $esquema['bomba'];
+            $filtro = $esquema['filtro'];
+            $tanque = $esquema['tanque'];
+            $agua = $esquema['agua'];
+            $registo = $esquema['registo'];
+
+            $torneiraAberta = $torneira['estado'] === 'aberta';
+            $entradaComAgua = $torneiraAberta || $torneira['estado'] === 'com_agua';
+            $bombaATrabalhar = $bomba['estado'] === 'a_trabalhar';
+        @endphp
+
+        <div
+            wire:poll.30s
+            wire:key="esquema-{{ $poolId }}"
+            x-data="mmcEsquema"
+            class="mmc-esq"
+        >
+            @if ($torneiraAberta)
+                <div class="mmc-esq__alerta" role="alert">
+                    <x-filament::icon icon="heroicon-s-exclamation-triangle" class="mmc-esq__alerta-icone" />
+                    <span>
+                        Torneira de água aberta desde {{ $torneira['desde'] }}
+                        ({{ $torneira['desde_humano'] }})@if ($torneira['aberta_por']) — registado por {{ $torneira['aberta_por'] }}@endif
+                    </span>
+                    <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__alerta-cta">Registar fecho</a>
+                </div>
+            @endif
+
+            <x-filament::section>
+                <svg
+                    viewBox="0 0 800 440"
+                    class="mmc-esq__svg"
+                    role="img"
+                    aria-label="Esquema do circuito de água de {{ $esquema['piscina']->name }}"
+                >
+                    <defs>
+                        <marker id="mmc-esq-seta" viewBox="0 0 10 10" refX="8" refY="5"
+                                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" class="mmc-esq__seta" />
+                        </marker>
+                    </defs>
+
+                    {{-- ============ Tubos (corpo) ============ --}}
+                    {{-- Entrada: torneira → piscina --}}
+                    <path class="mmc-esq__pipe" d="M 108 100 H 216" marker-end="url(#mmc-esq-seta)" />
+                    {{-- Saída: piscina → (tanque →) bomba --}}
+                    @if ($tanque)
+                        <path class="mmc-esq__pipe" d="M 252 212 V 278" marker-end="url(#mmc-esq-seta)" />
+                        <path class="mmc-esq__pipe" d="M 252 326 V 352 H 268" marker-end="url(#mmc-esq-seta)" />
+                    @else
+                        <path class="mmc-esq__pipe" d="M 252 212 V 352 H 268" marker-end="url(#mmc-esq-seta)" />
+                    @endif
+                    {{-- Bomba → filtro --}}
+                    <path class="mmc-esq__pipe" d="M 332 352 H 441" marker-end="url(#mmc-esq-seta)" />
+                    {{-- Filtro → retorno à piscina --}}
+                    <path class="mmc-esq__pipe" d="M 519 352 H 564 V 216" marker-end="url(#mmc-esq-seta)" />
+
+                    {{-- ============ Fluxo animado ============ --}}
+                    @if ($entradaComAgua)
+                        <path class="mmc-esq__flow {{ $torneiraAberta ? 'mmc-esq__flow--alerta' : '' }}" d="M 108 100 H 214" />
+                    @endif
+                    @if ($bombaATrabalhar)
+                        @if ($tanque)
+                            <path class="mmc-esq__flow" d="M 252 212 V 276" />
+                            <path class="mmc-esq__flow" d="M 252 326 V 352 H 266" />
+                        @else
+                            <path class="mmc-esq__flow" d="M 252 212 V 352 H 266" />
+                        @endif
+                        <path class="mmc-esq__flow" d="M 332 352 H 439" />
+                        <path class="mmc-esq__flow" d="M 519 352 H 564 V 218" />
+                    @endif
+
+                    {{-- ============ Torneira + Contador ============ --}}
+                    <g
+                        class="mmc-esq__node mmc-esq__node--{{ $torneira['estado'] }}"
+                        role="button" tabindex="0" aria-label="Torneira e contador de água"
+                        x-on:click="toggle('torneira')" x-on:keydown.enter.prevent="toggle('torneira')"
+                        x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'torneira' }"
+                    >
+                        <rect x="24" y="76" width="84" height="48" rx="10" class="mmc-esq__node-caixa" />
+                        {{-- símbolo de torneira --}}
+                        <path d="M 52 92 H 80 M 66 84 V 92 M 58 84 H 74" class="mmc-esq__icone" fill="none" />
+                        <text x="66" y="114" class="mmc-esq__node-nome">Contador</text>
+                        @if ($torneiraAberta)
+                            <g class="mmc-esq__badge mmc-esq__badge--pulso">
+                                <rect x="10" y="34" width="112" height="26" rx="13" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--vermelho" />
+                                <text x="66" y="51" class="mmc-esq__badge-texto">Aberta {{ $torneira['desde'] }}</text>
+                            </g>
+                            {{-- gotas a cair da torneira --}}
+                            <g class="mmc-esq__gotas">
+                                <circle cx="150" cy="112" r="3" class="mmc-esq__gota" />
+                                <circle cx="170" cy="112" r="3" class="mmc-esq__gota mmc-esq__gota--2" />
+                                <circle cx="190" cy="112" r="3" class="mmc-esq__gota mmc-esq__gota--3" />
+                            </g>
+                        @elseif ($torneira['estado'] === 'desconhecido')
+                            <g class="mmc-esq__badge">
+                                <circle cx="108" cy="76" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--cinza" />
+                                <text x="108" y="81" class="mmc-esq__badge-texto">?</text>
+                            </g>
+                        @endif
+                    </g>
+
+                    {{-- ============ Piscina ============ --}}
+                    <g
+                        class="mmc-esq__node"
+                        role="button" tabindex="0" aria-label="Piscina — valores da água"
+                        x-on:click="toggle('piscina')" x-on:keydown.enter.prevent="toggle('piscina')"
+                        x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'piscina' }"
+                    >
+                        <rect x="216" y="56" width="384" height="156" rx="8"
+                              class="mmc-esq__piscina-borda {{ $agua['algum_mau'] ? 'mmc-esq__piscina-borda--mau' : '' }}" />
+                        <clipPath id="mmc-esq-agua-clip">
+                            <rect x="220" y="60" width="376" height="148" rx="6" />
+                        </clipPath>
+                        <g clip-path="url(#mmc-esq-agua-clip)">
+                            <rect x="220" y="74" width="376" height="134"
+                                  class="mmc-esq__agua {{ $agua['origem'] === null ? 'mmc-esq__agua--sem-dados' : '' }} {{ $agua['algum_mau'] ? 'mmc-esq__agua--mau' : '' }}" />
+                            <path class="mmc-esq__onda {{ $torneiraAberta ? 'mmc-esq__onda--enchendo' : '' }}"
+                                  d="M 200 76 q 10 -6 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 V 60 H 200 Z" />
+                        </g>
+                        <text x="408" y="118" class="mmc-esq__piscina-nome">{{ $esquema['piscina']->name }}</text>
+                        <g class="mmc-esq__valores">
+                            @foreach ($agua['valores'] as $i => $v)
+                                <text x="{{ 288 + $i * 120 }}" y="152" class="mmc-esq__valor-label">{{ $v['label'] }}</text>
+                                <text x="{{ 288 + $i * 120 }}" y="176"
+                                      class="mmc-esq__valor {{ $v['ok'] === false ? 'mmc-esq__valor--mau' : '' }} {{ $v['ok'] === null ? 'mmc-esq__valor--neutro' : '' }}">
+                                    {{ $v['valor'] }}
+                                </text>
+                            @endforeach
+                        </g>
+                        @if ($agua['origem'] !== null)
+                            <text x="408" y="200" class="mmc-esq__origem {{ $agua['stale'] ? 'mmc-esq__origem--stale' : '' }}">
+                                {{ $agua['origem'] }} · {{ $agua['atualizado'] }}
+                            </text>
+                        @else
+                            <text x="408" y="200" class="mmc-esq__origem mmc-esq__origem--stale">Sem dados recentes</text>
+                        @endif
+                    </g>
+
+                    {{-- ============ Tanque de compensação (opcional) ============ --}}
+                    @if ($tanque)
+                        <g
+                            class="mmc-esq__node mmc-esq__node--{{ $tanque['estado'] }}"
+                            role="button" tabindex="0" aria-label="Tanque de compensação"
+                            x-on:click="toggle('tanque')" x-on:keydown.enter.prevent="toggle('tanque')"
+                            x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'tanque' }"
+                        >
+                            <rect x="222" y="282" width="60" height="44" rx="8" class="mmc-esq__node-caixa" />
+                            <rect x="228" y="298" width="48" height="22" rx="4" class="mmc-esq__agua-mini" />
+                            <text x="252" y="342" class="mmc-esq__node-nome" dy="8">Tanque</text>
+                            @if ($tanque['estado'] === 'verificar')
+                                <g class="mmc-esq__badge">
+                                    <circle cx="282" cy="282" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--amarelo" />
+                                    <text x="282" y="287" class="mmc-esq__badge-texto">!</text>
+                                </g>
+                            @elseif ($tanque['estado'] === 'desconhecido')
+                                <g class="mmc-esq__badge">
+                                    <circle cx="282" cy="282" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--cinza" />
+                                    <text x="282" y="287" class="mmc-esq__badge-texto">?</text>
+                                </g>
+                            @endif
+                        </g>
+                    @endif
+
+                    {{-- ============ Bomba ============ --}}
+                    <g
+                        class="mmc-esq__node mmc-esq__node--{{ $bomba['estado'] }}"
+                        role="button" tabindex="0" aria-label="Bomba de circulação"
+                        x-on:click="toggle('bomba')" x-on:keydown.enter.prevent="toggle('bomba')"
+                        x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'bomba' }"
+                    >
+                        <circle cx="300" cy="352" r="32" class="mmc-esq__node-caixa" />
+                        <g class="mmc-esq__rotor {{ $bombaATrabalhar ? 'mmc-esq__rotor--spin' : '' }}">
+                            <path d="M 300 352 L 300 332 M 300 352 L 320 352 M 300 352 L 300 372 M 300 352 L 280 352"
+                                  class="mmc-esq__icone" fill="none" />
+                            <circle cx="300" cy="352" r="5" class="mmc-esq__rotor-centro" />
+                        </g>
+                        <text x="300" y="404" class="mmc-esq__node-nome">Bomba</text>
+                        @if ($bomba['estado'] === 'parada')
+                            <g class="mmc-esq__badge">
+                                <rect x="252" y="300" width="96" height="24" rx="12" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--amarelo" />
+                                <text x="300" y="316" class="mmc-esq__badge-texto">Não ferrada</text>
+                            </g>
+                        @elseif ($bomba['estado'] === 'desconhecido')
+                            <g class="mmc-esq__badge">
+                                <circle cx="326" cy="326" r="11" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--cinza" />
+                                <text x="326" y="331" class="mmc-esq__badge-texto">?</text>
+                            </g>
+                        @endif
+                    </g>
+
+                    {{-- ============ Filtro ============ --}}
+                    <g
+                        class="mmc-esq__node"
+                        role="button" tabindex="0" aria-label="Filtro de areia"
+                        x-on:click="toggle('filtro')" x-on:keydown.enter.prevent="toggle('filtro')"
+                        x-bind:class="{ 'mmc-esq__node--selecionado': aberto === 'filtro' }"
+                    >
+                        <path d="M 445 330 Q 445 312 480 312 Q 515 312 515 330 V 376 Q 515 392 480 392 Q 445 392 445 376 Z"
+                              class="mmc-esq__node-caixa" />
+                        <rect x="453" y="344" width="54" height="36" rx="4" class="mmc-esq__areia" />
+                        <text x="480" y="410" class="mmc-esq__node-nome">Filtro</text>
+                        @if ($filtro['lavado_hoje'])
+                            <g class="mmc-esq__badge">
+                                <rect x="434" y="288" width="92" height="24" rx="12" class="mmc-esq__badge-caixa mmc-esq__badge-caixa--azul" />
+                                <text x="480" y="304" class="mmc-esq__badge-texto">Lavado hoje</text>
+                            </g>
+                        @endif
+                    </g>
+                </svg>
+
+                {{-- ============ Painéis de detalhe ============ --}}
+                <div class="mmc-esq__detalhes">
+                    <div class="mmc-esq__detalhe" x-show="aberto === 'torneira'" x-cloak>
+                        <h4 class="mmc-esq__detalhe-titulo">Torneira e contador de água</h4>
+                        <dl class="mmc-esq__detalhe-grelha">
+                            <div><dt>Estado</dt><dd>
+                                @if ($torneiraAberta)
+                                    <span class="mmc-esq__tag mmc-esq__tag--vermelho">Aberta desde {{ $torneira['desde'] }}</span>
+                                @elseif ($torneira['estado'] === 'com_agua')
+                                    <span class="mmc-esq__tag mmc-esq__tag--azul">{{ $torneira['agua_modo'] }}</span>
+                                @elseif ($torneira['estado'] === 'fechada')
+                                    <span class="mmc-esq__tag">{{ $torneira['agua_modo'] }}</span>
+                                @else
+                                    <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                                @endif
+                            </dd></div>
+                            <div><dt>Última leitura do contador</dt><dd>{{ $torneira['contador'] ?? '—' }}</dd></div>
+                            @if ($registo)
+                                <div><dt>Registado</dt><dd>{{ $registo->registado_em->format('d/m/Y H:i') }} por {{ $registo->utilizador?->name ?? '—' }}</dd></div>
+                            @endif
+                            @if ($torneira['contador_foto'])
+                                <div><dt>Foto</dt><dd><a href="{{ $torneira['contador_foto'] }}" class="glightbox mmc-esq__link">Ver foto do contador</a></dd></div>
+                            @endif
+                        </dl>
+                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">{{ $torneiraAberta ? 'Registar fecho' : 'Novo registo' }}</a>
+                    </div>
+
+                    <div class="mmc-esq__detalhe" x-show="aberto === 'piscina'" x-cloak>
+                        <h4 class="mmc-esq__detalhe-titulo">Água da piscina</h4>
+                        <dl class="mmc-esq__detalhe-grelha">
+                            @foreach ($agua['valores'] as $v)
+                                <div><dt>{{ $v['label'] }}</dt><dd class="{{ $v['ok'] === false ? 'mmc-esq__detalhe-mau' : '' }}">{{ $v['valor'] }}</dd></div>
+                            @endforeach
+                            <div><dt>Fonte</dt><dd>{{ $agua['origem'] ?? '—' }}@if ($agua['atualizado']) · {{ $agua['atualizado'] }}@endif</dd></div>
+                        </dl>
+                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                    </div>
+
+                    <div class="mmc-esq__detalhe" x-show="aberto === 'bomba'" x-cloak>
+                        <h4 class="mmc-esq__detalhe-titulo">Bomba de circulação</h4>
+                        <dl class="mmc-esq__detalhe-grelha">
+                            <div><dt>Estado</dt><dd>
+                                @if ($bomba['estado'] === 'a_trabalhar')
+                                    <span class="mmc-esq__tag mmc-esq__tag--verde">Ferrada, a funcionar</span>
+                                @elseif ($bomba['estado'] === 'parada')
+                                    <span class="mmc-esq__tag mmc-esq__tag--amarelo">Não ferrada</span>
+                                @else
+                                    <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                                @endif
+                            </dd></div>
+                            @if ($registo)
+                                <div><dt>Registado</dt><dd>{{ $registo->registado_em->format('d/m/Y H:i') }} por {{ $registo->utilizador?->name ?? '—' }}</dd></div>
+                            @endif
+                            @if ($bomba['foto'])
+                                <div><dt>Foto</dt><dd><a href="{{ $bomba['foto'] }}" class="glightbox mmc-esq__link">Ver foto da bomba</a></dd></div>
+                            @endif
+                        </dl>
+                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                    </div>
+
+                    <div class="mmc-esq__detalhe" x-show="aberto === 'filtro'" x-cloak>
+                        <h4 class="mmc-esq__detalhe-titulo">Filtro</h4>
+                        <dl class="mmc-esq__detalhe-grelha">
+                            <div><dt>Última retrolavagem</dt><dd>{{ $filtro['ultima_lavagem'] ?? '—' }}@if ($filtro['lavado_hoje']) <span class="mmc-esq__tag mmc-esq__tag--azul">hoje</span>@endif</dd></div>
+                        </dl>
+                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                    </div>
+
+                    @if ($tanque)
+                        <div class="mmc-esq__detalhe" x-show="aberto === 'tanque'" x-cloak>
+                            <h4 class="mmc-esq__detalhe-titulo">Tanque de compensação</h4>
+                            <dl class="mmc-esq__detalhe-grelha">
+                                <div><dt>Estado</dt><dd>
+                                    @if ($tanque['estado'] === 'ok')
+                                        <span class="mmc-esq__tag mmc-esq__tag--verde">OK</span>
+                                    @elseif ($tanque['estado'] === 'verificar')
+                                        <span class="mmc-esq__tag mmc-esq__tag--amarelo">Verificar</span>
+                                    @else
+                                        <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                                    @endif
+                                </dd></div>
+                                @if ($tanque['observacoes'])
+                                    <div><dt>Observações</dt><dd>{{ $tanque['observacoes'] }}</dd></div>
+                                @endif
+                                @if ($tanque['foto'])
+                                    <div><dt>Foto</dt><dd><a href="{{ $tanque['foto'] }}" class="glightbox mmc-esq__link">Ver foto do tanque</a></dd></div>
+                                @endif
+                            </dl>
+                            <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                        </div>
+                    @endif
+
+                    <p class="mmc-esq__dica" x-show="aberto === null">
+                        Toque num componente do esquema para ver o detalhe.
+                        @if ($registo)
+                            Último registo: {{ $registo->registado_em->format('d/m/Y H:i') }}.
+                        @else
+                            Ainda não há registos desta piscina.
+                        @endif
+                    </p>
+                </div>
+            </x-filament::section>
+        </div>
+    @endif
+</x-filament-panels::page>

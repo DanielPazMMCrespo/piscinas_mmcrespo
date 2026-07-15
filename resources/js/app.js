@@ -416,6 +416,13 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    window.Alpine.data('mmcEsquema', () => ({
+        aberto: null,
+        toggle(componente) {
+            this.aberto = this.aberto === componente ? null : componente;
+        },
+    }));
+
     window.Alpine.data('countdownTimer', (statePath, defaultSeconds = 180) => ({
         statePath: statePath,
         initialSeconds: defaultSeconds,

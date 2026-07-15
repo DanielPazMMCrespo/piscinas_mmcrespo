@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'widgets.css';
+@import 'esquema.css';
 @import 'login.css';
 
 /* dark: liga-se à classe .dark do Filament, não ao prefers-color-scheme do SO —
