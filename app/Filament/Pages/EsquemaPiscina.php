@@ -55,7 +55,7 @@ class EsquemaPiscina extends Page
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user();
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public function mount(): void
