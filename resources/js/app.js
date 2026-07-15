@@ -812,6 +812,36 @@ const setupFormDraft = () => {
     findAndRestore();
 };
 
+const setupImageEditorFix = () => {
+    // Simples monitorização: esconder bottom nav quando há modais abertos
+    const checkModalState = () => {
+        const bottomNav = document.getElementById('mmc-bottom-nav');
+        if (!bottomNav) return;
+
+        // Check if any modal/dialog is open
+        const hasModal = document.querySelector('[role="dialog"]') !== null;
+
+        if (hasModal) {
+            bottomNav.classList.add('hidden');
+        } else {
+            bottomNav.classList.remove('hidden');
+        }
+    };
+
+    // Monitorar mudanças no DOM para modais
+    const observer = new MutationObserver(() => {
+        checkModalState();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
+
+    // Verificação inicial
+    checkModalState();
+};
+
 const setupGlobalImageLightbox = () => {
     document.addEventListener('click', (e) => {
         // 1. Check if clicked element or parent is an image/link inside an infolist image entry
@@ -911,6 +941,7 @@ const mmcSetup = () => {
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
+    setupImageEditorFix();
     setupGlobalImageLightbox();
 };
 
