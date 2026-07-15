@@ -805,6 +805,31 @@ const setupFormDraft = () => {
     findAndRestore();
 };
 
+// O Cropper.js do editor de imagem (FileUpload) é inicializado com o painel ainda
+// escondido (x-show="isEditorOpen" = false), pelo que calcula a área de recorte
+// com o container a 0px de altura. Disparar um "resize" depois de o editor abrir
+// aciona o próprio listener de resize do Cropper (responsive: true por defeito) e
+// recalcula a caixa de recorte com as dimensões reais.
+const setupFileUploadEditorFix = () => {
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type !== 'attributes' || mutation.attributeName !== 'style') continue;
+            const el = mutation.target;
+            if (!(el instanceof HTMLElement) || !el.matches('[x-show="isEditorOpen"]')) continue;
+            if (el.style.display === 'none') continue;
+
+            // A troca de imagem no editor (editor.replace) só corre 200ms depois de abrir.
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
+        }
+    });
+
+    observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['style'],
+        subtree: true,
+    });
+};
+
 const setupGlobalImageLightbox = () => {
     document.addEventListener('click', (e) => {
         // 1. Check if clicked element or parent is an image/link inside an infolist image entry
@@ -905,6 +930,7 @@ const mmcSetup = () => {
     setupAutoScroll();
     setupFormDraft();
     setupGlobalImageLightbox();
+    setupFileUploadEditorFix();
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);
