@@ -185,31 +185,22 @@ class CreateDailyRecord extends CreateRecord
                 ->modalContent(function () {
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
-                    $problemasGlobais = [];
+                    $valores = [];
 
                     foreach ($poolsData as $poolId => $poolData) {
                         $pool = \App\Models\Pool::find($poolId);
                         if (!$pool) continue;
 
-                        foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
-                            if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
-                                $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
-                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                    $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                                }
-                            }
-                        }
-
-                        if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
-                            $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
-                            $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
-                            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                            }
-                        }
+                        $valores[] = [
+                            'piscina' => $pool->name,
+                            'ph' => $poolData['ns_ph'] ?? null,
+                            'cloro_livre' => $poolData['ns_cloro_livre'] ?? null,
+                            'cloro_total' => $poolData['ns_cloro_total'] ?? null,
+                            'temperatura' => $poolData['ns_temperatura'] ?? null,
+                        ];
                     }
 
-                    return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
+                    return view('filament.daily-record-modal-summary', ['valores' => $valores]);
                 })
                 ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),

@@ -27,6 +27,12 @@
 <style>
     /* Prevent content from hiding behind bottom nav */
     @media (max-width: 767px) {
+        html {
+            /* Sem isto, o scroll nativo (focus, scrollIntoView, âncoras) pode
+               parar com o elemento mesmo por baixo da barra fixa. */
+            scroll-padding-bottom: 5rem;
+        }
+
         body {
             padding-bottom: 5rem !important;
         }
