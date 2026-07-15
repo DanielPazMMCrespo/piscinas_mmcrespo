@@ -812,53 +812,6 @@ const setupFormDraft = () => {
     findAndRestore();
 };
 
-const setupImageEditorBottomNavFix = () => {
-    const observer = new MutationObserver((mutations) => {
-        const bottomNav = document.getElementById('mmc-bottom-nav');
-        if (!bottomNav) return;
-
-        for (const mutation of mutations) {
-            // Filament image editor: monitor for opened state
-            if (mutation.type === 'attributes' || mutation.type === 'childList') {
-                // Check if editor is visible (look for Filament dialog/modal containing image editor)
-                const imageEditors = document.querySelectorAll('[x-data*="imageEditor"], [x-show="isEditorOpen"]');
-                let editorIsOpen = false;
-
-                for (const editor of imageEditors) {
-                    // Check if editor or its parent modal is actually visible
-                    if (editor.offsetParent !== null) { // offsetParent !== null means element is visible
-                        editorIsOpen = true;
-                        break;
-                    }
-                }
-
-                // Also check for any Filament modals/dialogs
-                const modals = document.querySelectorAll('[role="dialog"], .fi-modal-window');
-                for (const modal of modals) {
-                    if (modal.offsetParent !== null) {
-                        editorIsOpen = true;
-                        break;
-                    }
-                }
-
-                // Toggle bottom nav visibility
-                if (editorIsOpen) {
-                    bottomNav.classList.add('hidden');
-                } else {
-                    bottomNav.classList.remove('hidden');
-                }
-            }
-        }
-    });
-
-    observer.observe(document.body, {
-        attributes: true,
-        attributeFilter: ['style', 'class', 'x-show'],
-        subtree: true,
-        childList: false,
-    });
-};
-
 const setupGlobalImageLightbox = () => {
     document.addEventListener('click', (e) => {
         // 1. Check if clicked element or parent is an image/link inside an infolist image entry
@@ -958,7 +911,6 @@ const mmcSetup = () => {
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
-    setupImageEditorBottomNavFix();
     setupGlobalImageLightbox();
 };
 
