@@ -31,7 +31,7 @@
             padding-bottom: 5rem !important;
         }
 
-        /* Bottom nav: sem pointer-events por defeito, ativa quando não há modais */
+        /* Bottom nav: sem pointer-events na zona vazia, ativa nos links */
         #mmc-bottom-nav {
             pointer-events: none;
             z-index: 10;
@@ -41,11 +41,11 @@
             pointer-events: auto;
         }
 
-        /* Quando há modal/editor aberto, desativa completamente */
-        #mmc-bottom-nav.modal-open,
-        #mmc-bottom-nav.modal-open > * {
-            pointer-events: none !important;
-            opacity: 0.5;
+        /* Esconder completamente quando há um modal Filament aberto (editor de
+           imagem, confirmação, etc.) — usa :has() nativo, sem JS/MutationObserver
+           (que já causou instabilidade e cliques perdidos noutras tentativas). */
+        body:has(.fi-modal) #mmc-bottom-nav {
+            display: none;
         }
 
         /* Oculta o botão de menu do sidebar nativo do Filament, se desejado */

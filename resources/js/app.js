@@ -812,35 +812,6 @@ const setupFormDraft = () => {
     findAndRestore();
 };
 
-const setupImageEditorFix = () => {
-    const checkModalState = () => {
-        const bottomNav = document.getElementById('mmc-bottom-nav');
-        if (!bottomNav) return;
-
-        // Check if any modal/dialog is open (Filament uses [role="dialog"] and .fi-modal)
-        const hasModal = document.querySelector('[role="dialog"], .fi-modal, .filepond--root') !== null;
-
-        if (hasModal) {
-            bottomNav.classList.add('modal-open');
-        } else {
-            bottomNav.classList.remove('modal-open');
-        }
-    };
-
-    // Monitorar mudanças no DOM para modais
-    const observer = new MutationObserver(() => {
-        checkModalState();
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-    });
-
-    // Verificação inicial
-    checkModalState();
-};
-
 const setupGlobalImageLightbox = () => {
     document.addEventListener('click', (e) => {
         // 1. Check if clicked element or parent is an image/link inside an infolist image entry
@@ -940,7 +911,6 @@ const mmcSetup = () => {
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
-    setupImageEditorFix();
     setupGlobalImageLightbox();
 };
 

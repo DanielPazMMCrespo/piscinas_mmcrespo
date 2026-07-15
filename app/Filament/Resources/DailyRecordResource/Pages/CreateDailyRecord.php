@@ -180,9 +180,13 @@ class CreateDailyRecord extends CreateRecord
                 ->label('Criar')
                 ->action('validarERegistosGuardar')
                 ->keyBindings(['mod+s']),
+            // Nota: NÃO usar ->hidden() aqui — no Filament, isDisabled() inclui
+            // isHidden(), pelo que uma ação hidden() fica também "disabled" e
+            // mountAction() recusa-se a montá-la (unmount imediato, modal nunca abre).
+            // Esconder apenas visualmente via CSS mantém a ação "mountável".
             Action::make('confirmarCriacao')
                 ->label('Confirmar e guardar')
-                ->hidden()
+                ->extraAttributes(['class' => 'hidden'])
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registos')
