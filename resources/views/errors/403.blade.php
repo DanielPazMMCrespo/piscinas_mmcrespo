@@ -43,13 +43,8 @@
 <body>
     <div class="card">
         <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCrespo">
-        @if (session('mmc_inativo'))
-            <h1>Ficou sem acesso</h1>
-            <p>A sua conta foi encerrada por inatividade. Se acha que isto é um engano, contacte o administrador.</p>
-        @else
-            <h1>Não tem acesso a esta página</h1>
-            <p>A sua conta não tem permissão para ver ou realizar esta ação. Se acha que isto é um engano, contacte o administrador.</p>
-        @endif
+        <h1>Não tem acesso a esta página</h1>
+        <p>A sua conta não tem permissão para ver ou realizar esta ação. Se acha que isto é um engano, contacte o administrador.</p>
         <a class="btn" href="{{ url('/admin') }}">Voltar ao Painel</a>
     </div>
 </body>
