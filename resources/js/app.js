@@ -433,6 +433,8 @@ document.addEventListener('alpine:init', () => {
         poolId: null,
         fase: null,
         alertado: false,
+        endTime: null,
+        _onVisibilityChange: null,
 
         // Deriva pool e fase do statePath (ex.: data.pools.4.timer_lavagem) para
         // agendar o push no servidor.
@@ -488,16 +490,16 @@ document.addEventListener('alpine:init', () => {
             this.parseContexto();
             const storageKey = 'mmc_timer_' + this.statePath;
             const saved = localStorage.getItem(storageKey);
-            
+
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
                     this.initialSeconds = data.initialSeconds ?? defaultSeconds;
                     this.isRunning = data.isRunning ?? false;
-                    
+
                     if (this.isRunning && data.endTime) {
-                        const remaining = Math.round((data.endTime - Date.now()) / 1000);
-                        this.remainingSeconds = remaining;
+                        this.endTime = data.endTime;
+                        this.remainingSeconds = Math.round((this.endTime - Date.now()) / 1000);
                         this.startTimer();
                     } else {
                         this.remainingSeconds = data.remainingSeconds ?? defaultSeconds;
@@ -513,6 +515,17 @@ document.addEventListener('alpine:init', () => {
             this.$watch('remainingSeconds', () => this.saveState());
             this.$watch('initialSeconds', () => this.saveState());
             this.$watch('isRunning', () => this.saveState());
+
+            // O ecrã bloqueado suspende o setInterval (o tick não corre em segundo
+            // plano); ao desbloquear, resincronizar de imediato a partir do relógio
+            // em vez de esperar pelo próximo tick (que retomaria do valor congelado).
+            this._onVisibilityChange = () => {
+                if (document.visibilityState === 'visible' && this.isRunning && this.endTime) {
+                    this.remainingSeconds = Math.round((this.endTime - Date.now()) / 1000);
+                    if (this.remainingSeconds <= 0) this.avisarFim();
+                }
+            };
+            document.addEventListener('visibilitychange', this._onVisibilityChange);
         },
 
         saveState() {
@@ -523,7 +536,7 @@ document.addEventListener('alpine:init', () => {
                 isRunning: this.isRunning
             };
             if (this.isRunning) {
-                data.endTime = Date.now() + (this.remainingSeconds * 1000);
+                data.endTime = this.endTime;
             }
             localStorage.setItem(storageKey, JSON.stringify(data));
         },
@@ -539,13 +552,21 @@ document.addEventListener('alpine:init', () => {
         startTimer() {
             if (this.isRunning && this.timer) return;
             this.isRunning = true;
+            // Só recalcula endTime se ainda não vier de uma restauração (init()) —
+            // caso contrário perderíamos o instante de fim já persistido.
+            if (!this.endTime) {
+                this.endTime = Date.now() + (this.remainingSeconds * 1000);
+            }
             if (this.remainingSeconds > 0) {
                 this.alertado = false;
                 window.mmcPush?.registarTimer(this.remainingSeconds, this.poolId, this.fase);
             }
             this.timer = setInterval(() => {
-                this.remainingSeconds--;
-                if (this.remainingSeconds === 0) {
+                // Recalcula sempre a partir do relógio (não decrementa por tick):
+                // um ecrã bloqueado suspende o setInterval, e retomar a contagem
+                // de onde parou ignoraria o tempo real decorrido.
+                this.remainingSeconds = Math.round((this.endTime - Date.now()) / 1000);
+                if (this.remainingSeconds <= 0) {
                     this.avisarFim();
                 }
             }, 1000);
@@ -553,6 +574,7 @@ document.addEventListener('alpine:init', () => {
 
         pauseTimer() {
             this.isRunning = false;
+            this.endTime = null;
             if (this.timer) {
                 clearInterval(this.timer);
                 this.timer = null;
@@ -571,6 +593,9 @@ document.addEventListener('alpine:init', () => {
         destroy() {
             if (this.timer) {
                 clearInterval(this.timer);
+            }
+            if (this._onVisibilityChange) {
+                document.removeEventListener('visibilitychange', this._onVisibilityChange);
             }
         }
     }));
