@@ -591,6 +591,33 @@ const setupDecimalInputs = () => {
     }, { capture: true, passive: false });
 };
 
+// Registo NS: ao completar 3 dígitos num campo, avança automaticamente para o seguinte
+const setupNsAutoAdvance = () => {
+    const CAMPOS = ['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'];
+
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (el.tagName !== 'INPUT') return;
+
+        const match = CAMPOS.find((campo) => el.id.startsWith(`${campo}_`));
+        if (!match) return;
+
+        const digitos = el.value.replace(/[^0-9]/g, '');
+        if (digitos.length < 3) return;
+
+        const indiceAtual = CAMPOS.indexOf(match);
+        const proximoCampo = CAMPOS[indiceAtual + 1];
+        if (!proximoCampo) return;
+
+        const sufixo = el.id.slice(match.length);
+        const proximoEl = document.getElementById(`${proximoCampo}${sufixo}`);
+        if (proximoEl && proximoEl !== el) {
+            proximoEl.focus();
+            proximoEl.select();
+        }
+    });
+};
+
 // Logótipo e layout do header: reorganizar quando a barra lateral recolhe
 const setupHeaderLayout = () => {
     const sidebarMain = document.querySelector('aside[class*="sidebar"]');
@@ -908,6 +935,7 @@ const mmcSetup = () => {
     if (mmcSetupDone) return;
     mmcSetupDone = true;
     setupDecimalInputs();
+    setupNsAutoAdvance();
     setupHeaderLayout();
     setupAutoScroll();
     setupFormDraft();
