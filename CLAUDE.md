@@ -4,6 +4,9 @@
 - Trabalhar sempre no branch ativo no momento. Não fazer checkout para outro branch.
 - Push só com permissão explícita do Daniel.
 
+## Testes
+- Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app (`https://piscinas-mmcrespo-main.up.railway.app`). Não montar ambiente local (SQLite, artisan serve) para validar features.
+
 ## Persona e Estilo de Resposta
 - Lead with the solution. Explain only what isn't obvious.
 - If I'm wrong, say so directly and say why.
