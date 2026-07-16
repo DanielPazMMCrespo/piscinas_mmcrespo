@@ -1,4 +1,5 @@
 import './bootstrap';
+import './push';
 
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -429,6 +430,47 @@ document.addEventListener('alpine:init', () => {
         remainingSeconds: defaultSeconds,
         timer: null,
         isRunning: false,
+        poolId: null,
+        fase: null,
+        alertado: false,
+
+        // Deriva pool e fase do statePath (ex.: data.pools.4.timer_lavagem) para
+        // agendar o push no servidor.
+        parseContexto() {
+            const sp = String(this.statePath);
+            const comPiscina = sp.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
+            if (comPiscina) {
+                this.poolId = parseInt(comPiscina[1], 10);
+                this.fase = comPiscina[2];
+                return;
+            }
+            const soFase = sp.match(/timer_(lavagem|enxaguamento)/);
+            if (soFase) {
+                this.fase = soFase[1];
+            }
+        },
+
+        // Aviso local (aba viva): som + vibração + notificação. O push do servidor
+        // cobre o caso da app fechada/bloqueada.
+        avisarFim() {
+            if (this.alertado) return;
+            this.alertado = true;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.001, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.6);
+            } catch (e) { /* sem áudio */ }
+
+            if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+        },
 
         get formattedTime() {
             const isNeg = this.remainingSeconds < 0;
@@ -443,6 +485,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         init() {
+            this.parseContexto();
             const storageKey = 'mmc_timer_' + this.statePath;
             const saved = localStorage.getItem(storageKey);
             
@@ -496,8 +539,15 @@ document.addEventListener('alpine:init', () => {
         startTimer() {
             if (this.isRunning && this.timer) return;
             this.isRunning = true;
+            if (this.remainingSeconds > 0) {
+                this.alertado = false;
+                window.mmcPush?.registarTimer(this.remainingSeconds, this.poolId, this.fase);
+            }
             this.timer = setInterval(() => {
                 this.remainingSeconds--;
+                if (this.remainingSeconds === 0) {
+                    this.avisarFim();
+                }
             }, 1000);
         },
 
@@ -507,6 +557,7 @@ document.addEventListener('alpine:init', () => {
                 clearInterval(this.timer);
                 this.timer = null;
             }
+            window.mmcPush?.cancelarTimer(this.poolId, this.fase);
         },
         
         adjustTime(seconds) {
@@ -975,6 +1026,7 @@ document.addEventListener('livewire:init', () => {
                 localStorage.removeItem(key);
             }
         });
+        window.mmcPush?.cancelarTodosTimers();
     });
 });
 

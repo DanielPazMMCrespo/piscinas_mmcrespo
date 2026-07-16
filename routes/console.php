@@ -29,3 +29,9 @@ Schedule::command('archive:daily-records --older-than=365')
 Schedule::command('queue:work --queue=daily-records,sensor-sync,default --stop-when-empty --max-time=50')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Push dos timers de retrolavagem vencidos. Faz polling curto (~50s, ciclos de 5s)
+// para latência baixa sem worker dedicado — mesmo padrão do queue:work acima.
+Schedule::command('timers:fire-due')
+    ->everyMinute()
+    ->withoutOverlapping();

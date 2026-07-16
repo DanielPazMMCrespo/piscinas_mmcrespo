@@ -17,11 +17,12 @@ use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, LogsActivity, Notifiable;
+    use HasFactory, HasPushSubscriptions, HasRoles, LogsActivity, Notifiable;
 
     public function getActivitylogOptions(): LogOptions
     {
