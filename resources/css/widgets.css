@@ -176,6 +176,103 @@
 .mmc-pool-detail-cta-icon { width: 0.9rem; height: 0.9rem; }
 
 /* =====================================================================
+ * Cartões de Registo Diário (lista)
+ * ===================================================================== */
+.mmc-record-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--mmc-card-border);
+    border-left: 3px solid transparent;
+    border-radius: 0.75rem;
+    background: var(--mmc-card-bg);
+    transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.mmc-record-card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+.mmc-record-card--alert {
+    border-left-color: var(--mmc-bad-color);
+    background: var(--mmc-bad-bg);
+}
+
+.mmc-record-head { display: flex; align-items: flex-start; gap: 0.6rem; }
+.mmc-record-head .mmc-pool-dot { margin-top: 0.4rem; }
+.mmc-record-headings { flex: 1; min-width: 0; }
+
+.mmc-record-title-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.mmc-record-pool { font-weight: 700; font-size: 1rem; line-height: 1.25; }
+
+.mmc-record-tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.35rem;
+    white-space: nowrap;
+}
+.mmc-record-tag--warning { color: #b45309; background: rgba(217, 119, 6, 0.12); }
+.dark .mmc-record-tag--warning { color: #fbbf24; background: rgba(245, 158, 11, 0.15); }
+.mmc-record-tag--muted { color: var(--mmc-registo-tag-color); background: var(--mmc-registo-tag-bg); }
+
+.mmc-record-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+    opacity: 0.7;
+}
+.mmc-record-meta-sep { opacity: 0.5; }
+.mmc-record-meta-user { display: inline-flex; align-items: center; gap: 0.2rem; }
+.mmc-record-meta-icon { width: 0.85rem; height: 0.85rem; opacity: 0.8; }
+
+.mmc-record-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+@media (max-width: 480px) {
+    .mmc-record-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+.mmc-record-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.5rem;
+    background: var(--mmc-registo-tag-bg);
+    border: 1px solid transparent;
+}
+.mmc-record-chip--ok {
+    background: rgba(22, 163, 74, 0.08);
+    border-color: rgba(22, 163, 74, 0.18);
+}
+.dark .mmc-record-chip--ok {
+    background: rgba(74, 222, 128, 0.1);
+    border-color: rgba(74, 222, 128, 0.2);
+}
+.mmc-record-chip--bad {
+    background: var(--mmc-bad-bg);
+    border-color: rgba(220, 38, 38, 0.25);
+}
+.dark .mmc-record-chip--bad { border-color: rgba(248, 113, 113, 0.3); }
+
+.mmc-record-chip-label {
+    font-size: 0.68rem;
+    opacity: var(--mmc-metric-label-opacity);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.mmc-record-chip-value { font-size: 1rem; font-weight: 700; line-height: 1.15; }
+.mmc-record-chip-unit { font-size: 0.65rem; font-weight: 500; opacity: 0.6; margin-left: 0.15rem; }
+.mmc-record-chip--ok .mmc-record-chip-value { color: var(--mmc-ok-color); }
+.mmc-record-chip--bad .mmc-record-chip-value { color: var(--mmc-bad-color); }
+
+/* =====================================================================
  * Lista de Alertas
  * ===================================================================== */
 .mmc-alert-list { display: flex; flex-direction: column; }

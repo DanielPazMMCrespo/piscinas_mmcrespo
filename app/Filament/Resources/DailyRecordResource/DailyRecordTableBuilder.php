@@ -22,78 +22,18 @@ class DailyRecordTableBuilder
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with(['piscina', 'utilizador', 'adicoes.produto', 'fotos'])
+                ->with(['piscina.instalacao', 'utilizador', 'adicoes.produto', 'fotos'])
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
             ->recordAction(Tables\Actions\ViewAction::class)
+            ->contentGrid(['default' => 1, 'xl' => 2])
             ->columns([
-                Tables\Columns\Layout\Split::make([
-                    Tables\Columns\Layout\Stack::make([
-                        Tables\Columns\TextColumn::make('piscina.name')
-                            ->label('Piscina')
-                            ->weight('bold')
-                            ->sortable()
-                            ->searchable(),
-                        Tables\Columns\TextColumn::make('registado_em')
-                            ->label('Data/Hora')
-                            ->dateTime('d/m/Y H:i')
-                            ->color('gray')
-                            ->size('sm')
-                            ->sortable(),
-                        Tables\Columns\TextColumn::make('utilizador.name')
-                            ->label('Técnico/NS')
-                            ->color('gray')
-                            ->size('sm')
-                            ->icon('heroicon-m-user')
-                            ->sortable(),
-                    ])->space(1),
-
-                    Tables\Columns\Layout\Stack::make([
-                        Tables\Columns\TextColumn::make('ph_efetivo')
-                            ->label('pH')
-                            ->formatStateUsing(fn ($state): string => 'pH '.$state)
-                            ->numeric()
-                            ->badge()
-                            ->color(fn (DailyRecord $record): string => $record->phConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->phConforme() ? null : 'Fora do limite legal ('.DailyRecord::PH_MIN.'–'.DailyRecord::PH_MAX.')'),
-                        Tables\Columns\TextColumn::make('cloro_livre_efetivo')
-                            ->label('Cloro L.')
-                            ->formatStateUsing(fn ($state): string => 'Cl '.$state.' mg/L')
-                            ->numeric()
-                            ->badge()
-                            ->color(fn (DailyRecord $record): string => $record->cloroLivreConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroLivreConforme() ? null : 'Fora do limite legal ('.DailyRecord::CLORO_LIVRE_MIN.'–'.DailyRecord::CLORO_LIVRE_MAX.' mg/L)'),
-                        Tables\Columns\TextColumn::make('cloro_total_efetivo')
-                            ->label('Cloro T.')
-                            ->formatStateUsing(fn ($state): string => 'Cl.T '.$state.' mg/L')
-                            ->numeric()
-                            ->badge()
-                            ->color(fn (DailyRecord $record): string => $record->cloroCombinadoConforme() ? 'success' : 'danger')
-                            ->tooltip(fn (DailyRecord $record): ?string => $record->cloroCombinadoConforme() ? null : 'Cloro combinado acima do limite legal (máx. '.DailyRecord::getCloroCombinadoMax().' mg/L)'),
-                        Tables\Columns\TextColumn::make('transparencia')
-                            ->label('Turbidez')
-                            ->formatStateUsing(fn ($state): string => $state.' FNU')
-                            ->numeric()
-                            ->badge()
-                            ->color('info'),
-                    ])->space(1),
-
-                    Tables\Columns\TextColumn::make('estado')
-                        ->label('Estado')
-                        ->badge()
-                        ->getStateUsing(function (DailyRecord $record): ?string {
-                            if ($record->e_correcao) {
-                                return 'Correção';
-                            }
-                            if (($record->correcoes_count ?? 0) > 0) {
-                                return 'Corrigido';
-                            }
-
-                            return null;
-                        })
-                        ->color(fn (?string $state): string => $state === 'Correção' ? 'warning' : 'gray'),
-                ])->from('md'),
+                Tables\Columns\Layout\View::make('filament.tables.daily-record-card'),
+                Tables\Columns\TextColumn::make('piscina.name')
+                    ->label('Piscina')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('pool_id')
