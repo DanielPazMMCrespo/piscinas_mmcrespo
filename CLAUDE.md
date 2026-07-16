@@ -2,7 +2,7 @@
 
 ## Branch de Trabalho
 - Trabalhar sempre no branch ativo no momento. Não fazer checkout para outro branch.
-- Push só com permissão explícita do Daniel.
+- No fim de cada tarefa, antes do push, perguntar: "é push para teste ou main?"
 
 ## Testes
 - Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app (`https://piscinas-mmcrespo-main.up.railway.app`). Não montar ambiente local (SQLite, artisan serve) para validar features.

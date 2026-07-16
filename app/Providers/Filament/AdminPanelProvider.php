@@ -81,9 +81,11 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
-                fn (): string => session('mmc_sem_cargo')
-                    ? '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4">A sua conta não tem um cargo atribuído. Contacte o administrador.</div>'
-                    : '',
+                fn (): string => match (true) {
+                    (bool) session('mmc_inativo') => '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4"><strong>Ficou sem acesso.</strong><br>A sua conta foi encerrada por inatividade. Se acha que isto é um engano, contacte o administrador.</div>',
+                    (bool) session('mmc_sem_cargo') => '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4">A sua conta não tem um cargo atribuído. Contacte o administrador.</div>',
+                    default => '',
+                },
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -92,7 +94,9 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">' .
-                    '<script>window.__userId = ' . (auth()->id() ?? 'null') . ';</script>',
+                    '<meta name="csrf-token" content="' . csrf_token() . '">' .
+                    '<script>window.__userId = ' . (auth()->id() ?? 'null') . ';' .
+                    'window.__vapidPublicKey = ' . json_encode(config('webpush.vapid.public_key')) . ';</script>',
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
