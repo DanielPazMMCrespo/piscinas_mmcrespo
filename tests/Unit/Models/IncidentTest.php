@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Models;
 
+use App\Constants\UserRole;
 use App\Models\Incident;
+use App\Models\IncidentMessage;
 use App\Models\Installation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,5 +147,90 @@ class IncidentTest extends TestCase
         $this->assertNotNull($incidente->resolvidoPor);
         $this->assertEquals($resolver->id, $incidente->resolvidoPor->id);
         $this->assertEquals('Maria', $incidente->resolvidoPor->name);
+    }
+
+    public function test_participantes_falls_back_to_admin_e_tecnico_na_primeira_mensagem(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+        $outroNs = User::factory()->create();
+        $outroNs->assignRole(UserRole::NADADOR_SALVADOR);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga',
+            'status' => 'aberto',
+        ]);
+
+        $participantes = $incidente->participantes(excluir: $ns);
+
+        $this->assertTrue($participantes->contains($admin));
+        $this->assertTrue($participantes->contains($tecnico));
+        $this->assertFalse($participantes->contains($outroNs));
+        $this->assertFalse($participantes->contains($ns));
+    }
+
+    public function test_participantes_depois_de_resposta_do_admin_nao_abre_para_todo_o_sistema(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+        $outroAdmin = User::factory()->create();
+        $outroAdmin->assignRole(UserRole::ADMIN);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga',
+            'status' => 'aberto',
+        ]);
+
+        IncidentMessage::create([
+            'incident_id' => $incidente->id,
+            'user_id' => $admin->id,
+            'tipo' => IncidentMessage::TIPO_MENSAGEM,
+            'texto' => 'A caminho.',
+        ]);
+
+        // O reportante responde: só quem já participou (admin) é notificado,
+        // não o admin que nunca respondeu.
+        $participantes = $incidente->participantes(excluir: $ns);
+
+        $this->assertTrue($participantes->contains($admin));
+        $this->assertFalse($participantes->contains($outroAdmin));
+    }
+
+    public function test_participantes_exclui_sempre_o_autor(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        // Admin reporta o seu próprio incidente.
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $admin->id,
+            'ocorreu_em' => now(),
+            'type' => 'outro',
+            'descricao' => 'Nota interna',
+            'status' => 'aberto',
+        ]);
+
+        // Ao resolver o seu próprio incidente, não deve notificar-se a si mesmo.
+        $participantes = $incidente->participantes(excluir: $admin);
+
+        $this->assertFalse($participantes->contains($admin));
     }
 }

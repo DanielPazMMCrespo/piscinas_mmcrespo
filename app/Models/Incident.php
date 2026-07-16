@@ -2,6 +2,7 @@
 namespace App\Models;
 
 
+use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,6 +58,36 @@ class Incident extends Model
     public function mensagens(): HasMany
     {
         return $this->hasMany(IncidentMessage::class, 'incident_id')->orderBy('created_at');
+    }
+
+    /**
+     * Quem já participou nesta conversa (reportante + autores de mensagens),
+     * excluindo quem acabou de escrever. Se ninguém mais participou ainda, cai
+     * para admin+técnico — evita notificar todo o sistema a cada mensagem
+     * mantendo pelo menos alguém avisado à primeira resposta.
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    public function participantes(?User $excluir = null): \Illuminate\Support\Collection
+    {
+        $ids = $this->mensagens()->pluck('user_id')
+            ->push($this->user_id)
+            ->filter()
+            ->unique();
+
+        if ($excluir) {
+            $ids = $ids->reject(fn ($id) => $id === $excluir->id);
+        }
+
+        $participantes = User::whereIn('id', $ids)->get();
+
+        if ($participantes->isNotEmpty()) {
+            return $participantes;
+        }
+
+        $fallback = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+
+        return $excluir ? $fallback->reject(fn (User $u) => $u->id === $excluir->id) : $fallback;
     }
 
 }

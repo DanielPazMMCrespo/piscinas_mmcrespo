@@ -17,12 +17,13 @@ class TapAlert extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'pool_id', 'opened_record_id', 'opened_by', 'opened_at',
+        'pool_id', 'opened_record_id', 'opened_by', 'opened_at', 'notified_at',
         'resolved_at', 'resolved_by', 'resolved_record_id', 'resolution',
     ];
 
     protected $casts = [
         'opened_at' => 'datetime',
+        'notified_at' => 'datetime',
         'resolved_at' => 'datetime',
     ];
 
