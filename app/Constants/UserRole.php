@@ -8,6 +8,7 @@ final class UserRole
     public const GESTOR = 'gestor';
     public const TECNICO = 'tecnico';
     public const NADADOR_SALVADOR = 'nadador_salvador';
+    public const INATIVO = 'inativo';
 
     private function __construct()
     {

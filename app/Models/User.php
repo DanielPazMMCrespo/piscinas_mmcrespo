@@ -34,6 +34,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
 
     public function canAccessPanel(Panel $panel): bool
     {
+        if ($this->hasRole(UserRole::INATIVO)) {
+            session()->flash('mmc_inativo', true);
+            return false;
+        }
+
         $hasRole = $this->hasAnyRole(UserRole::all());
 
         if (! $hasRole) {
