@@ -235,7 +235,7 @@ class PainelPiscinasWidget extends Widget
                 'metricas' => $registo ? [
                     self::metrica('pH', $registo->ph_efetivo, 2, '', $registo->ph_efetivo !== null ? $registo->phConforme() : null),
                     self::metrica('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null),
-                    self::metrica('Cl. Total', $registo->cloro_total_efetivo, 2, ' mg/L', $registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null ? $registo->cloroCombinadoConforme() : null),
+                    self::metrica('Cl. Combinado', $registo->cloro_combinado, 2, ' mg/L', $registo->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null),
                     self::metrica('Temp.', $registo->temperatura_efetivo, 1, ' °C', $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null),
                 ] : [],
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],

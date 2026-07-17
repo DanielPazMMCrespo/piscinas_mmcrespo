@@ -26,14 +26,40 @@ class DailyRecordTableBuilder
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
-            ->recordAction(Tables\Actions\ViewAction::class)
-            ->contentGrid(['default' => 1, 'xl' => 2])
+            ->recordUrl(null)
+            ->recordAction('view')
             ->columns([
-                Tables\Columns\Layout\View::make('filament.tables.daily-record-card'),
                 Tables\Columns\TextColumn::make('piscina.name')
                     ->label('Piscina')
+                    ->weight('bold')
+                    ->formatStateUsing(function (DailyRecord $record): \Illuminate\Support\HtmlString {
+                        $nome = e($record->piscina?->name);
+                        if ($record->e_correcao) {
+                            $nome .= ' <span class="mmc-record-tag mmc-record-tag--warning">Correção</span>';
+                        } elseif (($record->correcoes_count ?? 0) > 0) {
+                            $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Corrigido</span>';
+                        }
+
+                        return new \Illuminate\Support\HtmlString($nome);
+                    })
+                    ->html()
+                    ->description(fn (DailyRecord $record): ?string => $record->piscina?->instalacao?->name)
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('registado_em')
+                    ->label('Data/Hora')
+                    ->dateTime('d/m/Y H:i')
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'tabular-nums'])
+                    ->sortable(),
+                self::metricColumn('ph_efetivo', 'pH', fn (DailyRecord $record): bool => $record->phConforme()),
+                self::metricColumn('cloro_livre_efetivo', 'Cl. Livre', fn (DailyRecord $record): bool => $record->cloroLivreConforme()),
+                self::metricColumn('cloro_total_efetivo', 'Cl. Total', null),
+                self::metricColumn('cloro_combinado', 'Cl. Combinado', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
+                Tables\Columns\TextColumn::make('utilizador.name')
+                    ->label('Técnico/NS')
+                    ->color('gray')
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('pool_id')
@@ -212,6 +238,36 @@ class DailyRecordTableBuilder
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Coluna de métrica com marca de conformidade (✓/✗) ao lado do valor,
+     * em vez de um veredicto agregado por linha — um pequeno desvio num
+     * parâmetro não deve ler-se com a mesma força que um valor claramente fora do limite.
+     */
+    private static function metricColumn(string $field, string $label, ?Closure $conforme): Tables\Columns\TextColumn
+    {
+        return Tables\Columns\TextColumn::make($field)
+            ->label($label)
+            ->html()
+            ->extraAttributes(['class' => 'tabular-nums text-right'])
+            ->formatStateUsing(function ($state, DailyRecord $record) use ($conforme): \Illuminate\Support\HtmlString {
+                if ($state === null) {
+                    return new \Illuminate\Support\HtmlString('<span class="mmc-metric-na">—</span>');
+                }
+
+                $valor = e(rtrim(rtrim(number_format((float) $state, 2, ',', ''), '0'), ','));
+
+                if ($conforme === null) {
+                    return new \Illuminate\Support\HtmlString($valor);
+                }
+
+                $mark = $conforme($record)
+                    ? '<span class="mmc-metric-mark mmc-metric-mark--ok">✓</span>'
+                    : '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
+
+                return new \Illuminate\Support\HtmlString($valor.' '.$mark);
+            });
     }
 
     private static function fotoEntry(string $field, string $label): \Filament\Infolists\Components\TextEntry

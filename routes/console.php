@@ -36,6 +36,11 @@ Schedule::command('timers:fire-due')
     ->everyMinute()
     ->withoutOverlapping();
 
+// Push de teste (página Notificações) — mesmo padrão de polling curto do timers:fire-due.
+Schedule::command('notificacoes:teste-fire-due')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // Avisa admin+técnico de torneiras abertas há mais tempo que o limite configurado.
 // Não precisa de precisão ao minuto — o limite é em horas.
 Schedule::command('torneiras:verificar-abertas')
@@ -46,5 +51,11 @@ Schedule::command('torneiras:verificar-abertas')
 // (AppSetting 'digest_conformidade_horas'). Precisa de granularidade ao minuto
 // para acertar o horário; o próprio comando faz o dedup por slot.
 Schedule::command('notificacoes:resumo-conformidade')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Anúncios personalizados (Notificações Personalizadas) — únicos e diários.
+// Precisa de granularidade ao minuto; o próprio comando faz o dedup.
+Schedule::command('notificacoes:custom-fire-due')
     ->everyMinute()
     ->withoutOverlapping();
