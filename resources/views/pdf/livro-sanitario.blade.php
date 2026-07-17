@@ -280,8 +280,12 @@
                                     && $registo->cloro_livre_efetivo !== null
                                     && ! $registo->cloroCombinadoConforme();
                                 $tempFora = $registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme();
-                                // Campo em implementação noutro fluxo — acesso defensivo.
-                                $acaoCorretiva = $registo->acao_corretiva ?? null;
+                                // Ação corretiva vem das adições de químicos (modo média usa o
+                                // atributo do mock; modo "todos" concatena as adições do registo).
+                                $acaoCorretiva = $registo->acao_corretiva
+                                    ?? ($registo->relationLoaded('adicoes')
+                                        ? ($registo->adicoes->pluck('acao_corretiva')->filter()->unique()->implode('; ') ?: null)
+                                        : null);
                             @endphp
                             <tr>
                                 <td>{{ $registo->registado_em?->format('d/m/Y') ?? '—' }}</td>
@@ -547,53 +551,61 @@
                             <th style="width: 9%;">pH Médio</th>
                             <th style="width: 9%;">pH Mínimo</th>
                             <th style="width: 9%;">pH Máximo</th>
-                            <th style="width: 11%;">ORP Médio (mV)</th>
-                            <th style="width: 12%;">Temp. Água Média (°C)</th>
-                            <th style="width: 8%;">pH Conforme</th>
+                            <th style="width: 10%;">ORP Médio (mV)</th>
+                            <th style="width: 11%;">Temp. Água Média (°C)</th>
+                            <th style="width: 7%;">pH Conforme</th>
+                            <th style="width: 14%;">Excluído (motivo)</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($controlador as $leitura)
                             @php
+                                $semLeitura = $leitura->sem_leitura_valida ?? false;
+                                $motivoExclusao = $leitura->motivo_exclusao ?? null;
                                 $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
                                 $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
                                 $phConforme = $phMed !== null && !$phMedFora;
                             @endphp
                             <tr>
                                 <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
-                                <td>{{ $leitura->leituras }}</td>
-                                <td>
-                                    @if ($phMed !== null)
-                                        <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->ph_min !== null)
-                                        @php $v = round((float) $leitura->ph_min, 2); @endphp
-                                        <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->ph_max !== null)
-                                        @php $v = round((float) $leitura->ph_max, 2); @endphp
-                                        <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->orp_avg !== null)
-                                        {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->temp_avg !== null)
-                                        {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($phMed !== null)
-                                        @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
-                                    @else — @endif
-                                </td>
+                                @if ($semLeitura)
+                                    <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                @else
+                                    <td>{{ $leitura->leituras }}</td>
+                                    <td>
+                                        @if ($phMed !== null)
+                                            <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
+                                        @else — @endif
+                                    </td>
+                                    <td>
+                                        @if ($leitura->ph_min !== null)
+                                            @php $v = round((float) $leitura->ph_min, 2); @endphp
+                                            <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                        @else — @endif
+                                    </td>
+                                    <td>
+                                        @if ($leitura->ph_max !== null)
+                                            @php $v = round((float) $leitura->ph_max, 2); @endphp
+                                            <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                        @else — @endif
+                                    </td>
+                                    <td>
+                                        @if ($leitura->orp_avg !== null)
+                                            {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
+                                        @else — @endif
+                                    </td>
+                                    <td>
+                                        @if ($leitura->temp_avg !== null)
+                                            {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
+                                        @else — @endif
+                                    </td>
+                                    <td>
+                                        @if ($phMed !== null)
+                                            @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -601,14 +613,19 @@
 
                 @php
                     $totalLeituras = $controlador->sum('leituras');
-                    $diasFora = $controlador->filter(fn ($l) => $l->ph_avg !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
-                    $diasComDados = $controlador->count();
+                    $diasFora = $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
+                    $diasComDados = $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
+                    $diasArtefacto = $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
                 @endphp
                 <p class="resumo">
                     <strong>Controlador — {{ $piscina->name }}:</strong>
                     {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
                     | Dias com pH médio fora de gama: <strong>{{ $diasFora }}</strong>
+                    @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
                     | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
+                </p>
+                <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
+                    Nota: leituras registadas durante lavagem/enxaguamento de filtro ou com a bomba parada são excluídas — nesses períodos a água não circula no sensor e os valores não refletem a qualidade real.
                 </p>
                 @endif
             @endif

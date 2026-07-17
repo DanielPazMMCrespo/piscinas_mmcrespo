@@ -418,6 +418,9 @@ class DailyRecordTableBuilder
                                                 \Filament\Infolists\Components\TextEntry::make('product.name')->label('Produto'),
                                                 \Filament\Infolists\Components\TextEntry::make('quantity')->label('Quantidade'),
                                             ]),
+                                        \Filament\Infolists\Components\TextEntry::make('acao_corretiva')
+                                            ->label('Ação corretiva')
+                                            ->visible(fn ($state) => filled($state)),
                                     ]),
                                 \Filament\Infolists\Components\TextEntry::make('observacoes')
                                     ->label('Observações'),

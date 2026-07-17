@@ -59,7 +59,6 @@ class DailyRecordFormBuilder
             'ns_cloro_livre' => null,
             'ns_cloro_total' => null,
             'ns_temperatura' => null,
-            'acao_corretiva' => null,
             'adicoes' => [],
             'observacoes' => null,
         ];
@@ -352,7 +351,6 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
-                                        Forms\Components\Textarea::make('acao_corretiva')->id("acao_corretiva_{$pool->id}")->label('Ação corretiva (Químicos, etc)'),
                                         Forms\Components\Repeater::make('adicoes')
                                             ->id("adicoes_{$pool->id}")
                                             ->label('Adições de Químicos')
@@ -380,6 +378,10 @@ class DailyRecordFormBuilder
                                                             };
                                                         },
                                                     ]),
+                                                Forms\Components\Textarea::make('acao_corretiva')
+                                                    ->label('Ação corretiva')
+                                                    ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
+                                                    ->columnSpanFull(),
                                             ])->columns(['default' => 1, 'sm' => 2]),
                                         Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                                     ])

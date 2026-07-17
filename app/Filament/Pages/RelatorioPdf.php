@@ -7,6 +7,7 @@ use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
+use App\Services\LeituraArtefactoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -265,18 +266,6 @@ class RelatorioPdf extends Page implements HasForms
         $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
         $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
 
-        // Leituras do controlador agregadas por dia (média, min, max por piscina).
-        // Agrupadas por pool_id para acesso O(1) na montagem das secções.
-        $leiturasControlador = SensorReading::query()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->whereBetween('lida_em', [$inicio, $fim])
-            ->selectRaw('pool_id, DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
-            ->whereNotNull('ph')
-            ->groupByRaw('pool_id, DATE(lida_em)')
-            ->orderByRaw('DATE(lida_em)')
-            ->get()
-            ->groupBy('pool_id');
-
         // Ações operacionais no período, agrupadas por piscina — justificam
         // valores anómalos do livro sanitário (ex.: lavagem de filtro).
         $acoesOperacionais = OperationalAction::query()
@@ -287,11 +276,13 @@ class RelatorioPdf extends Page implements HasForms
             ->get()
             ->groupBy('pool_id');
 
+        $artefactoService = app(LeituraArtefactoService::class);
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador, $acoesOperacionais, $modo): array {
+        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo): array {
             $registos = $piscina->registosDiarios()
-                ->with(['utilizador', 'piscina'])
+                ->with(['utilizador', 'piscina', 'adicoes'])
                 ->whereBetween('registado_em', [$inicio, $fim])
                 ->whereDoesntHave('correcoes')
                 ->orderBy('registado_em')
@@ -309,7 +300,7 @@ class RelatorioPdf extends Page implements HasForms
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
                         
-                        $acoes = $grupo->pluck('acao_corretiva')->filter()->unique()->implode('; ');
+                        $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
                         $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
                         $tecnicos = $grupo->map(fn ($r) => $r->utilizador?->name)->filter()->unique()->implode(', ');
                         
@@ -347,10 +338,62 @@ class RelatorioPdf extends Page implements HasForms
                     })->values();
             }
 
+            // Controlador Hanna: exclui leituras artefacto (lavagem/bomba parada)
+            // das médias e das contagens de conformidade.
+            $janelas = $artefactoService->janelas($piscina->id, $inicio, $fim);
+
+            $queryControlador = SensorReading::query()
+                ->where('pool_id', $piscina->id)
+                ->whereBetween('lida_em', [$inicio, $fim])
+                ->whereNotNull('ph');
+            foreach ($janelas as $janela) {
+                $queryControlador->whereNotBetween('lida_em', [$janela['inicio'], $janela['fim']]);
+            }
+            $controlador = $queryControlador
+                ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
+                ->groupByRaw('DATE(lida_em)')
+                ->orderByRaw('DATE(lida_em)')
+                ->get();
+
+            // Dias afetados por artefacto → motivos (anotação + dias sem leitura válida).
+            $diasArtefacto = [];
+            foreach ($janelas as $janela) {
+                $cursor = $janela['inicio']->copy()->startOfDay();
+                $limite = $janela['fim']->copy();
+                while ($cursor->lte($limite)) {
+                    $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
+                    $cursor->addDay();
+                }
+            }
+            $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
+
+            $diasComLeitura = $controlador->pluck('dia')->all();
+            $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
+                $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
+                $linha->sem_leitura_valida = false;
+                return $linha;
+            });
+            foreach ($diasArtefacto as $dia => $motivo) {
+                if (! in_array($dia, $diasComLeitura, true)) {
+                    $sintetico = new \stdClass();
+                    $sintetico->dia = $dia;
+                    $sintetico->ph_avg = null;
+                    $sintetico->ph_min = null;
+                    $sintetico->ph_max = null;
+                    $sintetico->orp_avg = null;
+                    $sintetico->temp_avg = null;
+                    $sintetico->leituras = 0;
+                    $sintetico->motivo_exclusao = $motivo;
+                    $sintetico->sem_leitura_valida = true;
+                    $controlador->push($sintetico);
+                }
+            }
+            $controlador = $controlador->sortBy('dia')->values();
+
             return [
                 'piscina' => $piscina,
                 'registos' => $registos,
-                'controlador' => $leiturasControlador->get($piscina->id) ?? collect(),
+                'controlador' => $controlador,
                 'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
             ];
         })->all();

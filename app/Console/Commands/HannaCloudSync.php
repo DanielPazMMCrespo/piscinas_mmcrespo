@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCloudService;
+use App\Services\LeituraArtefactoService;
 use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use Illuminate\Console\Command;
@@ -154,9 +155,30 @@ class HannaCloudSync extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Leitura obtida durante uma lavagem/bomba parada é artefacto (a água não
+     * circula no sensor) — não deve gerar alertas de pH.
+     *
+     * @param array<string, mixed> $reading
+     */
+    private function emArtefacto(HannaDevice $device, array $reading): bool
+    {
+        if ($device->pool_id === null) {
+            return false;
+        }
+
+        $lida_em = $reading['dt'] ? Carbon::parse($reading['dt']) : now();
+
+        return app(LeituraArtefactoService::class)->motivoEm((int) $device->pool_id, $lida_em) !== null;
+    }
+
     /** @param array<string, mixed> $reading */
     private function notificarThresholds(HannaDevice $device, array $reading): void
     {
+        if ($this->emArtefacto($device, $reading)) {
+            return;
+        }
+
         $violacoes = [];
         $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
 
@@ -186,6 +208,12 @@ class HannaCloudSync extends Command
      */
     private function atualizarPhOvertime(HannaDevice $device, array $reading): void
     {
+        // Durante um artefacto (lavagem/bomba parada) o pH está falseado —
+        // não alimentar a máquina de estados de overtime.
+        if ($this->emArtefacto($device, $reading)) {
+            return;
+        }
+
         $ph = $reading['ph'] !== null ? (float) $reading['ph'] : null;
         $ds = $device->dosingSettings();
 

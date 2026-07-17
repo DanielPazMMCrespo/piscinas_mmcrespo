@@ -12,6 +12,7 @@ use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\TapAlert;
+use App\Services\LeituraArtefactoService;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
@@ -355,22 +356,29 @@ class EsquemaPiscina extends Page
             : null;
 
         $idadeMin = $leitura?->lida_em ? (int) $leitura->lida_em->diffInMinutes(now()) : null;
-        $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60;
+
+        // Leitura do controlador durante uma lavagem/bomba parada é artefacto:
+        // não conta para conformidade (a água não circula no sensor).
+        $artefacto = $leitura !== null
+            ? app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
+            : null;
+
+        $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60 && $artefacto === null;
 
         // Leitura manual mais recente (≤8h): registo diário vs análise rápida.
         $manual = null;
         if (! $controladorOnline) {
             $manual = $this->maisRecente(
                 ($registo !== null && abs((int) $registo->registado_em->diffInHours(now())) <= 8)
-                    ? ['ts' => $registo->registado_em, 'ph' => $registo->ph_efetivo, 'cloro' => $registo->cloro_livre_efetivo, 'temp' => $registo->temperatura_efetivo, 'origem' => 'Registo manual']
+                    ? ['ts' => $registo->registado_em, 'ph' => $registo->ph_efetivo, 'cloro' => $registo->cloro_livre_efetivo, 'cloro_total' => $registo->cloro_total_efetivo, 'temp' => $registo->temperatura_efetivo, 'origem' => 'Registo manual']
                     : null,
                 ($analise !== null && $analise->registado_em->gte(now()->subHours(8)))
-                    ? ['ts' => $analise->registado_em, 'ph' => $analise->dados['ph'] ?? null, 'cloro' => $analise->dados['cloro_livre'] ?? null, 'temp' => $analise->dados['temperatura'] ?? null, 'origem' => 'Análise rápida']
+                    ? ['ts' => $analise->registado_em, 'ph' => $analise->dados['ph'] ?? null, 'cloro' => $analise->dados['cloro_livre'] ?? null, 'cloro_total' => $analise->dados['cloro_total'] ?? null, 'temp' => $analise->dados['temperatura'] ?? null, 'origem' => 'Análise rápida']
                     : null,
             );
         }
 
-        if ($controladorOnline || ($manual === null && $leitura !== null)) {
+        if ($controladorOnline || ($manual === null && $leitura !== null && $artefacto === null)) {
             $ph = $leitura->ph !== null ? (float) $leitura->ph : null;
             $orp = $leitura->orp !== null ? (float) $leitura->orp : null;
             $temp = $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
@@ -386,6 +394,8 @@ class EsquemaPiscina extends Page
             return [
                 'origem' => $controladorOnline ? 'Controlador' : 'Controlador (desatualizado)',
                 'stale' => ! $controladorOnline,
+                'artefacto' => null,
+                'combinado' => null,
                 'atualizado' => $leitura->lida_em->locale('pt')->diffForHumans(),
                 'valores' => $valores,
                 'algum_mau' => collect($valores)->contains(fn (array $v) => $v['ok'] === false),
@@ -395,6 +405,7 @@ class EsquemaPiscina extends Page
         if ($manual !== null) {
             $ph = $manual['ph'] !== null ? (float) $manual['ph'] : null;
             $cloro = $manual['cloro'] !== null ? (float) $manual['cloro'] : null;
+            $cloroTotal = $manual['cloro_total'] !== null ? (float) $manual['cloro_total'] : null;
             $temp = $manual['temp'] !== null ? (float) $manual['temp'] : null;
 
             $valores = [
@@ -405,18 +416,51 @@ class EsquemaPiscina extends Page
                     : null),
             ];
 
+            // Cloro combinado (total - livre) avaliado contra o limite legal.
+            $combinado = null;
+            if ($cloroTotal !== null && $cloro !== null) {
+                $valorCombinado = round($cloroTotal - $cloro, 2);
+                $combinado = $this->valor('Cl. Combinado', $valorCombinado, 2, ' mg/L', $valorCombinado <= DailyRecord::getCloroCombinadoMax());
+            }
+
+            $valoresConformidade = $combinado !== null ? array_merge($valores, [$combinado]) : $valores;
+
             return [
                 'origem' => $manual['origem'],
                 'stale' => false,
+                'artefacto' => null,
+                'combinado' => $combinado,
                 'atualizado' => $manual['ts']->locale('pt')->diffForHumans(),
                 'valores' => $valores,
-                'algum_mau' => collect($valores)->contains(fn (array $v) => $v['ok'] === false),
+                'algum_mau' => collect($valoresConformidade)->contains(fn (array $v) => $v['ok'] === false),
+            ];
+        }
+
+        // Só resta a leitura do controlador em artefacto: mostra os valores em
+        // tom neutro (não conta como não-conformidade) com o motivo.
+        if ($leitura !== null && $artefacto !== null) {
+            $valores = [
+                $this->valor('pH', $leitura->ph !== null ? (float) $leitura->ph : null, 2, '', null),
+                $this->valor('ORP', $leitura->orp !== null ? (float) $leitura->orp : null, 0, ' mV', null),
+                $this->valor('Temp.', $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null, 1, ' °C', null),
+            ];
+
+            return [
+                'origem' => 'Controlador em artefacto',
+                'stale' => true,
+                'artefacto' => $artefacto,
+                'combinado' => null,
+                'atualizado' => $leitura->lida_em->locale('pt')->diffForHumans(),
+                'valores' => $valores,
+                'algum_mau' => false,
             ];
         }
 
         return [
             'origem' => null,
             'stale' => true,
+            'artefacto' => null,
+            'combinado' => null,
             'atualizado' => null,
             'valores' => [
                 $this->valor('pH', null, 2, '', null),

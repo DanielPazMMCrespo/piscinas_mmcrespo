@@ -260,7 +260,13 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->orderBy('lida_em')
                 ->get();
 
-            $data = $rows->filter(fn ($r) => $r->{$campo} !== null)
+            // Exclui leituras artefacto (lavagem/bomba parada): não circula água
+            // no sensor e o valor não reflete a qualidade real.
+            $janelas = app(\App\Services\LeituraArtefactoService::class)->janelas($poolId, $start, $end);
+            $emArtefacto = fn ($lidaEm): bool => collect($janelas)
+                ->contains(fn (array $j) => $lidaEm->gte($j['inicio']) && $lidaEm->lte($j['fim']));
+
+            $data = $rows->filter(fn ($r) => $r->{$campo} !== null && ! $emArtefacto($r->lida_em))
                 ->map(fn ($r) => [
                     'x' => $r->lida_em->toIso8601String(),
                     'y' => round((float) $r->{$campo}, $def['casas']),

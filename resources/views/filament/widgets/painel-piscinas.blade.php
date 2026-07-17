@@ -98,6 +98,8 @@
                                         Controlador ({{ $item['controlador']['atualizado_ha'] }})
                                     @elseif ($item['controlador']['origem'] === 'manual')
                                         Registo manual ({{ $item['controlador']['atualizado_ha'] }})
+                                    @elseif ($item['controlador']['origem'] === 'artefacto')
+                                        {{ $item['controlador']['artefacto'] }} — leitura não conta ({{ $item['controlador']['atualizado_ha'] }})
                                     @else
                                         Controlador offline ({{ $item['controlador']['atualizado_ha'] }})
                                     @endif

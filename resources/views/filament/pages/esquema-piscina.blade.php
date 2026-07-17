@@ -279,8 +279,19 @@
                             @foreach ($agua['valores'] as $v)
                                 <div><dt>{{ $v['label'] }}</dt><dd class="{{ $v['ok'] === false ? 'mmc-esq__detalhe-mau' : '' }}">{{ $v['valor'] }}</dd></div>
                             @endforeach
+                            @if (! empty($agua['combinado']))
+                                <div><dt>{{ $agua['combinado']['label'] }}</dt><dd class="{{ $agua['combinado']['ok'] === false ? 'mmc-esq__detalhe-mau' : '' }}">{{ $agua['combinado']['valor'] }}</dd></div>
+                            @endif
                             <div><dt>Fonte</dt><dd>{{ $agua['origem'] ?? '—' }}@if ($agua['atualizado']) · {{ $agua['atualizado'] }}@endif</dd></div>
                         </dl>
+                        @if (! empty($agua['artefacto']))
+                            <div class="mmc-esq__justif">
+                                <span class="mmc-esq__justif-titulo">Leitura do controlador em artefacto</span>
+                                <ul class="mmc-esq__justif-lista">
+                                    <li>{{ $agua['artefacto'] }} em curso — a água não circula no sensor, os valores não contam para a conformidade até estabilizar.</li>
+                                </ul>
+                            </div>
+                        @endif
                         @if (! empty($esquema['justificacoes']))
                             <div class="mmc-esq__justif">
                                 <span class="mmc-esq__justif-titulo">Ações operacionais recentes (possível justificação):</span>

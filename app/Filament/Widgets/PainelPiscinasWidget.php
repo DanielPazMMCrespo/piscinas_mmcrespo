@@ -145,7 +145,13 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60;
+            // Leitura durante lavagem/bomba parada é artefacto: não circula água
+            // no sensor, logo não conta para conformidade.
+            $artefacto = $leitura !== null
+                ? app(\App\Services\LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
+                : null;
+
+            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60 && $artefacto === null;
 
             $usarRegistoManual = ! $controladorOnline
                 && $registo !== null
@@ -204,7 +210,7 @@ class PainelPiscinasWidget extends Widget
                 $phOkConformes = $phOk;
                 $cloroOkConformes = $cloroOk;
                 $tempOkConformes = $tempOk;
-            } elseif ($leitura !== null) {
+            } elseif ($leitura !== null && $artefacto === null) {
                 $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
                 $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
                 $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
@@ -227,6 +233,22 @@ class PainelPiscinasWidget extends Widget
                 $phOkConformes = $phOk;
                 $cloroOkConformes = $orpOk;
                 $tempOkConformes = $tempOk;
+            } elseif ($leitura !== null && $artefacto !== null) {
+                // Leitura em artefacto: mostra em tom neutro, sem contribuir para
+                // a conformidade (parâmetros ficam null).
+                $dadosApresentados = [
+                    'origem' => 'artefacto',
+                    'artefacto' => $artefacto,
+                    'atualizado_ha' => $leitura->lida_em->locale('pt')->diffForHumans(),
+                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
+                    'ph_ok' => null,
+                    'middle_label' => 'ORP',
+                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
+                    'middle_ok' => null,
+                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
+                    'temp_ok' => null,
+                    'stale' => true,
+                ];
             }
 
             return [
