@@ -321,3 +321,45 @@
 .dark .mmc-timer-clock--exceeded {
     color: #f87171; /* text-danger-400 */
 }
+
+/* Mobile visual adjustments, alignments, and touch targets */
+@media (max-width: 640px) {
+    .mmc-pool-detail {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.75rem !important;
+        padding-left: 0.8rem !important;
+    }
+    .mmc-pool-source-info {
+        grid-column: span 3 !important;
+    }
+    .mmc-pool-detail-cta {
+        grid-column: span 3 !important;
+        width: 100% !important;
+        justify-content: center !important;
+        height: 44px !important;
+        font-size: 0.85rem !important;
+        padding: 0.6rem 1rem !important;
+        margin-top: 0.25rem !important;
+    }
+    .mmc-pool-metric {
+        align-items: center !important;
+        text-align: center !important;
+    }
+    
+    .mmc-alert-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+    .mmc-alert-resolve-btn {
+        width: 100% !important;
+        height: 44px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.85rem !important;
+        margin-top: 0.25rem !important;
+    }
+}
+

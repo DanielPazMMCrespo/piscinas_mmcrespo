@@ -220,7 +220,7 @@ class DailyRecordFormBuilder
                                             ]),
                                         ...self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
                                         ...self::fotoField('contador_foto', 'Foto contador', 'contador', false, "contador_foto_{$pool->id}"),
-                                    ])->columns(3)
+                                    ])->columns(['default' => 1, 'md' => 3])
                             )->toArray()
                         );
 
@@ -317,7 +317,7 @@ class DailyRecordFormBuilder
                                                 },
                                             ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
-                                    ])->columns(4)
+                                    ])->columns(['default' => 2, 'md' => 4])
                             )->toArray()
                         ]);
                         
@@ -356,7 +356,7 @@ class DailyRecordFormBuilder
                                                             };
                                                         },
                                                     ]),
-                                            ])->columns(2),
+                                            ])->columns(['default' => 1, 'sm' => 2]),
                                         Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                                     ])
                             )->toArray()

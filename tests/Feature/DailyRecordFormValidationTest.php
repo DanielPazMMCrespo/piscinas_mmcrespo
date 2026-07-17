@@ -171,9 +171,9 @@ class DailyRecordFormValidationTest extends TestCase
         $method->setAccessible(true);
         $actions = $method->invoke($page);
 
-        // A primeira ação é 'create'
-        $createAction = $actions[0];
-        $view = $createAction->getModalContent();
+        // Procurar a ação 'confirmarCriacao'
+        $confirmAction = collect($actions)->first(fn ($action) => $action->getName() === 'confirmarCriacao');
+        $view = $confirmAction->getModalContent();
         
         $viewData = $view->getData();
         

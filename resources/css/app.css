@@ -102,3 +102,18 @@ h1, h2, h3, h4, h5, h6,
 .mmc-timer-pill--terminado {
     background: #7c1d1d;
 }
+
+/* Wizard steps wrapping layout on mobile viewports */
+.fi-fo-wizard-steps {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+}
+.fi-fo-wizard-step {
+    flex-basis: 100% !important;
+}
+@media (min-width: 640px) {
+    .fi-fo-wizard-step {
+        flex-basis: 0 !important;
+    }
+}
+

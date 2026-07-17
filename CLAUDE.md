@@ -59,7 +59,7 @@ Return exactly:
 - **Commits**: `dfe810a` e `e7e76bf` (pushed para `test` e `main`).
 
 ## Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications (resumo)
-- **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). App em `https://piscinas-mmcrespo-main.up.railway.app`.
+- **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). Produção: `https://piscinasmmcrespo.up.railway.app`. Testes/Staging: `https://piscinasmmcrespo-testes.up.railway.app`.
 - **Erro 500 no dashboard diagnosticado**: Coluna `notifications.data` era `TEXT` em vez de `JSONB`. Filament filtra com `data->>'format' = 'filament'` — o operador `->>` (JSON extraction) requer JSONB em PostgreSQL. Erro: `SQLSTATE[42883]: Undefined function` + `operator does not exist: text ->> unknown`.
 - **Fix migração**: `2026_06_19_000001_fix_notifications_data_column_jsonb.php` executa `ALTER TABLE notifications ALTER COLUMN data TYPE jsonb USING data::jsonb` em produção. Migração original (`2026_06_11_172454_create_notifications_table.php`) corrigida para criar `jsonb` em vez de `text`.
 - **Login funcional**: Utilizador `daniel@mmcrespo.pt` (password rotacionada em produção Railway). Seeder `UserSeeder` corre em `docker-entrypoint.sh` com `db:seed --force` — utiliza `ADMIN_PASSWORD_DANIEL` e `ADMIN_PASSWORD_MARCIO` de env vars. Em dev local, fallback para `dev_changeme_*`.
