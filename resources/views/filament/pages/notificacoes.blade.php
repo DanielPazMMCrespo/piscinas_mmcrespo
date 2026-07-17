@@ -103,90 +103,123 @@
                 {{ $this->table }}
             </div>
 
-            {{-- Zona de Testes --}}
+            {{-- Envio Manual --}}
             <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl mt-6">
                 <div class="space-y-3">
                     <div>
-                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">Zona de Testes</h3>
+                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">Envio Manual</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Simular a receção de notificações do sistema no dispositivo atual.
-                            (Bloqueia o ecrã depois de clicar para testar no ecrã de bloqueio).
+                            Enviar uma notificação push imediata para um cargo específico ou para um utilizador individual.
                         </p>
                     </div>
 
-                    @php
-                        $rotulos = [
-                            'incidente' => 'Novo incidente',
-                            'mensagem' => 'Mensagem de incidente',
-                            'timer' => 'Timer terminado',
-                            'fora_limites' => 'Fora dos limites',
-                            'torneira' => 'Torneira aberta',
-                            'resumo' => 'Resumo de conformidade',
-                        ];
-                    @endphp
-
-                    <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
                         <div>
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                            <select
-                                wire:model.live="tipoSelecionado"
-                                class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
-                            >
-                                @foreach($this->tiposDeTeste() as $tipo)
-                                    <option value="{{ $tipo }}">{{ $rotulos[$tipo] ?? $tipo }}</option>
-                                @endforeach
-                            </select>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Destinatários</label>
+                            <div class="mt-2 flex gap-6">
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
+                                    <input type="radio" wire:model.live="destinoTipo" value="cargo" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
+                                    Por Cargo
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
+                                    <input type="radio" wire:model.live="destinoTipo" value="utilizador" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
+                                    Por Utilizador Específico
+                                </label>
+                            </div>
                         </div>
+
+                        @if($destinoTipo === 'cargo')
+                            <div>
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Cargo</label>
+                                <select
+                                    wire:model="destinoCargo"
+                                    class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                                >
+                                    @foreach(self::rotulosCargos() as $key => $label)
+                                        <option value="{{ $key }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @else
+                            <div>
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Utilizador</label>
+                                <select
+                                    wire:model="destinoUtilizador"
+                                    class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                                >
+                                    <option value="">Selecione um utilizador...</option>
+                                    @foreach($this->getUsuariosLista() as $id => $nome)
+                                        <option value="{{ $id }}">{{ $nome }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
 
                         <div>
                             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Título</label>
                             <input
                                 type="text"
-                                wire:model="tituloTeste"
+                                wire:model="manualTitulo"
                                 class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                                placeholder="Título da notificação..."
                             />
                         </div>
 
                         <div>
                             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
                             <textarea
-                                wire:model="corpoTeste"
-                                rows="2"
+                                wire:model="manualCorpo"
+                                rows="3"
                                 class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                                placeholder="Escreva a mensagem aqui..."
                             ></textarea>
                         </div>
 
-                        <div class="flex flex-wrap gap-2">
-                            <x-filament::button color="primary" size="sm" wire:click="testarImediato" icon="heroicon-m-bolt">
-                                Enviar Imediato (Testar Chaves/Permissões)
-                            </x-filament::button>
-                            <x-filament::button color="gray" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
-                                Enviar c/ Atraso 5s (Testar ecrã bloqueado)
+                        <div class="flex">
+                            <x-filament::button color="primary" size="sm" wire:click="enviarManual" icon="heroicon-m-paper-airplane">
+                                Enviar Notificação Push
                             </x-filament::button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Diagnóstico do Agendador --}}
-            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl mt-6 space-y-4">
-                <div>
-                    <h3 class="text-base font-semibold text-gray-950 dark:text-white mb-2">Diagnóstico do Agendador (Scheduler)</h3>
-                    <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getSchedulerStatus() }}</pre>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">Base de Dados (Pushes Pendentes)</h3>
-                        <div class="flex gap-2">
-                            <x-filament::button size="xs" color="gray" wire:click="limparTrincos" icon="heroicon-m-key">
-                                Limpar Trincos
-                            </x-filament::button>
-                            <x-filament::button size="xs" color="gray" wire:click="forcarEnvioPendentes" icon="heroicon-m-arrow-path">
-                                Forçar Envio Manual
-                            </x-filament::button>
-                        </div>
-                    </div>
-                    <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getPendingPushesDebug() }}</pre>
+            {{-- Estado das Notificações dos Utilizadores --}}
+            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 mt-6">
+                <h2 class="text-base font-semibold text-gray-950 dark:text-white mb-4">Estado das Notificações dos Utilizadores</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-800">
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Nome</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Cargos</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Dispositivos Ativos</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach($this->getUsuariosNotificacoes() as $usuario)
+                                <tr>
+                                    <td class="py-3 text-gray-900 dark:text-gray-100 font-medium">{{ $usuario->name }}</td>
+                                    <td class="py-3 text-gray-500 dark:text-gray-400">
+                                        {{ collect($usuario->roles)->pluck('name')->map(fn($r) => self::rotulosCargos()[$r] ?? $r)->join(', ') ?: 'Nenhum' }}
+                                    </td>
+                                    <td class="py-3">
+                                        @if($usuario->push_subscriptions_count > 0)
+                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-success-50 dark:bg-success-950 px-2 py-1 text-xs font-medium text-success-700 dark:text-success-300 ring-1 ring-inset ring-success-600/10 dark:ring-success-500/20">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>
+                                                {{ $usuario->push_subscriptions_count }} {{ $usuario->push_subscriptions_count === 1 ? 'dispositivo' : 'dispositivos' }}
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-50 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
+                                                Inativo (0)
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

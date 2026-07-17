@@ -4,8 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
 use App\Models\CustomBroadcast;
-use App\Models\TestPush;
-use App\Notifications\TestPushNotification;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -38,11 +36,11 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     protected static string $view = 'filament.pages.notificacoes';
 
-    public string $tipoSelecionado = 'incidente';
-
-    public string $tituloTeste = '';
-
-    public string $corpoTeste = '';
+    public string $destinoTipo = 'cargo';
+    public string $destinoCargo = 'admin';
+    public ?int $destinoUtilizador = null;
+    public string $manualTitulo = '';
+    public string $manualCorpo = '';
 
     public static function canAccess(): bool
     {
@@ -51,7 +49,7 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     public function mount(): void
     {
-        $this->preencherDefaults();
+        $this->destinoCargo = UserRole::ADMIN;
     }
 
     public function podeGerir(): bool
@@ -59,144 +57,78 @@ class Notificacoes extends Page implements HasForms, HasTable
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
-    public function podeTestar(): bool
+    public function getUsuariosNotificacoes(): \Illuminate\Support\Collection
     {
-        return $this->podeGerir();
+        return \App\Models\User::query()
+            ->with('roles')
+            ->withCount('pushSubscriptions')
+            ->orderBy('name')
+            ->get();
     }
 
-    /** @return list<string> */
-    public function tiposDeTeste(): array
+    public function getUsuariosLista(): array
     {
-        return TestPushNotification::tiposValidos();
+        return \App\Models\User::query()
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
-    public function updatedTipoSelecionado(): void
+    public function enviarManual(): void
     {
-        $this->preencherDefaults();
-    }
-
-    private function preencherDefaults(): void
-    {
-        $defaults = TestPushNotification::defaults($this->tipoSelecionado);
-        $this->tituloTeste = $defaults['title'];
-        $this->corpoTeste = $defaults['body'];
-    }
-
-    public function testar(): void
-    {
-        if (! $this->podeTestar() || ! in_array($this->tipoSelecionado, TestPushNotification::tiposValidos(), true)) {
+        if (! $this->podeGerir()) {
             return;
         }
 
-        TestPush::create([
-            'user_id' => auth()->id(),
-            'tipo' => $this->tipoSelecionado,
-            'titulo' => trim($this->tituloTeste) ?: null,
-            'corpo' => trim($this->corpoTeste) ?: null,
-            'fire_at' => now()->addSeconds(5),
+        $this->validate([
+            'manualTitulo' => 'required|string|max:255',
+            'manualCorpo' => 'required|string',
+            'destinoTipo' => 'required|in:cargo,utilizador',
+            'destinoCargo' => 'required_if:destinoTipo,cargo',
+            'destinoUtilizador' => 'required_if:destinoTipo,utilizador',
         ]);
 
-        Notification::make()
-            ->title('Push de teste agendado')
-            ->body('Chega daqui a ~5 segundos — já podes bloquear o ecrã.')
-            ->success()
-            ->send();
-    }
-
-    public function testarImediato(): void
-    {
-        if (! $this->podeTestar() || ! in_array($this->tipoSelecionado, TestPushNotification::tiposValidos(), true)) {
-            return;
-        }
-
         try {
-            auth()->user()->notify(new TestPushNotification(
-                $this->tipoSelecionado,
-                trim($this->tituloTeste) ?: null,
-                trim($this->corpoTeste) ?: null
-            ));
+            $destinatarios = collect();
 
-            Notification::make()
-                ->title('Push enviado imediatamente')
-                ->body('O sinal foi disparado. Deverá recebê-lo de imediato se o dispositivo estiver ligado.')
-                ->success()
-                ->send();
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Erro no envio direto')
-                ->body('Falha ao comunicar com os servidores de push: ' . $e->getMessage())
-                ->danger()
-                ->persistent()
-                ->send();
-        }
-    }
-
-    public function getSchedulerStatus(): string
-    {
-        $processes = [];
-        $running = false;
-        
-        try {
-            foreach (glob('/proc/*/cmdline') as $path) {
-                if (is_readable($path)) {
-                    $cmd = trim(str_replace("\0", ' ', @file_get_contents($path)));
-                    if ($cmd) {
-                        $processes[] = $cmd;
-                        if (str_contains($cmd, 'schedule:run') || str_contains($cmd, 'schedule:work') || str_contains($cmd, 'sleep 60') || str_contains($cmd, 'artisan schedule')) {
-                            $running = true;
-                        }
-                    }
+            if ($this->destinoTipo === 'cargo') {
+                $destinatarios = \App\Models\User::role($this->destinoCargo)->get();
+            } else {
+                $u = \App\Models\User::find($this->destinoUtilizador);
+                if ($u) {
+                    $destinatarios->push($u);
                 }
             }
-        } catch (\Exception $e) {
-            return 'Erro ao ler processos: ' . $e->getMessage();
-        }
-        
-        if ($running) {
-            return "✅ Ativo (Loop de agendamento detetado em background)\n\nProcessos detetados:\n" . implode("\n", $processes);
-        }
-        
-        return "❌ Inativo (Agendador não detetado). Processos ativos no contentor:\n\n" . implode("\n", $processes);
-    }
 
-    public function getPendingPushesDebug(): string
-    {
-        try {
-            $pushes = TestPush::whereNull('sent_at')->get();
-            if ($pushes->isEmpty()) {
-                return 'Nenhum push de teste pendente na base de dados (ou já foram todos disparados/enviados).';
+            if ($destinatarios->isEmpty()) {
+                Notification::make()
+                    ->title('Nenhum destinatário')
+                    ->body('Não foram encontrados utilizadores para os critérios selecionados.')
+                    ->warning()
+                    ->send();
+                return;
             }
-            
-            $now = \Carbon\Carbon::now();
-            $out = "Pushes pendentes:\n";
-            foreach ($pushes as $p) {
-                $status = $p->fire_at <= $now ? 'VENCIDO (devia ter disparado)' : 'AGENDADO PARA O FUTURO';
-                $out .= "• ID {$p->id}: fire_at='{$p->fire_at}' (agora é '{$now}') -> {$status}\n";
-            }
-            return $out;
-        } catch (\Exception $e) {
-            return 'Erro ao ler pushes pendentes: ' . $e->getMessage();
-        }
-    }
 
-    public function forcarEnvioPendentes(): void
-    {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('notificacoes:teste-fire-due', [
-                '--max-time' => 0,
-                '--sleep' => 1,
-            ]);
-            
-            $output = \Illuminate\Support\Facades\Artisan::output();
-            
+            $notificacao = new \App\Notifications\CustomBroadcastNotification(
+                $this->manualTitulo,
+                $this->manualCorpo,
+                'manual-send-' . time()
+            );
+
+            \Illuminate\Support\Facades\Notification::send($destinatarios, $notificacao);
+
             Notification::make()
-                ->title('Executado com sucesso')
-                ->body('O comando foi forçado: ' . (trim($output) ?: 'Sem output adicional.'))
+                ->title('Notificação enviada!')
+                ->body('Enviada com sucesso para ' . $destinatarios->count() . ' utilizador(es).')
                 ->success()
                 ->send();
+
+            // Limpar formulário
+            $this->manualTitulo = '';
+            $this->manualCorpo = '';
         } catch (\Exception $e) {
             Notification::make()
-                ->title('Erro ao forçar comando')
+                ->title('Erro ao enviar')
                 ->body($e->getMessage())
                 ->danger()
                 ->persistent()
@@ -204,26 +136,7 @@ class Notificacoes extends Page implements HasForms, HasTable
         }
     }
 
-    public function limparTrincos(): void
-    {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('schedule:clear-cache');
-            
-            Notification::make()
-                ->title('Trincos do Agendador Limpos')
-                ->body('Os trincos de sobreposição do scheduler foram limpos com sucesso.')
-                ->success()
-                ->send();
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Erro ao limpar trincos')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
-    }
-
-    private static function rotulosCargos(): array
+    public static function rotulosCargos(): array
     {
         return [
             UserRole::ADMIN => 'Admin',
