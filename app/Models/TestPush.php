@@ -10,6 +10,8 @@ class TestPush extends Model
     protected $fillable = [
         'user_id',
         'tipo',
+        'titulo',
+        'corpo',
         'fire_at',
         'sent_at',
     ];

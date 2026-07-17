@@ -27,9 +27,20 @@ class Notificacoes extends Page
 
     protected static string $view = 'filament.pages.notificacoes';
 
+    public string $tipoSelecionado = 'incidente';
+
+    public string $tituloTeste = '';
+
+    public string $corpoTeste = '';
+
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
+    }
+
+    public function mount(): void
+    {
+        $this->preencherDefaults();
     }
 
     public function podeTestar(): bool
@@ -43,15 +54,29 @@ class Notificacoes extends Page
         return TestPushNotification::tiposValidos();
     }
 
-    public function testar(string $tipo): void
+    public function updatedTipoSelecionado(): void
     {
-        if (! $this->podeTestar() || ! in_array($tipo, TestPushNotification::tiposValidos(), true)) {
+        $this->preencherDefaults();
+    }
+
+    private function preencherDefaults(): void
+    {
+        $defaults = TestPushNotification::defaults($this->tipoSelecionado);
+        $this->tituloTeste = $defaults['title'];
+        $this->corpoTeste = $defaults['body'];
+    }
+
+    public function testar(): void
+    {
+        if (! $this->podeTestar() || ! in_array($this->tipoSelecionado, TestPushNotification::tiposValidos(), true)) {
             return;
         }
 
         TestPush::create([
             'user_id' => auth()->id(),
-            'tipo' => $tipo,
+            'tipo' => $this->tipoSelecionado,
+            'titulo' => trim($this->tituloTeste) ?: null,
+            'corpo' => trim($this->corpoTeste) ?: null,
             'fire_at' => now()->addSeconds(5),
         ]);
 

@@ -57,6 +57,8 @@ class TestPushNotification extends Notification
 
     public function __construct(
         private readonly string $tipo,
+        private readonly ?string $tituloOverride = null,
+        private readonly ?string $corpoOverride = null,
     ) {}
 
     /** @return list<string> */
@@ -70,8 +72,8 @@ class TestPushNotification extends Notification
         $conteudo = self::CONTEUDO[$this->tipo] ?? self::CONTEUDO['incidente'];
 
         return (new WebPushMessage())
-            ->title($conteudo['title'])
-            ->body($conteudo['body'])
+            ->title($this->tituloOverride !== null && $this->tituloOverride !== '' ? $this->tituloOverride : $conteudo['title'])
+            ->body($this->corpoOverride !== null && $this->corpoOverride !== '' ? $this->corpoOverride : $conteudo['body'])
             ->icon('/images/icon-192.png')
             ->badge('/images/icon-192.png')
             ->tag($conteudo['tag'])
@@ -83,5 +85,18 @@ class TestPushNotification extends Notification
     public static function tiposValidos(): array
     {
         return array_keys(self::CONTEUDO);
+    }
+
+    /**
+     * Título/corpo por omissão de um tipo — usados para pré-preencher o
+     * formulário editável na página Notificações.
+     *
+     * @return array{title: string, body: string}
+     */
+    public static function defaults(string $tipo): array
+    {
+        $conteudo = self::CONTEUDO[$tipo] ?? self::CONTEUDO['incidente'];
+
+        return ['title' => $conteudo['title'], 'body' => $conteudo['body']];
     }
 }

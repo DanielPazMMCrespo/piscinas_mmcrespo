@@ -60,4 +60,23 @@ class TestPushCommandTest extends TestCase
             TestPushNotification::tiposValidos()
         );
     }
+
+    public function test_titulo_e_corpo_customizados_substituem_os_defaults(): void
+    {
+        $notification = new TestPushNotification('incidente', 'Título editado', 'Mensagem editada');
+        $payload = $notification->toWebPush(new User(), $notification)->toArray();
+
+        $this->assertSame('Título editado', $payload['title']);
+        $this->assertSame('Mensagem editada', $payload['body']);
+    }
+
+    public function test_sem_override_usa_defaults_do_tipo(): void
+    {
+        $defaults = TestPushNotification::defaults('torneira');
+        $notification = new TestPushNotification('torneira');
+        $payload = $notification->toWebPush(new User(), $notification)->toArray();
+
+        $this->assertSame($defaults['title'], $payload['title']);
+        $this->assertSame($defaults['body'], $payload['body']);
+    }
 }
