@@ -133,23 +133,30 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     public function getSchedulerStatus(): string
     {
-        if (! function_exists('shell_exec')) {
-            return 'shell_exec desativado no PHP';
+        $processes = [];
+        $running = false;
+        
+        try {
+            foreach (glob('/proc/*/cmdline') as $path) {
+                if (is_readable($path)) {
+                    $cmd = trim(str_replace("\0", ' ', @file_get_contents($path)));
+                    if ($cmd) {
+                        $processes[] = $cmd;
+                        if (str_contains($cmd, 'schedule:run') || str_contains($cmd, 'schedule:work') || str_contains($cmd, 'sleep 60') || str_contains($cmd, 'artisan schedule')) {
+                            $running = true;
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            return 'Erro ao ler processos: ' . $e->getMessage();
         }
-        
-        $ps = shell_exec('ps aux 2>&1') ?? '';
-        
-        $running = str_contains($ps, 'schedule:') || str_contains($ps, 'sleep 60') || str_contains($ps, 'artisan schedule');
         
         if ($running) {
-            return '✅ Ativo (Loop de agendamento detetado em background)';
+            return "✅ Ativo (Loop de agendamento detetado em background)\n\nProcessos detetados:\n" . implode("\n", $processes);
         }
         
-        // Vamos mostrar os primeiros 10 processos para ajudar a diagnosticar o comando de arranque real
-        $lines = explode("\n", trim($ps));
-        $processes = array_slice($lines, 0, 15);
-        
-        return '❌ Inativo (Agendador não detetado). Processos ativos no contentor:' . "\n\n" . implode("\n", $processes);
+        return "❌ Inativo (Agendador não detetado). Processos ativos no contentor:\n\n" . implode("\n", $processes);
     }
 
     private static function rotulosCargos(): array
