@@ -53,9 +53,8 @@ class DailyRecordTableBuilder
                     ->sortable(),
                 self::metricColumn('ph_efetivo', 'pH', fn (DailyRecord $record): bool => $record->phConforme()),
                 self::metricColumn('cloro_livre_efetivo', 'Cl. Livre', fn (DailyRecord $record): bool => $record->cloroLivreConforme()),
-                self::metricColumn('cloro_total_efetivo', 'Cl. Total', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
-                self::metricColumn('transparencia', 'Turbidez', fn (DailyRecord $record): bool => $record->transparencia === null
-                    || (float) $record->transparencia <= DailyRecord::getTransparenciaMax()),
+                self::metricColumn('cloro_total_efetivo', 'Cl. Total', null),
+                self::metricColumn('cloro_combinado', 'Cl. Combinado', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Técnico/NS')
                     ->color('gray')
@@ -243,7 +242,7 @@ class DailyRecordTableBuilder
      * em vez de um veredicto agregado por linha — um pequeno desvio num
      * parâmetro não deve ler-se com a mesma força que um valor claramente fora do limite.
      */
-    private static function metricColumn(string $field, string $label, Closure $conforme): Tables\Columns\TextColumn
+    private static function metricColumn(string $field, string $label, ?Closure $conforme): Tables\Columns\TextColumn
     {
         return Tables\Columns\TextColumn::make($field)
             ->label($label)
@@ -255,8 +254,12 @@ class DailyRecordTableBuilder
                 }
 
                 $valor = e(rtrim(rtrim(number_format((float) $state, 2, ',', ''), '0'), ','));
-                $ok = $conforme($record);
-                $mark = $ok
+
+                if ($conforme === null) {
+                    return new \Illuminate\Support\HtmlString($valor);
+                }
+
+                $mark = $conforme($record)
                     ? '<span class="mmc-metric-mark mmc-metric-mark--ok">✓</span>'
                     : '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
 
