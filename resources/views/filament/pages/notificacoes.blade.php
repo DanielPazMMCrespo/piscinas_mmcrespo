@@ -68,5 +68,37 @@
                 </x-filament::button>
             </div>
         </template>
+
+        @if($this->podeTestar())
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3" x-show="estado === 'granted'">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Zona de testes</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Cada botão agenda um push de teste para chegar daqui a ~5 segundos — bloqueia o ecrã depois de clicar.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    @php
+                        $rotulos = [
+                            'incidente' => 'Novo incidente',
+                            'mensagem' => 'Mensagem de incidente',
+                            'timer' => 'Timer terminado',
+                            'fora_limites' => 'Fora dos limites',
+                            'torneira' => 'Torneira aberta',
+                            'resumo' => 'Resumo de conformidade',
+                        ];
+                    @endphp
+                    @foreach($this->tiposDeTeste() as $tipo)
+                        <x-filament::button
+                            color="gray"
+                            size="sm"
+                            wire:click="testar('{{ $tipo }}')"
+                        >
+                            {{ $rotulos[$tipo] ?? $tipo }}
+                        </x-filament::button>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </x-filament-panels::page>
