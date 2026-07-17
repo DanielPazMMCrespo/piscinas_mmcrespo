@@ -123,6 +123,10 @@ class Notificacoes extends Page implements HasForms, HasTable
                     ->icon('heroicon-o-megaphone')
                     ->model(CustomBroadcast::class)
                     ->form($this->getAvisoFormSchema())
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['created_by'] = auth()->id();
+                        return $data;
+                    })
                     ->visible(fn (): bool => $this->podeGerir()),
             ])
             ->columns([
@@ -131,9 +135,13 @@ class Notificacoes extends Page implements HasForms, HasTable
                     ->searchable(),
                 Tables\Columns\TextColumn::make('cargos')
                     ->label('Cargos')
-                    ->formatStateUsing(fn (array $state): string => collect($state)
-                        ->map(fn (string $cargo) => self::rotulosCargos()[$cargo] ?? $cargo)
-                        ->join(', ')),
+                    ->formatStateUsing(function ($state): string {
+                        $cargosArray = is_string($state) ? json_decode($state, true) : $state;
+                        $cargosArray = is_array($cargosArray) ? $cargosArray : [];
+                        return collect($cargosArray)
+                            ->map(fn (string $cargo) => self::rotulosCargos()[$cargo] ?? $cargo)
+                            ->join(', ');
+                    }),
                 Tables\Columns\TextColumn::make('tipo_agendamento')
                     ->label('Tipo')
                     ->formatStateUsing(fn (string $state): string => $state === CustomBroadcast::TIPO_DIARIO ? 'Diário' : 'Único'),
