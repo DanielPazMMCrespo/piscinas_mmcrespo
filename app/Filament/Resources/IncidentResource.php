@@ -206,11 +206,10 @@ class IncidentResource extends Resource
                                 'texto' => $texto,
                             ]);
 
-                            $record->utilizador?->notify(new \App\Notifications\IncidentMessageNotification(
-                                $record,
-                                auth()->user(),
-                                $texto,
-                            ));
+                        \Illuminate\Support\Facades\Notification::send(
+                            $record->participantes(excluir: auth()->user()),
+                            new \App\Notifications\IncidentMessageNotification($record, auth()->user(), $texto)
+                        );
 
                             Notification::make()
                                 ->success()

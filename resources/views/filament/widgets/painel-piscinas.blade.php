@@ -124,6 +124,21 @@
                                 <div class="mmc-pool-detail-empty">Sem dados recentes.</div>
                             @endif
 
+                            @if (! empty($item['metricas']))
+                                <div class="mmc-pool-source-info">
+                                    Última análise ({{ $item['ha_quanto'] }})
+                                </div>
+                                @foreach ($item['metricas'] as $metrica)
+                                    @continue ($metrica['label'] === 'Temp.')
+                                    <div class="mmc-pool-metric">
+                                        <span class="mmc-pool-metric-label">{{ $metrica['label'] }}</span>
+                                        <span class="mmc-pool-metric-value @if ($metrica['ok'] === false) mmc-pool-metric-value--bad @elseif ($metrica['ok'] === true) mmc-pool-metric-value--ok @endif">
+                                            {{ $metrica['valor'] }}
+                                        </span>
+                                    </div>
+                                @endforeach
+                            @endif
+
                             @can('create', \App\Models\DailyRecord::class)
                                 <a href="{{ $item['url_registar'] }}" class="mmc-pool-detail-cta">
                                     <x-filament::icon icon="heroicon-m-pencil-square" class="mmc-pool-detail-cta-icon" />

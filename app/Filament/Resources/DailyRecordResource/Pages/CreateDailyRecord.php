@@ -157,14 +157,18 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
-    /**
-     * Botão visível: valida o formulário (campos obrigatórios, regra cloro total ≥ cloro
-     * livre, etc.) antes de sequer abrir o modal de confirmação. Sem isto, o modal
-     * "Confirmar e guardar" aparecia por cima de erros de validação ainda por resolver.
-     */
     public function validarERegistosGuardar(): void
     {
-        $this->form->getState();
+        try {
+            $this->form->getState();
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->danger()
+                ->title('Erro ao validar formulário')
+                ->body('O formulário expirou ou contém dados inválidos. Por favor, recarregue a página.')
+                ->send();
+            return;
+        }
 
         $this->mountAction('confirmarCriacao');
     }
@@ -176,40 +180,35 @@ class CreateDailyRecord extends CreateRecord
                 ->label('Criar')
                 ->action('validarERegistosGuardar')
                 ->keyBindings(['mod+s']),
+            // Nota: NÃO usar ->hidden() aqui — no Filament, isDisabled() inclui
+            // isHidden(), pelo que uma ação hidden() fica também "disabled" e
+            // mountAction() recusa-se a montá-la (unmount imediato, modal nunca abre).
+            // Esconder apenas visualmente via CSS mantém a ação "mountável".
             Action::make('confirmarCriacao')
                 ->label('Confirmar e guardar')
-                ->hidden()
+                ->extraAttributes(['class' => 'hidden'])
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registos')
                 ->modalContent(function () {
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
-                    $problemasGlobais = [];
+                    $valores = [];
 
                     foreach ($poolsData as $poolId => $poolData) {
                         $pool = \App\Models\Pool::find($poolId);
                         if (!$pool) continue;
 
-                        foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
-                            if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
-                                $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
-                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                    $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                                }
-                            }
-                        }
-
-                        if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
-                            $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
-                            $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
-                            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                            }
-                        }
+                        $valores[] = [
+                            'piscina' => $pool->name,
+                            'ph' => $poolData['ns_ph'] ?? null,
+                            'cloro_livre' => $poolData['ns_cloro_livre'] ?? null,
+                            'cloro_total' => $poolData['ns_cloro_total'] ?? null,
+                            'temperatura' => $poolData['ns_temperatura'] ?? null,
+                        ];
                     }
 
-                    return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
+                    return view('filament.daily-record-modal-summary', ['valores' => $valores]);
                 })
                 ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),

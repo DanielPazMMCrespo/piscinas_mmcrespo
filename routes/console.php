@@ -29,3 +29,22 @@ Schedule::command('archive:daily-records --older-than=365')
 Schedule::command('queue:work --queue=daily-records,sensor-sync,default --stop-when-empty --max-time=50')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Push dos timers de retrolavagem vencidos. Faz polling curto (~50s, ciclos de 5s)
+// para latência baixa sem worker dedicado — mesmo padrão do queue:work acima.
+Schedule::command('timers:fire-due')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Avisa admin+técnico de torneiras abertas há mais tempo que o limite configurado.
+// Não precisa de precisão ao minuto — o limite é em horas.
+Schedule::command('torneiras:verificar-abertas')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+// Resumo de conformidade nos horários configurados em Definições do Sistema
+// (AppSetting 'digest_conformidade_horas'). Precisa de granularidade ao minuto
+// para acertar o horário; o próprio comando faz o dedup por slot.
+Schedule::command('notificacoes:resumo-conformidade')
+    ->everyMinute()
+    ->withoutOverlapping();

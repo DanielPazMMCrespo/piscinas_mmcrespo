@@ -2,10 +2,8 @@
 namespace App\Filament\Widgets;
 
 
-use App\Constants\UserRole;
 use App\Models\Incident;
 use App\Models\IncidentMessage;
-use App\Models\User;
 use App\Notifications\IncidentMessageNotification;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
@@ -65,14 +63,10 @@ class IncidentChatWidget extends Widget
             }
         });
 
-        if ($autor->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-            $incident->utilizador?->notify(new IncidentMessageNotification($incident, $autor, $texto));
-        } else {
-            Notification::send(
-                User::role([UserRole::ADMIN, UserRole::TECNICO])->get(),
-                new IncidentMessageNotification($incident, $autor, $texto)
-            );
-        }
+        Notification::send(
+            $incident->participantes(excluir: $autor),
+            new IncidentMessageNotification($incident, $autor, $texto)
+        );
 
         $this->texto = '';
         $this->record->refresh();
