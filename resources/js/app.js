@@ -810,53 +810,56 @@ const setupAutoScroll = () => {
     form.addEventListener('input', scrollDebounced);
 };
 
-// Toast notification when draft is restored
-const showDraftRestoredToast = (formKey, component) => {
+// Ask before restoring a draft interrupted by an unexpected app close (does not auto-apply)
+const showDraftResumePrompt = (formKey, component, draftData) => {
     if (document.getElementById('mmc-draft-toast')) return;
 
-    const toast = document.createElement('div');
-    toast.id = 'mmc-draft-toast';
-    toast.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 bg-gray-900/95 backdrop-blur text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-between gap-4 border border-white/10 z-50 transition-all duration-300 transform translate-y-10 opacity-0';
-    toast.innerHTML = `
-        <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <p class="text-sm font-medium">Rascunho anterior restaurado automaticamente.</p>
-        </div>
-        <button id="clear-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-rose-400 hover:text-rose-300 transition px-2 py-1 rounded bg-white/5 hover:bg-white/10">
-            Limpar
-        </button>
-    `;
-    document.body.appendChild(toast);
-
-    // Slide in
-    setTimeout(() => {
-        toast.classList.remove('translate-y-10', 'opacity-0');
-    }, 50);
-
-    document.getElementById('clear-draft-btn').addEventListener('click', () => {
+    const clearDraft = () => {
         localStorage.removeItem(formKey);
-        // Clear all timers as well
         Object.keys(localStorage).forEach(key => {
             if (key.startsWith('mmc_timer_')) {
                 localStorage.removeItem(key);
             }
         });
+    };
+
+    const toast = document.createElement('div');
+    toast.id = 'mmc-draft-toast';
+    toast.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gray-900/95 backdrop-blur text-white px-4 py-3 rounded-xl shadow-xl flex flex-col gap-3 border border-white/10 z-50 transition-all duration-300 transform translate-y-10 opacity-0';
+    toast.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <p class="text-sm font-medium">Ficou um registo em curso que não chegou a ser enviado. Retomar?</p>
+        </div>
+        <div class="flex justify-end gap-2">
+            <button id="discard-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-gray-300 hover:text-white transition px-3 py-1.5 rounded bg-white/5 hover:bg-white/10">
+                Começar de novo
+            </button>
+            <button id="resume-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-white transition px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500">
+                Retomar registo
+            </button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+    }, 50);
+
+    document.getElementById('resume-draft-btn').addEventListener('click', () => {
+        component.set('data', draftData);
         toast.remove();
-        // Reset Livewire form state and reload
-        component.set('data', {});
-        window.location.reload();
     });
 
-    // Auto-fade out after 8 seconds
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.classList.add('translate-y-10', 'opacity-0');
-            setTimeout(() => toast.remove(), 300);
-        }
-    }, 8000);
+    document.getElementById('discard-draft-btn').addEventListener('click', () => {
+        clearDraft();
+        toast.remove();
+    });
 };
 
 // Auto-save form draft in localStorage for Daily Record creation
+const DRAFT_TTL_MS = 45 * 60 * 1000;
+
 const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
@@ -873,7 +876,7 @@ const setupFormDraft = () => {
 
         const componentId = mainComponentEl.getAttribute('wire:id');
         const component = window.Livewire ? window.Livewire.find(componentId) : null;
-        
+
         if (!component) {
             // Try again in 100ms
             setTimeout(findAndRestore, 100);
@@ -882,34 +885,38 @@ const setupFormDraft = () => {
 
         const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
 
-        // 1. Restore draft
-        const draft = localStorage.getItem(formKey);
-        if (draft) {
+        // 1. Offer to restore draft (ask first, don't overwrite silently)
+        const raw = localStorage.getItem(formKey);
+        if (raw) {
             try {
-                const draftData = JSON.parse(draft);
-                if (draftData && Object.keys(draftData).length > 0) {
-                    component.set('data', draftData);
-                    showDraftRestoredToast(formKey, component);
+                const stored = JSON.parse(raw);
+                const draftData = stored?.data;
+                const savedAt = stored?.savedAt ?? 0;
+                const expired = Date.now() - savedAt > DRAFT_TTL_MS;
+
+                if (expired) {
+                    localStorage.removeItem(formKey);
+                } else if (draftData && Object.keys(draftData).length > 0) {
+                    showDraftResumePrompt(formKey, component, draftData);
                 }
             } catch (e) {
-                console.error('Error restoring daily record draft:', e);
+                console.error('Error reading daily record draft:', e);
+                localStorage.removeItem(formKey);
             }
         }
 
-        // 2. Setup local input change listener for quick updates
-        const form = document.querySelector('form');
-        if (form) {
-            let debounceTimeout;
-            form.addEventListener('input', () => {
-                clearTimeout(debounceTimeout);
-                debounceTimeout = setTimeout(() => {
-                    const currentData = component.get('data');
-                    if (currentData) {
-                        localStorage.setItem(formKey, JSON.stringify(currentData));
-                    }
-                }, 500);
-            });
-        }
+        // 2. Save on every keystroke, regardless of which form/widget the input lives in
+        // (events bubble to document, so this doesn't depend on DOM scoping).
+        let debounceTimeout;
+        document.addEventListener('input', () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                const currentData = component.get('data');
+                if (currentData) {
+                    localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
+                }
+            }, 500);
+        });
     };
 
     findAndRestore();
@@ -1031,9 +1038,9 @@ document.addEventListener('livewire:init', () => {
             respond(() => {
                 const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
                 try {
-                    const currentData = component.get('data');
+    const currentData = component.get('data');
                     if (currentData) {
-                        localStorage.setItem(formKey, JSON.stringify(currentData));
+                        localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
                     }
                 } catch (e) {
                     console.error('Error saving daily record draft:', e);
