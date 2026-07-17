@@ -36,6 +36,11 @@ Schedule::command('timers:fire-due')
     ->everyMinute()
     ->withoutOverlapping();
 
+// Push de teste (página Notificações) — mesmo padrão de polling curto do timers:fire-due.
+Schedule::command('notificacoes:teste-fire-due')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // Avisa admin+técnico de torneiras abertas há mais tempo que o limite configurado.
 // Não precisa de precisão ao minuto — o limite é em horas.
 Schedule::command('torneiras:verificar-abertas')

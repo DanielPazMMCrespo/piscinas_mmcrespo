@@ -2,6 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Constants\UserRole;
+use App\Models\TestPush;
+use App\Notifications\TestPushNotification;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
 /**
@@ -26,5 +30,35 @@ class Notificacoes extends Page
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
+    }
+
+    public function podeTestar(): bool
+    {
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+    }
+
+    /** @return list<string> */
+    public function tiposDeTeste(): array
+    {
+        return TestPushNotification::tiposValidos();
+    }
+
+    public function testar(string $tipo): void
+    {
+        if (! $this->podeTestar() || ! in_array($tipo, TestPushNotification::tiposValidos(), true)) {
+            return;
+        }
+
+        TestPush::create([
+            'user_id' => auth()->id(),
+            'tipo' => $tipo,
+            'fire_at' => now()->addSeconds(5),
+        ]);
+
+        Notification::make()
+            ->title('Push de teste agendado')
+            ->body('Chega daqui a ~5 segundos — já podes bloquear o ecrã.')
+            ->success()
+            ->send();
     }
 }
