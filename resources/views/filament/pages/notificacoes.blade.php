@@ -3,13 +3,18 @@
         x-data="{
             estado: 'a-verificar',
             aProcessar: false,
+            erroMsg: '',
             init() {
                 this.estado = window.mmcPush ? window.mmcPush.estado() : 'nao-suportado';
             },
             async ativar() {
                 this.aProcessar = true;
+                this.erroMsg = '';
                 const r = await window.mmcPush.ativar();
                 this.estado = r.estado;
+                if (!r.ok && r.estado === 'erro-subscricao') {
+                    this.erroMsg = r.erroMsg || 'Erro desconhecido ao registar no serviço de push.';
+                }
                 this.aProcessar = false;
             },
         }"
@@ -58,6 +63,26 @@
         <template x-if="estado === 'sem-vapid'">
             <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400">
                 As chaves de notificação (VAPID) não estão configuradas no servidor. Contacte o administrador.
+            </div>
+        </template>
+
+        <template x-if="estado === 'erro-subscricao'">
+            <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 space-y-2">
+                <p class="font-semibold text-base">Falha ao registar o dispositivo no serviço de push:</p>
+                <p class="text-xs font-mono bg-white/10 p-2 rounded" x-text="erroMsg"></p>
+                <p class="text-xs mt-2">
+                    <strong>Dicas de resolução:</strong>
+                </p>
+                <ul class="list-disc list-inside text-xs space-y-1">
+                    <li>Se usa o <strong>Brave Browser</strong>, ative <em>"Use Google services for push messaging"</em> em Definições &gt; Privacidade.</li>
+                    <li>Experimente limpar os cookies e dados do site (no Chrome: cadeado ao lado do link &gt; Definições de Sites &gt; Limpar dados) e recarregue a página.</li>
+                    <li>Garanta que as chaves <code>VAPID_PUBLIC_KEY</code> e <code>VAPID_PRIVATE_KEY</code> no <code>.env</code> do servidor estão corretamente configuradas (sem aspas duplicadas ou espaços adicionais).</li>
+                </ul>
+                <div class="pt-2">
+                    <x-filament::button size="xs" color="danger" x-on:click="estado = 'default'">
+                        Tentar novamente
+                    </x-filament::button>
+                </div>
             </div>
         </template>
 

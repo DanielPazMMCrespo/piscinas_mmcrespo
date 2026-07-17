@@ -72,18 +72,23 @@ export const ativarNotificacoes = async () => {
     const permissao = await Notification.requestPermission();
     if (permissao !== 'granted') return { ok: false, estado: permissao };
 
-    const registration = await getRegistration();
-    let subscription = await registration.pushManager.getSubscription();
+    try {
+        const registration = await getRegistration();
+        let subscription = await registration.pushManager.getSubscription();
 
-    if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(window.__vapidPublicKey),
-        });
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(window.__vapidPublicKey),
+            });
+        }
+
+        await guardarSubscription(subscription);
+        return { ok: true, estado: 'granted' };
+    } catch (error) {
+        console.error("Erro ao subscrever push service:", error);
+        return { ok: false, estado: 'erro-subscricao', erroMsg: error.message };
     }
-
-    await guardarSubscription(subscription);
-    return { ok: true, estado: 'granted' };
 };
 
 // Re-sync silencioso: mantém a subscription do servidor fresca a cada carregamento.
