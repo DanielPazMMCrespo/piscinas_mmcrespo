@@ -179,6 +179,31 @@ class Notificacoes extends Page implements HasForms, HasTable
         }
     }
 
+    public function forcarEnvioPendentes(): void
+    {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('notificacoes:teste-fire-due', [
+                '--max-time' => 0,
+                '--sleep' => 1,
+            ]);
+            
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            
+            Notification::make()
+                ->title('Executado com sucesso')
+                ->body('O comando foi forçado: ' . (trim($output) ?: 'Sem output adicional.'))
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Erro ao forçar comando')
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
     private static function rotulosCargos(): array
     {
         return [
