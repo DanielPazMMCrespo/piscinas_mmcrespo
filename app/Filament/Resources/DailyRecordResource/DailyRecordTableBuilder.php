@@ -26,7 +26,7 @@ class DailyRecordTableBuilder
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
-            ->recordAction(Tables\Actions\ViewAction::class)
+            ->recordAction('view')
             ->columns([
                 Tables\Columns\TextColumn::make('piscina.name')
                     ->label('Piscina')
