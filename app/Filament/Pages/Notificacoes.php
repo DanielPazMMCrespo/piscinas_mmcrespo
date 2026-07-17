@@ -103,6 +103,34 @@ class Notificacoes extends Page implements HasForms, HasTable
             ->send();
     }
 
+    public function testarImediato(): void
+    {
+        if (! $this->podeTestar() || ! in_array($this->tipoSelecionado, TestPushNotification::tiposValidos(), true)) {
+            return;
+        }
+
+        try {
+            auth()->user()->notify(new TestPushNotification(
+                $this->tipoSelecionado,
+                trim($this->tituloTeste) ?: null,
+                trim($this->corpoTeste) ?: null
+            ));
+
+            Notification::make()
+                ->title('Push enviado imediatamente')
+                ->body('O sinal foi disparado. Deverá recebê-lo de imediato se o dispositivo estiver ligado.')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Erro no envio direto')
+                ->body('Falha ao comunicar com os servidores de push: ' . $e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
     private static function rotulosCargos(): array
     {
         return [

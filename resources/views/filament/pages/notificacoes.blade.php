@@ -156,9 +156,12 @@
                             ></textarea>
                         </div>
 
-                        <div>
-                            <x-filament::button color="primary" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
-                                Enviar push de teste
+                        <div class="flex flex-wrap gap-2">
+                            <x-filament::button color="primary" size="sm" wire:click="testarImediato" icon="heroicon-m-bolt">
+                                Enviar Imediato (Testar Chaves/Permissões)
+                            </x-filament::button>
+                            <x-filament::button color="gray" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
+                                Enviar c/ Atraso 5s (Testar ecrã bloqueado)
                             </x-filament::button>
                         </div>
                     </div>
