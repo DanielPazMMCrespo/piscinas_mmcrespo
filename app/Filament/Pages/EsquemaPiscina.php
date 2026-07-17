@@ -7,6 +7,7 @@ use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use App\Models\FilterCheck;
 use App\Models\HannaDevice;
+use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\TapAlert;
@@ -113,6 +114,15 @@ class EsquemaPiscina extends Page
             ->first();
         $registo?->setRelation('piscina', $piscina);
 
+        // Ação operacional mais recente por tipo: é o evento mais fresco de cada
+        // componente e, quando mais recente que o registo diário, define o estado.
+        $acoes = OperationalAction::query()
+            ->where('pool_id', $piscina->id)
+            ->with('utilizador')
+            ->orderByDesc('registado_em')
+            ->get();
+        $ultimaAcao = $acoes->groupBy('tipo')->map(fn (Collection $g) => $g->first());
+
         $stale = $registo === null
             || $registo->registado_em->lt(now()->subHours(self::STALE_HORAS));
 
@@ -123,25 +133,79 @@ class EsquemaPiscina extends Page
             ->with('openedBy')
             ->first();
 
+        $agua = $this->valoresAgua($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_ANALISE_PONTUAL));
+
         return [
             'piscina' => $piscina,
             'registo' => $registo,
             'stale' => $stale,
-            'torneira' => $this->estadoTorneira($registo, $tapAberta, $stale),
-            'bomba' => $this->estadoBomba($registo, $stale),
-            'filtro' => $this->estadoFiltro($piscina, $registo),
-            'tanque' => $this->estadoTanque($piscina, $registo, $stale),
-            'agua' => $this->valoresAgua($piscina, $registo),
+            'torneira' => $this->estadoTorneira($registo, $tapAberta, $ultimaAcao),
+            'bomba' => $this->estadoBomba($registo, $ultimaAcao->get(OperationalAction::TIPO_BOMBA)),
+            'filtro' => $this->estadoFiltro($piscina, $registo, $acoes),
+            'tanque' => $this->estadoTanque($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_TANQUE)),
+            'agua' => $agua,
+            'justificacoes' => $agua['algum_mau'] ? $this->justificacoes($acoes) : [],
             'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
         ];
     }
 
-    private function estadoTorneira(?DailyRecord $registo, ?TapAlert $tapAberta, bool $stale): array
+    /**
+     * Escolhe o candidato mais recente entre registo diário e ação operacional.
+     * Cada candidato é ['ts' => Carbon, 'valor' => mixed, 'via' => string, ...].
+     *
+     * @param  array<string, mixed>|null  $dr
+     * @param  array<string, mixed>|null  $oa
+     * @return array<string, mixed>|null
+     */
+    private function maisRecente(?array $dr, ?array $oa): ?array
     {
+        if ($dr !== null && $oa !== null) {
+            return $oa['ts']->gte($dr['ts']) ? $oa : $dr;
+        }
+
+        return $dr ?? $oa;
+    }
+
+    private function estaStale(mixed $ts): bool
+    {
+        return $ts === null || $ts->lt(now()->subHours(self::STALE_HORAS));
+    }
+
+    /** @param array<string, mixed>|null $efetivo */
+    private function fonte(?array $efetivo): ?array
+    {
+        if ($efetivo === null) {
+            return null;
+        }
+
+        return [
+            'via' => $efetivo['via'] === 'acao' ? 'Ação operacional' : 'Registo diário',
+            'quando' => $efetivo['ts']->format('d/m/Y H:i'),
+            'por' => $efetivo['por'] ?? null,
+        ];
+    }
+
+    private function estadoTorneira(?DailyRecord $registo, ?TapAlert $tapAberta, Collection $ultimaAcao): array
+    {
+        $acao = $ultimaAcao->get(OperationalAction::TIPO_TORNEIRA);
+        $acaoContador = $ultimaAcao->get(OperationalAction::TIPO_CONTADOR);
+
+        $modoEfetivo = $this->maisRecente(
+            $registo?->agua_modo !== null ? ['ts' => $registo->registado_em, 'valor' => $registo->agua_modo, 'via' => 'registo', 'por' => $registo->utilizador?->name] : null,
+            ($acao && ($acao->dados['agua_modo'] ?? null) !== null) ? ['ts' => $acao->registado_em, 'valor' => $acao->dados['agua_modo'], 'via' => 'acao', 'por' => $acao->utilizador?->name] : null,
+        );
+
+        $contadorEfetivo = $this->maisRecente(
+            $registo?->contador_valor !== null ? ['ts' => $registo->registado_em, 'valor' => (float) $registo->contador_valor, 'via' => 'registo', 'foto' => DailyRecord::getStorageUrl($registo->contador_foto)] : null,
+            ($acaoContador && ($acaoContador->dados['contador_valor'] ?? null) !== null) ? ['ts' => $acaoContador->registado_em, 'valor' => (float) $acaoContador->dados['contador_valor'], 'via' => 'acao', 'foto' => DailyRecord::getStorageUrl($acaoContador->foto)] : null,
+        );
+
+        $modo = $modoEfetivo['valor'] ?? null;
+
         $estado = match (true) {
             $tapAberta !== null => 'aberta',
-            $stale, $registo?->agua_modo === null => 'desconhecido',
-            in_array($registo->agua_modo, ['on_com_agua', 'auto_com_agua'], true) => 'com_agua',
+            $this->estaStale($modoEfetivo['ts'] ?? null), $modo === null => 'desconhecido',
+            in_array($modo, ['on_com_agua', 'auto_com_agua'], true) => 'com_agua',
             default => 'fechada',
         };
 
@@ -150,31 +214,36 @@ class EsquemaPiscina extends Page
             'desde' => $tapAberta?->opened_at->format('d/m H:i'),
             'desde_humano' => $tapAberta?->opened_at->locale('pt')->diffForHumans(),
             'aberta_por' => $tapAberta?->openedBy?->name,
-            'agua_modo' => $registo?->agua_modo !== null
-                ? (self::AGUA_MODO_LABELS[$registo->agua_modo] ?? $registo->agua_modo)
+            'agua_modo' => $modo !== null ? (self::AGUA_MODO_LABELS[$modo] ?? $modo) : null,
+            'contador' => isset($contadorEfetivo['valor'])
+                ? number_format((float) $contadorEfetivo['valor'], 2, ',', ' ') . ' m³'
                 : null,
-            'contador' => $registo?->contador_valor !== null
-                ? number_format((float) $registo->contador_valor, 2, ',', ' ') . ' m³'
-                : null,
-            'contador_foto' => DailyRecord::getStorageUrl($registo?->contador_foto),
+            'contador_foto' => $contadorEfetivo['foto'] ?? null,
+            'fonte' => $this->fonte($modoEfetivo),
         ];
     }
 
-    private function estadoBomba(?DailyRecord $registo, bool $stale): array
+    private function estadoBomba(?DailyRecord $registo, ?OperationalAction $acao): array
     {
+        $efetivo = $this->maisRecente(
+            $registo?->bomba_ferrada !== null ? ['ts' => $registo->registado_em, 'valor' => (bool) $registo->bomba_ferrada, 'via' => 'registo', 'por' => $registo->utilizador?->name, 'foto' => DailyRecord::getStorageUrl($registo->bomba_foto)] : null,
+            ($acao && ($acao->dados['bomba_ferrada'] ?? null) !== null) ? ['ts' => $acao->registado_em, 'valor' => (bool) $acao->dados['bomba_ferrada'], 'via' => 'acao', 'por' => $acao->utilizador?->name, 'foto' => DailyRecord::getStorageUrl($acao->foto)] : null,
+        );
+
         $estado = match (true) {
-            $stale, $registo?->bomba_ferrada === null => 'desconhecido',
-            (bool) $registo->bomba_ferrada => 'a_trabalhar',
+            $this->estaStale($efetivo['ts'] ?? null), ! isset($efetivo['valor']) => 'desconhecido',
+            $efetivo['valor'] === true => 'a_trabalhar',
             default => 'parada',
         };
 
         return [
             'estado' => $estado,
-            'foto' => DailyRecord::getStorageUrl($registo?->bomba_foto),
+            'foto' => $efetivo['foto'] ?? null,
+            'fonte' => $this->fonte($efetivo),
         ];
     }
 
-    private function estadoFiltro(Pool $piscina, ?DailyRecord $registo): array
+    private function estadoFiltro(Pool $piscina, ?DailyRecord $registo, Collection $acoes): array
     {
         $ultimaVerificacao = FilterCheck::query()
             ->where('pool_id', $piscina->id)
@@ -182,9 +251,13 @@ class EsquemaPiscina extends Page
             ->latest('verificado_em')
             ->first();
 
+        $ultimaAcaoLavagem = $acoes
+            ->firstWhere('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO);
+
         $datas = collect([
             $ultimaVerificacao?->verificado_em,
             $registo?->filtro_faz_retrolavagem ? $registo->registado_em : null,
+            $ultimaAcaoLavagem?->registado_em,
         ])->filter();
 
         $ultimaLavagem = $datas->sortDesc()->first();
@@ -195,30 +268,57 @@ class EsquemaPiscina extends Page
         ];
     }
 
-    private function estadoTanque(Pool $piscina, ?DailyRecord $registo, bool $stale): ?array
+    private function estadoTanque(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $acao): ?array
     {
         if (! $piscina->instalacao?->tanques_verificaveis) {
             return null;
         }
 
+        $efetivo = $this->maisRecente(
+            $registo?->tanque_ok !== null ? ['ts' => $registo->registado_em, 'valor' => (bool) $registo->tanque_ok, 'via' => 'registo', 'por' => $registo->utilizador?->name, 'obs' => $registo->tanque_observacoes, 'foto' => DailyRecord::getStorageUrl($registo->tanque_foto)] : null,
+            ($acao && ($acao->dados['tanque_ok'] ?? null) !== null) ? ['ts' => $acao->registado_em, 'valor' => (bool) $acao->dados['tanque_ok'], 'via' => 'acao', 'por' => $acao->utilizador?->name, 'obs' => $acao->observacoes, 'foto' => DailyRecord::getStorageUrl($acao->foto)] : null,
+        );
+
         $estado = match (true) {
-            $stale, $registo?->tanque_ok === null => 'desconhecido',
-            (bool) $registo->tanque_ok => 'ok',
+            $this->estaStale($efetivo['ts'] ?? null), ! isset($efetivo['valor']) => 'desconhecido',
+            $efetivo['valor'] === true => 'ok',
             default => 'verificar',
         };
 
         return [
             'estado' => $estado,
-            'observacoes' => $registo?->tanque_observacoes,
-            'foto' => DailyRecord::getStorageUrl($registo?->tanque_foto),
+            'observacoes' => $efetivo['obs'] ?? null,
+            'foto' => $efetivo['foto'] ?? null,
+            'fonte' => $this->fonte($efetivo),
         ];
     }
 
     /**
-     * Mesma cascata de fontes do PainelPiscinasWidget::buildPoolData():
-     * sonda fresca (≤60 min) → registo manual (≤8h) → sonda stale → sem dados.
+     * Ações operacionais das últimas 6h que podem explicar valores fora dos
+     * limites (ex.: uma lavagem de filtro faz o pH/ORP cair no controlador).
+     *
+     * @return array<int, array{tipo: string, quando: string, por: ?string, observacoes: ?string}>
      */
-    private function valoresAgua(Pool $piscina, ?DailyRecord $registo): array
+    private function justificacoes(Collection $acoes): array
+    {
+        return $acoes
+            ->filter(fn (OperationalAction $a) => $a->registado_em->gte(now()->subHours(6)))
+            ->take(5)
+            ->map(fn (OperationalAction $a) => [
+                'tipo' => $a->tipoLabel(),
+                'quando' => $a->registado_em->format('d/m H:i'),
+                'por' => $a->utilizador?->name,
+                'observacoes' => $a->observacoes,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Cascata de fontes: sonda fresca (≤60 min) → leitura manual mais recente
+     * (≤8h: registo diário ou análise rápida) → sonda stale → sem dados.
+     */
+    private function valoresAgua(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $analise = null): array
     {
         $device = HannaDevice::query()
             ->where('active', true)
@@ -235,11 +335,20 @@ class EsquemaPiscina extends Page
         $idadeMin = $leitura?->lida_em ? (int) $leitura->lida_em->diffInMinutes(now()) : null;
         $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60;
 
-        $usarRegistoManual = ! $controladorOnline
-            && $registo !== null
-            && abs((int) $registo->registado_em->diffInHours(now())) <= 8;
+        // Leitura manual mais recente (≤8h): registo diário vs análise rápida.
+        $manual = null;
+        if (! $controladorOnline) {
+            $manual = $this->maisRecente(
+                ($registo !== null && abs((int) $registo->registado_em->diffInHours(now())) <= 8)
+                    ? ['ts' => $registo->registado_em, 'ph' => $registo->ph_efetivo, 'cloro' => $registo->cloro_livre_efetivo, 'temp' => $registo->temperatura_efetivo, 'origem' => 'Registo manual']
+                    : null,
+                ($analise !== null && $analise->registado_em->gte(now()->subHours(8)))
+                    ? ['ts' => $analise->registado_em, 'ph' => $analise->dados['ph'] ?? null, 'cloro' => $analise->dados['cloro_livre'] ?? null, 'temp' => $analise->dados['temperatura'] ?? null, 'origem' => 'Análise rápida']
+                    : null,
+            );
+        }
 
-        if ($controladorOnline || (! $usarRegistoManual && $leitura !== null)) {
+        if ($controladorOnline || ($manual === null && $leitura !== null)) {
             $ph = $leitura->ph !== null ? (float) $leitura->ph : null;
             $orp = $leitura->orp !== null ? (float) $leitura->orp : null;
             $temp = $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
@@ -261,17 +370,23 @@ class EsquemaPiscina extends Page
             ];
         }
 
-        if ($usarRegistoManual) {
+        if ($manual !== null) {
+            $ph = $manual['ph'] !== null ? (float) $manual['ph'] : null;
+            $cloro = $manual['cloro'] !== null ? (float) $manual['cloro'] : null;
+            $temp = $manual['temp'] !== null ? (float) $manual['temp'] : null;
+
             $valores = [
-                $this->valor('pH', $registo->ph_efetivo, 2, '', $registo->ph_efetivo !== null ? $registo->phConforme() : null),
-                $this->valor('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null),
-                $this->valor('Temp.', $registo->temperatura_efetivo, 1, ' °C', $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null),
+                $this->valor('pH', $ph, 2, '', $ph !== null ? ($ph >= DailyRecord::getPhMin() && $ph <= DailyRecord::getPhMax()) : null),
+                $this->valor('Cl. Livre', $cloro, 2, ' mg/L', $cloro !== null ? ($cloro >= DailyRecord::getCloroLivreMin() && $cloro <= DailyRecord::getCloroLivreMax()) : null),
+                $this->valor('Temp.', $temp, 1, ' °C', $temp !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
+                    ? ($temp >= (float) $piscina->temp_min && $temp <= (float) $piscina->temp_max)
+                    : null),
             ];
 
             return [
-                'origem' => 'Registo manual',
+                'origem' => $manual['origem'],
                 'stale' => false,
-                'atualizado' => $registo->registado_em->locale('pt')->diffForHumans(),
+                'atualizado' => $manual['ts']->locale('pt')->diffForHumans(),
                 'valores' => $valores,
                 'algum_mau' => collect($valores)->contains(fn (array $v) => $v['ok'] === false),
             ];

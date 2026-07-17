@@ -4,9 +4,11 @@ namespace App\Providers;
 
 use App\Models\DailyRecord;
 use App\Models\Incident;
+use App\Models\OperationalAction;
 use App\Models\StockInstallation;
 use App\Observers\DailyRecordObserver;
 use App\Observers\IncidentObserver;
+use App\Observers\OperationalActionObserver;
 use App\Observers\StockInstallationObserver;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -42,5 +44,6 @@ class AppServiceProvider extends ServiceProvider
         DailyRecord::observe(DailyRecordObserver::class);
         StockInstallation::observe(StockInstallationObserver::class);
         Incident::observe(IncidentObserver::class);
+        OperationalAction::observe(OperationalActionObserver::class);
     }
 }

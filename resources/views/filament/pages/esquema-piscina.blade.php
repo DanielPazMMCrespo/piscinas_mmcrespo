@@ -251,8 +251,8 @@
                                 @endif
                             </dd></div>
                             <div><dt>Última leitura do contador</dt><dd>{{ $torneira['contador'] ?? '—' }}</dd></div>
-                            @if ($registo)
-                                <div><dt>Registado</dt><dd>{{ $registo->registado_em->format('d/m/Y H:i') }} por {{ $registo->utilizador?->name ?? '—' }}</dd></div>
+                            @if ($torneira['fonte'])
+                                <div><dt>Estado definido por</dt><dd>{{ $torneira['fonte']['via'] }} · {{ $torneira['fonte']['quando'] }}@if ($torneira['fonte']['por']) por {{ $torneira['fonte']['por'] }}@endif</dd></div>
                             @endif
                             @if ($torneira['contador_foto'])
                                 <div><dt>Foto</dt><dd><a href="{{ $torneira['contador_foto'] }}" class="glightbox mmc-esq__link">Ver foto do contador</a></dd></div>
@@ -269,6 +269,19 @@
                             @endforeach
                             <div><dt>Fonte</dt><dd>{{ $agua['origem'] ?? '—' }}@if ($agua['atualizado']) · {{ $agua['atualizado'] }}@endif</dd></div>
                         </dl>
+                        @if (! empty($esquema['justificacoes']))
+                            <div class="mmc-esq__justif">
+                                <span class="mmc-esq__justif-titulo">Ações operacionais recentes (possível justificação):</span>
+                                <ul class="mmc-esq__justif-lista">
+                                    @foreach ($esquema['justificacoes'] as $j)
+                                        <li>
+                                            <strong>{{ $j['tipo'] }}</strong> · {{ $j['quando'] }}@if ($j['por']) · {{ $j['por'] }}@endif
+                                            @if ($j['observacoes']) — {{ $j['observacoes'] }}@endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                         <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
                     </div>
 
@@ -284,8 +297,8 @@
                                     <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
                                 @endif
                             </dd></div>
-                            @if ($registo)
-                                <div><dt>Registado</dt><dd>{{ $registo->registado_em->format('d/m/Y H:i') }} por {{ $registo->utilizador?->name ?? '—' }}</dd></div>
+                            @if ($bomba['fonte'])
+                                <div><dt>Estado definido por</dt><dd>{{ $bomba['fonte']['via'] }} · {{ $bomba['fonte']['quando'] }}@if ($bomba['fonte']['por']) por {{ $bomba['fonte']['por'] }}@endif</dd></div>
                             @endif
                             @if ($bomba['foto'])
                                 <div><dt>Foto</dt><dd><a href="{{ $bomba['foto'] }}" class="glightbox mmc-esq__link">Ver foto da bomba</a></dd></div>
@@ -315,6 +328,9 @@
                                         <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
                                     @endif
                                 </dd></div>
+                                @if ($tanque['fonte'])
+                                    <div><dt>Estado definido por</dt><dd>{{ $tanque['fonte']['via'] }} · {{ $tanque['fonte']['quando'] }}@if ($tanque['fonte']['por']) por {{ $tanque['fonte']['por'] }}@endif</dd></div>
+                                @endif
                                 @if ($tanque['observacoes'])
                                     <div><dt>Observações</dt><dd>{{ $tanque['observacoes'] }}</dd></div>
                                 @endif
