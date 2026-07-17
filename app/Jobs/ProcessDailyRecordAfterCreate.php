@@ -10,6 +10,7 @@ use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
 use App\Models\TapAlert;
 use App\Models\User;
+use App\Notifications\NaoConformidadeNotification;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,6 +19,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Throwable;
 
 class ProcessDailyRecordAfterCreate implements ShouldQueue
@@ -224,10 +226,6 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             return;
         }
 
-        Notification::make()
-            ->danger()
-            ->title('Parâmetros fora dos limites: '.$nome)
-            ->body(implode(' · ', $violacoes).'.')
-            ->sendToDatabase($destinatarios);
+        NotificationFacade::send($destinatarios, new NaoConformidadeNotification($registo, $violacoes, $nome));
     }
 }

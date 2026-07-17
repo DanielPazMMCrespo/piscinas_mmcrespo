@@ -35,3 +35,16 @@ Schedule::command('queue:work --queue=daily-records,sensor-sync,default --stop-w
 Schedule::command('timers:fire-due')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Avisa admin+técnico de torneiras abertas há mais tempo que o limite configurado.
+// Não precisa de precisão ao minuto — o limite é em horas.
+Schedule::command('torneiras:verificar-abertas')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+// Resumo de conformidade nos horários configurados em Definições do Sistema
+// (AppSetting 'digest_conformidade_horas'). Precisa de granularidade ao minuto
+// para acertar o horário; o próprio comando faz o dedup por slot.
+Schedule::command('notificacoes:resumo-conformidade')
+    ->everyMinute()
+    ->withoutOverlapping();
