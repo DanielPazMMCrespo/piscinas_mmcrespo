@@ -3,18 +3,29 @@
 namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
+use App\Models\CustomBroadcast;
 use App\Models\TestPush;
 use App\Notifications\TestPushNotification;
+use Filament\Forms;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Tables;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 /**
- * Ativação de notificações push neste dispositivo. No iPhone o push exige que a
- * app esteja instalada no ecrã inicial (PWA) — a página deteta isso e mostra
- * instruções em vez do botão.
+ * Ativação de notificações push neste dispositivo, zona de testes e envio de
+ * avisos globais (Notificações Personalizadas).
  */
-class Notificacoes extends Page
+class Notificacoes extends Page implements HasForms, HasTable
 {
+    use InteractsWithForms;
+    use InteractsWithTable;
+
     protected static ?string $navigationIcon = 'heroicon-o-bell-alert';
 
     protected static ?string $navigationGroup = 'Sistema';
@@ -43,9 +54,14 @@ class Notificacoes extends Page
         $this->preencherDefaults();
     }
 
-    public function podeTestar(): bool
+    public function podeGerir(): bool
     {
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+    }
+
+    public function podeTestar(): bool
+    {
+        return $this->podeGerir();
     }
 
     /** @return list<string> */
@@ -85,5 +101,127 @@ class Notificacoes extends Page
             ->body('Chega daqui a ~5 segundos — já podes bloquear o ecrã.')
             ->success()
             ->send();
+    }
+
+    private static function rotulosCargos(): array
+    {
+        return [
+            UserRole::ADMIN => 'Admin',
+            UserRole::GESTOR => 'Gestor',
+            UserRole::TECNICO => 'Técnico',
+            UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+        ];
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(CustomBroadcast::query())
+            ->headerActions([
+                Tables\Actions\CreateAction::make('novo_aviso')
+                    ->label('Novo Aviso')
+                    ->icon('heroicon-o-megaphone')
+                    ->model(CustomBroadcast::class)
+                    ->form($this->getAvisoFormSchema())
+                    ->visible(fn (): bool => $this->podeGerir()),
+            ])
+            ->columns([
+                Tables\Columns\TextColumn::make('titulo')
+                    ->label('Título')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('cargos')
+                    ->label('Cargos')
+                    ->formatStateUsing(fn (array $state): string => collect($state)
+                        ->map(fn (string $cargo) => self::rotulosCargos()[$cargo] ?? $cargo)
+                        ->join(', ')),
+                Tables\Columns\TextColumn::make('tipo_agendamento')
+                    ->label('Tipo')
+                    ->formatStateUsing(fn (string $state): string => $state === CustomBroadcast::TIPO_DIARIO ? 'Diário' : 'Único'),
+                Tables\Columns\TextColumn::make('quando')
+                    ->label('Quando')
+                    ->state(fn (CustomBroadcast $record): string => $record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO
+                        ? 'Todos os dias às ' . \Illuminate\Support\Carbon::parse($record->hora_diaria)->format('H:i')
+                        : ($record->enviar_em?->format('d/m/Y H:i') ?? '—')),
+                Tables\Columns\TextColumn::make('estado')
+                    ->label('Estado')
+                    ->state(function (CustomBroadcast $record): string {
+                        if ($record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO) {
+                            return $record->ativo ? 'Ativo' : 'Pausado';
+                        }
+                        return $record->enviado_em ? 'Enviado' : 'Agendado';
+                    })
+                    ->badge()
+                    ->color(function (CustomBroadcast $record): string {
+                        if ($record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO) {
+                            return $record->ativo ? 'success' : 'gray';
+                        }
+                        return $record->enviado_em ? 'success' : 'warning';
+                    }),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Criado em')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make()
+                    ->form($this->getAvisoFormSchema())
+                    ->visible(fn (): bool => $this->podeGerir()),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (): bool => $this->podeGerir()),
+            ]);
+    }
+
+    private function getAvisoFormSchema(): array
+    {
+        return [
+            Forms\Components\Section::make('Mensagem')
+                ->schema([
+                    Forms\Components\TextInput::make('titulo')
+                        ->label('Título')
+                        ->required()
+                        ->maxLength(150),
+                    Forms\Components\Textarea::make('corpo')
+                        ->label('Mensagem')
+                        ->required()
+                        ->rows(3),
+                ]),
+            Forms\Components\Section::make('Destinatários')
+                ->schema([
+                    Forms\Components\CheckboxList::make('cargos')
+                        ->label('Enviar para')
+                        ->options(self::rotulosCargos())
+                        ->required()
+                        ->columns(2),
+                ]),
+            Forms\Components\Section::make('Quando')
+                ->schema([
+                    Forms\Components\Radio::make('tipo_agendamento')
+                        ->label('Tipo de envio')
+                        ->options([
+                            CustomBroadcast::TIPO_UNICO => 'Envio único (data/hora exata)',
+                            CustomBroadcast::TIPO_DIARIO => 'Diário (recorrente, a uma hora fixa)',
+                        ])
+                        ->default(CustomBroadcast::TIPO_UNICO)
+                        ->live()
+                        ->required(),
+                    Forms\Components\DateTimePicker::make('enviar_em')
+                        ->label('Enviar em')
+                        ->native(false)
+                        ->minDate(now())
+                        ->required(fn (Get $get) => $get('tipo_agendamento') === CustomBroadcast::TIPO_UNICO)
+                        ->visible(fn (Get $get) => $get('tipo_agendamento') === CustomBroadcast::TIPO_UNICO),
+                    Forms\Components\TimePicker::make('hora_diaria')
+                        ->label('Hora do dia')
+                        ->seconds(false)
+                        ->required(fn (Get $get) => $get('tipo_agendamento') === CustomBroadcast::TIPO_DIARIO)
+                        ->visible(fn (Get $get) => $get('tipo_agendamento') === CustomBroadcast::TIPO_DIARIO),
+                    Forms\Components\Toggle::make('ativo')
+                        ->label('Ativo')
+                        ->helperText('Desativa para pausar os envios diários sem apagar a notificação.')
+                        ->default(true)
+                        ->visible(fn (Get $get) => $get('tipo_agendamento') === CustomBroadcast::TIPO_DIARIO),
+                ]),
+        ];
     }
 }

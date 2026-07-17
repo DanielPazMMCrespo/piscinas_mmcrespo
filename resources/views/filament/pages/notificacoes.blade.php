@@ -13,7 +13,7 @@
                 this.aProcessar = false;
             },
         }"
-        class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-4"
+        class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-4 mb-6"
     >
         <div class="flex items-start gap-3">
             <x-filament::icon icon="heroicon-o-bell-alert" class="h-6 w-6 text-primary-500 shrink-0 mt-0.5" />
@@ -68,64 +68,77 @@
                 </x-filament::button>
             </div>
         </template>
+    </div>
 
-        @if($this->podeTestar())
-            <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3" x-show="estado === 'granted'">
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Zona de testes</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Escolhe o tipo, ajusta o título/mensagem se quiseres, e envia — chega daqui a ~5 segundos
-                        (bloqueia o ecrã depois de clicar).
-                    </p>
-                </div>
+    @if($this->podeGerir())
+        <div class="space-y-6">
+            {{-- Tabela de Custom Broadcasts (Avisos Personalizados) --}}
+            <div>
+                <h2 class="text-lg font-semibold text-gray-950 dark:text-white mb-4">Gestão de Avisos</h2>
+                {{ $this->table }}
+            </div>
 
-                @php
-                    $rotulos = [
-                        'incidente' => 'Novo incidente',
-                        'mensagem' => 'Mensagem de incidente',
-                        'timer' => 'Timer terminado',
-                        'fora_limites' => 'Fora dos limites',
-                        'torneira' => 'Torneira aberta',
-                        'resumo' => 'Resumo de conformidade',
-                    ];
-                @endphp
-
+            {{-- Zona de Testes --}}
+            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl mt-6">
                 <div class="space-y-3">
                     <div>
-                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                        <select
-                            wire:model.live="tipoSelecionado"
-                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
-                        >
-                            @foreach($this->tiposDeTeste() as $tipo)
-                                <option value="{{ $tipo }}">{{ $rotulos[$tipo] ?? $tipo }}</option>
-                            @endforeach
-                        </select>
+                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">Zona de Testes</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Simular a receção de notificações do sistema no dispositivo atual.
+                            (Bloqueia o ecrã depois de clicar para testar no ecrã de bloqueio).
+                        </p>
                     </div>
 
-                    <div>
-                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Título</label>
-                        <input
-                            type="text"
-                            wire:model="tituloTeste"
-                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
-                        />
-                    </div>
+                    @php
+                        $rotulos = [
+                            'incidente' => 'Novo incidente',
+                            'mensagem' => 'Mensagem de incidente',
+                            'timer' => 'Timer terminado',
+                            'fora_limites' => 'Fora dos limites',
+                            'torneira' => 'Torneira aberta',
+                            'resumo' => 'Resumo de conformidade',
+                        ];
+                    @endphp
 
-                    <div>
-                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
-                        <textarea
-                            wire:model="corpoTeste"
-                            rows="2"
-                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
-                        ></textarea>
-                    </div>
+                    <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                            <select
+                                wire:model.live="tipoSelecionado"
+                                class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                            >
+                                @foreach($this->tiposDeTeste() as $tipo)
+                                    <option value="{{ $tipo }}">{{ $rotulos[$tipo] ?? $tipo }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                    <x-filament::button color="primary" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
-                        Enviar teste
-                    </x-filament::button>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Título</label>
+                            <input
+                                type="text"
+                                wire:model="tituloTeste"
+                                class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
+                            <textarea
+                                wire:model="corpoTeste"
+                                rows="2"
+                                class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <x-filament::button color="primary" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
+                                Enviar push de teste
+                            </x-filament::button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        @endif
-    </div>
+        </div>
+    @endif
 </x-filament-panels::page>

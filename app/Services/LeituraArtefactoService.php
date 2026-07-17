@@ -3,7 +3,7 @@ namespace App\Services;
 
 use App\Models\DailyRecord;
 use App\Models\OperationalAction;
-use Illuminate\Support\Carbon;
+use Carbon\Carbon;
 
 /**
  * Determina janelas temporais em que as leituras do controlador Hanna são
