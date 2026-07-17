@@ -59,6 +59,8 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan filament:optimize || true
 
+php artisan schedule:clear-cache || true
+
 # --- 5. Start scheduler in background (runs schedule:run every minute) ---
 (while true; do php artisan schedule:run; sleep 60; done) &
 echo "[entrypoint] scheduler started (resilient bash loop, PID $!)"

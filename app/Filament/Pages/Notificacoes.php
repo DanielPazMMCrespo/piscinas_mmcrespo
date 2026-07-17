@@ -204,6 +204,25 @@ class Notificacoes extends Page implements HasForms, HasTable
         }
     }
 
+    public function limparTrincos(): void
+    {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('schedule:clear-cache');
+            
+            Notification::make()
+                ->title('Trincos do Agendador Limpos')
+                ->body('Os trincos de sobreposição do scheduler foram limpos com sucesso.')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Erro ao limpar trincos')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
     private static function rotulosCargos(): array
     {
         return [

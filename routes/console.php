@@ -34,12 +34,12 @@ Schedule::command('queue:work --queue=daily-records,sensor-sync,default --stop-w
 // para latência baixa sem worker dedicado — mesmo padrão do queue:work acima.
 Schedule::command('timers:fire-due')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
 
 // Push de teste (página Notificações) — mesmo padrão de polling curto do timers:fire-due.
 Schedule::command('notificacoes:teste-fire-due')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
 
 // Avisa admin+técnico de torneiras abertas há mais tempo que o limite configurado.
 // Não precisa de precisão ao minuto — o limite é em horas.

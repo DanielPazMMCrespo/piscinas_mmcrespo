@@ -177,9 +177,14 @@
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-base font-semibold text-gray-950 dark:text-white">Base de Dados (Pushes Pendentes)</h3>
-                        <x-filament::button size="xs" color="gray" wire:click="forcarEnvioPendentes" icon="heroicon-m-arrow-path">
-                            Forçar Envio Manual
-                        </x-filament::button>
+                        <div class="flex gap-2">
+                            <x-filament::button size="xs" color="gray" wire:click="limparTrincos" icon="heroicon-m-key">
+                                Limpar Trincos
+                            </x-filament::button>
+                            <x-filament::button size="xs" color="gray" wire:click="forcarEnvioPendentes" icon="heroicon-m-arrow-path">
+                                Forçar Envio Manual
+                            </x-filament::button>
+                        </div>
                     </div>
                     <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getPendingPushesDebug() }}</pre>
                 </div>
