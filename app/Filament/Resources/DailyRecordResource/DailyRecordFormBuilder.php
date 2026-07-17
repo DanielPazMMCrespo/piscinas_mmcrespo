@@ -100,6 +100,22 @@ class DailyRecordFormBuilder
         return [$component];
     }
 
+    /**
+     * Agrupa campos de foto numa secção colapsável fechada por defeito.
+     * As fotos são o elemento mais alto do formulário e raramente usadas em
+     * cada registo — no telemóvel só ocupam espaço quando o técnico as expande.
+     */
+    private static function fotosSection(array $fotoFields): Forms\Components\Section
+    {
+        return Forms\Components\Section::make('Fotos (opcional)')
+            ->icon('heroicon-o-camera')
+            ->collapsible()
+            ->collapsed()
+            ->compact()
+            ->columnSpanFull()
+            ->schema(array_merge(...$fotoFields));
+    }
+
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
     {
         return $campo
@@ -218,9 +234,11 @@ class DailyRecordFormBuilder
                                                 'on_sem_agua' => 'ON sem água',
                                                 'off' => 'OFF sem água',
                                             ]),
-                                        ...self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
-                                        ...self::fotoField('contador_foto', 'Foto contador', 'contador', false, "contador_foto_{$pool->id}"),
-                                    ])->columns(['default' => 1, 'md' => 3])
+                                        self::fotosSection([
+                                            self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
+                                            self::fotoField('contador_foto', 'Foto contador', 'contador', false, "contador_foto_{$pool->id}"),
+                                        ]),
+                                    ])->columns(['default' => 2, 'sm' => 3])
                             )->toArray()
                         );
 
@@ -238,7 +256,9 @@ class DailyRecordFormBuilder
                                         Forms\Components\Textarea::make('tanque_observacoes')
                                             ->id("tanque_observacoes_{$pool->id}")
                                             ->label('Observações'),
-                                        ...self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
+                                        self::fotosSection([
+                                            self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
+                                        ]),
                                     ])
                             )->toArray()
                         );
@@ -258,7 +278,9 @@ class DailyRecordFormBuilder
                                             ->view('filament.timer-retrolavagem')
                                             ->default(3)
                                             ->visible(fn(Get $get) => $get('filtro_faz_retrolavagem')),
-                                        ...self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
+                                        self::fotosSection([
+                                            self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
+                                        ])->visible(fn(Get $get) => $get('filtro_faz_retrolavagem')),
                                     ])
                             )->toArray()
                         );
@@ -275,7 +297,9 @@ class DailyRecordFormBuilder
                                             ->id("timer_enxaguamento_{$pool->id}")
                                             ->view('filament.timer-retrolavagem')
                                             ->default(2),
-                                        ...self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
+                                        self::fotosSection([
+                                            self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
+                                        ]),
                                     ])
                             )->toArray()
                         );
@@ -317,7 +341,7 @@ class DailyRecordFormBuilder
                                                 },
                                             ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
-                                    ])->columns(['default' => 2, 'md' => 4])
+                                    ])->columns(['default' => 2, 'sm' => 4])
                             )->toArray()
                         ]);
                         
