@@ -344,27 +344,7 @@
 .mmc-hub-card-title { font-weight: 700; font-size: 1rem; color: inherit; }
 .mmc-hub-card-sub { font-size: 0.8rem; opacity: 0.65; margin-top: 0.25rem; }
 
-/* Timer Retrolavagem Styles */
-.mmc-timer-container {
-    background-color: var(--mmc-card-bg);
-    border-color: var(--mmc-card-border);
-    color: #374151; /* text-gray-700 */
-}
-.dark .mmc-timer-container {
-    color: #e5e7eb; /* text-gray-200 */
-}
-.mmc-timer-clock--normal {
-    color: #111827; /* text-gray-900 */
-}
-.dark .mmc-timer-clock--normal {
-    color: #ffffff; /* text-white */
-}
-.mmc-timer-clock--exceeded {
-    color: #dc2626; /* text-danger-600 */
-}
-.dark .mmc-timer-clock--exceeded {
-    color: #f87171; /* text-danger-400 */
-}
+
 
 /* Mobile visual adjustments, alignments, and touch targets */
 @media (max-width: 640px) {

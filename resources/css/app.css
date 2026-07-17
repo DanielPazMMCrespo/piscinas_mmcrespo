@@ -24,9 +24,7 @@ h1, h2, h3, h4, h5, h6,
 .fi-header-heading, 
 .fi-ta-header-heading, 
 .fi-section-header-heading,
-.mmc-pool-name,
-.mmc-kb-col-title,
-.mmc-kb-card-title {
+.mmc-pool-name {
     font-family: var(--font-heading) !important;
     letter-spacing: -0.02em;
 }
@@ -107,20 +105,6 @@ h1, h2, h3, h4, h5, h6,
     cursor: zoom-in !important;
 }
 
-/* Timer de retrolavagem — pill fixa no topo do formulário, estilo notificação. */
-.mmc-timer-pill {
-    background: #12213b;
-    border-radius: 12px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-}
-
-.mmc-timer-pill--terminado {
-    background: #7c1d1d;
-}
 
 /* Wizard steps wrapping layout on mobile viewports */
 .fi-fo-wizard-steps {

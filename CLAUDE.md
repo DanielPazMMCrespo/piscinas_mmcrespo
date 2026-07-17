@@ -38,7 +38,14 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-23 (Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks)
+> Última atualização: 2026-07-17 (Sessão 18 — Purga e Limpeza Completa de Código Morto)
+
+## Sessão 18 — Limpeza e Otimização Geral de Código Morto (resumo)
+- **Purga de Backend & Middlewares**: Removidos serviços órfãos (`AlertingService`, `HannaThresholdService`, `StructuredLogger`), middlewares não registados (`RequestIdMiddleware`, `SentryContextMiddleware`) e o comando debug `HannaInspectSchema`. Limpos os blocos de credenciais `'slack'` e `'gemini'` em `config/services.php`.
+- **Eliminação de Vistas Legadas**: Apagado o ficheiro `welcome.blade.php` (a raiz redireciona para `/admin`), componentes órfãos (`daily-record-action.blade.php`, `daily-record-wizard-submit.blade.php`, `estilos-mobile.blade.php`, `sticky-logo.blade.php`, `topbar-saudacao.blade.php`, `forms/components/timer-retrolavagem.blade.php`) e a pasta de passos do wizard Livewire apagado (`registo-diario-passos/`).
+- **Remoção de Seeders Inativos & Configs**: Removidos os seeders `AppSettingsSeeder`, `CompeticaoSeeder`, `DemoRegistosDiariosSeeder`, `InfantilSeeder`, `LazerSeeder`, `MaceiraDailyRecordsSeeder`, `StockArmazemSeeder`, os dumps SQL correspondentes e ficheiros de configuração inativos (`alerting.php`, `prometheus.php`).
+- **Limpeza de Assets (JS & CSS)**: Removido o componente Alpine `mmcKanban` do `app.js` e a dependência `sortablejs` do `package.json`. Expurgada a função inativa `setupAutoScroll` de `app.js`. Purga de seletores mortos nos ficheiros `app.css` e `widgets.css` associados a estes componentes.
+- **Validação**: Testes unitários/funcionais (308 testes) a passar com sucesso. Compilação Vite bem-sucedida e otimizada (npm run build).
 
 ## Sessão 17 — Fotos R2 + Upload Mobile + Lightbox (resumo)
 - **Cloudflare R2 para fotos persistentes**: Railway tem filesystem efémero — ficheiros perdem-se no deploy. Integrado R2 (S3-compatible) via `league/flysystem-aws-s3-v3`. Disco `r2` configurado em `config/filesystems.php`. Todos os 8 campos `FileUpload` e `ImageEntry` do `DailyRecordResource` usam `->disk('r2')`.
