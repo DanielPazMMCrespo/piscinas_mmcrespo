@@ -3,6 +3,7 @@ namespace App\Filament\Pages;
 
 
 use App\Models\Installation;
+use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
@@ -79,8 +80,8 @@ class RelatorioPdf extends Page implements HasForms
             ],
             'seccoes_visiveis' => [
                 'mostrar_resumo', 'mostrar_controlador_grafico',
-                'mostrar_controlador_tabela', 'mostrar_assinaturas',
-                'mostrar_nota_legal',
+                'mostrar_controlador_tabela', 'mostrar_acoes_operacionais',
+                'mostrar_assinaturas', 'mostrar_nota_legal',
             ],
         ]);
     }
@@ -152,7 +153,7 @@ class RelatorioPdf extends Page implements HasForms
                             ->hidden(fn (Get $get) => 
                                 $get('registo_modo') === 'todos' &&
                                 count($get('colunas_visiveis') ?? []) === 13 &&
-                                count($get('seccoes_visiveis') ?? []) === 5
+                                count($get('seccoes_visiveis') ?? []) === 6
                             )
                             ->columnSpanFull()
                             ->content(new HtmlString('
@@ -201,6 +202,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_resumo' => 'Resumo da conformidade da piscina',
                                 'mostrar_controlador_grafico' => 'Gráfico do controlador Hanna BL132',
                                 'mostrar_controlador_tabela' => 'Tabela do controlador Hanna BL132',
+                                'mostrar_acoes_operacionais' => 'Ações operacionais (torneira, filtro, contador, etc.)',
                                 'mostrar_assinaturas' => 'Área de assinaturas',
                                 'mostrar_nota_legal' => 'Nota legal de rodapé',
                             ])
@@ -275,9 +277,19 @@ class RelatorioPdf extends Page implements HasForms
             ->get()
             ->groupBy('pool_id');
 
+        // Ações operacionais no período, agrupadas por piscina — justificam
+        // valores anómalos do livro sanitário (ex.: lavagem de filtro).
+        $acoesOperacionais = OperationalAction::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->with('utilizador')
+            ->orderBy('registado_em')
+            ->get()
+            ->groupBy('pool_id');
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador, $modo): array {
+        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador, $acoesOperacionais, $modo): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina'])
                 ->whereBetween('registado_em', [$inicio, $fim])
@@ -339,6 +351,7 @@ class RelatorioPdf extends Page implements HasForms
                 'piscina' => $piscina,
                 'registos' => $registos,
                 'controlador' => $leiturasControlador->get($piscina->id) ?? collect(),
+                'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
             ];
         })->all();
 

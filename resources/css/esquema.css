@@ -445,6 +445,19 @@
 .mmc-esq__cta:hover {
     background: var(--mmc-cta-hover-bg, #e2f1fa);
 }
+.mmc-esq__ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.mmc-esq__cta--secundario {
+    background: transparent;
+    border-color: var(--mmc-esq-tab-bg);
+    color: var(--mmc-esq-texto-suave);
+}
+.mmc-esq__cta--secundario:hover {
+    background: var(--mmc-esq-tab-bg);
+}
 .mmc-esq__dica {
     font-size: 0.875rem;
     color: var(--mmc-esq-texto-suave);

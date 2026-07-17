@@ -210,6 +210,8 @@
             $registos = $seccao['registos'];
             /** @var \Illuminate\Support\Collection $controlador */
             $controlador = $seccao['controlador'];
+            /** @var \Illuminate\Support\Collection<int, \App\Models\OperationalAction> $acoesOperacionais */
+            $acoesOperacionais = $seccao['acoes_operacionais'] ?? collect();
 
             // Conformidade global por registo: pH, cloro livre, cloro combinado
             // (limites legais do model) e temperatura (limites próprios da piscina).
@@ -609,6 +611,46 @@
                     | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
                 </p>
                 @endif
+            @endif
+
+            {{-- ================================================================
+                 Ações Operacionais — eventos pontuais (torneira, filtro, contador,
+                 bomba, tanque, análise rápida) que podem justificar valores fora
+                 dos limites legais no período.
+                 ================================================================ --}}
+            @if ($acoesOperacionais->isNotEmpty() && in_array('mostrar_acoes_operacionais', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Ações Operacionais
+                    <span class="controlador-subtitulo">(eventos pontuais registados fora do registo diário completo)</span>
+                </p>
+                <table class="registos">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Hora</th>
+                            <th>Ação</th>
+                            <th>Responsável</th>
+                            <th>Valores</th>
+                            <th>Observações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($acoesOperacionais as $acao)
+                            <tr>
+                                <td>{{ $acao->registado_em->format('d/m/Y') }}</td>
+                                <td>{{ $acao->registado_em->format('H:i') }}</td>
+                                <td class="texto">{{ $acao->tipoLabel() }}</td>
+                                <td class="texto">{{ $acao->utilizador?->name ?? '—' }}</td>
+                                <td class="texto">
+                                    @if (! empty($acao->dados))
+                                        {{ collect($acao->dados)->map(fn ($v, $k) => "{$k}: {$v}")->implode(' | ') }}
+                                    @else — @endif
+                                </td>
+                                <td class="texto">{{ filled($acao->observacoes) ? \Illuminate\Support\Str::limit((string) $acao->observacoes, 80) : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             @endif
 
         </div>

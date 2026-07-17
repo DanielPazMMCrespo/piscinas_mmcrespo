@@ -45,7 +45,11 @@
                         Torneira de água aberta desde {{ $torneira['desde'] }}
                         ({{ $torneira['desde_humano'] }})@if ($torneira['aberta_por']) — registado por {{ $torneira['aberta_por'] }}@endif
                     </span>
-                    <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__alerta-cta">Registar fecho</a>
+                    @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                        <a href="{{ $esquema['url_acoes_rapidas']['torneira'] }}" class="mmc-esq__alerta-cta">Fechar torneira</a>
+                    @else
+                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__alerta-cta">Registar fecho</a>
+                    @endif
                 </div>
             @endif
 
@@ -258,7 +262,15 @@
                                 <div><dt>Foto</dt><dd><a href="{{ $torneira['contador_foto'] }}" class="glightbox mmc-esq__link">Ver foto do contador</a></dd></div>
                             @endif
                         </dl>
-                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">{{ $torneiraAberta ? 'Registar fecho' : 'Novo registo' }}</a>
+                        <div class="mmc-esq__ctas">
+                            @can('create', \App\Models\DailyRecord::class)
+                                <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">{{ $torneiraAberta ? 'Registar fecho (completo)' : 'Novo registo' }}</a>
+                            @endcan
+                            @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                <a href="{{ $esquema['url_acoes_rapidas']['torneira'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">{{ $torneiraAberta ? 'Só fechar torneira' : 'Só alterar torneira' }}</a>
+                                <a href="{{ $esquema['url_acoes_rapidas']['contador'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Só ler contador</a>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="mmc-esq__detalhe" x-show="aberto === 'piscina'" x-cloak>
@@ -282,7 +294,14 @@
                                 </ul>
                             </div>
                         @endif
-                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                        <div class="mmc-esq__ctas">
+                            @can('create', \App\Models\DailyRecord::class)
+                                <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                            @endcan
+                            @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                <a href="{{ $esquema['url_acoes_rapidas']['agua'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Só análise rápida</a>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="mmc-esq__detalhe" x-show="aberto === 'bomba'" x-cloak>
@@ -304,7 +323,14 @@
                                 <div><dt>Foto</dt><dd><a href="{{ $bomba['foto'] }}" class="glightbox mmc-esq__link">Ver foto da bomba</a></dd></div>
                             @endif
                         </dl>
-                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                        <div class="mmc-esq__ctas">
+                            @can('create', \App\Models\DailyRecord::class)
+                                <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                            @endcan
+                            @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                <a href="{{ $esquema['url_acoes_rapidas']['bomba'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Só bomba</a>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="mmc-esq__detalhe" x-show="aberto === 'filtro'" x-cloak>
@@ -312,7 +338,14 @@
                         <dl class="mmc-esq__detalhe-grelha">
                             <div><dt>Última retrolavagem</dt><dd>{{ $filtro['ultima_lavagem'] ?? '—' }}@if ($filtro['lavado_hoje']) <span class="mmc-esq__tag mmc-esq__tag--azul">hoje</span>@endif</dd></div>
                         </dl>
-                        <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                        <div class="mmc-esq__ctas">
+                            @can('create', \App\Models\DailyRecord::class)
+                                <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                            @endcan
+                            @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                <a href="{{ $esquema['url_acoes_rapidas']['filtro'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Só lavagem de filtro</a>
+                            @endif
+                        </div>
                     </div>
 
                     @if ($tanque)
@@ -338,7 +371,14 @@
                                     <div><dt>Foto</dt><dd><a href="{{ $tanque['foto'] }}" class="glightbox mmc-esq__link">Ver foto do tanque</a></dd></div>
                                 @endif
                             </dl>
-                            <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                            <div class="mmc-esq__ctas">
+                                @can('create', \App\Models\DailyRecord::class)
+                                    <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>
+                                @endcan
+                                @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                    <a href="{{ $esquema['url_acoes_rapidas']['tanque'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Só tanque</a>
+                                @endif
+                            </div>
                         </div>
                     @endif
 

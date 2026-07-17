@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
+use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
 use App\Models\FilterCheck;
 use App\Models\HannaDevice;
@@ -146,6 +147,27 @@ class EsquemaPiscina extends Page
             'agua' => $agua,
             'justificacoes' => $agua['algum_mau'] ? $this->justificacoes($acoes) : [],
             'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
+            'url_acoes_rapidas' => $this->urlsAcoesRapidas($piscina),
+        ];
+    }
+
+    /**
+     * URL de ação rápida por componente do esquema: permite registar só aquela
+     * parte (ex.: "só fechar a torneira") sem preencher o registo diário completo.
+     *
+     * @return array<string, string>
+     */
+    private function urlsAcoesRapidas(Pool $piscina): array
+    {
+        $criar = fn (string $tipo) => OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => $tipo]);
+
+        return [
+            'torneira' => $criar(OperationalAction::TIPO_TORNEIRA),
+            'contador' => $criar(OperationalAction::TIPO_CONTADOR),
+            'bomba' => $criar(OperationalAction::TIPO_BOMBA),
+            'filtro' => $criar(OperationalAction::TIPO_LAVAGEM_FILTRO),
+            'tanque' => $criar(OperationalAction::TIPO_TANQUE),
+            'agua' => $criar(OperationalAction::TIPO_ANALISE_PONTUAL),
         ];
     }
 
