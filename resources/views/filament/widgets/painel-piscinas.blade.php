@@ -145,6 +145,17 @@
                                     Registar
                                 </a>
                             @endcan
+
+                            @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                                <div class="mmc-pool-quick-actions">
+                                    @foreach ($item['acoes_rapidas'] as $acao)
+                                        <a href="{{ $acao['url'] }}" class="mmc-pool-quick-action">
+                                            <x-filament::icon :icon="$acao['icon']" class="mmc-pool-quick-action-icon" />
+                                            {{ $acao['label'] }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @empty

@@ -4,8 +4,10 @@ namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
+use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
 use App\Models\HannaDevice;
+use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Services\CacheService;
 use Filament\Widgets\Widget;
@@ -242,6 +244,16 @@ class PainelPiscinasWidget extends Widget
                 'tem_dados_conformes' => $dadosApresentados !== null,
                 'controlador' => $dadosApresentados,
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
+                'acoes_rapidas' => collect([
+                    [OperationalAction::TIPO_ANALISE_PONTUAL, 'Análise rápida', 'heroicon-m-beaker'],
+                    [OperationalAction::TIPO_LAVAGEM_FILTRO, 'Lavar filtro', 'heroicon-m-funnel'],
+                    [OperationalAction::TIPO_TORNEIRA, 'Torneira', 'heroicon-m-adjustments-horizontal'],
+                    [OperationalAction::TIPO_CONTADOR, 'Contador', 'heroicon-m-calculator'],
+                ])->map(fn (array $a) => [
+                    'label' => $a[1],
+                    'icon' => $a[2],
+                    'url' => OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => $a[0]]),
+                ])->all(),
             ];
         });
 

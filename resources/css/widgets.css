@@ -175,6 +175,29 @@
 .mmc-pool-detail-cta:hover { background: var(--mmc-cta-hover-bg); }
 .mmc-pool-detail-cta-icon { width: 0.9rem; height: 0.9rem; }
 
+.mmc-pool-quick-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+}
+.mmc-pool-quick-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--mmc-cta-color);
+    background: var(--mmc-cta-bg);
+    border: 1px solid var(--mmc-cta-border);
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.4rem;
+    text-decoration: none;
+    min-height: 44px;
+}
+.mmc-pool-quick-action:hover { background: var(--mmc-cta-hover-bg); }
+.mmc-pool-quick-action-icon { width: 0.9rem; height: 0.9rem; }
+
 /* =====================================================================
  * Tabela de Registos Diários (lista)
  * ===================================================================== */
