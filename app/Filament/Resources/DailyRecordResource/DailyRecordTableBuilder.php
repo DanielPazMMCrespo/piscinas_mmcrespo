@@ -99,137 +99,139 @@ class DailyRecordTableBuilder
                     ->placeholder('Todos os registos')
                     ->trueLabel('Apenas correções')
                     ->falseLabel('Apenas registos originais'),
-            ])
+            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->extraModalFooterActions([
-                        Tables\Actions\Action::make('ir_para_edicao')
-                            ->label('Editar')
-                            ->icon('heroicon-o-pencil')
-                            ->color('gray')
-                            ->url(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record])),
-                    ]),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\Action::make('corrigir')
-                    ->label('Corrigir')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->visible(function (DailyRecord $record): bool {
-                        if ($record->e_correcao || ($record->correcoes_count ?? 0) > 0) {
-                            return false;
-                        }
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->extraModalFooterActions([
+                            Tables\Actions\Action::make('ir_para_edicao')
+                                ->label('Editar')
+                                ->icon('heroicon-o-pencil')
+                                ->color('gray')
+                                ->url(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record])),
+                        ]),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\Action::make('corrigir')
+                        ->label('Corrigir')
+                        ->icon('heroicon-o-pencil-square')
+                        ->color('warning')
+                        ->visible(function (DailyRecord $record): bool {
+                            if ($record->e_correcao || ($record->correcoes_count ?? 0) > 0) {
+                                return false;
+                            }
 
-                        $user = auth()->user();
-                        if ($user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-                            return true;
-                        }
+                            $user = auth()->user();
+                            if ($user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+                                return true;
+                            }
 
-                        return $user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id;
-                    })
-                    ->modalHeading('Corrigir registo')
-                    ->modalDescription('Cria um novo registo de correção ligado ao original. O original mantém-se inalterado, como exige o livro sanitário.')
-                    ->modalSubmitActionLabel('Registar correção')
-                    ->fillForm(fn (DailyRecord $record): array => $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
-                        ? [
-                            'ns_ph' => $record->ns_ph,
-                            'ns_cloro_livre' => $record->ns_cloro_livre,
-                            'ns_cloro_total' => $record->ns_cloro_total,
-                            'ns_temperatura' => $record->ns_temperatura,
-                        ]
-                        : [
-                            'ph' => $record->ph,
-                            'cloro_livre' => $record->cloro_livre,
-                            'cloro_total' => $record->cloro_total,
-                        ])
-                    ->form(fn (DailyRecord $record): array => $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
-                        ? [
-                            Forms\Components\TextInput::make('ns_ph')
-                                ->label('pH')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
-                            Forms\Components\TextInput::make('ns_cloro_livre')
-                                ->label('Cloro Livre (mg/L)')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
-                            Forms\Components\TextInput::make('ns_cloro_total')
-                                ->label('Cloro Total (mg/L)')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                                ->rules([
-                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
-                                            $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                        }
-                                    },
-                                ]),
-                            Forms\Components\TextInput::make('ns_temperatura')
-                                ->label('Temperatura (°C)')
-                                ->required()->numeric()->step(0.01),
-                            Forms\Components\Textarea::make('razao_correcao')
-                                ->label('Razão da correção')
-                                ->required()
-                                ->minLength(5)
-                                ->columnSpanFull(),
-                        ]
-                        : [
-                            Forms\Components\TextInput::make('ph')
-                                ->label('pH')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
-                            Forms\Components\TextInput::make('cloro_livre')
-                                ->label('Cloro Livre (mg/L)')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
-                            Forms\Components\TextInput::make('cloro_total')
-                                ->label('Cloro Total (mg/L)')
-                                ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                                ->rules([
-                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
-                                            $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                        }
-                                    },
-                                ]),
-                            Forms\Components\Textarea::make('razao_correcao')
-                                ->label('Razão da correção')
-                                ->required()
-                                ->minLength(5)
-                                ->columnSpanFull(),
-                        ])
-                    ->action(function (DailyRecord $record, array $data): void {
-                        $user = auth()->user();
-                        $podeCorrigir = $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])
-                            || ($user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id);
+                            return $user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id;
+                        })
+                        ->modalHeading('Corrigir registo')
+                        ->modalDescription('Cria um novo registo de correção ligado ao original. O original mantém-se inalterado, como exige o livro sanitário.')
+                        ->modalSubmitActionLabel('Registar correção')
+                        ->fillForm(fn (DailyRecord $record): array => $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
+                            ? [
+                                'ns_ph' => $record->ns_ph,
+                                'ns_cloro_livre' => $record->ns_cloro_livre,
+                                'ns_cloro_total' => $record->ns_cloro_total,
+                                'ns_temperatura' => $record->ns_temperatura,
+                            ]
+                            : [
+                                'ph' => $record->ph,
+                                'cloro_livre' => $record->cloro_livre,
+                                'cloro_total' => $record->cloro_total,
+                            ])
+                        ->form(fn (DailyRecord $record): array => $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
+                            ? [
+                                Forms\Components\TextInput::make('ns_ph')
+                                    ->label('pH')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
+                                Forms\Components\TextInput::make('ns_cloro_livre')
+                                    ->label('Cloro Livre (mg/L)')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                                Forms\Components\TextInput::make('ns_cloro_total')
+                                    ->label('Cloro Total (mg/L)')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                                    ->rules([
+                                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                            if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
+                                                $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                            }
+                                        },
+                                    ]),
+                                Forms\Components\TextInput::make('ns_temperatura')
+                                    ->label('Temperatura (°C)')
+                                    ->required()->numeric()->step(0.01),
+                                Forms\Components\Textarea::make('razao_correcao')
+                                    ->label('Razão da correção')
+                                    ->required()
+                                    ->minLength(5)
+                                    ->columnSpanFull(),
+                            ]
+                            : [
+                                Forms\Components\TextInput::make('ph')
+                                    ->label('pH')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(14),
+                                Forms\Components\TextInput::make('cloro_livre')
+                                    ->label('Cloro Livre (mg/L)')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
+                                Forms\Components\TextInput::make('cloro_total')
+                                    ->label('Cloro Total (mg/L)')
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
+                                    ->rules([
+                                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                            if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
+                                                $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                            }
+                                        },
+                                    ]),
+                                Forms\Components\Textarea::make('razao_correcao')
+                                    ->label('Razão da correção')
+                                    ->required()
+                                    ->minLength(5)
+                                    ->columnSpanFull(),
+                            ])
+                        ->action(function (DailyRecord $record, array $data): void {
+                            $user = auth()->user();
+                            $podeCorrigir = $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])
+                                || ($user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id);
 
-                        if (! $podeCorrigir) {
-                            Notification::make()->danger()->title('Sem permissão')->send();
-                            return;
-                        }
+                            if (! $podeCorrigir) {
+                                Notification::make()->danger()->title('Sem permissão')->send();
+                                return;
+                            }
 
-                        $isNS = $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+                            $isNS = $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
-                        DailyRecord::create([
-                            'pool_id' => $record->pool_id,
-                            'user_id' => auth()->id(),
-                            'registado_em' => $record->registado_em,
-                            'ph' => $isNS ? $record->ph : $data['ph'],
-                            'cloro_livre' => $isNS ? $record->cloro_livre : $data['cloro_livre'],
-                            'cloro_total' => $isNS ? $record->cloro_total : $data['cloro_total'],
-                            'transparencia' => $record->transparencia,
-                            'temperatura' => $record->temperatura,
-                            'ns_ph' => $isNS ? $data['ns_ph'] : $record->ns_ph,
-                            'ns_cloro_livre' => $isNS ? $data['ns_cloro_livre'] : $record->ns_cloro_livre,
-                            'ns_cloro_total' => $isNS ? $data['ns_cloro_total'] : $record->ns_cloro_total,
-                            'ns_temperatura' => $isNS ? $data['ns_temperatura'] : $record->ns_temperatura,
-                            'caleira_feita' => $record->caleira_feita,
-                            'renovacao_agua' => $record->renovacao_agua,
-                            'observacoes' => $record->observacoes,
-                            'e_correcao' => true,
-                            'corrige_registo_id' => $record->id,
-                            'razao_correcao' => $data['razao_correcao'],
-                        ]);
+                            DailyRecord::create([
+                                'pool_id' => $record->pool_id,
+                                'user_id' => auth()->id(),
+                                'registado_em' => $record->registado_em,
+                                'ph' => $isNS ? $record->ph : $data['ph'],
+                                'cloro_livre' => $isNS ? $record->cloro_livre : $data['cloro_livre'],
+                                'cloro_total' => $isNS ? $record->cloro_total : $data['cloro_total'],
+                                'transparencia' => $record->transparencia,
+                                'temperatura' => $record->temperatura,
+                                'ns_ph' => $isNS ? $data['ns_ph'] : $record->ns_ph,
+                                'ns_cloro_livre' => $isNS ? $data['ns_cloro_livre'] : $record->ns_cloro_livre,
+                                'ns_cloro_total' => $isNS ? $data['ns_cloro_total'] : $record->ns_cloro_total,
+                                'ns_temperatura' => $isNS ? $data['ns_temperatura'] : $record->ns_temperatura,
+                                'caleira_feita' => $record->caleira_feita,
+                                'renovacao_agua' => $record->renovacao_agua,
+                                'observacoes' => $record->observacoes,
+                                'e_correcao' => true,
+                                'corrige_registo_id' => $record->id,
+                                'razao_correcao' => $data['razao_correcao'],
+                            ]);
 
-                        Notification::make()
-                            ->success()
-                            ->title('Correção registada')
-                            ->body('O registo original foi mantido e a correção ficou associada.')
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->success()
+                                ->title('Correção registada')
+                                ->body('O registo original foi mantido e a correção ficou associada.')
+                                ->send();
+                        }),
+                ])
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

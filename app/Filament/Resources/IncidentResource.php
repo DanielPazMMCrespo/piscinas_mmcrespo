@@ -127,102 +127,99 @@ class IncidentResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'utilizador']))
             ->columns([
-                Tables\Columns\TextColumn::make('instalacao.name')
-                    ->label('Instalação')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('utilizador.name')
-                    ->label('Técnico/NS')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('type')
-                    ->label('Tipo')
-                    ->badge()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Estado')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => $state === 'resolvido' ? 'Resolvido' : 'Aberto')
-                    ->color(fn (?string $state): string => $state === 'resolvido' ? 'success' : 'danger')
-                    ->icon(fn (?string $state): string => $state === 'resolvido' ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-circle'),
-                Tables\Columns\TextColumn::make('ocorreu_em')
-                    ->label('Data/Hora')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('resolvido_em')
-                    ->label('Resolvido em')
-                    ->dateTime('d/m/Y H:i')
-                    ->placeholder('—')
-                    ->color('gray')
-                    ->sortable()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Criado em')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Atualizado em')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\Layout\Split::make([
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('instalacao.name')
+                            ->label('Instalação')
+                            ->weight('bold')
+                            ->sortable()
+                            ->searchable(),
+                        Tables\Columns\TextColumn::make('ocorreu_em')
+                            ->label('Data/Hora')
+                            ->dateTime('d/m/Y H:i')
+                            ->color('gray')
+                            ->size('sm')
+                            ->sortable(),
+                        Tables\Columns\TextColumn::make('utilizador.name')
+                            ->label('Técnico/NS')
+                            ->color('gray')
+                            ->size('sm')
+                            ->icon('heroicon-m-user')
+                            ->sortable(),
+                    ])->space(1),
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('type')
+                            ->label('Tipo')
+                            ->badge()
+                            ->searchable(),
+                        Tables\Columns\TextColumn::make('status')
+                            ->label('Estado')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state === 'resolvido' ? 'Resolvido' : 'Aberto')
+                            ->color(fn (?string $state): string => $state === 'resolvido' ? 'success' : 'danger')
+                            ->icon(fn (?string $state): string => $state === 'resolvido' ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-circle'),
+                    ])->space(1),
+                ])->from('md'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Estado')
                     ->options(['aberto' => 'Aberto', 'resolvido' => 'Resolvido'])
                     ->default('aberto'),
-            ])
+            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
             ->actions([
-                Tables\Actions\Action::make('resolver')
-                    ->label('Resolver')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (Incident $record): bool => $record->status !== 'resolvido' && auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]))
-                    ->modalHeading('Resolver incidente')
-                    ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
-                    ->modalSubmitActionLabel('Marcar como resolvido')
-                    ->form([
-                        Forms\Components\Textarea::make('resolucao')
-                            ->label('Resolução aplicada')
-                            ->required()
-                            ->minLength(5)
-                            ->rows(3),
-                    ])
-                    ->action(function (Incident $record, array $data): void {
-                        if (! auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-                            Notification::make()->danger()->title('Sem permissão')->send();
-                            return;
-                        }
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('resolver')
+                        ->label('Resolver')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (Incident $record): bool => $record->status !== 'resolvido' && auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]))
+                        ->modalHeading('Resolver incidente')
+                        ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
+                        ->modalSubmitActionLabel('Marcar como resolvido')
+                        ->form([
+                            Forms\Components\Textarea::make('resolucao')
+                                ->label('Resolução aplicada')
+                                ->required()
+                                ->minLength(5)
+                                ->rows(3),
+                        ])
+                        ->action(function (Incident $record, array $data): void {
+                            if (! auth()->user()->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+                                Notification::make()->danger()->title('Sem permissão')->send();
+                                return;
+                            }
 
-                        $record->update([
-                            'status' => 'resolvido',
-                            'resolvido_em' => now(),
-                            'resolvido_por' => auth()->id(),
-                            'resolucao' => $data['resolucao'],
-                        ]);
+                            $record->update([
+                                'status' => 'resolvido',
+                                'resolvido_em' => now(),
+                                'resolvido_por' => auth()->id(),
+                                'resolucao' => $data['resolucao'],
+                            ]);
 
-                        $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
+                            $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
 
-                        \App\Models\IncidentMessage::create([
-                            'incident_id' => $record->id,
-                            'user_id' => auth()->id(),
-                            'tipo' => \App\Models\IncidentMessage::TIPO_SISTEMA,
-                            'texto' => $texto,
-                        ]);
+                            \App\Models\IncidentMessage::create([
+                                'incident_id' => $record->id,
+                                'user_id' => auth()->id(),
+                                'tipo' => \App\Models\IncidentMessage::TIPO_SISTEMA,
+                                'texto' => $texto,
+                            ]);
 
                         \Illuminate\Support\Facades\Notification::send(
                             $record->participantes(excluir: auth()->user()),
                             new \App\Notifications\IncidentMessageNotification($record, auth()->user(), $texto)
                         );
 
-                        Notification::make()
-                            ->success()
-                            ->title('Incidente resolvido')
-                            ->body('Saiu do quadro de operação.')
-                            ->send();
-                    }),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                            Notification::make()
+                                ->success()
+                                ->title('Incidente resolvido')
+                                ->body('Saiu do quadro de operação.')
+                                ->send();
+                        }),
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                ])
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

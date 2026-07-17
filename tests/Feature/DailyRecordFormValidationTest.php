@@ -161,6 +161,7 @@ class DailyRecordFormValidationTest extends TestCase
                 $this->competicao->id => [
                     'ns_ph' => 8.5, // Fora do limite
                     'ns_cloro_livre' => 1.2,
+                    'ns_cloro_total' => 1.5,
                     'ns_temperatura' => 27.0,
                 ]
             ]
@@ -171,13 +172,16 @@ class DailyRecordFormValidationTest extends TestCase
         $method->setAccessible(true);
         $actions = $method->invoke($page);
 
-        // A primeira ação é 'create'
-        $createAction = $actions[0];
-        $view = $createAction->getModalContent();
+        // Procurar a ação 'confirmarCriacao'
+        $confirmAction = collect($actions)->first(fn ($action) => $action->getName() === 'confirmarCriacao');
+        $view = $confirmAction->getModalContent();
         
         $viewData = $view->getData();
         
-        $this->assertNotEmpty($viewData['problemas']);
-        $this->assertStringContainsString('pH 8,5 — acima do máximo (8)', $viewData['problemas'][0]);
+        $this->assertNotEmpty($viewData['valores']);
+        $this->assertEquals('Competição', $viewData['valores'][0]['piscina']);
+        $this->assertEquals(8.5, $viewData['valores'][0]['ph']);
+        $this->assertEquals(1.2, $viewData['valores'][0]['cloro_livre']);
+        $this->assertEquals(27.0, $viewData['valores'][0]['temperatura']);
     }
 }

@@ -380,7 +380,7 @@ class DailyRecordFormBuilder
                                                             };
                                                         },
                                                     ]),
-                                            ])->columns(2),
+                                            ])->columns(['default' => 1, 'sm' => 2]),
                                         Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                                     ])
                             )->toArray()
