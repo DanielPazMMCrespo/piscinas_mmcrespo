@@ -62,7 +62,7 @@ php artisan filament:optimize || true
 php artisan schedule:clear-cache || true
 
 # --- 5. Start scheduler in background (runs schedule:run every minute) ---
-(while true; do php artisan schedule:run; sleep 60; done) &
+(while true; do php artisan schedule:run & sleep 60; done) &
 echo "[entrypoint] scheduler started (resilient bash loop, PID $!)"
 
 # --- 6. Start php-fpm in background ---
