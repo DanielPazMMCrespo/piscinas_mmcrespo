@@ -159,6 +159,26 @@ class Notificacoes extends Page implements HasForms, HasTable
         return "❌ Inativo (Agendador não detetado). Processos ativos no contentor:\n\n" . implode("\n", $processes);
     }
 
+    public function getPendingPushesDebug(): string
+    {
+        try {
+            $pushes = TestPush::whereNull('sent_at')->get();
+            if ($pushes->isEmpty()) {
+                return 'Nenhum push de teste pendente na base de dados (ou já foram todos disparados/enviados).';
+            }
+            
+            $now = \Carbon\Carbon::now();
+            $out = "Pushes pendentes:\n";
+            foreach ($pushes as $p) {
+                $status = $p->fire_at <= $now ? 'VENCIDO (devia ter disparado)' : 'AGENDADO PARA O FUTURO';
+                $out .= "• ID {$p->id}: fire_at='{$p->fire_at}' (agora é '{$now}') -> {$status}\n";
+            }
+            return $out;
+        } catch (\Exception $e) {
+            return 'Erro ao ler pushes pendentes: ' . $e->getMessage();
+        }
+    }
+
     private static function rotulosCargos(): array
     {
         return [

@@ -169,9 +169,15 @@
             </div>
 
             {{-- Diagnóstico do Agendador --}}
-            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl mt-6">
-                <h3 class="text-base font-semibold text-gray-950 dark:text-white mb-2">Diagnóstico do Agendador (Scheduler)</h3>
-                <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getSchedulerStatus() }}</pre>
+            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl mt-6 space-y-4">
+                <div>
+                    <h3 class="text-base font-semibold text-gray-950 dark:text-white mb-2">Diagnóstico do Agendador (Scheduler)</h3>
+                    <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getSchedulerStatus() }}</pre>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-950 dark:text-white mb-2">Base de Dados (Pushes Pendentes)</h3>
+                    <pre class="text-xs font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded overflow-auto max-h-60 text-gray-800 dark:text-gray-200">{{ $this->getPendingPushesDebug() }}</pre>
+                </div>
             </div>
         </div>
     @endif
