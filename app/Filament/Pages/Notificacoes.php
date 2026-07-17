@@ -131,6 +131,27 @@ class Notificacoes extends Page implements HasForms, HasTable
         }
     }
 
+    public function getSchedulerStatus(): string
+    {
+        if (! function_exists('shell_exec')) {
+            return 'shell_exec desativado no PHP';
+        }
+        
+        $ps = shell_exec('ps aux 2>&1') ?? '';
+        
+        $running = str_contains($ps, 'schedule:') || str_contains($ps, 'sleep 60') || str_contains($ps, 'artisan schedule');
+        
+        if ($running) {
+            return '✅ Ativo (Loop de agendamento detetado em background)';
+        }
+        
+        // Vamos mostrar os primeiros 10 processos para ajudar a diagnosticar o comando de arranque real
+        $lines = explode("\n", trim($ps));
+        $processes = array_slice($lines, 0, 15);
+        
+        return '❌ Inativo (Agendador não detetado). Processos ativos no contentor:' . "\n\n" . implode("\n", $processes);
+    }
+
     private static function rotulosCargos(): array
     {
         return [
