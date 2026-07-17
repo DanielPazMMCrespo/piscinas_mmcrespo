@@ -74,29 +74,56 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Zona de testes</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Cada botão agenda um push de teste para chegar daqui a ~5 segundos — bloqueia o ecrã depois de clicar.
+                        Escolhe o tipo, ajusta o título/mensagem se quiseres, e envia — chega daqui a ~5 segundos
+                        (bloqueia o ecrã depois de clicar).
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    @php
-                        $rotulos = [
-                            'incidente' => 'Novo incidente',
-                            'mensagem' => 'Mensagem de incidente',
-                            'timer' => 'Timer terminado',
-                            'fora_limites' => 'Fora dos limites',
-                            'torneira' => 'Torneira aberta',
-                            'resumo' => 'Resumo de conformidade',
-                        ];
-                    @endphp
-                    @foreach($this->tiposDeTeste() as $tipo)
-                        <x-filament::button
-                            color="gray"
-                            size="sm"
-                            wire:click="testar('{{ $tipo }}')"
+
+                @php
+                    $rotulos = [
+                        'incidente' => 'Novo incidente',
+                        'mensagem' => 'Mensagem de incidente',
+                        'timer' => 'Timer terminado',
+                        'fora_limites' => 'Fora dos limites',
+                        'torneira' => 'Torneira aberta',
+                        'resumo' => 'Resumo de conformidade',
+                    ];
+                @endphp
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                        <select
+                            wire:model.live="tipoSelecionado"
+                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
                         >
-                            {{ $rotulos[$tipo] ?? $tipo }}
-                        </x-filament::button>
-                    @endforeach
+                            @foreach($this->tiposDeTeste() as $tipo)
+                                <option value="{{ $tipo }}">{{ $rotulos[$tipo] ?? $tipo }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Título</label>
+                        <input
+                            type="text"
+                            wire:model="tituloTeste"
+                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
+                        <textarea
+                            wire:model="corpoTeste"
+                            rows="2"
+                            class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
+                        ></textarea>
+                    </div>
+
+                    <x-filament::button color="primary" size="sm" wire:click="testar" icon="heroicon-m-paper-airplane">
+                        Enviar teste
+                    </x-filament::button>
                 </div>
             </div>
         @endif

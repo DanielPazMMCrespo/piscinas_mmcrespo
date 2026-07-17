@@ -44,7 +44,7 @@ class FireDueTestPushesCommand extends Command
             ->with('user')
             ->get()
             ->each(function (TestPush $teste): void {
-                $teste->user?->notify(new TestPushNotification($teste->tipo));
+                $teste->user?->notify(new TestPushNotification($teste->tipo, $teste->titulo, $teste->corpo));
                 $teste->update(['sent_at' => Carbon::now()]);
             });
     }
