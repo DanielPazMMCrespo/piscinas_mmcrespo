@@ -53,3 +53,9 @@ Schedule::command('torneiras:verificar-abertas')
 Schedule::command('notificacoes:resumo-conformidade')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Anúncios personalizados (Notificações Personalizadas) — únicos e diários.
+// Precisa de granularidade ao minuto; o próprio comando faz o dedup.
+Schedule::command('notificacoes:custom-fire-due')
+    ->everyMinute()
+    ->withoutOverlapping();
