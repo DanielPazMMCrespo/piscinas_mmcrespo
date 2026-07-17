@@ -905,18 +905,24 @@ const setupFormDraft = () => {
             }
         }
 
+        const saveDraft = () => {
+            const currentData = component.get('data');
+            if (currentData) {
+                localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
+            }
+        };
+
         // 2. Save on every keystroke, regardless of which form/widget the input lives in
         // (events bubble to document, so this doesn't depend on DOM scoping).
         let debounceTimeout;
         document.addEventListener('input', () => {
             clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-                const currentData = component.get('data');
-                if (currentData) {
-                    localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
-                }
-            }, 500);
+            debounceTimeout = setTimeout(saveDraft, 500);
         });
+
+        // 3. Safety net: FilePond (fotos), Select2/choices.js and repeater add/remove
+        // don't always fire a native 'input' event, so poll as a fallback.
+        setInterval(saveDraft, 3000);
     };
 
     findAndRestore();
