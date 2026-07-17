@@ -150,6 +150,22 @@ class AppSettingsSeeder extends Seeder
                 'type' => 'number',
                 'description' => 'Número de dias após os quais estados de alerta antigos são limpos',
             ],
+            [
+                'key' => 'torneira_aberta_horas_aviso',
+                'value' => 4,
+                'group' => 'operacional',
+                'label' => 'Aviso de Torneira Aberta (Horas)',
+                'type' => 'number',
+                'description' => 'Horas com a torneira aberta até enviar notificação push a admin/técnico',
+            ],
+            [
+                'key' => 'digest_conformidade_horas',
+                'value' => ['08:00', '13:00', '18:00'],
+                'group' => 'operacional',
+                'label' => 'Horários do Resumo de Conformidade',
+                'type' => 'array',
+                'description' => 'Horas (HH:MM) a que é enviado o resumo de piscinas não conformes, caso existam. Lista vazia desliga o resumo.',
+            ],
 
             // Polling e Cache
             [

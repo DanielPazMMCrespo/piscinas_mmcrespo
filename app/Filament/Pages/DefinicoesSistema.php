@@ -8,6 +8,7 @@ use App\Services\SettingsService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Form;
@@ -114,6 +115,15 @@ class DefinicoesSistema extends Page
                             ->label('Validade do Convite (Horas)')
                             ->numeric()
                             ->helperText('Quanto tempo o link do convite demora a expirar. (Padrão: 48)'),
+                        TextInput::make('torneira_aberta_horas_aviso')
+                            ->label('Aviso de Torneira Aberta (Horas)')
+                            ->numeric()
+                            ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
+                        TagsInput::make('digest_conformidade_horas')
+                            ->label('Horários do Resumo de Conformidade')
+                            ->placeholder('HH:MM')
+                            ->helperText('Horas (formato HH:MM) a que é enviado o resumo de piscinas não conformes, caso existam. Lista vazia desliga o resumo.')
+                            ->columnSpanFull(),
                     ]),
 
 
