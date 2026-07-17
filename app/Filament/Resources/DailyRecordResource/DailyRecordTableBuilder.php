@@ -26,6 +26,7 @@ class DailyRecordTableBuilder
                 ->withCount('correcoes')
             )
             ->defaultSort('registado_em', 'desc')
+            ->recordUrl(null)
             ->recordAction('view')
             ->columns([
                 Tables\Columns\TextColumn::make('piscina.name')
