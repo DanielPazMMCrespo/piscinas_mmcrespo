@@ -48,19 +48,13 @@
     ]
   },
   "node_modules/gsap/index.js": {
-    "file": "assets/index-D4-8ALNT.js",
+    "file": "assets/index-CgAXP8uT.js",
     "name": "index",
     "src": "node_modules/gsap/index.js",
     "isDynamicEntry": true
   },
-  "node_modules/sortablejs/modular/sortable.esm.js": {
-    "file": "assets/sortable.esm-DWxD2osx.js",
-    "name": "sortable.esm",
-    "src": "node_modules/sortablejs/modular/sortable.esm.js",
-    "isDynamicEntry": true
-  },
   "resources/css/app.css": {
-    "file": "assets/app-BYdSe8iA.css",
+    "file": "assets/app-KE29KNhf.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -69,7 +63,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-D5OlWhlh.js",
+    "file": "assets/app-CUQJ1ukA.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -79,8 +73,6 @@
       "node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.esm.js",
       "node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.esm.js",
       "node_modules/chartjs-adapter-luxon/dist/chartjs-adapter-luxon.esm.js",
-      "node_modules/sortablejs/modular/sortable.esm.js",
-      "node_modules/gsap/index.js",
       "node_modules/gsap/index.js"
     ]
   }

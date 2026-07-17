@@ -325,97 +325,7 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
-    /**
-     * Quadro Kanban operacional: drag-and-drop entre colunas (SortableJS)
-     * com persistência via Livewire (moverAlerta) e entrada animada (GSAP).
-     */
-    window.Alpine.data('mmcKanban', () => ({
-        sortables: [],
-        SortableClass: null,
-        gsapObj: null,
 
-        async init() {
-            if (!this.SortableClass || !this.gsapObj) {
-                const [sortableModule, gsapModule] = await Promise.all([
-                    import('sortablejs'),
-                    import('gsap')
-                ]);
-                this.SortableClass = sortableModule.default;
-                this.gsapObj = gsapModule.gsap;
-            }
-
-            this.montar();
-
-            // O Livewire substitui o DOM das listas após cada movimento/polling —
-            // destrói e volta a montar o Sortable para não ficar órfão.
-            Livewire.hook('morph.updated', ({ el }) => {
-                if (el === this.$el || this.$el.contains(el)) {
-                    clearTimeout(this._remount);
-                    this._remount = setTimeout(() => this.montar(), 50);
-                }
-            });
-
-            if (!reduzMovimento) {
-                this.gsapObj.from(this.$el.querySelectorAll('.mmc-kb-card'), {
-                    y: 14, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'all',
-                });
-            }
-        },
-
-        montar() {
-            this.sortables = this.sortables.filter((s) => {
-                if (!document.body.contains(s.el)) {
-                    s.destroy();
-                    return false;
-                }
-                return true;
-            });
-
-            this.$el.querySelectorAll('.mmc-kb-list').forEach((lista) => {
-                if (lista.dataset.sortableId) {
-                    return;
-                }
-
-                const sortableId = 'sortable_' + Math.random().toString(36).substr(2, 9);
-                lista.dataset.sortableId = sortableId;
-
-                this.sortables.push(this.SortableClass.create(lista, {
-                    group: 'mmc-kanban',
-                    animation: 150,
-                    ghostClass: 'mmc-kb-ghost',
-                    dragClass: 'mmc-kb-drag',
-                    // Nos ecrãs táteis o arrasto exige pressão longa para não
-                    // lutar com o scroll horizontal das colunas.
-                    delay: 150,
-                    delayOnTouchOnly: true,
-                    filter: '.mmc-kb-btn, a',
-                    preventOnFilter: false,
-                    onMove: (evt) => {
-                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
-                        evt.to?.closest('.mmc-kb-col')?.classList.add('mmc-kb-col--over');
-                        return true;
-                    },
-                    onEnd: () => {
-                        this.$el.querySelectorAll('.mmc-kb-col').forEach(col => col.classList.remove('mmc-kb-col--over'));
-                    },
-                    onAdd: (evt) => {
-                        const key = evt.item?.dataset?.key;
-                        const status = evt.to?.dataset?.status;
-                        if (key && status) {
-                            if (!reduzMovimento) {
-                                this.gsapObj.from(evt.item, { scale: 0.96, duration: 0.2, ease: 'power2.out', clearProps: 'all' });
-                            }
-                            this.$wire.moverAlerta(key, status);
-                        }
-                    },
-                }));
-            });
-        },
-
-        destroy() {
-            this.sortables.forEach((s) => s.destroy());
-        },
-    }));
 
     window.Alpine.data('mmcEsquema', () => ({
         aberto: null,
@@ -762,53 +672,7 @@ const setupHeaderLayout = () => {
     });
 };
 
-// Auto-scroll para próxima seção quando preenchida
-const setupAutoScroll = () => {
-    const form = document.querySelector('form');
-    if (!form) return;
 
-    const scrollToNextEmptySection = () => {
-        // Encontrar todas as seções (divs com classe que indicam seção do Filament)
-        const sections = Array.from(document.querySelectorAll('[role="region"], .space-y-6 > div'));
-
-        for (let i = 0; i < sections.length; i++) {
-            const section = sections[i];
-
-            // Verificar se tem ring verde (seção completa)
-            const hasGreenRing = section.className.includes('ring-green-500') ||
-                                section.querySelector('[class*="ring-green"]') !== null;
-
-            if (hasGreenRing && i < sections.length - 1) {
-                // Encontrar a próxima seção vazia (sem ring verde)
-                for (let j = i + 1; j < sections.length; j++) {
-                    const nextSection = sections[j];
-                    const nextHasRing = nextSection.className.includes('ring-green-500') ||
-                                       nextSection.querySelector('[class*="ring-green"]') !== null;
-
-                    if (!nextHasRing) {
-                        // Fazer scroll suave para a próxima seção vazia
-                        setTimeout(() => {
-                            nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }, 200);
-                        return;
-                    }
-                }
-            }
-        }
-    };
-
-    // Debounce: o handler varre o DOM inteiro (querySelectorAll); sem isto
-    // corria a cada tecla num formulário enorme.
-    let scrollTimer = null;
-    const scrollDebounced = () => {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(scrollToNextEmptySection, 300);
-    };
-
-    // Listener para mudanças no formulário
-    form.addEventListener('change', scrollDebounced);
-    form.addEventListener('input', scrollDebounced);
-};
 
 // Ask before restoring a draft interrupted by an unexpected app close (does not auto-apply)
 const showDraftResumePrompt = (formKey, component, draftData) => {
@@ -1026,7 +890,6 @@ const mmcSetup = () => {
     setupDecimalInputs();
     setupNsAutoAdvance();
     setupHeaderLayout();
-    setupAutoScroll();
     setupFormDraft();
     setupGlobalImageLightbox();
 };
