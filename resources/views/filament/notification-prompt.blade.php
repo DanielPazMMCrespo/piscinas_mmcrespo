@@ -1,3 +1,20 @@
+@php
+    $user = auth()->user();
+    $textoPrompt = 'Receba notificações importantes da aplicação diretamente no seu dispositivo.';
+
+    if ($user) {
+        if ($user->hasRole(\App\Constants\UserRole::ADMIN)) {
+            $textoPrompt = 'Receba alertas de novos incidentes, atualizações de sistema e notificações de controlo de todas as piscinas.';
+        } elseif ($user->hasRole(\App\Constants\UserRole::TECNICO)) {
+            $textoPrompt = 'Receba avisos imediatos de novos incidentes e do fim do timer de retrolavagem no seu telemóvel ou computador.';
+        } elseif ($user->hasRole(\App\Constants\UserRole::NADADOR_SALVADOR)) {
+            $textoPrompt = 'Receba alertas imediatos de incidentes e avisos importantes de segurança das suas piscinas diretamente no seu telemóvel.';
+        } elseif ($user->hasRole(\App\Constants\UserRole::GESTOR)) {
+            $textoPrompt = 'Acompanhe a conformidade das piscinas, alertas de incidentes graves e resumos de operação no seu telemóvel ou computador.';
+        }
+    }
+@endphp
+
 <div
     x-data="{
         showPrompt: false,
@@ -77,7 +94,7 @@
                 <div>
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Ative as Notificações</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                        Receba avisos imediatos de novos incidentes e do fim do timer de retrolavagem no seu telemóvel ou computador.
+                        {{ $textoPrompt }}
                     </p>
                 </div>
             </template>
