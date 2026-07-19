@@ -228,8 +228,8 @@
                 ? round((($totalRegistos - $naoConformes) / $totalRegistos) * 100, 1)
                 : null;
 
-            $phMin = \App\Models\DailyRecord::PH_MIN;
-            $phMax = \App\Models\DailyRecord::PH_MAX;
+            $phMin = \App\Models\DailyRecord::getPhMin();
+            $phMax = \App\Models\DailyRecord::getPhMax();
         @endphp
 
         <div class="seccao-piscina {{ $indice > 0 ? 'quebra' : '' }}">

@@ -109,6 +109,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => auth()->check() ? view('filament.bottom-nav')->render() : '',
             )
+            // Alerta/Prompt para ativar notificações
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => auth()->check() ? view('filament.notification-prompt')->render() : '',
+            )
 
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
