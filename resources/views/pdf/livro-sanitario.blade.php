@@ -543,84 +543,147 @@
 
                 {{-- Tabela de médias diárias do controlador --}}
                 @if (in_array('mostrar_controlador_tabela', $seccoesVisiveis))
-                <table class="registos controlador">
-                    <thead>
-                        <tr>
-                            <th style="width: 9%;">Data</th>
-                            <th style="width: 7%;">Leituras/dia</th>
-                            <th style="width: 9%;">pH Médio</th>
-                            <th style="width: 9%;">pH Mínimo</th>
-                            <th style="width: 9%;">pH Máximo</th>
-                            <th style="width: 10%;">ORP Médio (mV)</th>
-                            <th style="width: 11%;">Temp. Água Média (°C)</th>
-                            <th style="width: 7%;">pH Conforme</th>
-                            <th style="width: 14%;">Excluído (motivo)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($controlador as $leitura)
-                            @php
-                                $semLeitura = $leitura->sem_leitura_valida ?? false;
-                                $motivoExclusao = $leitura->motivo_exclusao ?? null;
-                                $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
-                                $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
-                                $phConforme = $phMed !== null && !$phMedFora;
-                            @endphp
+                @if (!isset($controladorModo) || $controladorModo === 'media_diaria')
+                    <table class="registos controlador">
+                        <thead>
                             <tr>
-                                <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
-                                @if ($semLeitura)
-                                    <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
-                                @else
-                                    <td>{{ $leitura->leituras }}</td>
-                                    <td>
-                                        @if ($phMed !== null)
-                                            <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
-                                        @else — @endif
-                                    </td>
-                                    <td>
-                                        @if ($leitura->ph_min !== null)
-                                            @php $v = round((float) $leitura->ph_min, 2); @endphp
-                                            <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                        @else — @endif
-                                    </td>
-                                    <td>
-                                        @if ($leitura->ph_max !== null)
-                                            @php $v = round((float) $leitura->ph_max, 2); @endphp
-                                            <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                        @else — @endif
-                                    </td>
-                                    <td>
-                                        @if ($leitura->orp_avg !== null)
-                                            {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
-                                        @else — @endif
-                                    </td>
-                                    <td>
-                                        @if ($leitura->temp_avg !== null)
-                                            {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
-                                        @else — @endif
-                                    </td>
-                                    <td>
-                                        @if ($phMed !== null)
-                                            @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
-                                        @else — @endif
-                                    </td>
-                                @endif
-                                <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
+                                <th style="width: 9%;">Data</th>
+                                <th style="width: 7%;">Leituras/dia</th>
+                                <th style="width: 9%;">pH Médio</th>
+                                <th style="width: 9%;">pH Mínimo</th>
+                                <th style="width: 9%;">pH Máximo</th>
+                                <th style="width: 10%;">ORP Médio (mV)</th>
+                                <th style="width: 11%;">Temp. Água Média (°C)</th>
+                                <th style="width: 7%;">pH Conforme</th>
+                                <th style="width: 14%;">Excluído (motivo)</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach ($controlador as $leitura)
+                                @php
+                                    $semLeitura = $leitura->sem_leitura_valida ?? false;
+                                    $motivoExclusao = $leitura->motivo_exclusao ?? null;
+                                    $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
+                                    $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
+                                    $phConforme = $phMed !== null && !$phMedFora;
+                                @endphp
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
+                                    @if ($semLeitura)
+                                        <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                    @else
+                                        <td>{{ $leitura->leituras }}</td>
+                                        <td>
+                                            @if ($phMed !== null)
+                                                <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->ph_min !== null)
+                                                @php $v = round((float) $leitura->ph_min, 2); @endphp
+                                                <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->ph_max !== null)
+                                                @php $v = round((float) $leitura->ph_max, 2); @endphp
+                                                <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->orp_avg !== null)
+                                                {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->temp_avg !== null)
+                                                {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($phMed !== null)
+                                                @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                    @endif
+                                    <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <table class="registos controlador">
+                        <thead>
+                            <tr>
+                                <th style="width: 12%;">Data</th>
+                                <th style="width: 10%;">Hora</th>
+                                <th style="width: 15%;">pH</th>
+                                <th style="width: 15%;">ORP (mV)</th>
+                                <th style="width: 15%;">Temp. Água (°C)</th>
+                                <th style="width: 10%;">pH Conforme</th>
+                                <th style="width: 23%;">Excluído (motivo)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($controlador as $leitura)
+                                @php
+                                    $semLeitura = $leitura->sem_leitura_valida ?? false;
+                                    $motivoExclusao = $leitura->motivo_exclusao ?? null;
+                                    $ph = $leitura->ph !== null ? round((float) $leitura->ph, 2) : null;
+                                    $phFora = $ph !== null && ($ph < $phMin || $ph > $phMax);
+                                    $phConforme = $ph !== null && !$phFora;
+                                @endphp
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
+                                    <td>{{ $leitura->hora ?? '—' }}</td>
+                                    @if ($semLeitura && $ph === null)
+                                        <td colspan="4" class="texto" style="font-style: italic;">Sem leitura válida</td>
+                                    @else
+                                        <td>
+                                            @if ($ph !== null)
+                                                <span @class(['fora-gama' => $phFora])>{{ number_format($ph, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->orp !== null)
+                                                {{ number_format(round((float) $leitura->orp, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->temp_agua !== null)
+                                                {{ number_format(round((float) $leitura->temp_agua, 1), 1, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($ph !== null)
+                                                @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                    @endif
+                                    <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
 
                 @php
                     $totalLeituras = $controlador->sum('leituras');
-                    $diasFora = $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
-                    $diasComDados = $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
-                    $diasArtefacto = $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
+                    $isTodos = isset($controladorModo) && $controladorModo === 'todos';
+                    $diasFora = $isTodos 
+                        ? $controlador->filter(fn ($l) => ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax))->count()
+                        : $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
+                    $diasComDados = $isTodos
+                        ? $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->unique('dia')->count()
+                        : $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
+                    $diasArtefacto = $isTodos
+                        ? $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->unique('dia')->count()
+                        : $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
                 @endphp
                 <p class="resumo">
                     <strong>Controlador — {{ $piscina->name }}:</strong>
                     {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
-                    | Dias com pH médio fora de gama: <strong>{{ $diasFora }}</strong>
+                    | {{ $isTodos ? 'Leituras com' : 'Dias com' }} pH {{ $isTodos ? '' : 'médio ' }}fora de gama: <strong>{{ $diasFora }}</strong>
                     @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
                     | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
                 </p>

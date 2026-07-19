@@ -73,6 +73,7 @@ class RelatorioPdf extends Page implements HasForms
             'data_inicio' => now()->startOfMonth()->toDateString(),
             'data_fim' => now()->subDay()->toDateString(),
             'registo_modo' => 'todos',
+            'controlador_modo' => 'media_diaria',
             'colunas_visiveis' => [
                 'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
                 'cloro_combinado', 'temperatura', 'transparencia',
@@ -169,10 +170,19 @@ class RelatorioPdf extends Page implements HasForms
                             ')),
 
                         Select::make('registo_modo')
-                            ->label('Tipo de agrupamento')
+                            ->label('Tipo de agrupamento (Registos Manuais)')
                             ->options([
                                 'todos' => 'Todos os registos diários',
                                 'media_diaria' => 'Média diária (um registo por dia)',
+                            ])
+                            ->required()
+                            ->live(),
+
+                        Select::make('controlador_modo')
+                            ->label('Tipo de agrupamento (Controlador)')
+                            ->options([
+                                'media_diaria' => 'Média diária (um registo por dia)',
+                                'todos' => 'Todos os registos detalhados (pode gerar muitas páginas)',
                             ])
                             ->required()
                             ->live(),
@@ -338,57 +348,91 @@ class RelatorioPdf extends Page implements HasForms
                     })->values();
             }
 
-            // Controlador Hanna: exclui leituras artefacto (lavagem/bomba parada)
-            // das médias e das contagens de conformidade.
+            $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
+
+            // Controlador Hanna: lida com leituras artefacto (lavagem/bomba parada)
             $janelas = $artefactoService->janelas($piscina->id, $inicio, $fim);
 
             $queryControlador = SensorReading::query()
                 ->where('pool_id', $piscina->id)
                 ->whereBetween('lida_em', [$inicio, $fim])
                 ->whereNotNull('ph');
-            foreach ($janelas as $janela) {
-                $queryControlador->whereNotBetween('lida_em', [$janela['inicio'], $janela['fim']]);
-            }
-            $controlador = $queryControlador
-                ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
-                ->groupByRaw('DATE(lida_em)')
-                ->orderByRaw('DATE(lida_em)')
-                ->get();
 
-            // Dias afetados por artefacto → motivos (anotação + dias sem leitura válida).
-            $diasArtefacto = [];
-            foreach ($janelas as $janela) {
-                $cursor = $janela['inicio']->copy()->startOfDay();
-                $limite = $janela['fim']->copy();
-                while ($cursor->lte($limite)) {
-                    $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
-                    $cursor->addDay();
+            if ($modoControlador === 'media_diaria') {
+                foreach ($janelas as $janela) {
+                    $queryControlador->whereNotBetween('lida_em', [$janela['inicio'], $janela['fim']]);
                 }
-            }
-            $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
+                $controlador = $queryControlador
+                    ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
+                    ->groupByRaw('DATE(lida_em)')
+                    ->orderByRaw('DATE(lida_em)')
+                    ->get();
 
-            $diasComLeitura = $controlador->pluck('dia')->all();
-            $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
-                $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
-                $linha->sem_leitura_valida = false;
-                return $linha;
-            });
-            foreach ($diasArtefacto as $dia => $motivo) {
-                if (! in_array($dia, $diasComLeitura, true)) {
+                // Dias afetados por artefacto → motivos (anotação + dias sem leitura válida).
+                $diasArtefacto = [];
+                foreach ($janelas as $janela) {
+                    $cursor = $janela['inicio']->copy()->startOfDay();
+                    $limite = $janela['fim']->copy();
+                    while ($cursor->lte($limite)) {
+                        $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
+                        $cursor->addDay();
+                    }
+                }
+                $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
+
+                $diasComLeitura = $controlador->pluck('dia')->all();
+                $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
+                    $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
+                    $linha->sem_leitura_valida = false;
+                    return $linha;
+                });
+                foreach ($diasArtefacto as $dia => $motivo) {
+                    if (! in_array($dia, $diasComLeitura, true)) {
+                        $sintetico = new \stdClass();
+                        $sintetico->dia = $dia;
+                        $sintetico->ph_avg = null;
+                        $sintetico->ph_min = null;
+                        $sintetico->ph_max = null;
+                        $sintetico->orp_avg = null;
+                        $sintetico->temp_avg = null;
+                        $sintetico->leituras = 0;
+                        $sintetico->motivo_exclusao = $motivo;
+                        $sintetico->sem_leitura_valida = true;
+                        $controlador->push($sintetico);
+                    }
+                }
+                $controlador = $controlador->sortBy('dia')->values();
+            } else {
+                // Modo todos os registos detalhados
+                $controladorLeituras = $queryControlador
+                    ->orderBy('lida_em')
+                    ->get();
+
+                $controlador = collect();
+                foreach ($controladorLeituras as $leitura) {
                     $sintetico = new \stdClass();
-                    $sintetico->dia = $dia;
-                    $sintetico->ph_avg = null;
-                    $sintetico->ph_min = null;
-                    $sintetico->ph_max = null;
-                    $sintetico->orp_avg = null;
-                    $sintetico->temp_avg = null;
-                    $sintetico->leituras = 0;
+                    $sintetico->dia = Carbon::parse($leitura->lida_em)->format('Y-m-d');
+                    $sintetico->hora = Carbon::parse($leitura->lida_em)->format('H:i');
+                    $sintetico->ph = $leitura->ph;
+                    $sintetico->orp = $leitura->orp;
+                    $sintetico->temp_agua = $leitura->temperatura_agua;
+                    $sintetico->leituras = 1;
+
+                    // Verificar se cai em alguma janela
+                    $motivo = null;
+                    $lidaEm = Carbon::parse($leitura->lida_em);
+                    foreach ($janelas as $janela) {
+                        if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
+                            $motivo = $janela['motivo'];
+                            break;
+                        }
+                    }
                     $sintetico->motivo_exclusao = $motivo;
-                    $sintetico->sem_leitura_valida = true;
+                    $sintetico->sem_leitura_valida = $motivo !== null;
+
                     $controlador->push($sintetico);
                 }
             }
-            $controlador = $controlador->sortBy('dia')->values();
 
             return [
                 'piscina' => $piscina,
@@ -408,6 +452,7 @@ class RelatorioPdf extends Page implements HasForms
             'colunasVisiveis' => $colunasVisiveis,
             'seccoesVisiveis' => $seccoesVisiveis,
             'modo' => $modo,
+            'controladorModo' => $estado['controlador_modo'] ?? 'media_diaria',
         ])->setPaper('a4', 'landscape');
 
         // Numeração "Página X de Y": render explícito no objeto Dompdf e
