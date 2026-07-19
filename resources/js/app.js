@@ -492,6 +492,12 @@ document.addEventListener('alpine:init', () => {
             window.mmcPush?.cancelarTimer(this.poolId, this.fase);
         },
         
+        resetTimer() {
+            this.pauseTimer();
+            this.remainingSeconds = this.initialSeconds;
+            this.alertado = false;
+        },
+        
         adjustTime(seconds) {
             this.initialSeconds += seconds;
             if (this.initialSeconds < 60) this.initialSeconds = 60;

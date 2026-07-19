@@ -182,10 +182,21 @@
                                 </div>
                                 @foreach ($item['metricas'] as $metrica)
                                     @continue ($metrica['label'] === 'Temp.')
-                                    <div class="mmc-pool-metric">
+                                    <div class="mmc-pool-metric" @if($metrica['label'] === 'Cl. Livre' && isset($metrica['orp'])) x-data="{ showOrp: false }" @endif>
                                         <span class="mmc-pool-metric-label">{{ $metrica['label'] }}</span>
-                                        <span class="mmc-pool-metric-value @if ($metrica['ok'] === false) mmc-pool-metric-value--bad @elseif ($metrica['ok'] === true) mmc-pool-metric-value--ok @endif">
-                                            {{ $metrica['valor'] }}
+                                        <span class="mmc-pool-metric-value @if ($metrica['ok'] === false) mmc-pool-metric-value--bad @elseif ($metrica['ok'] === true) mmc-pool-metric-value--ok @endif"
+                                              @if($metrica['label'] === 'Cl. Livre' && isset($metrica['orp']))
+                                                @click="showOrp = !showOrp"
+                                                style="cursor: pointer;"
+                                                title="Clique para ver o ORP do controlador"
+                                              @endif
+                                        >
+                                            @if($metrica['label'] === 'Cl. Livre' && isset($metrica['orp']))
+                                                <span x-show="!showOrp">{{ $metrica['valor'] }}</span>
+                                                <span x-show="showOrp" x-cloak>ORP: {{ $metrica['orp'] }} mV</span>
+                                            @else
+                                                {{ $metrica['valor'] }}
+                                            @endif
                                         </span>
                                     </div>
                                 @endforeach

@@ -48,6 +48,16 @@
             </div>
 
             <x-filament::button
+                x-on:click="resetTimer"
+                color="gray"
+                icon="heroicon-m-arrow-path"
+                class="h-10 min-w-[100px] flex items-center justify-center"
+                x-show="remainingSeconds !== initialSeconds"
+            >
+                Reiniciar
+            </x-filament::button>
+
+            <x-filament::button
                 x-on:click="toggleTimer"
                 x-bind:color="isRunning ? 'danger' : 'primary'"
                 x-bind:icon="isRunning ? 'heroicon-m-pause' : 'heroicon-m-play'"

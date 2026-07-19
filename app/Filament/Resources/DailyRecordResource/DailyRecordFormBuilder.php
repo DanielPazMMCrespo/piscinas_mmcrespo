@@ -50,6 +50,7 @@ class DailyRecordFormBuilder
             'tanque_observacoes' => null,
             'tanque_foto' => null,
             'filtro_faz_retrolavagem' => false,
+            'numero_lavagens_filtro' => 1,
             'timer_lavagem' => 3,
             'filtro_foto_retrolavagem' => null,
             'timer_enxaguamento' => 2,
@@ -272,6 +273,13 @@ class DailyRecordFormBuilder
                                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
                                             ->id("filtro_faz_retrolavagem_{$pool->id}")
                                             ->label('Fazer retrolavagem?')->default(false)->live(),
+                                        Forms\Components\TextInput::make('numero_lavagens_filtro')
+                                            ->id("numero_lavagens_filtro_{$pool->id}")
+                                            ->label('Nº de lavagens')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->default(1)
+                                            ->visible(fn(Get $get) => $get('filtro_faz_retrolavagem')),
                                         Forms\Components\ViewField::make('timer_lavagem')
                                             ->id("timer_lavagem_{$pool->id}")
                                             ->view('filament.timer-retrolavagem')

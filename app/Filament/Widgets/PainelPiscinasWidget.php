@@ -128,7 +128,31 @@ class PainelPiscinasWidget extends Widget
             ->get()
             ->keyBy('pool_id');
 
-        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $ultimosRegistos, $ultimasLeituras): array {
+        // Procurar o ORP correspondente ao momento da análise manual (janela de +/- 60 mins)
+        $orpsNoMomento = [];
+        foreach ($ultimosRegistos as $poolId => $registo) {
+            $device = $sondas->get($poolId);
+            if (! $device || ! $registo->registado_em) {
+                continue;
+            }
+
+            $leituraProxima = \App\Models\SensorReading::query()
+                ->where('hanna_device_id', $device->hanna_device_id)
+                ->whereNotNull('orp')
+                ->whereBetween('lida_em', [
+                    $registo->registado_em->copy()->subMinutes(60),
+                    $registo->registado_em->copy()->addMinutes(60)
+                ])
+                ->get()
+                ->sortBy(fn ($leitura) => abs($leitura->lida_em->diffInSeconds($registo->registado_em)))
+                ->first();
+
+            if ($leituraProxima) {
+                $orpsNoMomento[$poolId] = (float) $leituraProxima->orp;
+            }
+        }
+
+        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $ultimosRegistos, $ultimasLeituras, $orpsNoMomento): array {
             $registo = $ultimosRegistos->get($piscina->id);
 
             // Garante que a avaliação de temperatura conhece os limites da piscina.
@@ -258,7 +282,7 @@ class PainelPiscinasWidget extends Widget
                 'ha_quanto' => $registo?->registado_em->diffForHumans(),
                 'metricas' => $registo ? [
                     self::metrica('pH', $registo->ph_efetivo, 2, '', $registo->ph_efetivo !== null ? $registo->phConforme() : null),
-                    self::metrica('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null),
+                    self::metrica('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null, $orpsNoMomento[$piscina->id] ?? null),
                     self::metrica('Cl. Combinado', $registo->cloro_combinado, 2, ' mg/L', $registo->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null),
                     self::metrica('Temp.', $registo->temperatura_efetivo, 1, ' °C', $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null),
                 ] : [],
@@ -328,12 +352,13 @@ class PainelPiscinasWidget extends Widget
      *
      * @return array{label: string, valor: string, ok: bool|null}
      */
-    private static function metrica(string $label, mixed $valor, int $casas, string $sufixo, ?bool $ok): array
+    private static function metrica(string $label, mixed $valor, int $casas, string $sufixo, ?bool $ok, ?float $orp = null): array
     {
         return [
             'label' => $label,
             'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '').$sufixo : '—',
             'ok' => $valor !== null ? $ok : null,
+            'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
         ];
     }
 }
