@@ -263,10 +263,13 @@ class RelatorioPdf extends Page implements HasForms
 
         // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
         if ($modoControlador === 'todos' && $dias > 7) {
+            $novoFim = $inicio->copy()->addDays(6);
+            $this->data['data_fim'] = $novoFim->toDateString();
+
             Notification::make()
-                ->title('Período demasiado longo')
-                ->body('Para o modo "Todos os registos detalhados" do controlador, o período máximo permitido é de 7 dias para evitar sobrecarga no servidor.')
-                ->danger()
+                ->title('Período ajustado')
+                ->body('O modo "Todos os registos" está limitado a 7 dias. A data fim foi ajustada para ' . $novoFim->format('d/m/Y') . '.')
+                ->warning()
                 ->send();
             return null;
         }
