@@ -231,6 +231,9 @@ class RelatorioPdf extends Page implements HasForms
      */
     public function exportar(): ?StreamedResponse
     {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(240);
+
         $estado = $this->form->getState();
 
         $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
