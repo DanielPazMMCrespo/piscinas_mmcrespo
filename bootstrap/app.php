@@ -55,11 +55,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
 
             try {
-                \Illuminate\Support\Facades\Mail::raw($body, static function ($msg) use ($to, $subject): void {
-                    $msg->to($to)->subject($subject);
-                });
+                \App\Jobs\SendErrorEmailJob::dispatch($to, $subject, $body);
             } catch (\Throwable) {
-                // Não propaga falha de mail
+                // Não propaga falha ao despachar
             }
         });
     })->create();

@@ -203,4 +203,68 @@ class IncidentChatTest extends TestCase
 
         $this->assertSame(0, $incidente->mensagens()->count());
     }
+
+    public function test_delete_incident_works(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'aberto',
+        ]);
+
+        IncidentMessage::create([
+            'incident_id' => $incidente->id,
+            'user_id' => $ns->id,
+            'tipo' => IncidentMessage::TIPO_MENSAGEM,
+            'texto' => 'Mensagem de teste',
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+        $this->actingAs($admin);
+
+        $incidente->delete();
+        $this->assertDatabaseMissing('incidents', ['id' => $incidente->id]);
+        $this->assertDatabaseMissing('incident_messages', ['incident_id' => $incidente->id]);
+    }
+
+    public function test_delete_incident_via_filament_action_works(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'aberto',
+        ]);
+
+        IncidentMessage::create([
+            'incident_id' => $incidente->id,
+            'user_id' => $ns->id,
+            'tipo' => IncidentMessage::TIPO_MENSAGEM,
+            'texto' => 'Mensagem de teste',
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+        $this->actingAs($admin);
+
+        Livewire::test(\App\Filament\Resources\IncidentResource\Pages\EditIncident::class, [
+            'record' => $incidente->getKey(),
+        ])
+        ->callAction('delete');
+
+        $this->assertDatabaseMissing('incidents', ['id' => $incidente->id]);
+        $this->assertDatabaseMissing('incident_messages', ['incident_id' => $incidente->id]);
+    }
 }
