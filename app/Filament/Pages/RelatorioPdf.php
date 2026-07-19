@@ -258,7 +258,7 @@ class RelatorioPdf extends Page implements HasForms
         $todas = $estado['pool_id'] === 'todas';
         $numPiscinas = $todas ? $instalacao->piscinas()->count() : 1;
 
-        $dias = $inicio->diffInDays($fim) + 1;
+        $dias = $inicio->diffInDays($fim->copy()->startOfDay()) + 1;
         $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
 
         // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
