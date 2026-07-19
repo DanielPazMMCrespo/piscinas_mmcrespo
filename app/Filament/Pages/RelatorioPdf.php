@@ -290,7 +290,7 @@ class RelatorioPdf extends Page implements HasForms
 
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo): array {
+        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $estado): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina', 'adicoes'])
                 ->whereBetween('registado_em', [$inicio, $fim])
