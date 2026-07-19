@@ -120,3 +120,8 @@ h1, h2, h3, h4, h5, h6,
     }
 }
 
+/* Alpine x-cloak utility to prevent FOUC and hide failed elements */
+[x-cloak] {
+    display: none !important;
+}
+

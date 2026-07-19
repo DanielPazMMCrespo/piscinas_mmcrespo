@@ -44,9 +44,11 @@
                 const total = {{ count($piscinas) }};
                 let abertas = 0;
                 @foreach ($piscinas as $item)
-                    if (localStorage.getItem('mmc_pool_open_' + {{ $item['piscina']->id }}) === 'true') {
-                        abertas++;
-                    }
+                    try {
+                        if (localStorage.getItem('mmc_pool_open_' + {{ $item['piscina']->id }}) === 'true') {
+                            abertas++;
+                        }
+                    } catch (e) {}
                 @endforeach
                 this.allOpen = (total > 0 && abertas === total);
             },
@@ -90,17 +92,37 @@
                     <div
                         class="mmc-pool-row-wrap @if ($estadoDot === 'bad') mmc-pool-row-wrap--alert @endif"
                         x-data="{
-                            open: localStorage.getItem('mmc_pool_open_' + {{ $piscina->id }}) === 'true',
+                            open: false,
+                            init() {
+                                try {
+                                    this.open = localStorage.getItem('mmc_pool_open_' + {{ $piscina->id }}) === 'true';
+                                } catch (e) {
+                                    this.open = false;
+                                }
+                            },
                             toggle() {
                                 this.open = !this.open;
-                                localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, this.open);
+                                try {
+                                    localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, this.open);
+                                } catch (e) {}
                                 this.$dispatch('mmc-pool-toggled');
                             }
                         }"
-                        x-on:mmc-toggle-all-pools.window="open = $event.detail.open; localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, open); $dispatch('mmc-pool-toggled');"
+                        x-on:mmc-toggle-all-pools.window="
+                            open = $event.detail.open;
+                            try {
+                                localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, open);
+                            } catch (e) {}
+                            $dispatch('mmc-pool-toggled');
+                        "
                         wire:key="pool-row-{{ $piscina->id }}"
                     >
-                        <div class="mmc-pool-row-head" x-on:click="toggle()">
+                        <button
+                            type="button"
+                            class="mmc-pool-row-head w-full text-left"
+                            style="background: none; border: none; font-family: inherit; color: inherit; padding: 0.75rem 0.5rem;"
+                            x-on:click="toggle()"
+                        >
                             <span class="mmc-pool-dot mmc-pool-dot--{{ $estadoDot }}"></span>
                             <span class="mmc-pool-name">{{ $piscina->name }}</span>
                             <span class="mmc-pool-badge @if ($estadoDot === 'bad') mmc-pool-badge--bad @endif">
@@ -117,7 +139,7 @@
                                 class="mmc-pool-chev"
                                 x-bind:class="{ 'mmc-pool-chev--open': open }"
                             />
-                        </div>
+                        </button>
 
                         <div class="mmc-pool-detail" x-show="open" x-cloak>
                             @if ($item['controlador'])
