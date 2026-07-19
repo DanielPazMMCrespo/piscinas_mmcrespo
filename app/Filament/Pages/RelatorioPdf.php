@@ -256,10 +256,24 @@ class RelatorioPdf extends Page implements HasForms
 
         $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
         $todas = $estado['pool_id'] === 'todas';
+        $numPiscinas = $todas ? $instalacao->piscinas()->count() : 1;
+
+        $dias = $inicio->diffInDays($fim) + 1;
+        $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
+
+        // Prevenção de "Erro 500" por exaustão de memória/tempo na geração de PDFs gigantes
+        if ($modoControlador === 'todos' && ($dias * $numPiscinas) > 7) {
+            Notification::make()
+                ->title('Relatório demasiado extenso')
+                ->body('O modo "Todos os registos detalhados" consome muitos recursos para desenhar o PDF. Por favor, reduza o período para um máximo de 7 dias ou altere para "Média diária".')
+                ->warning()
+                ->send();
+            return null;
+        }
 
         $piscinas = $instalacao->piscinas()
             ->when(! $todas, fn ($query) => $query->whereKey((int) $estado['pool_id']))
-                ->orderBy('name')
+            ->orderBy('name')
             ->get();
 
         if ($piscinas->isEmpty()) {
