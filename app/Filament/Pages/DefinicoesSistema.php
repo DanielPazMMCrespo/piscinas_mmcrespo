@@ -163,13 +163,14 @@ class DefinicoesSistema extends Page
         $data = $this->form->getState();
 
         foreach ($data as $key => $value) {
+            $val = $value !== null ? $value : '';
             $setting = AppSetting::find($key);
             if ($setting) {
-                $setting->update(['value' => $value]);
+                $setting->update(['value' => $val]);
             } else {
                 AppSetting::create([
                     'key' => $key,
-                    'value' => $value,
+                    'value' => $val,
                     'group' => 'geral',
                     'label' => ucwords(str_replace('_', ' ', $key)),
                     'type' => 'string'

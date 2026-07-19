@@ -62,18 +62,18 @@ class DailyRecordTest extends TestCase
     {
         $pool = $this->criarPiscina();
 
-        // pH perto do mínimo (6.9)
-        // Margem = (8.0 - 6.9) * 0.10 = 0.11
-        // Aviso se pH < 6.9 + 0.11 = 7.01
-        $resultBaixo = DailyRecord::avaliarConformidade('ph', 7.00, $pool);
+        // pH ligeiramente abaixo do mínimo (6.9)
+        // Tolerância padrão = 0.2
+        // Aviso se pH estiver entre 6.7 e 6.89
+        $resultBaixo = DailyRecord::avaliarConformidade('ph', 6.80, $pool);
         $this->assertEquals('amarelo', $resultBaixo['estado']->value);
-        $this->assertStringContainsString('perto do mínimo', $resultBaixo['mensagem']);
+        $this->assertStringContainsString('ligeiramente abaixo do mínimo', $resultBaixo['mensagem']);
 
-        // pH perto do máximo (8.0)
-        // Aviso se pH > 8.0 - 0.11 = 7.89
-        $resultAlto = DailyRecord::avaliarConformidade('ph', 7.95, $pool);
+        // pH ligeiramente acima do máximo (8.0)
+        // Aviso se pH estiver entre 8.01 e 8.20
+        $resultAlto = DailyRecord::avaliarConformidade('ph', 8.10, $pool);
         $this->assertEquals('amarelo', $resultAlto['estado']->value);
-        $this->assertStringContainsString('perto do máximo', $resultAlto['mensagem']);
+        $this->assertStringContainsString('ligeiramente acima do máximo', $resultAlto['mensagem']);
     }
 
     public function test_avaliar_conformidade_vermelho_exceeds_limits(): void
