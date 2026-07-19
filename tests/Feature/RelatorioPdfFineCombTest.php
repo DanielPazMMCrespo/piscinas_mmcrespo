@@ -497,4 +497,56 @@ class RelatorioPdfFineCombTest extends TestCase
         $this->assertStringContainsString('ORP Médio (mV)', $html); // table header
         $this->assertStringContainsString('700', $html); // reading value
     }
+
+    /**
+     * Test 11: Sensor Readings Graph & Table Logic in Todos Mode (prevent PHP 8.2 Dynamic Property exception)
+     */
+    public function test_sensor_readings_todos_mode_graph_and_table_logic(): void
+    {
+        // Create sensor readings
+        SensorReading::create([
+            'pool_id' => $this->poolLazer->id,
+            'hanna_device_id' => 'DEV-TEST',
+            'lida_em' => now()->subDays(3)->startOfDay()->addHours(12),
+            'ph' => 7.2,
+            'orp' => 700.0,
+            'temperatura_agua' => 28.5,
+        ]);
+
+        $controlador = collect();
+        $sintetico = new \stdClass();
+        $sintetico->dia = now()->subDays(3)->format('Y-m-d');
+        $sintetico->hora = '12:00';
+        $sintetico->ph = 7.2;
+        $sintetico->orp = 700.0;
+        $sintetico->temp_agua = 28.5;
+        $sintetico->leituras = 1;
+        $sintetico->motivo_exclusao = null;
+        $sintetico->sem_leitura_valida = false;
+        $controlador->push($sintetico);
+
+        $seccoes = [[
+            'piscina' => $this->poolLazer,
+            'registos' => collect(),
+            'controlador' => $controlador,
+        ]];
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => $seccoes,
+            'inicio' => now()->subDays(5)->startOfDay(),
+            'fim' => now()->subDays(1)->endOfDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Admin',
+            'colunasVisiveis' => ['ph'],
+            'seccoesVisiveis' => ['mostrar_controlador_grafico', 'mostrar_controlador_tabela'],
+            'modo' => 'todos',
+            'controladorModo' => 'todos',
+        ])->render();
+
+        // Verify that graph and table are rendered without PHP crash
+        $this->assertStringContainsString('Controlador Hanna BL132 — Leituras Automáticas', $html);
+        $this->assertStringContainsString('pH Conforme', $html); // table header for todos mode
+        $this->assertStringContainsString('7,20', $html); // formatted ph value
+    }
 }

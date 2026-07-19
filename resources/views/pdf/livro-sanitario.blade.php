@@ -427,11 +427,12 @@
                     $prevHasVal = false;
                     foreach ($allDays as $i => $day) {
                         $leitura = $byDay->get($day->format('Y-m-d'));
-                        if ($leitura && $leitura->ph_avg !== null) {
+                        $phVal = $leitura ? ($leitura->ph_avg ?? $leitura->ph ?? null) : null;
+                        if ($phVal !== null) {
                             $x = $xFor($i);
-                            $y = $yFor((float) $leitura->ph_avg);
-                            $pathParts[] = ($prevHasVal ? "L{$x},{$y}" : "M{$x},{$y}");
-                            $prevHasVal  = true;
+                            $y = $yFor((float) $phVal);
+                            $pathParts[] = ($prevHasVal ? 'L' : 'M') . " $x $y";
+                            $prevHasVal = true;
                         } else {
                             $prevHasVal = false;
                         }
@@ -498,13 +499,16 @@
                             />
 
                             {{-- Pontos nos dias com leitura --}}
-                            @foreach ($allDays as $i => $day)
-                                @php $leitura = $byDay->get($day->format('Y-m-d')); @endphp
-                                @if ($leitura && $leitura->ph_avg !== null)
+                             @foreach ($allDays as $i => $day)
+                                @php
+                                    $leitura = $byDay->get($day->format('Y-m-d'));
+                                    $phVal = $leitura ? ($leitura->ph_avg ?? $leitura->ph ?? null) : null;
+                                @endphp
+                                @if ($phVal !== null)
                                     @php
                                         $cx    = $xFor($i);
-                                        $cy    = $yFor((float) $leitura->ph_avg);
-                                        $fora  = (float) $leitura->ph_avg < $phMin || (float) $leitura->ph_avg > $phMax;
+                                        $cy    = $yFor((float) $phVal);
+                                        $fora  = (float) $phVal < $phMin || (float) $phVal > $phMax;
                                     @endphp
                                     <circle
                                         cx="{{ $cx }}" cy="{{ $cy }}" r="2"
