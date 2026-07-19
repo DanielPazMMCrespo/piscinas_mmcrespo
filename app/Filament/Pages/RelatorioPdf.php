@@ -464,10 +464,6 @@ class RelatorioPdf extends Page implements HasForms
             ];
         })->all();
 
-        // Aumentar os limites temporariamente para relatórios grandes ou com "todos os registos"
-        ini_set('memory_limit', '512M');
-        set_time_limit(120);
-
         $pdf = Pdf::loadView('pdf.livro-sanitario', [
             'instalacao' => $instalacao,
             'seccoes' => $seccoes,
