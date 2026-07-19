@@ -688,7 +688,7 @@
                     | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
                 </p>
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
-                    Nota: leituras registadas durante lavagem/enxaguamento de filtro ou com a bomba parada são excluídas — nesses períodos a água não circula no sensor e os valores não refletem a qualidade real.
+                    Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.
                 </p>
                 @endif
             @endif

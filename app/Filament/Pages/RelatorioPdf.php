@@ -359,25 +359,47 @@ class RelatorioPdf extends Page implements HasForms
                 ->whereNotNull('ph');
 
             if ($modoControlador === 'media_diaria') {
-                foreach ($janelas as $janela) {
-                    $queryControlador->whereNotBetween('lida_em', [$janela['inicio'], $janela['fim']]);
-                }
                 $controlador = $queryControlador
                     ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
                     ->groupByRaw('DATE(lida_em)')
                     ->orderByRaw('DATE(lida_em)')
                     ->get();
 
-                // Dias afetados por artefacto → motivos (anotação + dias sem leitura válida).
+                // 1. Procurar anomalias ativas (pH < 6, ORP < 400, ORP > 900)
+                $anomalias = SensorReading::query()
+                    ->where('pool_id', $piscina->id)
+                    ->whereBetween('lida_em', [$inicio, $fim])
+                    ->where(function ($q) {
+                        $q->where('ph', '<', 6)
+                          ->orWhere('orp', '<', 400)
+                          ->orWhere('orp', '>', 900);
+                    })
+                    ->get();
+
                 $diasArtefacto = [];
-                foreach ($janelas as $janela) {
-                    $cursor = $janela['inicio']->copy()->startOfDay();
-                    $limite = $janela['fim']->copy();
-                    while ($cursor->lte($limite)) {
-                        $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
-                        $cursor->addDay();
+                // Se uma anomalia calhar dentro de uma janela, justificamos o dia com esse motivo
+                foreach ($anomalias as $anomalia) {
+                    $lidaEm = \Carbon\Carbon::parse($anomalia->lida_em);
+                    foreach ($janelas as $janela) {
+                        if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
+                            $diasArtefacto[$lidaEm->format('Y-m-d')][$janela['motivo']] = true;
+                            break;
+                        }
                     }
                 }
+
+                // 2. Para motivos de "Bomba parada", justificamos sempre o dia (causa falta de leituras)
+                foreach ($janelas as $janela) {
+                    if ($janela['motivo'] === 'Bomba parada') {
+                        $cursor = $janela['inicio']->copy()->startOfDay();
+                        $limite = $janela['fim']->copy();
+                        while ($cursor->lte($limite)) {
+                            $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
+                            $cursor->addDay();
+                        }
+                    }
+                }
+
                 $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
 
                 $diasComLeitura = $controlador->pluck('dia')->all();
