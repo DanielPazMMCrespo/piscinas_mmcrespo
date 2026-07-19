@@ -261,12 +261,12 @@ class RelatorioPdf extends Page implements HasForms
         $dias = $inicio->diffInDays($fim) + 1;
         $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
 
-        // Prevenção de "Erro 500" por exaustão de memória/tempo na geração de PDFs gigantes
-        if ($modoControlador === 'todos' && ($dias * $numPiscinas) > 7) {
+        // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
+        if ($modoControlador === 'todos' && $dias > 7) {
             Notification::make()
-                ->title('Relatório demasiado extenso')
-                ->body('O modo "Todos os registos detalhados" consome muitos recursos para desenhar o PDF. Por favor, reduza o período para um máximo de 7 dias ou altere para "Média diária".')
-                ->warning()
+                ->title('Período demasiado longo')
+                ->body('Para o modo "Todos os registos detalhados" do controlador, o período máximo permitido é de 7 dias para evitar sobrecarga no servidor.')
+                ->danger()
                 ->send();
             return null;
         }

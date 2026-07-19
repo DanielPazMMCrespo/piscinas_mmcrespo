@@ -84,4 +84,20 @@ class RelatorioPdfInvalidDateTest extends TestCase
             ->call('exportar')
             ->assertHasNoFormErrors();
     }
+
+    public function test_pdf_rejeita_mais_de_7_dias_em_modo_todos_registos_controlador(): void
+    {
+        $instance = Livewire::actingAs($this->user)
+            ->test(RelatorioPdf::class)
+            ->fillForm([
+                'installation_id' => $this->installation->id,
+                'pool_id' => (string) $this->pool->id,
+                'data_inicio' => now()->subDays(10)->toDateString(),
+                'data_fim' => now()->subDays(1)->toDateString(), // 10 dias
+                'controlador_modo' => 'todos',
+            ])
+            ->instance();
+
+        $this->assertNull($instance->exportar());
+    }
 }
