@@ -35,13 +35,34 @@
             </div>
         @endif
 
-        <div x-data="{ allOpen: false }">
+        <div x-data="{
+            allOpen: false,
+            init() {
+                this.updateAllOpenState();
+            },
+            updateAllOpenState() {
+                const total = {{ count($piscinas) }};
+                let abertas = 0;
+                @foreach ($piscinas as $item)
+                    if (localStorage.getItem('mmc_pool_open_' + {{ $item['piscina']->id }}) === 'true') {
+                        abertas++;
+                    }
+                @endforeach
+                this.allOpen = (total > 0 && abertas === total);
+            },
+            toggleAll() {
+                this.allOpen = !this.allOpen;
+                this.$dispatch('mmc-toggle-all-pools', { open: this.allOpen });
+            }
+        }"
+        x-on:mmc-pool-toggled.window="updateAllOpenState()"
+        >
             <div class="mmc-pool-section-head">
                 <span class="mmc-pool-section-label">Piscinas</span>
                 <button
                     type="button"
                     class="mmc-pool-expand-btn"
-                    x-on:click="allOpen = !allOpen; $dispatch('mmc-toggle-all-pools', { open: allOpen })"
+                    x-on:click="toggleAll()"
                     x-text="allOpen ? 'Recolher tudo' : 'Expandir tudo'"
                 ></button>
             </div>
@@ -68,11 +89,18 @@
 
                     <div
                         class="mmc-pool-row-wrap @if ($estadoDot === 'bad') mmc-pool-row-wrap--alert @endif"
-                        x-data="{ open: false }"
-                        x-on:mmc-toggle-all-pools.window="open = $event.detail.open"
+                        x-data="{
+                            open: localStorage.getItem('mmc_pool_open_' + {{ $piscina->id }}) === 'true',
+                            toggle() {
+                                this.open = !this.open;
+                                localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, this.open);
+                                this.$dispatch('mmc-pool-toggled');
+                            }
+                        }"
+                        x-on:mmc-toggle-all-pools.window="open = $event.detail.open; localStorage.setItem('mmc_pool_open_' + {{ $piscina->id }}, open); $dispatch('mmc-pool-toggled');"
                         wire:key="pool-row-{{ $piscina->id }}"
                     >
-                        <div class="mmc-pool-row-head" x-on:click="open = !open">
+                        <div class="mmc-pool-row-head" x-on:click="toggle()">
                             <span class="mmc-pool-dot mmc-pool-dot--{{ $estadoDot }}"></span>
                             <span class="mmc-pool-name">{{ $piscina->name }}</span>
                             <span class="mmc-pool-badge @if ($estadoDot === 'bad') mmc-pool-badge--bad @endif">

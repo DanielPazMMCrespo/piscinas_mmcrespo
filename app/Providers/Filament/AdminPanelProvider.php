@@ -66,6 +66,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth(MaxWidth::ScreenTwoExtraLarge)
             ->navigationGroups([
+                'Registo Diário',
                 'Operação',
                 'Dados',
                 'Stock',

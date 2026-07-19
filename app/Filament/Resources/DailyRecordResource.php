@@ -18,16 +18,19 @@ class DailyRecordResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?string $navigationGroup = 'Operação';
+    protected static ?string $navigationGroup = 'Registo Diário';
+
+    protected static ?string $navigationLabel = 'Registos Diários';
 
     protected static ?string $modelLabel = 'Registo Diário';
 
     protected static ?string $pluralModelLabel = 'Registos Diários';
 
-    /** Acesso pelo hub da secção Operação (OperacaoHub), não diretamente pela sidebar. */
+    protected static ?int $navigationSort = 1;
+
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
     }
 
     public static function getEloquentQuery(): Builder

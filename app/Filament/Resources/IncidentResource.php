@@ -19,16 +19,19 @@ class IncidentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
 
-    protected static ?string $navigationGroup = 'Operação';
+    protected static ?string $navigationGroup = 'Registo Diário';
+
+    protected static ?string $navigationLabel = 'Incidentes';
 
     protected static ?string $modelLabel = 'Incidente';
 
     protected static ?string $pluralModelLabel = 'Incidentes';
 
-    /** Acesso pelo hub da secção Operação (OperacaoHub), não diretamente pela sidebar. */
+    protected static ?int $navigationSort = 2;
+
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
     }
 
     public static function getEloquentQuery(): Builder

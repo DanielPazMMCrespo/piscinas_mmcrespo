@@ -35,6 +35,11 @@ class OperacaoHub extends Page implements HasActions
         return (bool) auth()->user();
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function registoDiarioAction(): Action
     {
         return Action::make('registoDiario')
