@@ -183,26 +183,29 @@ class DailyRecord extends Model
 
         $fmt = static fn (float $v): string => rtrim(rtrim(number_format($v, 2, ',', ''), '0'), ',');
 
-        if ($min !== null && $valor < (float) $min) {
+        $isBelowMin = $min !== null && $valor < (float) $min;
+        $isAboveMax = $max !== null && $valor > (float) $max;
+
+        if (!$isBelowMin && !$isAboveMax) {
+            return ['estado' => \App\Enums\EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];
+        }
+
+        $margemTolerancia = app(\App\Services\SettingsService::class)->getFloat('tolerancia_amarelo', 0.2);
+
+        if ($isBelowMin) {
+            $diff = (float) $min - $valor;
+            if ($diff < $margemTolerancia) {
+                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — ligeiramente abaixo do mínimo ('.$fmt((float) $min).')'];
+            }
             return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — abaixo do mínimo ('.$fmt((float) $min).')'];
         }
 
-        if ($max !== null && $valor > (float) $max) {
+        if ($isAboveMax) {
+            $diff = $valor - (float) $max;
+            if ($diff < $margemTolerancia) {
+                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — ligeiramente acima do máximo ('.$fmt((float) $max).')'];
+            }
             return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — acima do máximo ('.$fmt((float) $max).')'];
-        }
-
-        $referencia = ($min !== null && $max !== null)
-            ? (float) $max - (float) $min
-            : (float) ($max ?? $min);
-        $margem = abs($referencia) * 0.10;
-
-        if ($margem > 0.0) {
-            if ($min !== null && $valor < (float) $min + $margem) {
-                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do mínimo ('.$fmt((float) $min).')'];
-            }
-            if ($max !== null && $valor > (float) $max - $margem) {
-                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do máximo ('.$fmt((float) $max).')'];
-            }
         }
 
         return ['estado' => \App\Enums\EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];

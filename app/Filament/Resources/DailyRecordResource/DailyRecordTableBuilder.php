@@ -251,7 +251,7 @@ class DailyRecordTableBuilder
             ->label($label)
             ->html()
             ->extraAttributes(['class' => 'tabular-nums text-right'])
-            ->formatStateUsing(function ($state, DailyRecord $record) use ($conforme): \Illuminate\Support\HtmlString {
+            ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $conforme): \Illuminate\Support\HtmlString {
                 if ($state === null) {
                     return new \Illuminate\Support\HtmlString('<span class="mmc-metric-na">—</span>');
                 }
@@ -262,9 +262,17 @@ class DailyRecordTableBuilder
                     return new \Illuminate\Support\HtmlString($valor);
                 }
 
-                $mark = $conforme($record)
-                    ? '<span class="mmc-metric-mark mmc-metric-mark--ok">✓</span>'
-                    : '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
+                $campoReal = str_replace('_efetivo', '', $field);
+                $avaliacao = DailyRecord::avaliarConformidade($campoReal, $state, $record->piscina);
+                $estado = $avaliacao['estado'];
+
+                if ($estado === \App\Enums\EstadoConformidade::VERDE) {
+                    $mark = '<span class="mmc-metric-mark mmc-metric-mark--ok">✓</span>';
+                } elseif ($estado === \App\Enums\EstadoConformidade::AMARELO) {
+                    $mark = '<span class="mmc-metric-mark mmc-metric-mark--warning">!</span>';
+                } else {
+                    $mark = '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
+                }
 
                 return new \Illuminate\Support\HtmlString($valor.' '.$mark);
             });

@@ -90,12 +90,11 @@ class DefinicoesSistema extends Page
                             ->numeric()
                             ->step(0.1)
                             ->helperText('Padrão original: 5.0'),
-                        TextInput::make('aviso_amarelo_margem')
-                            ->label('Margem de Aviso Amarelo (%)')
+                        TextInput::make('tolerancia_amarelo')
+                            ->label('Tolerância (Aviso Amarelo)')
                             ->numeric()
-                            ->step(1)
-                            ->suffix('%')
-                            ->helperText('Aproximação do limite (Padrão: 10%)'),
+                            ->step(0.01)
+                            ->helperText('Diferença para o limite (Padrão: 0.2)'),
                     ])->columns(2),
 
                 Section::make('Tempos e Prazos')
@@ -167,6 +166,14 @@ class DefinicoesSistema extends Page
             $setting = AppSetting::find($key);
             if ($setting) {
                 $setting->update(['value' => $value]);
+            } else {
+                AppSetting::create([
+                    'key' => $key,
+                    'value' => $value,
+                    'group' => 'geral',
+                    'label' => ucwords(str_replace('_', ' ', $key)),
+                    'type' => 'string'
+                ]);
             }
         }
 

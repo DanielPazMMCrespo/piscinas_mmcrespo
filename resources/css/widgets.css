@@ -220,6 +220,8 @@
 .mmc-metric-mark { font-size: 0.85em; font-weight: 700; margin-left: 0.2rem; }
 .mmc-metric-mark--ok { color: var(--mmc-ok-color); }
 .mmc-metric-mark--bad { color: var(--mmc-bad-color); }
+.mmc-metric-mark--warning { color: #d97706; }
+.dark .mmc-metric-mark--warning { color: #f59e0b; }
 .mmc-metric-na { opacity: 0.5; }
 
 /* =====================================================================
