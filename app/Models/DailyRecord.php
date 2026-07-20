@@ -80,7 +80,7 @@ class DailyRecord extends Model
         'filtro_faz_retrolavagem', 'numero_lavagens_filtro',
         'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
         // Caminho da água
-        'bomba_ferrada', 'bomba_foto', 'contador_valor', 'contador_foto', 'agua_modo',
+        'bomba_ferrada', 'bomba_foto', 'contador_valor', 'contador_foto', 'torneira_foto', 'agua_modo',
         'tanque_ok', 'tanque_observacoes', 'tanque_foto',
         // Fotos das nossas análises (até 5)
         'analises_fotos',

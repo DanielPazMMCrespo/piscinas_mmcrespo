@@ -46,6 +46,7 @@ class DailyRecordFormBuilder
             'agua_modo' => null,
             'bomba_foto' => null,
             'contador_foto' => null,
+            'torneira_foto' => null,
             'tanque_ok' => true,
             'tanque_observacoes' => null,
             'tanque_foto' => null,
@@ -236,7 +237,8 @@ class DailyRecordFormBuilder
                                             ]),
                                         self::fotosSection([
                                             self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
-                                            self::fotoField('contador_foto', 'Foto contador', 'contador', false, "contador_foto_{$pool->id}"),
+                                            self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
+                                            self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
                                         ]),
                                     ])->columns(['default' => 2, 'sm' => 3])
                             )->toArray()

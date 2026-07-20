@@ -70,7 +70,7 @@ class ArchiveDailyRecordsCommand extends Command
                         'contador_leitura', 'contador_foto',
                         'tanque_nivel', 'tanque_observacoes', 'tanque_foto',
                         'ns_cloro_teste_rapido', 'ns_ph_teste_rapido', 'ns_observacoes',
-                        'agua_modo',
+                        'agua_modo', 'torneira_foto',
                         'e_correcao', 'corrige_registo_id', 'razao_correcao',
                         'created_at', 'updated_at', 'archived_at'
                     ],
@@ -78,16 +78,35 @@ class ArchiveDailyRecordsCommand extends Command
                         ->whereIn('id', $ids)
                         ->select([
                             'id', 'pool_id', 'user_id', 'registado_em',
-                            'ph', 'cloro_total', 'cloro_livre', 'cloro_combinado',
-                            'alcalinidade', 'temperatura_agua', 'turbidez', 'observacoes',
-                            'bomba_funcionamento', 'bomba_duracao_minutos', 'bomba_observacoes', 'bomba_foto',
-                            'filtro_estado', 'filtro_retrolavagem_duracao', 'filtro_observacoes',
-                            'contador_leitura', 'contador_foto',
-                            'tanque_nivel', 'tanque_observacoes', 'tanque_foto',
-                            'ns_cloro_teste_rapido', 'ns_ph_teste_rapido', 'ns_observacoes',
+                            'ph', 'cloro_total', 'cloro_livre',
+                            DB::raw('NULL as cloro_combinado'),
+                            DB::raw('NULL as alcalinidade'),
+                            'temperatura as temperatura_agua',
+                            'transparencia as turbidez',
+                            'observacoes',
+                            DB::raw("'desconhecido' as bomba_funcionamento"),
+                            DB::raw('NULL as bomba_duracao_minutos'),
+                            DB::raw('NULL as bomba_observacoes'),
+                            'bomba_foto',
+                            DB::raw("'desconhecido' as filtro_estado"),
+                            DB::raw('NULL as filtro_retrolavagem_duracao'),
+                            DB::raw('NULL as filtro_observacoes'),
+                            'contador_valor as contador_leitura',
+                            'contador_foto',
+                            DB::raw("'desconhecido' as tanque_nivel"),
+                            'tanque_observacoes',
+                            'tanque_foto',
+                            DB::raw('NULL as ns_cloro_teste_rapido'),
+                            DB::raw('NULL as ns_ph_teste_rapido'),
+                            DB::raw('NULL as ns_observacoes'),
                             'agua_modo',
-                            'e_correcao', 'corrige_registo_id', 'razao_correcao',
-                            'created_at', 'updated_at', DB::raw("'" . now()->toDateTimeString() . "' as archived_at")
+                            'torneira_foto',
+                            'e_correcao',
+                            'corrige_registo_id',
+                            'razao_correcao',
+                            'created_at',
+                            'updated_at',
+                            DB::raw("'" . now()->toDateTimeString() . "' as archived_at")
                         ])
                 );
 

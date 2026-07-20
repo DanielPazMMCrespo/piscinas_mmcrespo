@@ -375,7 +375,8 @@ class DailyRecordTableBuilder
                                                 default => $state ?? '—',
                                             }),
                                     ]),
-                                self::fotoEntry('contador_foto', 'Foto do Contador'),
+                                self::fotoEntry('contador_foto', 'Foto do Contador da Água'),
+                                self::fotoEntry('torneira_foto', 'Foto da Torneira'),
                                 \Filament\Infolists\Components\Grid::make(2)
                                     ->schema([
                                         \Filament\Infolists\Components\IconEntry::make('tanque_ok')

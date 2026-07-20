@@ -42,7 +42,7 @@ class CreateDailyRecord extends CreateRecord
             $adicoes = $poolData['adicoes'] ?? [];
             unset($poolData['adicoes']); // Remove from attributes
             
-            $photoFields = ['bomba_foto', 'contador_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
+            $photoFields = ['bomba_foto', 'contador_foto', 'torneira_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
             foreach ($photoFields as $pf) {
                 if (isset($poolData[$pf])) {
                     if (is_array($poolData[$pf])) {
