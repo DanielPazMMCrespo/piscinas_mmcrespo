@@ -431,6 +431,26 @@ class RelatorioPdf extends Page implements HasForms
                     }
                 }
 
+                // Regra automática de lavagem de filtro para o controlador
+                // (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
+                $leiturasLavagem = SensorReading::query()
+                    ->where('pool_id', $piscina->id)
+                    ->whereBetween('lida_em', [$inicio, $fim])
+                    ->where(function ($q) {
+                        $q->where('ph', '<', 6.0)
+                          ->orWhere('ph', '>', 8.0);
+                    })
+                    ->where(function ($q) {
+                        $q->where('orp', '<', 600.0)
+                          ->orWhere('orp', '>', 870.0);
+                    })
+                    ->get();
+
+                foreach ($leiturasLavagem as $leitura) {
+                    $diaKey = \Carbon\Carbon::parse($leitura->lida_em)->format('Y-m-d');
+                    $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
+                }
+
                 // 2. Para motivos de "Bomba parada", justificamos sempre o dia (causa falta de leituras)
                 foreach ($janelas as $janela) {
                     if ($janela['motivo'] === 'Bomba parada') {
@@ -492,6 +512,17 @@ class RelatorioPdf extends Page implements HasForms
                             break;
                         }
                     }
+
+                    // Se não tiver motivo da janela, mas cumprir a regra da lavagem de filtro:
+                    // (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
+                    if ($motivo === null) {
+                        $phVal = $leitura->ph !== null ? (float) $leitura->ph : null;
+                        $orpVal = $leitura->orp !== null ? (float) $leitura->orp : null;
+                        if ($phVal !== null && $orpVal !== null && ($phVal < 6.0 || $phVal > 8.0) && ($orpVal < 600.0 || $orpVal > 870.0)) {
+                            $motivo = 'Lavagem de filtro';
+                        }
+                    }
+
                     $sintetico->motivo_exclusao = $motivo;
                     $sintetico->sem_leitura_valida = $motivo !== null;
 
