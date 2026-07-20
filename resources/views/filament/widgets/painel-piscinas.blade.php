@@ -47,7 +47,19 @@
     </div>
 
     <!-- Pools Grid -->
-    <div class="neo-pool-grid">
+    <div class="neo-pool-grid"
+         x-data="{
+             allOpen: true,
+             toggleAll() {
+                 this.allOpen = !this.allOpen;
+                 this.$dispatch('mmc-toggle-all-pools', { open: this.allOpen });
+             }
+         }">
+         
+         <div class="col-span-full flex justify-end mb-[-0.5rem]">
+             <button type="button" @click="toggleAll()" class="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors" x-text="allOpen ? 'Recolher todas' : 'Expandir todas'"></button>
+         </div>
+
         @forelse ($piscinas as $item)
             @php
                 $piscina = $item['piscina'];
@@ -56,10 +68,33 @@
                 $temDados = $item['tem_dados_conformes'];
                 $estadoGeral = ! $temDados ? 'neutro' : ($numFora > 0 ? 'bad' : 'ok');
             @endphp
-            <div class="neo-pool-card" wire:key="pool-card-{{ $piscina->id }}">
+            <div class="neo-pool-card" 
+                 wire:key="pool-card-{{ $piscina->id }}"
+                 x-data="{
+                     open: true,
+                     init() {
+                         try {
+                             const saved = localStorage.getItem('neo_pool_open_' + {{ $piscina->id }});
+                             if (saved !== null) {
+                                 this.open = saved === 'true';
+                             }
+                         } catch (e) {}
+                     },
+                     toggle() {
+                         this.open = !this.open;
+                         try {
+                             localStorage.setItem('neo_pool_open_' + {{ $piscina->id }}, this.open);
+                         } catch (e) {}
+                     }
+                 }"
+                 @mmc-toggle-all-pools.window="
+                     open = $event.detail.open;
+                     try { localStorage.setItem('neo_pool_open_' + {{ $piscina->id }}, open); } catch(e) {}
+                 "
+                 :class="open ? '' : 'pb-2'">
                 
                 <!-- Card Header -->
-                <div class="neo-pool-header">
+                <div class="neo-pool-header cursor-pointer select-none" @click="toggle()">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
                             <x-filament::icon icon="heroicon-o-swatch" class="w-6 h-6" />
@@ -69,13 +104,15 @@
                             <div class="text-xs text-slate-500 mt-0.5">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
                         </div>
                     </div>
-                    <button type="button" class="text-slate-400 hover:text-slate-600 p-1">
-                        <x-filament::icon icon="heroicon-m-ellipsis-horizontal" class="w-6 h-6" />
+                    <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
+                        <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
                     </button>
                 </div>
 
-                <!-- Metrics Grid 2x2 -->
-                <div class="neo-metrics-grid">
+                <!-- Collapsible Content -->
+                <div x-show="open" x-collapse x-cloak class="flex flex-col gap-4 mt-2">
+                    <!-- Metrics Grid 2x2 -->
+                    <div class="neo-metrics-grid">
                     @if ($item['controlador'])
                         <!-- pH -->
                         <div class="neo-metric-card @if($item['controlador']['ph_ok'] === false) neo-metric-card--alert @endif">
@@ -190,6 +227,7 @@
                         @endforeach
                     </div>
                 @endif
+                </div> <!-- End Collapsible Content -->
             </div>
         @empty
             <div class="col-span-full py-12 text-center bg-white rounded-2xl border border-gray-100 text-slate-500">
