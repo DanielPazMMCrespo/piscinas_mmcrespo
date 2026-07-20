@@ -139,6 +139,12 @@ class PainelPiscinasWidget extends Widget
 
         // Unificar o mais recente (registo diário ou ação operacional)
         $registosUnificados = [];
+        
+        $parseValue = function ($val) {
+            if ($val === null || $val === '') return null;
+            return (float)str_replace(',', '.', (string)$val);
+        };
+
         foreach ($piscinas as $piscina) {
             $registoDiario = $ultimosRegistos->get($piscina->id);
             $acao = $ultimasAcoes->get($piscina->id);
@@ -149,12 +155,15 @@ class PainelPiscinasWidget extends Widget
                 $registo = new DailyRecord();
                 $registo->pool_id = $acao->pool_id;
                 $registo->registado_em = $acao->registado_em;
-                $registo->ph = $acao->dados['ph'] ?? null;
-                $registo->cloro_livre = $acao->dados['cloro_livre'] ?? null;
-                $registo->cloro_combinado = (isset($acao->dados['cloro_total']) && isset($acao->dados['cloro_livre']) && $acao->dados['cloro_total'] !== '' && $acao->dados['cloro_livre'] !== '') 
-                    ? (float)$acao->dados['cloro_total'] - (float)$acao->dados['cloro_livre'] 
+                $registo->ph = $parseValue($acao->dados['ph'] ?? null);
+                $registo->cloro_livre = $parseValue($acao->dados['cloro_livre'] ?? null);
+                
+                $cloroTotal = $parseValue($acao->dados['cloro_total'] ?? null);
+                $registo->cloro_combinado = ($cloroTotal !== null && $registo->cloro_livre !== null) 
+                    ? max(0, $cloroTotal - $registo->cloro_livre) 
                     : null;
-                $registo->temperatura = $acao->dados['temperatura'] ?? null;
+                
+                $registo->temperatura = $parseValue($acao->dados['temperatura'] ?? null);
                 $registosUnificados[$piscina->id] = $registo;
             } else {
                 $registosUnificados[$piscina->id] = $registoDiario;
