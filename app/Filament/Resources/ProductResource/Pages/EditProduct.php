@@ -29,7 +29,7 @@ class EditProduct extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if ($data['categoria'] ?? null === 'outro' && !empty($data['categoria_custom'])) {
+        if (($data['categoria'] ?? null) === 'outro' && !empty($data['categoria_custom'])) {
             $data['categoria'] = $data['categoria_custom'];
         }
         unset($data['categoria_custom']);

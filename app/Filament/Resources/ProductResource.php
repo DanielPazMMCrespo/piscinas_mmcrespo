@@ -37,10 +37,14 @@ class ProductResource extends Resource
                     ->label('Nome do Produto')
                     ->required()
                     ->maxLength(100),
-                Forms\Components\TextInput::make('unidade')
-                    ->label('Unidade de Medida (ex: kg, L)')
-                    ->required()
-                    ->maxLength(255),
+                Select::make('unidade')
+                    ->label('Unidade de Medida')
+                    ->options([
+                        'L' => 'L',
+                        'kg' => 'kg',
+                        'un' => 'un',
+                    ])
+                    ->required(),
                 Select::make('categoria')
                     ->label('Categoria')
                     ->options(function (): array {
