@@ -187,7 +187,6 @@
                             </div>
                         @endforeach
                     </div>
-                </div>
 
                 <!-- Actions Footer -->
                 @if (\App\Filament\Resources\OperationalActionResource::canCreate())
