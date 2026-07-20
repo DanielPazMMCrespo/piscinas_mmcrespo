@@ -178,7 +178,7 @@
 
                             @if (! empty($item['metricas']))
                                 <div class="mmc-pool-source-info">
-                                    Última análise ({{ $item['ha_quanto'] }})
+                                    Fotómetro ({{ $item['ha_quanto'] }})
                                 </div>
                                 @foreach ($item['metricas'] as $metrica)
                                     @continue ($metrica['label'] === 'Temp.')

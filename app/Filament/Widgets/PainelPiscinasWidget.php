@@ -128,11 +128,44 @@ class PainelPiscinasWidget extends Widget
             ->get()
             ->keyBy('pool_id');
 
+        // Otimização: obter as últimas ações operacionais (análises rápidas)
+        $ultimasAcoes = OperationalAction::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+            ->orderBy('registado_em', 'desc')
+            ->get()
+            ->groupBy('pool_id')
+            ->map(fn ($acoes) => $acoes->first());
+
+        // Unificar o mais recente (registo diário ou ação operacional)
+        $registosUnificados = [];
+        foreach ($piscinas as $piscina) {
+            $registoDiario = $ultimosRegistos->get($piscina->id);
+            $acao = $ultimasAcoes->get($piscina->id);
+
+            $usarAcao = $acao && (!$registoDiario || $acao->registado_em->isAfter($registoDiario->registado_em));
+
+            if ($usarAcao) {
+                $registo = new DailyRecord();
+                $registo->pool_id = $acao->pool_id;
+                $registo->registado_em = $acao->registado_em;
+                $registo->ph = $acao->dados['ph'] ?? null;
+                $registo->cloro_livre = $acao->dados['cloro_livre'] ?? null;
+                $registo->cloro_combinado = (isset($acao->dados['cloro_total']) && isset($acao->dados['cloro_livre']) && $acao->dados['cloro_total'] !== '' && $acao->dados['cloro_livre'] !== '') 
+                    ? (float)$acao->dados['cloro_total'] - (float)$acao->dados['cloro_livre'] 
+                    : null;
+                $registo->temperatura = $acao->dados['temperatura'] ?? null;
+                $registosUnificados[$piscina->id] = $registo;
+            } else {
+                $registosUnificados[$piscina->id] = $registoDiario;
+            }
+        }
+
         // Procurar o ORP correspondente ao momento da análise manual (janela de +/- 60 mins)
         $orpsNoMomento = [];
-        foreach ($ultimosRegistos as $poolId => $registo) {
+        foreach ($registosUnificados as $poolId => $registo) {
             $device = $sondas->get($poolId);
-            if (! $device || ! $registo->registado_em) {
+            if (! $device || ! $registo || ! $registo->registado_em) {
                 continue;
             }
 
@@ -152,8 +185,8 @@ class PainelPiscinasWidget extends Widget
             }
         }
 
-        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $ultimosRegistos, $ultimasLeituras, $orpsNoMomento): array {
-            $registo = $ultimosRegistos->get($piscina->id);
+        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento): array {
+            $registo = $registosUnificados[$piscina->id] ?? null;
 
             // Garante que a avaliação de temperatura conhece os limites da piscina.
             $registo?->setRelation('piscina', $piscina);
