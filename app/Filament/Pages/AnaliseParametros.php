@@ -28,4 +28,11 @@ class AnaliseParametros extends Page
     {
         return (bool) auth()->user()?->podeVer(NSPermission::ANALISE_PARAMETROS);
     }
+
+    public function mount(): void
+    {
+        activity('analise')
+            ->causedBy(auth()->user())
+            ->log('Acedeu à Análise de Parâmetros.');
+    }
 }

@@ -12,9 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * autor exatos, que pode explicar/justificar valores anómalos do controlador
  * no mesmo intervalo (ex.: pH e ORP a cair durante uma lavagem de filtro).
  */
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+
 class OperationalAction extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     public const TIPO_LAVAGEM_FILTRO = 'lavagem_filtro';
     public const TIPO_ENXAGUAMENTO_FILTRO = 'enxaguamento_filtro';
@@ -137,5 +140,13 @@ class OperationalAction extends Model
         }
 
         return empty($partes) ? '—' : implode(' | ', $partes);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

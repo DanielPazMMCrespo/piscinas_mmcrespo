@@ -12,6 +12,10 @@ use App\Observers\OperationalActionObserver;
 use App\Observers\StockInstallationObserver;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use App\Listeners\LogUserAuthentication;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -45,5 +49,8 @@ class AppServiceProvider extends ServiceProvider
         StockInstallation::observe(StockInstallationObserver::class);
         Incident::observe(IncidentObserver::class);
         OperationalAction::observe(OperationalActionObserver::class);
+
+        Event::listen(Login::class, [LogUserAuthentication::class, 'handleLogin']);
+        Event::listen(Logout::class, [LogUserAuthentication::class, 'handleLogout']);
     }
 }

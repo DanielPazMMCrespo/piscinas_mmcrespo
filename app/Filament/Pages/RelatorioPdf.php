@@ -582,6 +582,10 @@ class RelatorioPdf extends Page implements HasForms
             $fim->format('Y-m-d'),
         );
 
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Gerou relatório PDF: {$nomeFicheiro}");
+
         return response()->streamDownload(
             fn () => print($conteudo),
             $nomeFicheiro,
