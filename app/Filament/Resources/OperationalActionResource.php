@@ -209,9 +209,9 @@ class OperationalActionResource extends Resource
                 ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state),
             Infolists\Components\TextEntry::make('registado_em')->label('Data e hora')->dateTime('d/m/Y H:i'),
             Infolists\Components\TextEntry::make('utilizador.name')->label('Responsável'),
-            Infolists\Components\KeyValueEntry::make('dados')
+            Infolists\Components\TextEntry::make('valores')
                 ->label('Valores')
-                ->visible(fn ($record) => filled($record->dados))
+                ->getStateUsing(fn (OperationalAction $record) => $record->dadosFormatados())
                 ->columnSpanFull(),
             Infolists\Components\TextEntry::make('observacoes')
                 ->label('Observações')
@@ -241,6 +241,10 @@ class OperationalActionResource extends Resource
                     ->label('Ação')
                     ->badge()
                     ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state),
+                Tables\Columns\TextColumn::make('valores')
+                    ->label('Valores')
+                    ->getStateUsing(fn (OperationalAction $record) => $record->dadosFormatados())
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Responsável')
                     ->toggleable(),

@@ -754,11 +754,7 @@
                                 <td>{{ $acao->registado_em->format('H:i') }}</td>
                                 <td class="texto">{{ $acao->tipoLabel() }}</td>
                                 <td class="texto">{{ $acao->utilizador?->name ?? '—' }}</td>
-                                <td class="texto">
-                                    @if (! empty($acao->dados))
-                                        {{ collect($acao->dados)->map(fn ($v, $k) => "{$k}: {$v}")->implode(' | ') }}
-                                    @else — @endif
-                                </td>
+                                <td class="texto">{{ $acao->dadosFormatados() }}</td>
                                 <td class="texto">{{ filled($acao->observacoes) ? \Illuminate\Support\Str::limit((string) $acao->observacoes, 80) : '—' }}</td>
                             </tr>
                         @endforeach
