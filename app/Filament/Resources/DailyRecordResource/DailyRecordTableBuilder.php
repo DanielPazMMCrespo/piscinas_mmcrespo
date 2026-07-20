@@ -29,37 +29,56 @@ class DailyRecordTableBuilder
             ->recordUrl(null)
             ->recordAction('view')
             ->columns([
-                Tables\Columns\TextColumn::make('piscina.name')
-                    ->label('Piscina')
-                    ->weight('bold')
-                    ->formatStateUsing(function (DailyRecord $record): \Illuminate\Support\HtmlString {
-                        $nome = e($record->piscina?->name);
-                        if ($record->e_correcao) {
-                            $nome .= ' <span class="mmc-record-tag mmc-record-tag--warning">Correção</span>';
-                        } elseif (($record->correcoes_count ?? 0) > 0) {
-                            $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Corrigido</span>';
-                        }
+                Tables\Columns\Layout\Split::make([
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('piscina.name')
+                            ->label('Piscina')
+                            ->weight('bold')
+                            ->formatStateUsing(function (DailyRecord $record): \Illuminate\Support\HtmlString {
+                                $nome = e($record->piscina?->name);
+                                if ($record->e_correcao) {
+                                    $nome .= ' <span class="mmc-record-tag mmc-record-tag--warning">Correção</span>';
+                                } elseif (($record->correcoes_count ?? 0) > 0) {
+                                    $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Corrigido</span>';
+                                }
 
-                        return new \Illuminate\Support\HtmlString($nome);
-                    })
-                    ->html()
-                    ->description(fn (DailyRecord $record): ?string => $record->piscina?->instalacao?->name)
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('registado_em')
-                    ->label('Data/Hora')
-                    ->dateTime('d/m/Y H:i')
-                    ->color('gray')
-                    ->extraAttributes(['class' => 'tabular-nums'])
-                    ->sortable(),
-                self::metricColumn('ph_efetivo', 'pH', fn (DailyRecord $record): bool => $record->phConforme()),
-                self::metricColumn('cloro_livre_efetivo', 'Cl. Livre', fn (DailyRecord $record): bool => $record->cloroLivreConforme()),
-                self::metricColumn('cloro_total_efetivo', 'Cl. Total', null),
-                self::metricColumn('cloro_combinado', 'Cl. Combinado', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
-                Tables\Columns\TextColumn::make('utilizador.name')
-                    ->label('Técnico/NS')
-                    ->color('gray')
-                    ->sortable(),
+                                return new \Illuminate\Support\HtmlString($nome);
+                            })
+                            ->html()
+                            ->description(fn (DailyRecord $record): ?string => $record->piscina?->instalacao?->name)
+                            ->searchable()
+                            ->sortable(),
+                        Tables\Columns\TextColumn::make('registado_em')
+                            ->label('Data/Hora')
+                            ->dateTime('d/m/Y H:i')
+                            ->color('gray')
+                            ->extraAttributes(['class' => 'tabular-nums'])
+                            ->sortable(),
+                        Tables\Columns\TextColumn::make('utilizador.name')
+                            ->label('Técnico/NS')
+                            ->color('gray')
+                            ->icon('heroicon-m-user')
+                            ->hiddenFrom('md'),
+                    ])->space(1),
+                    
+                    Tables\Columns\Layout\Stack::make([
+                        self::metricColumn('ph_efetivo', 'pH', fn (DailyRecord $record): bool => $record->phConforme()),
+                        self::metricColumn('cloro_livre_efetivo', 'Cl. Livre', fn (DailyRecord $record): bool => $record->cloroLivreConforme()),
+                    ])->space(1),
+                    
+                    Tables\Columns\Layout\Stack::make([
+                        self::metricColumn('cloro_total_efetivo', 'Cl. Total', null),
+                        self::metricColumn('cloro_combinado', 'Cl. Comb.', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
+                    ])->space(1),
+                    
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('utilizador.name')
+                            ->label('Técnico/NS')
+                            ->color('gray')
+                            ->icon('heroicon-m-user')
+                            ->sortable(),
+                    ])->visibleFrom('md')->space(1)->alignEnd(),
+                ])->from('md')->columnSpan('full'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('pool_id')
@@ -251,15 +270,16 @@ class DailyRecordTableBuilder
             ->label($label)
             ->html()
             ->extraAttributes(['class' => 'tabular-nums text-right'])
-            ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $conforme): \Illuminate\Support\HtmlString {
+            ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $label, $conforme): \Illuminate\Support\HtmlString {
                 if ($state === null) {
-                    return new \Illuminate\Support\HtmlString('<span class="mmc-metric-na">—</span>');
+                    return new \Illuminate\Support\HtmlString('<span class="text-gray-400">'.$label.':</span> <span class="mmc-metric-na">—</span>');
                 }
 
+                $prefix = '<span class="text-gray-400 mr-1">'.$label.':</span>';
                 $valor = e(rtrim(rtrim(number_format((float) $state, 2, ',', ''), '0'), ','));
 
                 if ($conforme === null) {
-                    return new \Illuminate\Support\HtmlString($valor);
+                    return new \Illuminate\Support\HtmlString($prefix . ' ' . $valor);
                 }
 
                 $campoReal = str_replace('_efetivo', '', $field);
@@ -274,7 +294,7 @@ class DailyRecordTableBuilder
                     $mark = '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
                 }
 
-                return new \Illuminate\Support\HtmlString($valor.' '.$mark);
+                return new \Illuminate\Support\HtmlString($prefix . ' ' . $valor.' '.$mark);
             });
     }
 
