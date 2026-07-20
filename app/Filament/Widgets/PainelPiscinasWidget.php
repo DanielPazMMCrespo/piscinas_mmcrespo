@@ -157,12 +157,7 @@ class PainelPiscinasWidget extends Widget
                 $registo->registado_em = $acao->registado_em;
                 $registo->ph = $parseValue($acao->dados['ph'] ?? null);
                 $registo->cloro_livre = $parseValue($acao->dados['cloro_livre'] ?? null);
-                
-                $cloroTotal = $parseValue($acao->dados['cloro_total'] ?? null);
-                $registo->cloro_combinado = ($cloroTotal !== null && $registo->cloro_livre !== null) 
-                    ? max(0, $cloroTotal - $registo->cloro_livre) 
-                    : null;
-                
+                $registo->cloro_total = $parseValue($acao->dados['cloro_total'] ?? null);
                 $registo->temperatura = $parseValue($acao->dados['temperatura'] ?? null);
                 $registosUnificados[$piscina->id] = $registo;
             } else {
