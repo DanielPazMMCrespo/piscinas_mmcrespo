@@ -355,16 +355,16 @@
 @media (max-width: 640px) {
     .mmc-pool-detail {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
         padding: 0.85rem 0.85rem 0.85rem 1rem;
     }
     .mmc-pool-source-info {
-        grid-column: span 2 !important;
+        grid-column: span 3 !important;
         margin-bottom: 0.25rem !important;
     }
     .mmc-pool-detail-cta {
-        grid-column: span 2 !important;
+        grid-column: span 3 !important;
         width: 100% !important;
         justify-content: center !important;
         height: 44px !important;
@@ -381,7 +381,7 @@
     }
 
     .mmc-pool-quick-actions {
-        grid-column: span 2 !important;
+        grid-column: span 3 !important;
         gap: 0.5rem !important;
     }
     .mmc-pool-quick-action {
