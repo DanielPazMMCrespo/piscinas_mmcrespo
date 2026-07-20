@@ -134,107 +134,59 @@
                 <div x-show="open" x-collapse x-cloak class="flex flex-col gap-4 mt-2">
                     <!-- Metrics Grid 2x2 -->
                     <div class="neo-metrics-grid">
-                    @if ($item['controlador'])
-                        <!-- pH -->
-                        <div class="neo-metric-card @if($item['controlador']['ph_ok'] === false) neo-metric-card--alert @endif">
-                            <div class="neo-metric-label">
-                                <span>pH</span>
-                                <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 opacity-50" />
-                            </div>
-                            <div class="neo-metric-value">{{ $item['controlador']['ph'] ?? '—' }}</div>
-                            <!-- Sparkline Placeholder -->
-                            <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20 L100,30 L0,30 Z" fill="{{ $item['controlador']['ph_ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
-                                <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20" fill="none" stroke="{{ $item['controlador']['ph_ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="2"/>
-                            </svg>
-                            <div class="neo-metric-status @if($item['controlador']['ph_ok'] === false) neo-metric-status--bad @elseif($item['controlador']['ph_ok'] === true) neo-metric-status--ok @endif">
-                                <div class="w-2 h-2 rounded-full @if($item['controlador']['ph_ok'] === false) bg-rose-500 @elseif($item['controlador']['ph_ok'] === true) bg-emerald-500 @else bg-slate-300 @endif"></div>
-                                {{ $item['controlador']['ph_ok'] === false ? 'Alert' : ($item['controlador']['ph_ok'] === true ? 'OK' : 'N/A') }}
-                            </div>
-                        </div>
-
-                        <!-- ORP/Cloro -->
-                        <div class="neo-metric-card @if($item['controlador']['middle_ok'] === false) neo-metric-card--alert @endif">
-                            <div class="neo-metric-label">
-                                <span>{{ $item['controlador']['middle_label'] }}</span>
-                                <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 opacity-50" />
-                            </div>
-                            <div class="neo-metric-value">{{ $item['controlador']['middle_value'] ?? '—' }}</div>
-                            <!-- Sparkline Placeholder -->
-                            <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                <path d="M0,15 Q20,10 40,20 T80,10 T100,15 L100,30 L0,30 Z" fill="{{ $item['controlador']['middle_ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
-                                <path d="M0,15 Q20,10 40,20 T80,10 T100,15" fill="none" stroke="{{ $item['controlador']['middle_ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="2"/>
-                            </svg>
-                            <div class="neo-metric-status @if($item['controlador']['middle_ok'] === false) neo-metric-status--bad @elseif($item['controlador']['middle_ok'] === true) neo-metric-status--ok @endif">
-                                <div class="w-2 h-2 rounded-full @if($item['controlador']['middle_ok'] === false) bg-rose-500 @elseif($item['controlador']['middle_ok'] === true) bg-emerald-500 @else bg-slate-300 @endif"></div>
-                                {{ $item['controlador']['middle_ok'] === false ? 'Alert' : ($item['controlador']['middle_ok'] === true ? 'OK' : 'N/A') }}
-                            </div>
-                        </div>
-
-                        <!-- Temp -->
-                        <div class="neo-metric-card @if($item['controlador']['temp_ok'] === false) neo-metric-card--alert @endif">
-                            <div class="neo-metric-label">
-                                <span>Temp.</span>
-                                <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 opacity-50" />
-                            </div>
-                            <div class="neo-metric-value">{{ $item['controlador']['temp'] ?? '—' }}</div>
-                            <!-- Sparkline Placeholder -->
-                            <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                <path d="M0,25 Q15,25 30,20 T60,10 T80,15 T100,20 L100,30 L0,30 Z" fill="{{ $item['controlador']['temp_ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
-                                <path d="M0,25 Q15,25 30,20 T60,10 T80,15 T100,20" fill="none" stroke="{{ $item['controlador']['temp_ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="2"/>
-                            </svg>
-                            <div class="neo-metric-status @if($item['controlador']['temp_ok'] === false) neo-metric-status--bad @elseif($item['controlador']['temp_ok'] === true) neo-metric-status--ok @endif">
-                                <div class="w-2 h-2 rounded-full @if($item['controlador']['temp_ok'] === false) bg-rose-500 @elseif($item['controlador']['temp_ok'] === true) bg-emerald-500 @else bg-slate-300 @endif"></div>
-                                {{ $item['controlador']['temp_ok'] === false ? 'Alert' : ($item['controlador']['temp_ok'] === true ? 'OK' : 'N/A') }}
-                            </div>
-                        </div>
-
-                        <!-- Info extra / Fonte -->
-                        <div class="neo-metric-card flex justify-center items-center text-center p-3">
-                            <div class="text-xs text-slate-500">
-                                @if ($item['controlador']['origem'] === 'controlador')
-                                    Dados do Controlador<br><span class="font-medium">Atualizado {{ $item['controlador']['atualizado_ha'] }}</span>
-                                @elseif ($item['controlador']['origem'] === 'manual')
-                                    Registo Manual<br><span class="font-medium">{{ $item['controlador']['atualizado_ha'] }}</span>
-                                @elseif ($item['controlador']['origem'] === 'artefacto')
-                                    {{ $item['controlador']['artefacto'] }}<br><span class="font-medium">{{ $item['controlador']['atualizado_ha'] }}</span>
-                                @else
-                                    Controlador Offline<br><span class="font-medium">{{ $item['controlador']['atualizado_ha'] }}</span>
-                                @endif
-                            </div>
-                        </div>
-                    @elseif (! empty($item['metricas']))
-                        <!-- Fallback to Fotómetro data if no array from 'controlador' key -->
-                        @foreach ($item['metricas'] as $idx => $metrica)
-                            @if ($idx < 3) <!-- Ensure max 3 metrics to fit grid nicely + 1 info card -->
+                        @foreach ($item['metricas4'] as $key => $metrica)
                             <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif">
                                 <div class="neo-metric-label">
                                     <span>{{ $metrica['label'] }}</span>
                                     <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 opacity-50" />
                                 </div>
-                                <div class="neo-metric-value">{{ $metrica['valor'] }}</div>
+                                <div class="neo-metric-value flex items-baseline gap-1">
+                                    @if($key === 'cloro')
+                                        @if($metrica['valor_orp'])
+                                            <span>{{ $metrica['valor_orp'] }}</span>
+                                            @if($metrica['valor_livre'])
+                                                <span class="text-lg text-slate-400 font-normal ml-1">{{ $metrica['valor_livre'] }}</span>
+                                            @endif
+                                        @else
+                                            <span>{{ $metrica['valor_livre'] ?? '—' }}</span>
+                                        @endif
+                                    @else
+                                        <span>{{ $metrica['valor'] }}</span>
+                                    @endif
+                                </div>
                                 <!-- Sparkline Placeholder -->
                                 <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
                                     <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20 L100,30 L0,30 Z" fill="{{ $metrica['ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
                                     <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20" fill="none" stroke="{{ $metrica['ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="2"/>
                                 </svg>
-                                <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
-                                    <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @elseif($metrica['ok'] === true) bg-emerald-500 @else bg-slate-300 @endif"></div>
-                                    {{ $metrica['ok'] === false ? 'Alert' : ($metrica['ok'] === true ? 'OK' : 'N/A') }}
+                                
+                                <div class="flex items-center justify-between mt-auto">
+                                    <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
+                                        @if($metrica['ok'] !== null)
+                                            <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @else bg-emerald-500 @endif"></div>
+                                            {{ $metrica['ok'] === false ? 'Alerta' : 'OK' }}
+                                        @else
+                                            <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                                            N/A
+                                        @endif
+                                    </div>
+                                    @if($metrica['origem'] !== 'sem_dados')
+                                        <div class="text-[0.65rem] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                            @if($metrica['origem'] === 'controlador')
+                                                Sonda • {{ $metrica['idade'] }}
+                                            @elseif($metrica['origem'] === 'manual')
+                                                Manual • {{ $metrica['idade'] }}
+                                            @elseif($metrica['origem'] === 'artefacto')
+                                                Lavagem • {{ $metrica['idade'] }}
+                                            @elseif($metrica['origem'] === 'controlador_offline')
+                                                Inativa • {{ $metrica['idade'] }}
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
-                            @endif
                         @endforeach
-                        <div class="neo-metric-card flex justify-center items-center text-center p-3">
-                            <div class="text-xs text-slate-500">
-                                Fotómetro<br><span class="font-medium">{{ $item['ha_quanto'] }}</span>
-                            </div>
-                        </div>
-                    @else
-                        <div class="col-span-full py-8 text-center text-sm text-slate-500">
-                            Nenhum dado recente encontrado para esta piscina.
-                        </div>
-                    @endif
+                    </div>
                 </div>
 
                 <!-- Actions Footer -->

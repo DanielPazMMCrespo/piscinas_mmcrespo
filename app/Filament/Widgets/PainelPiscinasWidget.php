@@ -206,8 +206,6 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            // Leitura durante lavagem/bomba parada é artefacto: não circula água
-            // no sensor, logo não conta para conformidade.
             $artefacto = $leitura !== null
                 ? app(\App\Services\LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
                 : null;
@@ -218,114 +216,168 @@ class PainelPiscinasWidget extends Widget
                 && $registo !== null
                 && abs((int) $registo->registado_em->diffInHours(now())) <= 8;
 
-            $dadosApresentados = null;
+            $metricas4 = [];
             $phOkConformes = null;
             $cloroOkConformes = null;
             $tempOkConformes = null;
 
+            // 1. pH
             if ($controladorOnline) {
                 $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
-                $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
-                $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
-                    ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
-                    : null;
-
-                $dadosApresentados = [
+                $phOkConformes = $phOk;
+                $metricas4['ph'] = [
+                    'label' => 'pH',
+                    'valor' => $ph !== null ? number_format($ph, 2, ',', '') : '—',
+                    'ok' => $phOk,
                     'origem' => 'controlador',
-                    'atualizado_ha' => match (true) {
+                    'idade' => match (true) {
                         $idadeMin < 1 => 'agora',
                         $idadeMin < 60 => "há {$idadeMin}m",
                         default => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    },
-                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
-                    'ph_ok' => $phOk,
-                    'middle_label' => 'ORP',
-                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
-                    'middle_ok' => $orpOk,
-                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
-                    'temp_ok' => $tempOk,
-                    'stale' => false,
+                    }
                 ];
-
-                $phOkConformes = $phOk;
-                $cloroOkConformes = $orpOk;
-                $tempOkConformes = $tempOk;
             } elseif ($usarRegistoManual) {
-                $phOk = $registo->ph_efetivo !== null ? $registo->phConforme() : null;
-                $cloroOk = $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
-                $tempOk = $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null;
-
-                $dadosApresentados = [
-                    'origem' => 'manual',
-                    'atualizado_ha' => $registo->registado_em->locale('pt')->diffForHumans(),
-                    'ph' => $registo->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : null,
-                    'ph_ok' => $phOk,
-                    'middle_label' => 'Cl. Livre',
-                    'middle_value' => $registo->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L' : null,
-                    'middle_ok' => $cloroOk,
-                    'temp' => $registo->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '') . ' °C' : null,
-                    'temp_ok' => $tempOk,
-                    'stale' => false,
-                ];
-
+                $phOk = $registo?->ph_efetivo !== null ? $registo->phConforme() : null;
                 $phOkConformes = $phOk;
-                $cloroOkConformes = $cloroOk;
-                $tempOkConformes = $tempOk;
-            } elseif ($leitura !== null && $artefacto === null) {
-                $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                $metricas4['ph'] = [
+                    'label' => 'pH',
+                    'valor' => $registo?->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : '—',
+                    'ok' => $phOk,
+                    'origem' => 'manual',
+                    'idade' => $registo->registado_em->locale('pt')->diffForHumans()
+                ];
+            } else {
+                // Tenta controlador offline ou artefacto
+                if ($leitura !== null) {
+                    $phOk = $artefacto === null && $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                    $phOkConformes = $phOk;
+                    $metricas4['ph'] = [
+                        'label' => 'pH',
+                        'valor' => $ph !== null ? number_format($ph, 2, ',', '') : '—',
+                        'ok' => $phOk,
+                        'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
+                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans()
+                    ];
+                } else {
+                    $metricas4['ph'] = ['label' => 'pH', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
+                }
+            }
+
+            // 2. Cloro (ORP e Livre)
+            $valorOrp = null;
+            $valorLivre = null;
+            $cloroOk = null;
+            $cloroOrigem = 'sem_dados';
+            $cloroIdade = '';
+
+            if ($controladorOnline) {
                 $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
+                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
+                $cloroOk = $orpOk;
+                $cloroOkConformes = $orpOk;
+                $cloroOrigem = 'controlador';
+                $cloroIdade = match (true) {
+                    $idadeMin < 1 => 'agora',
+                    $idadeMin < 60 => "há {$idadeMin}m",
+                    default => $leitura->lida_em->locale('pt')->diffForHumans(),
+                };
+            } elseif ($usarRegistoManual) {
+                $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
+                $cloroOk = $livreOk;
+                $cloroOkConformes = $livreOk;
+                $cloroOrigem = 'manual';
+                $cloroIdade = $registo->registado_em->locale('pt')->diffForHumans();
+                $orpNoMomento = $orpsNoMomento[$piscina->id] ?? null;
+                if ($orpNoMomento !== null) {
+                    $valorOrp = number_format($orpNoMomento, 0, ',', '') . ' mV';
+                }
+            } elseif ($leitura !== null) {
+                $orpOk = $artefacto === null && $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
+                $cloroOk = $orpOk;
+                $cloroOkConformes = $orpOk;
+                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
+                $cloroOrigem = $artefacto !== null ? 'artefacto' : 'controlador_offline';
+                $cloroIdade = $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans();
+            }
+
+            if ($registo?->cloro_livre_efetivo !== null) {
+                $valorLivre = number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L';
+                if ($cloroOrigem === 'controlador_offline' || $cloroOrigem === 'artefacto') {
+                    $cloroIdade = $registo->registado_em->locale('pt')->diffForHumans() . ' (Manual)';
+                }
+            }
+
+            $metricas4['cloro'] = [
+                'label' => 'ORP / Cl. Livre',
+                'valor_orp' => $valorOrp,
+                'valor_livre' => $valorLivre,
+                'ok' => $cloroOk,
+                'origem' => $cloroOrigem,
+                'idade' => $cloroIdade
+            ];
+
+            // 3. Cloro Combinado (Sempre Manual se houver, independentemente do tempo)
+            $combOk = $registo?->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null;
+            $metricas4['combinado'] = [
+                'label' => 'Cl. Combinado',
+                'valor' => $registo?->cloro_combinado !== null ? number_format((float) $registo->cloro_combinado, 2, ',', '') . ' mg/L' : '—',
+                'ok' => $combOk,
+                'origem' => $registo ? 'manual' : 'sem_dados',
+                'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : ''
+            ];
+
+            // 4. Temperatura
+            if ($controladorOnline) {
                 $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
                     ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
                     : null;
-
-                $dadosApresentados = [
-                    'origem' => 'controlador_offline',
-                    'atualizado_ha' => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
-                    'ph_ok' => $phOk,
-                    'middle_label' => 'ORP',
-                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
-                    'middle_ok' => $orpOk,
-                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
-                    'temp_ok' => $tempOk,
-                    'stale' => true,
-                ];
-
-                $phOkConformes = $phOk;
-                $cloroOkConformes = $orpOk;
                 $tempOkConformes = $tempOk;
-            } elseif ($leitura !== null && $artefacto !== null) {
-                // Leitura em artefacto: mostra em tom neutro, sem contribuir para
-                // a conformidade (parâmetros ficam null).
-                $dadosApresentados = [
-                    'origem' => 'artefacto',
-                    'artefacto' => $artefacto,
-                    'atualizado_ha' => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    'ph' => $ph !== null ? number_format($ph, 2, ',', '') : null,
-                    'ph_ok' => null,
-                    'middle_label' => 'ORP',
-                    'middle_value' => $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null,
-                    'middle_ok' => null,
-                    'temp' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : null,
-                    'temp_ok' => null,
-                    'stale' => true,
+                $metricas4['temp'] = [
+                    'label' => 'Temp.',
+                    'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : '—',
+                    'ok' => $tempOk,
+                    'origem' => 'controlador',
+                    'idade' => match (true) {
+                        $idadeMin < 1 => 'agora',
+                        $idadeMin < 60 => "há {$idadeMin}m",
+                        default => $leitura->lida_em->locale('pt')->diffForHumans(),
+                    }
                 ];
+            } elseif ($usarRegistoManual) {
+                $tempOk = $registo?->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null;
+                $tempOkConformes = $tempOk;
+                $metricas4['temp'] = [
+                    'label' => 'Temp.',
+                    'valor' => $registo?->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '') . ' °C' : '—',
+                    'ok' => $tempOk,
+                    'origem' => 'manual',
+                    'idade' => $registo->registado_em->locale('pt')->diffForHumans()
+                ];
+            } else {
+                if ($leitura !== null) {
+                    $tempOk = $artefacto === null && $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
+                        ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                        : null;
+                    $tempOkConformes = $tempOk;
+                    $metricas4['temp'] = [
+                        'label' => 'Temp.',
+                        'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : '—',
+                        'ok' => $tempOk,
+                        'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
+                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans()
+                    ];
+                } else {
+                    $metricas4['temp'] = ['label' => 'Temp.', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
+                }
             }
 
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
                 'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
-                'ha_quanto' => $registo?->registado_em->diffForHumans(),
-                'metricas' => $registo ? [
-                    self::metrica('pH', $registo->ph_efetivo, 2, '', $registo->ph_efetivo !== null ? $registo->phConforme() : null),
-                    self::metrica('Cl. Livre', $registo->cloro_livre_efetivo, 2, ' mg/L', $registo->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null, $orpsNoMomento[$piscina->id] ?? null),
-                    self::metrica('Cl. Combinado', $registo->cloro_combinado, 2, ' mg/L', $registo->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null),
-                    self::metrica('Temp.', $registo->temperatura_efetivo, 1, ' °C', $registo->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null),
-                ] : [],
+                'metricas4' => $metricas4,
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
-                'tem_dados_conformes' => $dadosApresentados !== null,
-                'controlador' => $dadosApresentados,
+                'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['cloro']['valor_orp'] !== null || $metricas4['cloro']['valor_livre'] !== null,
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
                 'acoes_rapidas' => collect([
                     [OperationalAction::TIPO_ANALISE_PONTUAL, 'Análise rápida', 'heroicon-m-beaker'],
