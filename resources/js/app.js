@@ -680,6 +680,158 @@ const setupHeaderLayout = () => {
 
 
 
+// IndexedDB setup for Form Draft Photos
+const dbName = 'DailyRecordDraftDB';
+const storeName = 'photos';
+
+const getDB = () => {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(storeName)) {
+                db.createObjectStore(storeName);
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+const savePhotoToDB = async (key, fileBlob) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).put(fileBlob, key);
+        await new Promise((res, rej) => {
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+        });
+    } catch (e) {
+        console.error('Error saving photo to IndexedDB:', e);
+    }
+};
+
+const getPhotoFromDB = async (key) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        return new Promise((res) => {
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => res(null);
+        });
+    } catch (e) {
+        console.error('Error reading photo from IndexedDB:', e);
+        return null;
+    }
+};
+
+const deletePhotoFromDB = async (key) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).delete(key);
+    } catch (e) {
+        console.error('Error deleting photo from IndexedDB:', e);
+    }
+};
+
+const clearAllPhotosFromDB = async () => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).clear();
+    } catch (e) {
+        console.error('Error clearing photos from IndexedDB:', e);
+    }
+};
+
+const getFieldKey = (filepondRoot) => {
+    const input = filepondRoot.querySelector('input[name]');
+    if (input) {
+        return input.getAttribute('name') || input.id || null;
+    }
+    const wrapper = filepondRoot.closest('[id]');
+    return wrapper ? wrapper.id : null;
+};
+
+const setupFormDraftPhotos = () => {
+    document.addEventListener('FilePond:addfile', async (e) => {
+        if (!window.location.pathname.includes('/daily-records/create')) return;
+
+        const filepondRoot = e.target;
+        const fieldKey = getFieldKey(filepondRoot);
+        if (!fieldKey) return;
+
+        const fileItem = e.detail.file;
+        if (fileItem && fileItem.file instanceof Blob) {
+            await savePhotoToDB(fieldKey, fileItem.file);
+        }
+    });
+
+    document.addEventListener('FilePond:removefile', async (e) => {
+        if (!window.location.pathname.includes('/daily-records/create')) return;
+
+        const filepondRoot = e.target;
+        const fieldKey = getFieldKey(filepondRoot);
+        if (fieldKey) {
+            await deletePhotoFromDB(fieldKey);
+        }
+    });
+};
+
+const restorePhotos = async () => {
+    let attempts = 0;
+    const attemptRestore = async () => {
+        const filepondElements = document.querySelectorAll('.filepond--root');
+        if (filepondElements.length === 0) {
+            if (attempts < 30) {
+                attempts++;
+                setTimeout(attemptRestore, 100);
+            }
+            return;
+        }
+
+        let allFound = true;
+        for (const el of filepondElements) {
+            const pond = window.FilePond?.find(el);
+            if (!pond) {
+                allFound = false;
+                break;
+            }
+        }
+
+        if (!allFound && attempts < 30) {
+            attempts++;
+            setTimeout(attemptRestore, 100);
+            return;
+        }
+
+        for (const el of filepondElements) {
+            const pond = window.FilePond?.find(el);
+            if (!pond) continue;
+
+            const fieldKey = getFieldKey(el);
+            if (!fieldKey) continue;
+
+            const storedFile = await getPhotoFromDB(fieldKey);
+            if (storedFile) {
+                try {
+                    const filename = storedFile.name || 'restored_image.jpg';
+                    const fileToUpload = new File([storedFile], filename, { type: storedFile.type });
+                    pond.removeFiles();
+                    pond.addFile(fileToUpload);
+                } catch (err) {
+                    console.error('Error adding restored file to FilePond:', err, fieldKey);
+                }
+            }
+        }
+    };
+
+    await attemptRestore();
+};
+
 // Ask before restoring a draft interrupted by an unexpected app close (does not auto-apply)
 const showDraftResumePrompt = (formKey, component, draftData) => {
     if (document.getElementById('mmc-draft-toast')) return;
@@ -691,6 +843,7 @@ const showDraftResumePrompt = (formKey, component, draftData) => {
                 localStorage.removeItem(key);
             }
         });
+        clearAllPhotosFromDB();
     };
 
     const toast = document.createElement('div');
@@ -716,8 +869,13 @@ const showDraftResumePrompt = (formKey, component, draftData) => {
         toast.classList.remove('translate-y-10', 'opacity-0');
     }, 50);
 
-    document.getElementById('resume-draft-btn').addEventListener('click', () => {
-        component.set('data', draftData);
+    document.getElementById('resume-draft-btn').addEventListener('click', async () => {
+        try {
+            await component.set('data', draftData);
+            await restorePhotos();
+        } catch (err) {
+            console.error('Error resuming draft:', err);
+        }
         toast.remove();
     });
 
@@ -897,6 +1055,7 @@ const mmcSetup = () => {
     setupNsAutoAdvance();
     setupHeaderLayout();
     setupFormDraft();
+    setupFormDraftPhotos();
     setupGlobalImageLightbox();
 };
 
@@ -933,6 +1092,7 @@ document.addEventListener('livewire:init', () => {
                 localStorage.removeItem(key);
             }
         });
+        clearAllPhotosFromDB();
         window.mmcPush?.cancelarTodosTimers();
     });
 });
