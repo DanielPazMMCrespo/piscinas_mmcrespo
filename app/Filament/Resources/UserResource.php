@@ -108,6 +108,14 @@ class UserResource extends Resource
                 Forms\Components\Select::make('roles')
                     ->label('Cargo')
                     ->relationship('roles', 'name')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => match ($record->name) {
+                        UserRole::ADMIN => 'Admin',
+                        UserRole::GESTOR => 'Gestor',
+                        UserRole::TECNICO => 'Técnico',
+                        UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+                        UserRole::INATIVO => 'Inativo',
+                        default => $record->name,
+                    })
                     ->multiple()
                     ->preload()
                     ->required(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
@@ -156,6 +164,14 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Perfis')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        UserRole::ADMIN => 'Admin',
+                        UserRole::GESTOR => 'Gestor',
+                        UserRole::TECNICO => 'Técnico',
+                        UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+                        UserRole::INATIVO => 'Inativo',
+                        default => $state,
+                    })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('piscinas.name')
                     ->label('Piscinas')

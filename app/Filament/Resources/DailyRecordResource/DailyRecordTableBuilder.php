@@ -365,7 +365,15 @@ class DailyRecordTableBuilder
                                         \Filament\Infolists\Components\TextEntry::make('contador_valor')
                                             ->label('Leitura do Contador'),
                                         \Filament\Infolists\Components\TextEntry::make('agua_modo')
-                                            ->label('Entrada de Água'),
+                                            ->label('Entrada de Água')
+                                            ->formatStateUsing(fn (?string $state): string => match ($state) {
+                                                'auto_com_agua' => 'Auto com água',
+                                                'auto_sem_agua' => 'Auto sem água',
+                                                'on_com_agua' => 'ON com água',
+                                                'on_sem_agua' => 'ON sem água',
+                                                'off' => 'OFF sem água',
+                                                default => $state ?? '—',
+                                            }),
                                     ]),
                                 self::fotoEntry('contador_foto', 'Foto do Contador'),
                                 \Filament\Infolists\Components\Grid::make(2)

@@ -77,8 +77,8 @@ class RelatorioPdf extends Page implements HasForms
             'colunas_visiveis' => [
                 'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
                 'cloro_combinado', 'temperatura', 'transparencia',
-                'contador_valor', 'bomba_tanque', 'acao_corretiva',
-                'observacoes', 'conforme',
+                'contador_valor', 'bomba_tanque',
+                'acao_corretiva', 'observacoes', 'conforme',
             ],
             'seccoes_visiveis' => [
                 'mostrar_resumo', 'mostrar_controlador_grafico',
@@ -200,6 +200,10 @@ class RelatorioPdf extends Page implements HasForms
                                 'transparencia' => 'Transparência',
                                 'contador_valor' => 'Contador',
                                 'bomba_tanque' => 'Bomba / Tanque',
+                                'renovacao_agua' => 'Renovação Água',
+                                'caleira_feita' => 'Limpeza Caleira',
+                                'pressao_filtro' => 'Pressão Filtro (bar)',
+                                'lavagens_filtro' => 'Lavagens do Filtro',
                                 'acao_corretiva' => 'Ações corretivas',
                                 'observacoes' => 'Observações',
                                 'conforme' => 'Conformidade',
@@ -329,6 +333,7 @@ class RelatorioPdf extends Page implements HasForms
                         $tempAvg = $grupo->map(fn ($r) => $r->temperatura ?? $r->ns_temperatura)->filter(fn ($v) => $v !== null)->average();
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
+                        $pressaoAvg = $grupo->whereNotNull('pressao_filtro')->avg('pressao_filtro');
                         
                         $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
                         $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
@@ -342,6 +347,20 @@ class RelatorioPdf extends Page implements HasForms
                         if ($grupo->whereNotNull('tanque_ok')->isNotEmpty()) {
                             $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
                         }
+                        
+                        $lavagensFiltro = $grupo->sum('numero_lavagens_filtro');
+                        $lavouFiltroGrp = $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty() || $lavagensFiltro > 0;
+                        
+                        $renovacaoAgua = $grupo->where('renovacao_agua', true)->isNotEmpty() 
+                            || $grupo->where('agua_modo', 'on_com_agua')->isNotEmpty()
+                            || ($grupo->where('agua_modo', 'auto_com_agua')->isNotEmpty() && $lavouFiltroGrp)
+                            ? true : null;
+                            
+                        $caleiraFeita = $grupo->where('caleira_feita', true)->isNotEmpty() ? true : null;
+                        
+                        if ($lavagensFiltro === 0 && $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty()) {
+                            $lavagensFiltro = 1;
+                        }
 
                         $mockRecord = new \App\Models\DailyRecord();
                         $mockRecord->registado_em = $dia;
@@ -351,8 +370,12 @@ class RelatorioPdf extends Page implements HasForms
                         $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
                         $mockRecord->transparencia = $transparenciaAvg !== null ? round((float)$transparenciaAvg, 2) : null;
                         $mockRecord->contador_valor = $contadorAvg !== null ? round((float)$contadorAvg, 2) : null;
+                        $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float)$pressaoAvg, 2) : null;
                         $mockRecord->bomba_ferrada = $bombaFerrada;
                         $mockRecord->tanque_ok = $tanqueOk;
+                        $mockRecord->renovacao_agua = $renovacaoAgua;
+                        $mockRecord->caleira_feita = $caleiraFeita;
+                        $mockRecord->numero_lavagens_filtro = $lavagensFiltro > 0 ? $lavagensFiltro : null;
                         $mockRecord->acao_corretiva = $acoes ?: null;
                         $mockRecord->observacoes = $observacoes ?: null;
                         $mockRecord->e_correcao = false;

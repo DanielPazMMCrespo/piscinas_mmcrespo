@@ -154,6 +154,13 @@ class IncidentResource extends Resource
                         Tables\Columns\TextColumn::make('type')
                             ->label('Tipo')
                             ->badge()
+                            ->formatStateUsing(fn (?string $state): string => match ($state) {
+                                'avaria_equipamento' => 'Avaria de Equipamento',
+                                'fuga_agua' => 'Fuga de Água',
+                                'qualidade_agua' => 'Problema na Qualidade da Água',
+                                'outro' => 'Outro',
+                                default => ucfirst(str_replace('_', ' ', $state ?? '')),
+                            })
                             ->searchable(),
                         Tables\Columns\TextColumn::make('status')
                             ->label('Estado')
