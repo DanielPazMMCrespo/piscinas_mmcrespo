@@ -45,15 +45,15 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->font('Inter')
+            ->font('Archivo')
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/logo-mmcrespo.png'))
             ->colors([
-                'primary' => Color::hex('#2b9cd8'),
-                'success' => Color::hex('#76b82a'),
+                'primary' => Color::hex('#1d3461'),
+                'success' => Color::hex('#4a8a1a'),
                 'warning' => Color::Amber,
                 'danger' => Color::hex('#dc2626'),
                 'gray' => Color::Zinc,
