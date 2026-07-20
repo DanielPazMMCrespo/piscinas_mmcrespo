@@ -94,9 +94,27 @@
                  :class="open ? '' : 'pb-2'">
                 
                 <!-- Card Header -->
+                @php
+                    $bgClass = 'bg-slate-50 dark:bg-slate-800';
+                    $textClass = 'text-slate-400 dark:text-slate-500';
+                    $statusLabel = 'Sem Dados';
+                    $statusColor = 'text-slate-500';
+
+                    if ($estadoGeral === 'ok') {
+                        $bgClass = 'bg-emerald-50 dark:bg-emerald-900/30';
+                        $textClass = 'text-emerald-600 dark:text-emerald-400';
+                        $statusLabel = 'Conforme';
+                        $statusColor = 'text-emerald-600';
+                    } elseif ($estadoGeral === 'bad') {
+                        $bgClass = 'bg-rose-50 dark:bg-rose-900/30';
+                        $textClass = 'text-rose-600 dark:text-rose-400';
+                        $statusLabel = $numFora . ' Alerta' . ($numFora > 1 ? 's' : '');
+                        $statusColor = 'text-rose-600 font-bold';
+                    }
+                @endphp
                 <div class="neo-pool-header cursor-pointer select-none" @click="toggle()">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <div class="w-10 h-10 rounded-full {{ $bgClass }} flex items-center justify-center {{ $textClass }}">
                             <x-filament::icon icon="heroicon-o-swatch" class="w-6 h-6" />
                         </div>
                         <div>
@@ -104,9 +122,12 @@
                             <div class="text-xs text-slate-500 mt-0.5">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
                         </div>
                     </div>
-                    <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
-                        <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs uppercase tracking-wide {{ $statusColor }}" x-show="!open" x-cloak>{{ $statusLabel }}</span>
+                        <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
+                            <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Collapsible Content -->
