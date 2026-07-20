@@ -1,0 +1,304 @@
+<!-- mobile-wizard.html -->
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registo Técnico - Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #f2f2f3;
+            --navy: #1d3461;
+            --green: #4a8a1a;
+            --red: #dc2626;
+            --white: #ffffff;
+            --border-color: #1d3461;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Archivo', sans-serif;
+            background-color: #e5e7eb; /* Darker background outside mobile area */
+            color: var(--text-main);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .font-condensed {
+            font-family: 'Barlow Condensed', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Corner Marks Component */
+        .corner-marks {
+            position: relative;
+            border: 1px solid var(--border-color);
+            border-radius: 0; 
+            background-color: var(--white);
+        }
+
+        .corner-marks::after {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px; right: -1px; bottom: -1px;
+            pointer-events: none;
+            --mark-color: var(--navy);
+            --mark-size: 7px;
+            --mark-thickness: 2px;
+            background:
+                linear-gradient(to right, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 0 0,
+                linear-gradient(to bottom, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 0 0,
+                linear-gradient(to left, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 100% 0,
+                linear-gradient(to bottom, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 100% 0,
+                linear-gradient(to right, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 0 100%,
+                linear-gradient(to top, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 0 100%,
+                linear-gradient(to left, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 100% 100%,
+                linear-gradient(to top, var(--mark-color) var(--mark-thickness), transparent var(--mark-thickness)) 100% 100%;
+            background-repeat: no-repeat;
+            background-size: var(--mark-size) var(--mark-size);
+            z-index: 10;
+        }
+
+        .layout-mobile {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--bg-main);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .mobile-header {
+            background-color: var(--navy);
+            color: var(--white);
+            padding: 24px 20px;
+            text-align: center;
+        }
+
+        .mobile-header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            letter-spacing: 0.1em;
+        }
+
+        .progress-bar {
+            background-color: var(--white);
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .progress-segments {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .progress-segment {
+            flex: 1;
+            height: 6px;
+            background-color: #e5e7eb;
+        }
+
+        .progress-segment.active {
+            background-color: var(--navy);
+        }
+
+        .progress-text {
+            font-size: 0.875rem;
+            color: var(--navy);
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .mobile-content {
+            flex: 1;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .btn-camera {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            width: 100%;
+            padding: 40px 20px;
+            background-color: rgba(29, 52, 97, 0.02);
+            color: var(--navy);
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-style: dashed;
+        }
+
+        .btn-camera:hover {
+            background-color: rgba(29, 52, 97, 0.05);
+        }
+
+        .btn-camera::after {
+            --mark-color: var(--green); /* Differentiate the corner marks here */
+        }
+
+        .camera-icon {
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--navy);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .camera-icon::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--navy);
+            border-radius: 50%;
+        }
+        .camera-icon::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 4px;
+            background-color: var(--navy);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .input-group label {
+            font-size: 1.25rem;
+            color: var(--navy);
+            font-weight: 700;
+        }
+
+        .tech-input {
+            width: 100%;
+            padding: 24px 16px;
+            font-size: 3rem;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 700;
+            color: var(--navy);
+            text-align: center;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .tech-input:focus {
+            border-width: 2px;
+            padding: 23px 15px; /* Adjust for 2px border */
+            --mark-thickness: 3px;
+        }
+
+        .mobile-footer {
+            padding: 24px;
+            background-color: var(--white);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            transition: opacity 0.2s;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: #f3f4f6;
+            color: var(--navy);
+        }
+
+        .btn-primary {
+            background-color: var(--green);
+            color: var(--white);
+            border-color: var(--navy);
+        }
+
+        .btn-primary::after {
+            --mark-color: var(--navy);
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-mobile">
+        <header class="mobile-header">
+            <h1 class="font-condensed">Novo Registo</h1>
+        </header>
+        
+        <div class="progress-bar">
+            <div class="progress-segments">
+                <div class="progress-segment active"></div>
+                <div class="progress-segment"></div>
+                <div class="progress-segment"></div>
+                <div class="progress-segment"></div>
+                <div class="progress-segment"></div>
+            </div>
+            <div class="progress-text font-condensed">PASSO 1 DE 5</div>
+        </div>
+        
+        <main class="mobile-content">
+            <button class="btn-camera corner-marks">
+                <div class="camera-icon"></div>
+                Fotografar tira de teste
+            </button>
+            
+            <div class="input-group">
+                <label class="font-condensed">Cloro Livre (ppm)</label>
+                <input type="number" value="1.2" step="0.1" class="tech-input corner-marks" />
+            </div>
+            
+            <div class="input-group">
+                <label class="font-condensed">pH</label>
+                <input type="number" value="7.4" step="0.1" class="tech-input corner-marks" />
+            </div>
+        </main>
+        
+        <footer class="mobile-footer">
+            <button class="btn btn-secondary corner-marks">Voltar</button>
+            <button class="btn btn-primary corner-marks">Seguinte</button>
+        </footer>
+    </div>
+</body>
+</html>
