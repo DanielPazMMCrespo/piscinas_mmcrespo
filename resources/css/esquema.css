@@ -401,6 +401,42 @@
 .mmc-esq__tag--amarelo { background: var(--mmc-esq-badge-amarelo); color: #fff; }
 .mmc-esq__tag--azul { background: var(--mmc-esq-badge-azul); color: #fff; }
 .mmc-esq__tag--verde { background: var(--mmc-ok-color, #16a34a); color: #fff; }
+.mmc-esq__historico {
+    margin-bottom: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--mmc-esq-detalhe-borda);
+}
+.mmc-esq__historico-titulo {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--mmc-esq-texto-suave);
+    margin-bottom: 0.5rem;
+}
+.mmc-esq__historico-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+.mmc-esq__historico-lista li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+}
+.mmc-esq__historico-data {
+    font-weight: 600;
+    color: var(--mmc-esq-valor);
+}
+.mmc-esq__historico-fonte {
+    color: var(--mmc-esq-texto-suave);
+}
+.mmc-esq__historico-por {
+    color: var(--mmc-esq-texto-suave);
+    font-style: italic;
+}
 .mmc-esq__link {
     color: var(--mmc-esq-tab-ativa-cor);
     text-decoration: underline;
