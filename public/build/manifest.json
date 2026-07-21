@@ -54,7 +54,7 @@
     "isDynamicEntry": true
   },
   "resources/css/app.css": {
-    "file": "assets/app-DAT2aFrS.css",
+    "file": "assets/app-OkcbG-jz.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -63,7 +63,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-BwhM8oKh.js",
+    "file": "assets/app-DaABU4vg.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -73,6 +73,7 @@
       "node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.esm.js",
       "node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.esm.js",
       "node_modules/chartjs-adapter-luxon/dist/chartjs-adapter-luxon.esm.js",
+      "node_modules/chart.js/dist/chart.js",
       "node_modules/gsap/index.js"
     ]
   }

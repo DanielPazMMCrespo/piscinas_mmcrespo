@@ -188,6 +188,11 @@ body {
     backdrop-filter: blur(24px) !important;
     -webkit-backdrop-filter: blur(24px) !important;
     border-right: 1px solid rgba(0, 242, 254, 0.15) !important;
+    position: fixed !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    top: 0 !important;
+    bottom: 0 !important;
 }
 
 .dark .fi-sidebar-item-active > a,
@@ -264,6 +269,11 @@ body {
     background: rgba(240, 247, 255, 0.9) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
+    position: fixed !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    top: 0 !important;
+    bottom: 0 !important;
 }
 .fi-section,
 .fi-ta-ctn,

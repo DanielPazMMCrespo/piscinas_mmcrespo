@@ -1076,11 +1076,13 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
     banner.id = 'mmc-draft-banner';
     banner.className = 'w-full mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm transition-all animate-fade-in z-30';
     banner.innerHTML = `
-        <div class="flex items-center gap-2 text-sm font-medium">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>✨ Rascunho de registo restaurado automaticamente (guardado às ${formattedTime}).</span>
+        <div class="flex items-center gap-2.5 text-sm font-medium">
+            <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Rascunho de registo restaurado automaticamente (guardado às ${formattedTime}).</span>
         </div>
-        <button id="discard-draft-banner-btn" type="button" class="text-xs font-semibold underline text-amber-700 dark:text-amber-300 hover:text-red-600 transition px-2 py-1">
+        <button id="discard-draft-banner-btn" type="button" class="text-xs font-semibold px-2.5 py-1 bg-amber-600/10 hover:bg-amber-600/20 text-amber-800 dark:text-amber-200 border border-amber-600/20 hover:border-amber-600/40 rounded-md transition-colors duration-150">
             Descartar rascunho
         </button>
     `;
