@@ -377,7 +377,7 @@ class DailyRecordFormBuilder
                                             ->id("motivo_valor_zero_{$pool->id}")
                                             ->label('Motivo do valor 0')
                                             ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
-                                            ->required()
+                                            ->required(fn (Get $get) => self::algumValorZero($get))
                                             ->visible(fn (Get $get) => self::algumValorZero($get))
                                             ->columnSpanFull(),
                                     ])->columns(['default' => 2, 'sm' => 4])
