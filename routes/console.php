@@ -55,3 +55,28 @@ Schedule::command('notificacoes:resumo-conformidade')
 Schedule::command('notificacoes:custom-fire-due')
     ->everyMinute()
     ->withoutOverlapping();
+
+// ── Fase 1: Automação & Inteligência Operacional ────────────────────────────
+
+// Regras de negócio automáticas: auto-incidentes (3x violação/dia/piscina),
+// escalação de incidentes sem resposta >24h, fecho automático de stock.
+Schedule::command('regras:executar')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+// Verificação de tendências degradantes nos parâmetros (pH, cloro).
+// Cada 6h é suficiente — tendências são de longo prazo.
+Schedule::command('tendencias:verificar')
+    ->everySixHours()
+    ->withoutOverlapping();
+
+// Resumo operacional de fim de turno — horários configuráveis em Definições.
+// Corre everyMinute; o comando faz dedup por slot (mesmo padrão do digest).
+Schedule::command('notificacoes:resumo-turno')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Comparação semanal de conformidade — domingos às 09:00.
+Schedule::command('notificacoes:comparacao-semanal')
+    ->weeklyOn(0, '09:00')
+    ->withoutOverlapping();
