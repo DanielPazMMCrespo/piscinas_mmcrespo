@@ -59,6 +59,20 @@ class SettingsService
         return is_array($value) ? $value : $default;
     }
 
+    public function set(string $key, mixed $value, string $group = 'geral', string $type = 'string'): void
+    {
+        AppSetting::updateOrCreate(
+            ['key' => $key],
+            [
+                'value' => $value,
+                'group' => $group,
+                'label' => ucwords(str_replace('_', ' ', $key)),
+                'type' => $type,
+            ]
+        );
+        $this->flush();
+    }
+
     public function flush(): void
     {
         Cache::forget('app_settings_all');
