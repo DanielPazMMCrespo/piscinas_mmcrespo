@@ -75,7 +75,7 @@ class DailyRecord extends Model
         'observacoes', 'e_correcao',
         'corrige_registo_id', 'razao_correcao',
         // Leituras do Nadador-Salvador
-        'ns_foto', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura', 'motivo_valor_zero',
+        'ns_foto', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura',
         // Filtros
         'filtro_faz_retrolavagem', 'numero_lavagens_filtro',
         'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',

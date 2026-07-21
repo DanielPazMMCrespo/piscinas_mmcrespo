@@ -61,7 +61,6 @@ class DailyRecordFormBuilder
             'ns_cloro_livre' => null,
             'ns_cloro_total' => null,
             'ns_temperatura' => null,
-            'motivo_valor_zero' => null,
             'adicoes' => [],
             'observacoes' => null,
         ];
@@ -373,8 +372,8 @@ class DailyRecordFormBuilder
                                                 },
                                             ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
-                                        Forms\Components\Textarea::make('motivo_valor_zero')
-                                            ->id("motivo_valor_zero_{$pool->id}")
+                                        Forms\Components\Textarea::make('observacoes')
+                                            ->id("observacoes_zero_{$pool->id}")
                                             ->label('Motivo do valor 0')
                                             ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
                                             ->required(fn (Get $get) => self::algumValorZero($get))
