@@ -58,50 +58,57 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     public function preferencesForm(Forms\Form $form): Forms\Form
     {
+        $schema = [
+            Forms\Components\Section::make('Preferências Globais de Notificação')
+                ->description('Personalize exatamente quais notificações deseja receber por Push (no dispositivo/browser) e por E-mail.')
+                ->schema([
+                    // 1. Incidentes
+                    Forms\Components\Section::make('Incidentes e Ocorrências')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->schema([
+                            $this->getSingleNotificationItemSchema('Novo Incidente', 'incident_created', 'Receber aviso quando um novo incidente é reportado.'),
+                            $this->getSingleNotificationItemSchema('Mensagens em Incidentes', 'incident_message', 'Notificações de novas mensagens e respostas no chat de um incidente.'),
+                        ])
+                        ->collapsible(),
+
+                    // 2. Operação
+                    Forms\Components\Section::make('Operação e Casa das Máquinas')
+                        ->icon('heroicon-o-wrench-screwdriver')
+                        ->schema([
+                            $this->getSingleNotificationItemSchema('Fim de Temporizador', 'timer_finished', 'Alerta quando o temporizador da retrolavagem/enxaguamento chega ao fim.'),
+                            $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
+                            $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
+                        ])
+                        ->collapsible(),
+
+                    // 3. Conformidade & Sensores
+                    Forms\Components\Section::make('Segurança, Conformidade & Sensores')
+                        ->icon('heroicon-o-shield-check')
+                        ->schema(array_filter([
+                            $this->getSingleNotificationItemSchema('Análise Fora dos Limites', 'nao_conformidade', 'Alerta imediato quando um registo diário viola os parâmetros legais.', defaultMail: true),
+                            $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
+                            $this->podeGerir() ? Forms\Components\TagsInput::make('digest_conformidade_horas')
+                                ->label('Horários do Resumo de Conformidade')
+                                ->placeholder('HH:MM (ex: 08:00, 13:00, 18:00)')
+                                ->helperText('Horários fixos do dia em que o servidor envia o resumo de piscinas não conformes.')
+                                ->columnSpanFull() : null,
+                            $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
+                            $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
+                        ]))
+                        ->collapsible(),
+
+                    // 4. Sistema
+                    Forms\Components\Section::make('Avisos do Sistema')
+                        ->icon('heroicon-o-megaphone')
+                        ->schema([
+                            $this->getSingleNotificationItemSchema('Anúncios e Avisos Globais', 'custom_broadcast', 'Comunicados e mensagens emitidas pela administração.'),
+                        ])
+                        ->collapsible(),
+                ]),
+        ];
+
         return $form
-            ->schema([
-                Forms\Components\Section::make('Preferências Globais de Notificação')
-                    ->description('Personalize exatamente quais notificações deseja receber por Push (no dispositivo/browser) e por E-mail.')
-                    ->schema([
-                        // 1. Incidentes
-                        Forms\Components\Section::make('Incidentes e Ocorrências')
-                            ->icon('heroicon-o-exclamation-triangle')
-                            ->schema([
-                                $this->getSingleNotificationItemSchema('Novo Incidente', 'incident_created', 'Receber aviso quando um novo incidente é reportado.'),
-                                $this->getSingleNotificationItemSchema('Mensagens em Incidentes', 'incident_message', 'Notificações de novas mensagens e respostas no chat de um incidente.'),
-                            ])
-                            ->collapsible(),
-
-                        // 2. Operação
-                        Forms\Components\Section::make('Operação e Casa das Máquinas')
-                            ->icon('heroicon-o-wrench-screwdriver')
-                            ->schema([
-                                $this->getSingleNotificationItemSchema('Fim de Temporizador', 'timer_finished', 'Alerta quando o temporizador da retrolavagem/enxaguamento chega ao fim.'),
-                                $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
-                                $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
-                            ])
-                            ->collapsible(),
-
-                        // 3. Conformidade & Sensores
-                        Forms\Components\Section::make('Segurança, Conformidade & Sensores')
-                            ->icon('heroicon-o-shield-check')
-                            ->schema([
-                                $this->getSingleNotificationItemSchema('Análise Fora dos Limites', 'nao_conformidade', 'Alerta imediato quando um registo diário viola os parâmetros legais.', defaultMail: true),
-                                $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
-                                $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
-                                $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
-                            ])
-                            ->collapsible(),
-
-                        // 4. Sistema
-                        Forms\Components\Section::make('Avisos do Sistema')
-                            ->icon('heroicon-o-megaphone')
-                            ->schema([
-                                $this->getSingleNotificationItemSchema('Anúncios e Avisos Globais', 'custom_broadcast', 'Comunicados e mensagens emitidas pela administração.'),
-                            ])
-                            ->collapsible(),
-                    ]),
-            ])
+            ->schema($schema)
             ->statePath('preferencesData');
     }
 
@@ -130,6 +137,11 @@ class Notificacoes extends Page implements HasForms, HasTable
             'notification_preferences' => $data['notification_preferences'] ?? [],
         ]);
 
+        if ($this->podeGerir() && isset($data['digest_conformidade_horas'])) {
+            $settings = app(\App\Services\SettingsService::class);
+            $settings->set('digest_conformidade_horas', $data['digest_conformidade_horas']);
+        }
+
         Notification::make()
             ->title('Preferências guardadas com sucesso!')
             ->success()
@@ -139,8 +151,12 @@ class Notificacoes extends Page implements HasForms, HasTable
     public function mount(): void
     {
         $this->destinoCargo = UserRole::ADMIN;
+        $settings = app(\App\Services\SettingsService::class);
+        $digestHoras = $settings->getArray('digest_conformidade_horas', ['08:00', '13:00', '18:00']);
+
         $this->preferencesForm->fill([
             'notification_preferences' => auth()->user()->notification_preferences ?? [],
+            'digest_conformidade_horas' => $digestHoras,
         ]);
     }
 
@@ -242,6 +258,9 @@ class Notificacoes extends Page implements HasForms, HasTable
     {
         return $table
             ->query(CustomBroadcast::query())
+            ->emptyStateHeading('Sem avisos agendados')
+            ->emptyStateDescription('Crie um novo aviso para enviar notificações personalizadas num determinado horário.')
+            ->emptyStateIcon('heroicon-o-megaphone')
             ->headerActions([
                 Tables\Actions\CreateAction::make('novo_aviso')
                     ->label('Novo Aviso')
