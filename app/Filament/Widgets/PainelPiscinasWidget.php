@@ -457,10 +457,10 @@ class PainelPiscinasWidget extends Widget
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
                 'acoes_rapidas' => collect([
                     [DailyRecordResource::getUrl('create', ['pool' => $piscina->id, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, OperationalActionResource::canAccess()],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, OperationalActionResource::canAccess()],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, OperationalActionResource::canAccess()],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, OperationalActionResource::canAccess()],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
                 ])->filter(fn (array $a) => $a[4])
                 ->map(fn (array $a) => [
                     'url' => $a[0],

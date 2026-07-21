@@ -109,4 +109,45 @@ class NSDashboardRestrictionTest extends TestCase
 
         $this->assertArrayHasKey('transparencia', $options);
     }
+
+    public function test_swimmer_widget_quick_actions_only_contains_registo_rapido(): void
+    {
+        $widget = Livewire::actingAs($this->nadador)
+            ->test(PainelPiscinasWidget::class)
+            ->instance();
+
+        $reflection = new \ReflectionClass($widget);
+        $method = $reflection->getMethod('getViewData');
+        $method->setAccessible(true);
+        $viewData = $method->invoke($widget);
+
+        $poolData = $viewData['piscinas']->first();
+        $acoes = collect($poolData['acoes_rapidas']);
+
+        $this->assertCount(1, $acoes);
+        $this->assertEquals('Registo Rápido', $acoes->first()['label']);
+    }
+
+    public function test_admin_widget_quick_actions_contains_all_actions(): void
+    {
+        $widget = Livewire::actingAs($this->admin)
+            ->test(PainelPiscinasWidget::class)
+            ->instance();
+
+        $reflection = new \ReflectionClass($widget);
+        $method = $reflection->getMethod('getViewData');
+        $method->setAccessible(true);
+        $viewData = $method->invoke($widget);
+
+        $poolData = $viewData['piscinas']->first();
+        $acoes = collect($poolData['acoes_rapidas']);
+
+        $this->assertCount(5, $acoes);
+        $labels = $acoes->pluck('label')->toArray();
+        $this->assertContains('Registo Rápido', $labels);
+        $this->assertContains('Análise rápida', $labels);
+        $this->assertContains('Lavar filtro', $labels);
+        $this->assertContains('Torneira', $labels);
+        $this->assertContains('Contador', $labels);
+    }
 }
