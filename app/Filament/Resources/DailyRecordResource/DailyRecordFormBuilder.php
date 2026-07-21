@@ -142,7 +142,7 @@ class DailyRecordFormBuilder
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
     {
         return $campo
-            ->live(onBlur: true)
+            ->live()
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => match(DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
