@@ -33,17 +33,9 @@
     @endif
 
     <!-- Main Header & Action -->
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
-            <p class="text-sm text-slate-500 mt-1">Visão global das piscinas.</p>
-        </div>
-        @can('create', \App\Models\DailyRecord::class)
-            <a href="{{ $urlRegistar }}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-xl transition-colors shadow-sm">
-                <x-filament::icon icon="heroicon-m-document-text" class="w-4 h-4" />
-                Relatório Rápido
-            </a>
-        @endcan
+    <div class="text-center mb-6">
+        <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
+        <p class="text-sm text-slate-500 mt-1">Visão global das piscinas.</p>
     </div>
 
     <!-- Pools Grid -->

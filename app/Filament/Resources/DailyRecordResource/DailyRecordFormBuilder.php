@@ -649,7 +649,7 @@ class DailyRecordFormBuilder
                     };
 
                     return [
-                        Forms\Components\Wizard::make($steps)->skippable()
+                        Forms\Components\Wizard::make($steps)->skippable()->persistStepInQueryString()
                     ];
                 })
         ])->columns(1);

@@ -8,6 +8,8 @@ const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').mat
 // Avoids duplicate plugin registration and duplicate dynamic imports.
 let ChartWithPlugins = null;
 
+window.mmcFormDirty = false;
+
 /**
  * Componente Alpine para os gráficos de parâmetros (dual Y-axis, zoom/pan, time scale).
  *
@@ -1080,7 +1082,7 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
             <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Rascunho de registo restaurado automaticamente (guardado às ${formattedTime}).</span>
+            <span>Rascunho de registo restaurado (guardado às ${formattedTime}).</span>
         </div>
         <button id="discard-draft-banner-btn" type="button" class="text-xs font-semibold px-2.5 py-1 bg-amber-600/10 hover:bg-amber-600/20 text-amber-800 dark:text-amber-200 border border-amber-600/20 hover:border-amber-600/40 rounded-md transition-colors duration-150">
             Descartar rascunho
@@ -1102,6 +1104,113 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
         clearAllPhotosFromDB();
         banner.remove();
         window.location.reload();
+    });
+};
+
+const askUserToRestoreDraft = (formKey, component, stored) => {
+    if (document.getElementById('mmc-draft-modal')) return;
+
+    const draftData = stored.data;
+    const savedAt = stored.savedAt ?? 0;
+    const savedStep = stored.step;
+    const formattedTime = new Date(savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+    const modal = document.createElement('div');
+    modal.id = 'mmc-draft-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300';
+    modal.innerHTML = `
+        <div class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl p-6 transition-all transform scale-100 duration-200">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-3 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Recuperar registo anterior?</h3>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Foi encontrado um rascunho de registo diário preenchido anteriormente às <span class="font-semibold text-gray-700 dark:text-gray-300">${formattedTime}</span>. Deseja recuperar as medições e fotografias para continuar a preencher?
+            </p>
+            <div class="flex items-center justify-end gap-3">
+                <button id="mmc-draft-modal-discard-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer">
+                    Não, descartar
+                </button>
+                <button id="mmc-draft-modal-recover-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-amber-600 hover:bg-amber-500 shadow-sm transition-colors duration-150 cursor-pointer">
+                    Sim, recuperar
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('mmc-draft-modal-recover-btn').addEventListener('click', async () => {
+        modal.remove();
+        const urlParams = new URLSearchParams(window.location.search);
+        if (savedStep && urlParams.get('step') !== savedStep) {
+            localStorage.setItem('mmc_restore_draft_on_load', 'true');
+            urlParams.set('step', savedStep);
+            window.location.href = window.location.pathname + '?' + urlParams.toString();
+        } else {
+            await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
+            if (typeof FilamentNotification !== 'undefined') {
+                new FilamentNotification()
+                    .title('Rascunho recuperado com sucesso!')
+                    .success()
+                    .send();
+            }
+        }
+    });
+
+    document.getElementById('mmc-draft-modal-discard-btn').addEventListener('click', async () => {
+        localStorage.removeItem(formKey);
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('mmc_timer_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        await clearAllPhotosFromDB();
+        modal.remove();
+        window.location.reload();
+    });
+};
+
+const setupDirtyStateWarning = () => {
+    if (!window.location.pathname.includes('/daily-records/create')) return;
+
+    const formEl = document.querySelector('.fi-main form') || document.querySelector('form');
+    if (formEl) {
+        formEl.addEventListener('input', () => { window.mmcFormDirty = true; });
+        formEl.addEventListener('change', () => { window.mmcFormDirty = true; });
+        formEl.addEventListener('click', (e) => {
+            const target = e.target.closest('button, input, select, [role="switch"]');
+            if (target) {
+                if (target.type === 'submit' || target.innerText.includes('Criar') || target.innerText.includes('Confirmar')) {
+                    window.mmcFormDirty = false;
+                } else {
+                    window.mmcFormDirty = true;
+                }
+            }
+        });
+    }
+
+    window.addEventListener('beforeunload', (e) => {
+        if (window.mmcFormDirty) {
+            e.preventDefault();
+            e.returnValue = 'Tem alterações não guardadas no registo diário. Tem a certeza que deseja sair?';
+            return e.returnValue;
+        }
+    });
+
+    document.addEventListener('livewire:navigate', (e) => {
+        if (window.mmcFormDirty) {
+            const confirmLeave = confirm('Tem alterações não guardadas no registo diário. Tem a certeza que deseja sair?');
+            if (!confirmLeave) {
+                e.preventDefault();
+            } else {
+                window.mmcFormDirty = false;
+            }
+        }
     });
 };
 
@@ -1141,6 +1250,8 @@ const setupFormDraft = () => {
             stored = await getDraftFromDB(formKey);
         }
 
+        const forceRestore = localStorage.getItem('mmc_restore_draft_on_load') === 'true';
+
         if (stored && stored.data) {
             const draftData = stored.data;
             const savedAt = stored.savedAt ?? 0;
@@ -1149,21 +1260,29 @@ const setupFormDraft = () => {
             if (expired) {
                 localStorage.removeItem(formKey);
             } else if (draftData && Object.keys(draftData).length > 0 && !window.__mmcDraftRestored) {
-                window.__mmcDraftRestored = true;
-                await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
+                if (forceRestore) {
+                    localStorage.removeItem('mmc_restore_draft_on_load');
+                    window.__mmcDraftRestored = true;
+                    await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
+                } else {
+                    window.__mmcDraftRestored = true;
+                    askUserToRestoreDraft(formKey, component, stored);
+                }
             }
         }
 
         const saveDraft = async () => {
             const currentData = component.get('data');
             if (currentData && Object.keys(currentData).length > 0) {
-                const payload = { data: currentData, savedAt: Date.now() };
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentStep = urlParams.get('step');
+                const payload = { data: currentData, step: currentStep, savedAt: Date.now() };
                 localStorage.setItem(formKey, JSON.stringify(payload));
                 await saveDraftToDB(formKey, payload);
             }
         };
 
-        // 2. Save on every keystroke, change, and blur event
+        // 2. Save on every keystroke, change, and click event
         let debounceTimeout;
         const triggerSave = () => {
             clearTimeout(debounceTimeout);
@@ -1173,6 +1292,7 @@ const setupFormDraft = () => {
         document.addEventListener('input', triggerSave);
         document.addEventListener('change', triggerSave);
         document.addEventListener('blur', triggerSave, true);
+        document.addEventListener('click', triggerSave);
 
         // 3. Fallback periodic save every 2 seconds
         setInterval(saveDraft, 2000);
@@ -1281,6 +1401,7 @@ const mmcSetup = () => {
     setupHeaderLayout();
     setupFormDraft();
     setupFormDraftPhotos();
+    setupDirtyStateWarning();
     setupGlobalImageLightbox();
     setupVoiceInput();
     syncOfflineRecords();
@@ -1328,7 +1449,9 @@ document.addEventListener('livewire:init', () => {
                 try {
                     const currentData = component.get('data');
                     if (currentData) {
-                        localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const currentStep = urlParams.get('step');
+                        localStorage.setItem(formKey, JSON.stringify({ data: currentData, step: currentStep, savedAt: Date.now() }));
                     }
                 } catch (e) {
                     console.error('Error saving daily record draft:', e);
@@ -1339,6 +1462,7 @@ document.addEventListener('livewire:init', () => {
 
     // Clear draft and all active timers when dailyRecordSaved event is emitted
     Livewire.on('dailyRecordSaved', () => {
+        window.mmcFormDirty = false;
         const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
         localStorage.removeItem(formKey);
         Object.keys(localStorage).forEach(key => {
@@ -1354,5 +1478,6 @@ document.addEventListener('livewire:init', () => {
 // Setup form draft on Livewire SPA page transitions
 document.addEventListener('livewire:navigated', () => {
     setupFormDraft();
+    setupDirtyStateWarning();
     syncOfflineRecords();
 });
