@@ -30,10 +30,10 @@ class TorneiraAbertaNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if ($notifiable->wantsNotification('operacao', 'push')) {
+        if ($notifiable->wantsNotification('torneira_aberta', 'push')) {
             $channels[] = WebPushChannel::class;
         }
-        if ($notifiable->wantsNotification('operacao', 'mail')) {
+        if ($notifiable->wantsNotification('torneira_aberta', 'mail')) {
             $channels[] = 'mail';
         }
         return $channels;

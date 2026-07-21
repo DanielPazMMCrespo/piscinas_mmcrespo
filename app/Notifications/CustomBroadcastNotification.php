@@ -25,10 +25,10 @@ class CustomBroadcastNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if ($notifiable->wantsNotification('sistema', 'push')) {
+        if ($notifiable->wantsNotification('custom_broadcast', 'push')) {
             $channels[] = WebPushChannel::class;
         }
-        if ($notifiable->wantsNotification('sistema', 'mail')) {
+        if ($notifiable->wantsNotification('custom_broadcast', 'mail')) {
             $channels[] = 'mail';
         }
         return $channels;

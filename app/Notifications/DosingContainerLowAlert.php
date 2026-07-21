@@ -4,7 +4,10 @@ namespace App\Notifications;
 
 use App\Models\DosingContainer;
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class DosingContainerLowAlert extends Notification
 {
@@ -15,7 +18,14 @@ class DosingContainerLowAlert extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('dosing_low', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('dosing_low', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toDatabase(object $notifiable): DatabaseMessage
@@ -31,5 +41,33 @@ class DosingContainerLowAlert extends Notification
             'icon' => 'heroicon-o-beaker',
             'color' => 'warning',
         ]);
+    }
+
+    public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
+    {
+        $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
+        $pct = $this->container->percentagem();
+        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '') . '%' : 'nível baixo';
+
+        return (new WebPushMessage())
+            ->title("Bidão de {$this->container->tipoLabel()} — {$piscina}: repor")
+            ->body("Nível a {$pctTxt}. Reabastecer o bidão de {$this->container->tipoLabel()}.")
+            ->data(['url' => '/admin/dosing-containers'])
+            ->tag("dosing-low-{$this->container->id}");
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
+        $pct = $this->container->percentagem();
+        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '') . '%' : 'nível baixo';
+
+        return (new MailMessage())
+            ->subject("Alerta: Nível Baixo no Bidão de {$this->container->tipoLabel()} — {$piscina}")
+            ->greeting("Olá, {$notifiable->name}.")
+            ->line("O bidão de doseamento de {$this->container->tipoLabel()} da {$piscina} atingiu o nível crítico de {$pctTxt}.")
+            ->action('Ver Bidões de Doseamento', url('/admin/dosing-containers'))
+            ->line('Por favor, efetue o reabastecimento o quanto antes para garantir o tratamento correto da água.')
+            ->salutation('Cumprimentos, Equipa MMCrespo');
     }
 }

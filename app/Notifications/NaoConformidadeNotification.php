@@ -33,10 +33,10 @@ class NaoConformidadeNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if ($notifiable->wantsNotification('conformidade', 'push')) {
+        if ($notifiable->wantsNotification('nao_conformidade', 'push')) {
             $channels[] = WebPushChannel::class;
         }
-        if ($notifiable->wantsNotification('conformidade', 'mail')) {
+        if ($notifiable->wantsNotification('nao_conformidade', 'mail')) {
             $channels[] = 'mail';
         }
         return $channels;
