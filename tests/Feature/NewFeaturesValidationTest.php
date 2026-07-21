@@ -9,6 +9,7 @@ use App\Models\Pool;
 use App\Models\Product;
 use App\Models\TapAlert;
 use App\Models\User;
+use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -224,5 +225,64 @@ class NewFeaturesValidationTest extends TestCase
             'quantidade_ml' => 15000,
             'nota' => 'Reabastecido com 15L de cloro',
         ]);
+    }
+
+    public function test_hanna_sync_discounts_dosage_only_after_refill_timestamp(): void
+    {
+        // Mock HannaCloudService first
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getDeviceSettings')->andReturn([]);
+        $mock->shouldReceive('getLastReading')->andReturn([
+            'dt' => '2026-07-21 10:15:00',
+            'ph' => 7.2,
+            'orp' => 700.0,
+            'temperatura_agua' => 26.5,
+            'temperatura_ar' => 24.0,
+            'caudal_ph' => 1.5,
+            'caudal_cloro' => 0.9,
+            'alarms' => [],
+            'raw_parameters' => [],
+        ]);
+        $mock->shouldReceive('getHistoryReadings')->andReturn([
+            ['dt' => '2026-07-21 09:55:00', 'dose_cloro_ml' => 100.0, 'dose_ph_ml' => 0.0],
+            ['dt' => '2026-07-21 10:05:00', 'dose_cloro_ml' => 50.0, 'dose_ph_ml' => 0.0],
+            ['dt' => '2026-07-21 10:15:00', 'dose_cloro_ml' => 30.0, 'dose_ph_ml' => 0.0],
+        ]);
+
+        config(['services.hanna.email' => 'test@example.com']);
+        config(['services.hanna.password' => 'password']);
+
+        $env = $this->createTestEnvironment();
+        $pool = $env['pool'];
+
+        // Create Hanna device
+        $device = \App\Models\HannaDevice::create([
+            'hanna_device_id' => 'DID-SYNC-TEST',
+            'name' => 'Controlador Teste',
+            'active' => true,
+            'pool_id' => $pool->id,
+            'dose_sincronizada_ate' => \Illuminate\Support\Carbon::parse('2026-07-21 09:50:00'),
+        ]);
+
+        // Create dosing container refilled at 10:00
+        $container = \App\Models\DosingContainer::create([
+            'pool_id' => $pool->id,
+            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 20000,
+            'restante_ml' => 20000,
+            'alerta_percent' => 20,
+            'reabastecido_em' => \Illuminate\Support\Carbon::parse('2026-07-21 10:00:00'),
+        ]);
+
+        // Run sync command
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        // Refresh container level
+        $container->refresh();
+
+        // Only 50 and 30 should be deducted (total 80 mL).
+        // 100 mL should be ignored because it was at 09:55 (before refill at 10:00).
+        $this->assertEquals(19920.0, (float) $container->restante_ml);
     }
 }

@@ -44,7 +44,7 @@ class OperationalActionObserver
                 ->where('tipo', $tipoBidao)
                 ->first();
             if ($container) {
-                $container->reabastecer($quantidadeL * 1000, $acao->user_id, $acao->observacoes);
+                $container->reabastecer($quantidadeL * 1000, $acao->user_id, $acao->observacoes, $acao->registado_em);
             }
         }
     }

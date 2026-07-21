@@ -207,14 +207,28 @@ class HannaCloudSync extends Command
             return;
         }
 
+        $containerCloro = DosingContainer::firstOrCreate(
+            ['pool_id' => $device->pool_id, 'tipo' => DosingContainer::TIPO_CLORO],
+        );
+        $containerPh = DosingContainer::firstOrCreate(
+            ['pool_id' => $device->pool_id, 'tipo' => DosingContainer::TIPO_PH_MENOS],
+        );
+
         $doseCloro = 0.0;
         $dosePh = 0.0;
         $ultimoDt = $device->dose_sincronizada_ate;
 
         foreach ($novas as $l) {
-            $doseCloro += (float) ($l['dose_cloro_ml'] ?? 0);
-            $dosePh += (float) ($l['dose_ph_ml'] ?? 0);
             $dt = Carbon::parse($l['dt']);
+
+            if ($containerCloro->reabastecido_em === null || $dt->gt($containerCloro->reabastecido_em)) {
+                $doseCloro += (float) ($l['dose_cloro_ml'] ?? 0);
+            }
+
+            if ($containerPh->reabastecido_em === null || $dt->gt($containerPh->reabastecido_em)) {
+                $dosePh += (float) ($l['dose_ph_ml'] ?? 0);
+            }
+
             if ($dt->gt($ultimoDt)) {
                 $ultimoDt = $dt;
             }

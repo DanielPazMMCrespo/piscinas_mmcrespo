@@ -131,11 +131,11 @@ class DosingContainer extends Model
     }
 
     /** Repõe o nível do bidão (reabastecimento manual) e limpa o alerta. */
-    public function reabastecer(float $ml, ?int $userId = null, ?string $nota = null): void
+    public function reabastecer(float $ml, ?int $userId = null, ?string $nota = null, ?\Illuminate\Support\Carbon $timestamp = null): void
     {
-        DB::transaction(function () use ($ml, $userId, $nota): void {
+        DB::transaction(function () use ($ml, $userId, $nota, $timestamp): void {
             $this->restante_ml = round($ml, 2);
-            $this->reabastecido_em = now();
+            $this->reabastecido_em = $timestamp ?? now();
             $this->reabastecido_por = $userId;
             $this->alerta_notificado_em = null;
             $this->save();
@@ -147,7 +147,7 @@ class DosingContainer extends Model
                 'origem' => 'manual',
                 'user_id' => $userId,
                 'nota' => $nota,
-                'registado_em' => now(),
+                'registado_em' => $timestamp ?? now(),
             ]);
         });
     }
