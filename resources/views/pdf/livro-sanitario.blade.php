@@ -218,8 +218,11 @@
 
             // Conformidade global por registo: pH, cloro livre, cloro combinado
             // (limites legais do model) e temperatura (limites próprios da piscina).
+            // Chave por spl_object_id, não por id: em modo "média diária" os
+            // registos são objetos DailyRecord mock, cujo id nunca é definido
+            // (ficaria null para todos os dias e colapsaria a mesma chave).
             $conformidade = $registos->mapWithKeys(fn ($registo) => [
-                $registo->id => $registo->phConforme()
+                spl_object_id($registo) => $registo->phConforme()
                     && $registo->cloroLivreConforme()
                     && $registo->cloroCombinadoConforme()
                     && $registo->temperaturaConforme(),
@@ -279,7 +282,7 @@
                     <tbody>
                         @foreach ($registos as $registo)
                             @php
-                                $conforme = $conformidade[$registo->id] ?? true;
+                                $conforme = $conformidade[spl_object_id($registo)] ?? true;
                                 // Negrito apenas quando o valor existe E está fora de gama.
                                 $phFora = $registo->ph_efetivo !== null && ! $registo->phConforme();
                                 $clFora = $registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme();

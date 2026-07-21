@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -48,5 +49,19 @@ class TimerFinishedNotification extends Notification
             ->requireInteraction()
             ->vibrate([300, 150, 300])
             ->data(['url' => '/admin/daily-records/create']);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $faseLabel = $this->fase === 'enxaguamento' ? 'Enxaguamento' : 'Retrolavagem';
+        $titulo = $this->piscina
+            ? "{$faseLabel} terminada — {$this->piscina}"
+            : "{$faseLabel} terminada";
+
+        return (new MailMessage())
+            ->subject($titulo)
+            ->greeting($titulo)
+            ->line('O tempo definido terminou. Pode passar à fase seguinte.')
+            ->action('Abrir Registo', url('/admin/daily-records/create'));
     }
 }

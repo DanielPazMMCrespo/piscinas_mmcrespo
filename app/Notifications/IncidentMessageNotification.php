@@ -6,6 +6,7 @@ use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
 use App\Models\User;
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -60,5 +61,16 @@ class IncidentMessageNotification extends Notification
             ->tag("incident-{$this->incident->id}-chat")
             ->vibrate([200, 100, 200])
             ->data(['url' => IncidentResource::getUrl('view', ['record' => $this->incident->id])]);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
+
+        return (new MailMessage())
+            ->subject("Incidente — {$instalacao}: {$this->autor->name}")
+            ->greeting('Nova mensagem no incidente:')
+            ->line($this->texto)
+            ->action('Ver Incidente', IncidentResource::getUrl('view', ['record' => $this->incident->id]));
     }
 }

@@ -758,7 +758,7 @@ const storeName = 'photos';
 
 const getDB = () => {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(dbName, 2);
+        const request = indexedDB.open(dbName, 3);
         request.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains(storeName)) {
@@ -767,10 +767,37 @@ const getDB = () => {
             if (!db.objectStoreNames.contains('offline_queue')) {
                 db.createObjectStore('offline_queue', { keyPath: 'offline_id' });
             }
+            if (!db.objectStoreNames.contains('form_drafts')) {
+                db.createObjectStore('form_drafts');
+            }
         };
         request.onsuccess = (e) => resolve(e.target.result);
         request.onerror = (e) => reject(e.target.error);
     });
+};
+
+const saveDraftToDB = async (key, draftObj) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('form_drafts', 'readwrite');
+        tx.objectStore('form_drafts').put(draftObj, key);
+    } catch (e) {
+        console.error('Error saving draft to IndexedDB:', e);
+    }
+};
+
+const getDraftFromDB = async (key) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('form_drafts', 'readonly');
+        const req = tx.objectStore('form_drafts').get(key);
+        return new Promise((res) => {
+            req.onsuccess = () => res(req.result || null);
+            req.onerror = () => res(null);
+        });
+    } catch (e) {
+        return null;
+    }
 };
 
 const savePhotoToDB = async (key, fileBlob) => {
@@ -913,25 +940,35 @@ const updateOfflineStatusBadge = async () => {
     if (!badge) {
         badge = document.createElement('div');
         badge.id = 'mmc-offline-badge';
-        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-sm ml-2';
         badge.addEventListener('click', () => syncOfflineRecords());
-        document.body.appendChild(badge);
+
+        const targetContainer = document.querySelector('.fi-topbar-end') ||
+                                document.querySelector('.fi-topbar') ||
+                                document.querySelector('nav');
+
+        if (targetContainer) {
+            targetContainer.insertBefore(badge, targetContainer.firstChild);
+        } else {
+            badge.className += ' fixed top-3 right-24 z-40';
+            document.body.appendChild(badge);
+        }
     }
 
     const items = await getOfflineQueue();
     const count = items.length;
 
     if (!navigator.onLine) {
-        badge.style.display = 'flex';
-        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-amber-500 text-white animate-pulse';
+        badge.style.display = 'inline-flex';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 animate-pulse ml-2';
         badge.innerHTML = `<span>⚡ Offline (${count} em fila)</span>`;
     } else if (count > 0) {
-        badge.style.display = 'flex';
-        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-blue-600 text-white';
+        badge.style.display = 'inline-flex';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-blue-500/20 text-blue-800 dark:text-blue-300 border border-blue-500/30 ml-2';
         badge.innerHTML = `<span>🔄 Sincronizar (${count} pendentes)</span>`;
         syncOfflineRecords();
     } else {
-        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-emerald-600 text-white';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 ml-2';
         badge.innerHTML = `<span>✅ Online</span>`;
         setTimeout(() => {
             if (navigator.onLine && (badge.innerHTML.includes('Online') || count === 0)) {
@@ -1066,11 +1103,41 @@ const restorePhotos = async () => {
     await attemptRestore();
 };
 
-// Ask before restoring a draft interrupted by an unexpected app close (does not auto-apply)
-const showDraftResumePrompt = (formKey, component, draftData) => {
-    if (document.getElementById('mmc-draft-toast')) return;
+// Seamless automatic draft restoration and banner feedback
+const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, savedAt) => {
+    try {
+        await component.set('data', draftData);
+        if (window.Livewire && typeof component.$refresh === 'function') {
+            component.$refresh();
+        }
+        await restorePhotos();
+    } catch (err) {
+        console.error('Error auto-restoring draft:', err);
+    }
 
-    const clearDraft = () => {
+    if (document.getElementById('mmc-draft-banner')) return;
+
+    const formattedTime = new Date(savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+    const banner = document.createElement('div');
+    banner.id = 'mmc-draft-banner';
+    banner.className = 'w-full mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm transition-all animate-fade-in z-30';
+    banner.innerHTML = `
+        <div class="flex items-center gap-2 text-sm font-medium">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>✨ Rascunho de registo restaurado automaticamente (guardado às ${formattedTime}).</span>
+        </div>
+        <button id="discard-draft-banner-btn" type="button" class="text-xs font-semibold underline text-amber-700 dark:text-amber-300 hover:text-red-600 transition px-2 py-1">
+            Descartar rascunho
+        </button>
+    `;
+
+    const formEl = document.querySelector('.fi-main form') || document.querySelector('form');
+    if (formEl) {
+        formEl.insertBefore(banner, formEl.firstChild);
+    }
+
+    document.getElementById('discard-draft-banner-btn')?.addEventListener('click', () => {
         localStorage.removeItem(formKey);
         Object.keys(localStorage).forEach(key => {
             if (key.startsWith('mmc_timer_')) {
@@ -1078,60 +1145,23 @@ const showDraftResumePrompt = (formKey, component, draftData) => {
             }
         });
         clearAllPhotosFromDB();
-    };
-
-    const toast = document.createElement('div');
-    toast.id = 'mmc-draft-toast';
-    toast.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gray-900/95 backdrop-blur text-white px-4 py-3 rounded-xl shadow-xl flex flex-col gap-3 border border-white/10 z-50 transition-all duration-300 transform translate-y-10 opacity-0';
-    toast.innerHTML = `
-        <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-            <p class="text-sm font-medium">Ficou um registo em curso que não chegou a ser enviado. Retomar?</p>
-        </div>
-        <div class="flex justify-end gap-2">
-            <button id="discard-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-gray-300 hover:text-white transition px-3 py-1.5 rounded bg-white/5 hover:bg-white/10">
-                Começar de novo
-            </button>
-            <button id="resume-draft-btn" class="text-xs uppercase font-semibold tracking-wider text-white transition px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500">
-                Retomar registo
-            </button>
-        </div>
-    `;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.classList.remove('translate-y-10', 'opacity-0');
-    }, 50);
-
-    document.getElementById('resume-draft-btn').addEventListener('click', async () => {
-        try {
-            await component.set('data', draftData);
-            await restorePhotos();
-        } catch (err) {
-            console.error('Error resuming draft:', err);
-        }
-        toast.remove();
-    });
-
-    document.getElementById('discard-draft-btn').addEventListener('click', () => {
-        clearDraft();
-        toast.remove();
+        banner.remove();
+        window.location.reload();
     });
 };
 
-// Auto-save form draft in localStorage for Daily Record creation
+// Auto-save form draft in localStorage & IndexedDB for Daily Record creation
 const DRAFT_TTL_MS = 45 * 60 * 1000;
 
 const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
-    const findAndRestore = () => {
+    const findAndRestore = async () => {
         // Find the main Livewire component container that actually contains the form
         const mainComponentEl = Array.from(document.querySelectorAll('[wire\\:id]'))
             .find(el => el.querySelector('form') !== null);
 
         if (!mainComponentEl) {
-            // Try again in 100ms
             setTimeout(findAndRestore, 100);
             return;
         }
@@ -1140,51 +1170,90 @@ const setupFormDraft = () => {
         const component = window.Livewire ? window.Livewire.find(componentId) : null;
 
         if (!component) {
-            // Try again in 100ms
             setTimeout(findAndRestore, 100);
             return;
         }
 
         const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
 
-        // 1. Offer to restore draft (ask first, don't overwrite silently)
+        // 1. Try reading draft from localStorage first, then fallback to IndexedDB
+        let stored = null;
         const raw = localStorage.getItem(formKey);
         if (raw) {
-            try {
-                const stored = JSON.parse(raw);
-                const draftData = stored?.data;
-                const savedAt = stored?.savedAt ?? 0;
-                const expired = Date.now() - savedAt > DRAFT_TTL_MS;
+            try { stored = JSON.parse(raw); } catch (e) {}
+        }
+        if (!stored) {
+            stored = await getDraftFromDB(formKey);
+        }
 
-                if (expired) {
-                    localStorage.removeItem(formKey);
-                } else if (draftData && Object.keys(draftData).length > 0) {
-                    showDraftResumePrompt(formKey, component, draftData);
+        const isDataDirty = (obj) => {
+            if (!obj) return false;
+            if (typeof obj !== 'object') return obj !== '' && obj !== null;
+            
+            for (const key in obj) {
+                if (key === 'user_id' || key === 'registado_em' || key === 'pool_id') continue;
+                const val = obj[key];
+                if (val === null || val === undefined || val === '') continue;
+                if (typeof val === 'object') {
+                    if (isDataDirty(val)) return true;
+                } else {
+                    return true;
                 }
-            } catch (e) {
-                console.error('Error reading daily record draft:', e);
+            }
+            return false;
+        };
+
+        if (stored && stored.data) {
+            const draftData = stored.data;
+            const savedAt = stored.savedAt ?? 0;
+            const expired = Date.now() - savedAt > DRAFT_TTL_MS;
+
+            if (expired) {
                 localStorage.removeItem(formKey);
+            } else if (draftData && isDataDirty(draftData) && !window.__mmcDraftRestored) {
+                window.__mmcDraftRestored = true;
+                await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
             }
         }
 
-        const saveDraft = () => {
+        window.addEventListener('dailyRecordSaved', () => {
+            window.__mmcDraftCleared = true;
+            localStorage.removeItem(formKey);
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('mmc_timer_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+            if (typeof clearAllPhotosFromDB === 'function') {
+                clearAllPhotosFromDB();
+            }
+        });
+
+        const saveDraft = async () => {
+            if (window.__mmcDraftCleared) return;
             const currentData = component.get('data');
-            if (currentData) {
-                localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
+            if (currentData && isDataDirty(currentData)) {
+                const payload = { data: currentData, savedAt: Date.now() };
+                localStorage.setItem(formKey, JSON.stringify(payload));
+                if (typeof saveDraftToDB === 'function') {
+                    await saveDraftToDB(formKey, payload);
+                }
             }
         };
 
-        // 2. Save on every keystroke, regardless of which form/widget the input lives in
-        // (events bubble to document, so this doesn't depend on DOM scoping).
+        // 2. Save on every keystroke, change, and blur event
         let debounceTimeout;
-        document.addEventListener('input', () => {
+        const triggerSave = () => {
             clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(saveDraft, 500);
-        });
+            debounceTimeout = setTimeout(saveDraft, 400);
+        };
 
-        // 3. Safety net: FilePond (fotos), Select2/choices.js and repeater add/remove
-        // don't always fire a native 'input' event, so poll as a fallback.
-        setInterval(saveDraft, 3000);
+        document.addEventListener('input', triggerSave);
+        document.addEventListener('change', triggerSave);
+        document.addEventListener('blur', triggerSave, true);
+
+        // 3. Fallback periodic save every 2 seconds
+        setInterval(saveDraft, 2000);
     };
 
     findAndRestore();

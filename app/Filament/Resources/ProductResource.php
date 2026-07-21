@@ -62,8 +62,7 @@ class ProductResource extends Resource
                 TextInput::make('categoria_custom')
                     ->label('Especificar Categoria')
                     ->maxLength(50)
-                    ->visible(fn (Get $get) => $get('categoria') === 'outro')
-                    ->dehydrated(false),
+                    ->visible(fn (Get $get) => $get('categoria') === 'outro'),
                 Forms\Components\TextInput::make('concentracao_cl')
                     ->label('Concentração de cloro ativo (%)')
                     ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio. Usado na calculadora de dosagem.')

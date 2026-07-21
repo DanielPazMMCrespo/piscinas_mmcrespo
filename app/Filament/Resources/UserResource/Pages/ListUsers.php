@@ -57,10 +57,16 @@ class ListUsers extends ListRecords
                         ->visible(fn (Get $get): bool => $get('role') === UserRole::NADADOR_SALVADOR),
                 ])
                 ->action(function (array $data): void {
+                    // $opcoesCargo só restringe as opções mostradas no Select — sem
+                    // esta reconfirmação, um Gestor podia adulterar o pedido Livewire
+                    // e convidar alguém como Admin.
+                    $isAdmin = auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+                    $role = $isAdmin ? $data['role'] : UserRole::NADADOR_SALVADOR;
+
                     try {
                         app(InvitationService::class)->send(
                             $data['email'],
-                            $data['role'],
+                            $role,
                             auth()->user(),
                             $data['pool_ids'] ?? [],
                         );

@@ -25,7 +25,11 @@ class Login extends BaseLogin
             && strlen($password) >= 4
             && strlen($password) <= 6;
 
-        $throttleKey = 'login_pin:' . strtolower($email) . '|' . request()->ip();
+        // REMOTE_ADDR, não request()->ip(): trustProxies(at: '*') (necessário para
+        // HTTPS atrás do proxy da Railway) faz ip() confiar em X-Forwarded-For, que
+        // um atacante pode forjar para gerar uma chave de rate-limit diferente a
+        // cada pedido e contornar o bloqueio de força bruta ao PIN.
+        $throttleKey = 'login_pin:' . strtolower($email) . '|' . (string) request()->server('REMOTE_ADDR');
 
         if ($isPinAttempt) {
             if (RateLimiter::tooManyAttempts($throttleKey, 5)) {

@@ -545,7 +545,7 @@ class DailyRecordFormBuilder
                                                     })
                                                     ->hintAction(
                                                         Forms\Components\Actions\Action::make('adicionarStockInsuficiente')
-                                                            ->label('Stock insuficiente — adicionar agora')
+                                                            ->label('Adicionar stock')
                                                             ->icon('heroicon-o-plus-circle')
                                                             ->color('danger')
                                                             ->visible(function (Get $get) use ($installation) {
@@ -558,9 +558,10 @@ class DailyRecordFormBuilder
                                                                 return $disponivel < (float) $value;
                                                             })
                                                             ->modalHeading('Adicionar stock em falta')
+                                                            ->modalDescription('A quantidade é debitada do stock de armazém e creditada no stock desta instalação.')
                                                             ->form([
                                                                 Forms\Components\TextInput::make('quantidade_a_adicionar')
-                                                                    ->label('Quantidade a adicionar ao stock da instalação')
+                                                                    ->label('Quantidade a transferir do armazém')
                                                                     ->numeric()
                                                                     ->minValue(0.001)
                                                                     ->rules(['gt:0'])
@@ -568,28 +569,58 @@ class DailyRecordFormBuilder
                                                             ])
                                                             ->action(function (array $data, Get $get) use ($installation) {
                                                                 $productId = $get('product_id');
+                                                                $pedido = (float) $data['quantidade_a_adicionar'];
+                                                                $insuficiente = false;
 
-                                                                \Illuminate\Support\Facades\DB::transaction(function () use ($productId, $data, $installation) {
-                                                                    $stock = \App\Models\StockInstallation::firstOrCreate(
+                                                                \Illuminate\Support\Facades\DB::transaction(function () use ($productId, $pedido, $installation, &$insuficiente) {
+                                                                    $armazem = \App\Models\StockWarehouse::where('product_id', $productId)
+                                                                        ->lockForUpdate()
+                                                                        ->first();
+
+                                                                    if (! $armazem || (float) $armazem->quantity < $pedido) {
+                                                                        $insuficiente = true;
+                                                                        return;
+                                                                    }
+
+                                                                    $armazem->quantity -= $pedido;
+                                                                    $armazem->save();
+
+                                                                    \App\Models\StockWarehouseLog::create([
+                                                                        'product_id' => $productId,
+                                                                        'user_id' => auth()->id(),
+                                                                        'tipo_movimento' => 'saida',
+                                                                        'quantity' => $pedido,
+                                                                    ]);
+
+                                                                    $stockInstalacao = \App\Models\StockInstallation::firstOrCreate(
                                                                         ['installation_id' => $installation->id, 'product_id' => $productId],
                                                                         ['quantity' => 0, 'limite_minimo' => 0],
                                                                     );
-                                                                    $stock = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stock->id);
-                                                                    $stock->quantity += $data['quantidade_a_adicionar'];
-                                                                    $stock->save();
+                                                                    $stockInstalacao = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
+                                                                    $stockInstalacao->quantity += $pedido;
+                                                                    $stockInstalacao->save();
 
                                                                     \App\Models\StockInstallationLog::create([
-                                                                        'stock_installation_id' => $stock->id,
+                                                                        'stock_installation_id' => $stockInstalacao->id,
                                                                         'user_id' => auth()->id(),
                                                                         'tipo_movimento' => 'entrada',
-                                                                        'quantity' => $data['quantidade_a_adicionar'],
+                                                                        'quantity' => $pedido,
                                                                         'created_at' => now(),
                                                                     ]);
                                                                 });
 
+                                                                if ($insuficiente) {
+                                                                    \Filament\Notifications\Notification::make()
+                                                                        ->danger()
+                                                                        ->title('Stock insuficiente no armazém')
+                                                                        ->body('Não há quantidade suficiente no armazém para transferir para esta instalação.')
+                                                                        ->send();
+                                                                    return;
+                                                                }
+
                                                                 \Filament\Notifications\Notification::make()
                                                                     ->success()
-                                                                    ->title('Stock adicionado')
+                                                                    ->title('Stock transferido do armazém')
                                                                     ->send();
                                                             }),
                                                     ),
