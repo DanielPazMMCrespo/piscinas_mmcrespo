@@ -69,7 +69,8 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Novo Incidente', 'incident_created', 'Receber aviso quando um novo incidente é reportado.'),
                             $this->getSingleNotificationItemSchema('Mensagens em Incidentes', 'incident_message', 'Notificações de novas mensagens e respostas no chat de um incidente.'),
                         ])
-                        ->collapsible(),
+                        ->collapsible()
+                        ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
                     // 2. Operação
                     Forms\Components\Section::make('Operação e Casa das Máquinas')
@@ -79,7 +80,8 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
                             $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
                         ])
-                        ->collapsible(),
+                        ->collapsible()
+                        ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
                     // 3. Conformidade & Sensores
                     Forms\Components\Section::make('Segurança, Conformidade & Sensores')
@@ -117,7 +119,8 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
                         ]))
-                        ->collapsible(),
+                        ->collapsible()
+                        ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
                     // 4. Sistema
                     Forms\Components\Section::make('Avisos do Sistema')
@@ -155,8 +158,12 @@ class Notificacoes extends Page implements HasForms, HasTable
     {
         $data = $this->preferencesForm->getState();
         $user = auth()->user();
+        
+        $currentPrefs = $user->notification_preferences ?? [];
+        $newPrefs = array_replace_recursive($currentPrefs, $data['notification_preferences'] ?? []);
+
         $user->update([
-            'notification_preferences' => $data['notification_preferences'] ?? [],
+            'notification_preferences' => $newPrefs,
         ]);
 
         if ($this->podeGerir() && isset($data['digest_conformidade_horas'])) {

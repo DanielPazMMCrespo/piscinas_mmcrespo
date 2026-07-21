@@ -117,4 +117,37 @@ class NotificacoesPageTest extends TestCase
             \App\Notifications\CustomBroadcastNotification::class
         );
     }
+
+    public function test_swimmer_only_sees_system_broadcast_preferences(): void
+    {
+        $swimmer = User::factory()->create();
+        $swimmer->assignRole(UserRole::NADADOR_SALVADOR);
+        $swimmer->update([
+            'notification_preferences' => [
+                'incident_created' => ['push' => true, 'mail' => false],
+                'custom_broadcast' => ['push' => false, 'mail' => false],
+            ]
+        ]);
+
+        $this->actingAs($swimmer);
+
+        Livewire::test(Notificacoes::class)
+            ->assertFormFieldExists('notification_preferences.custom_broadcast.push', 'preferencesForm')
+            ->assertFormFieldDoesNotExist('notification_preferences.incident_created.push', 'preferencesForm')
+            ->fillForm([
+                'notification_preferences' => [
+                    'custom_broadcast' => ['push' => true, 'mail' => true]
+                ]
+            ], 'preferencesForm')
+            ->call('savePreferences')
+            ->assertHasNoErrors();
+
+        $swimmer->refresh();
+        
+        $this->assertTrue($swimmer->notification_preferences['custom_broadcast']['push']);
+        $this->assertTrue($swimmer->notification_preferences['custom_broadcast']['mail']);
+        
+        $this->assertTrue($swimmer->notification_preferences['incident_created']['push']);
+        $this->assertFalse($swimmer->notification_preferences['incident_created']['mail']);
+    }
 }

@@ -456,12 +456,13 @@ class PainelPiscinasWidget extends Widget
                 'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['cloro']['valor_orp'] !== null || $metricas4['cloro']['valor_livre'] !== null,
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
                 'acoes_rapidas' => collect([
-                    [DailyRecordResource::getUrl('create', ['pool' => $piscina->id, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false],
-                ])->map(fn (array $a) => [
+                    [DailyRecordResource::getUrl('create', ['pool' => $piscina->id, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, OperationalActionResource::canAccess()],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, OperationalActionResource::canAccess()],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, OperationalActionResource::canAccess()],
+                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, OperationalActionResource::canAccess()],
+                ])->filter(fn (array $a) => $a[4])
+                ->map(fn (array $a) => [
                     'url' => $a[0],
                     'label' => $a[1],
                     'icon' => $a[2],

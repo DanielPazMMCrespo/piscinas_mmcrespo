@@ -32,6 +32,11 @@ class OperationalActionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Ações Operacionais';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['piscina.instalacao', 'utilizador']);
@@ -45,14 +50,7 @@ class OperationalActionResource extends Resource
 
     public static function canCreate(): bool
     {
-        $user = auth()->user();
-        if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-            return true;
-        }
-        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return $user->podeVer(NSPermission::REGISTO_DIARIO) && $user->piscinas()->exists();
-        }
-        return false;
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
     }
 
     public static function canEdit($record): bool

@@ -367,4 +367,34 @@ class RoleBasedAccessTest extends TestCase
         $this->assertEquals(200, $response1->getStatusCode());
         $this->assertEquals(200, $response2->getStatusCode());
     }
+
+    public function test_admin_can_access_operational_actions(): void
+    {
+        $data = $this->createTestData();
+        $admin = $data['admin'];
+
+        $response = $this->actingAs($admin)->get('/admin/operational-actions');
+
+        $response->assertStatus(200);
+    }
+
+    public function test_technician_can_access_operational_actions(): void
+    {
+        $data = $this->createTestData();
+        $technician = $data['technician'];
+
+        $response = $this->actingAs($technician)->get('/admin/operational-actions');
+
+        $response->assertStatus(200);
+    }
+
+    public function test_swimmer_cannot_access_operational_actions(): void
+    {
+        $data = $this->createTestData();
+        $swimmer = $data['swimmer'];
+
+        $response = $this->actingAs($swimmer)->get('/admin/operational-actions');
+
+        $response->assertStatus(403);
+    }
 }
