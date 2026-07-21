@@ -50,9 +50,10 @@ class OperationalActionObserver
             if (! $tipo) {
                 continue;
             }
-            $container = \App\Models\DosingContainer::where('pool_id', $acao->pool_id)
-                ->where('tipo', $tipo)
-                ->first();
+            $container = \App\Models\DosingContainer::firstOrCreate(
+                ['pool_id' => $acao->pool_id, 'tipo' => $tipo],
+                ['capacidade_ml' => 20000, 'restante_ml' => 0.00]
+            );
             if ($container) {
                 $ml = ($quantidadeL !== null && $quantidadeL > 0)
                     ? $quantidadeL * 1000
