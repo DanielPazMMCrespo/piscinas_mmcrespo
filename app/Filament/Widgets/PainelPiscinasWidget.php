@@ -137,6 +137,67 @@ class PainelPiscinasWidget extends Widget
             ->groupBy('pool_id')
             ->map(fn ($acoes) => $acoes->first());
 
+        // Histórico para os gráficos (Sparklines)
+        $historicoSensores = \App\Models\SensorReading::query()
+            ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
+            ->where('lida_em', '>=', now()->subHours(24))
+            ->orderByDesc('lida_em')
+            ->get()
+            ->groupBy('hanna_device_id');
+
+        $historicoRegistos = DailyRecord::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->where('registado_em', '>=', now()->subDays(14))
+            ->orderByDesc('registado_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $historicoAcoesParaGrafico = OperationalAction::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+            ->where('registado_em', '>=', now()->subDays(14))
+            ->orderByDesc('registado_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $historicoManualArray = collect();
+        foreach ($piscinas as $piscina) {
+            $registos = $historicoRegistos->get($piscina->id) ?? collect();
+            $acoes = $historicoAcoesParaGrafico->get($piscina->id) ?? collect();
+            
+            $combined = $registos->map(fn($r) => [
+                'date' => $r->registado_em,
+                'ph' => $r->ph_efetivo !== null ? (float)$r->ph_efetivo : null,
+                'cloro_livre' => $r->cloro_livre_efetivo !== null ? (float)$r->cloro_livre_efetivo : null,
+                'cloro_combinado' => $r->cloro_combinado !== null ? (float)$r->cloro_combinado : null,
+                'temperatura' => $r->temperatura_efetivo !== null ? (float)$r->temperatura_efetivo : null,
+            ])->concat($acoes->map(function($a) {
+                $cl = $a->dados['cloro_livre'] ?? null;
+                $ct = $a->dados['cloro_total'] ?? null;
+                return [
+                    'date' => $a->registado_em,
+                    'ph' => isset($a->dados['ph']) ? (float)str_replace(',', '.', (string)$a->dados['ph']) : null,
+                    'cloro_livre' => isset($cl) ? (float)str_replace(',', '.', (string)$cl) : null,
+                    'cloro_combinado' => (isset($cl) && isset($ct)) ? ((float)str_replace(',', '.', (string)$ct) - (float)str_replace(',', '.', (string)$cl)) : null,
+                    'temperatura' => isset($a->dados['temperatura']) ? (float)str_replace(',', '.', (string)$a->dados['temperatura']) : null,
+                ];
+            }))->sortByDesc('date')->take(15)->sortBy('date')->values();
+            
+            $historicoManualArray->put($piscina->id, $combined);
+        }
+
+        $historicoSensoresArray = collect();
+        foreach ($sondas as $sonda) {
+            $leituras = $historicoSensores->get($sonda->hanna_device_id) ?? collect();
+            $mapped = $leituras->map(fn($l) => [
+                'date' => $l->lida_em,
+                'ph' => $l->ph !== null ? (float)$l->ph : null,
+                'orp' => $l->orp !== null ? (float)$l->orp : null,
+                'temperatura' => $l->temperatura_agua !== null ? (float)$l->temperatura_agua : null,
+            ])->sortByDesc('date')->take(30)->sortBy('date')->values();
+            $historicoSensoresArray->put($sonda->hanna_device_id, $mapped);
+        }
+
         // Unificar o mais recente (registo diário ou ação operacional)
         $registosUnificados = [];
         
@@ -189,7 +250,7 @@ class PainelPiscinasWidget extends Widget
             }
         }
 
-        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento): array {
+        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento, $historicoManualArray, $historicoSensoresArray): array {
             $registo = $registosUnificados[$piscina->id] ?? null;
 
             // Garante que a avaliação de temperatura conhece os limites da piscina.
@@ -371,6 +432,21 @@ class PainelPiscinasWidget extends Widget
                 }
             }
 
+            $getSparklineData = function(?string $origem, string $key) use ($piscina, $device, $historicoManualArray, $historicoSensoresArray) {
+                if (in_array($origem, ['controlador', 'controlador_offline', 'artefacto'])) {
+                    return array_filter($historicoSensoresArray->get($device?->hanna_device_id)?->pluck($key === 'cloro' ? 'orp' : $key)->toArray() ?? [], fn($v) => $v !== null);
+                } elseif ($origem === 'manual') {
+                    $k = $key === 'cloro' ? 'cloro_livre' : $key;
+                    return array_filter($historicoManualArray->get($piscina->id)?->pluck($k)->toArray() ?? [], fn($v) => $v !== null);
+                }
+                return [];
+            };
+
+            $metricas4['ph']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['ph']['origem'], 'ph'));
+            $metricas4['cloro']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['cloro']['origem'], 'cloro'));
+            $metricas4['combinado']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['combinado']['origem'], 'cloro_combinado'));
+            $metricas4['temp']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['temp']['origem'], 'temperatura'));
+
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
@@ -435,12 +511,6 @@ class PainelPiscinasWidget extends Widget
         return ! in_array(false, $conhecidos, true);
     }
 
-    /**
-     * Linha de métrica com tratamento de leitura em falta (registos legados):
-     * valor "—" e estado neutro em vez de "0,00" enganador.
-     *
-     * @return array{label: string, valor: string, ok: bool|null}
-     */
     private static function metrica(string $label, mixed $valor, int $casas, string $sufixo, ?bool $ok, ?float $orp = null): array
     {
         return [
@@ -448,6 +518,67 @@ class PainelPiscinasWidget extends Widget
             'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '').$sufixo : '—',
             'ok' => $valor !== null ? $ok : null,
             'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
+        ];
+    }
+
+    /**
+     * Generates a smooth SVG path for a sparkline from an array of values.
+     */
+    private static function generateSparkline(array $values): ?array
+    {
+        $values = array_values($values);
+        if (count($values) < 2) {
+            return null;
+        }
+        
+        $min = min($values);
+        $max = max($values);
+        $range = $max - $min;
+        
+        if ($range == 0) {
+            $range = 1;
+            $min -= 0.5;
+            $max += 0.5;
+        } else {
+            $padding = $range * 0.1;
+            $min -= $padding;
+            $max += $padding;
+            $range = $max - $min;
+        }
+
+        $width = 100;
+        $height = 30;
+        
+        $points = [];
+        $stepX = $width / (count($values) - 1);
+        
+        foreach ($values as $i => $val) {
+            $x = $i * $stepX;
+            $y = $height - ((($val - $min) / $range) * $height);
+            $points[] = [$x, $y];
+        }
+
+        $d = "M " . round($points[0][0], 1) . "," . round($points[0][1], 1);
+        for ($i = 0; $i < count($points) - 1; $i++) {
+            $p0 = $points[max(0, $i - 1)];
+            $p1 = $points[$i];
+            $p2 = $points[$i + 1];
+            $p3 = $points[min(count($points) - 1, $i + 2)];
+            
+            $cp1x = $p1[0] + ($p2[0] - $p0[0]) * 0.15;
+            $cp1y = $p1[1] + ($p2[1] - $p0[1]) * 0.15;
+            
+            $cp2x = $p2[0] - ($p3[0] - $p1[0]) * 0.15;
+            $cp2y = $p2[1] - ($p3[1] - $p1[1]) * 0.15;
+            
+            $d .= " C " . round($cp1x, 1) . "," . round($cp1y, 1) . " " . 
+                          round($cp2x, 1) . "," . round($cp2y, 1) . " " . 
+                          round($p2[0], 1) . "," . round($p2[1], 1);
+        }
+        
+        return [
+            'fill' => $d . " L {$width},{$height} L 0,{$height} Z",
+            'stroke' => $d
         ];
     }
 }

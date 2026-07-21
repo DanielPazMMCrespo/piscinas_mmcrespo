@@ -154,11 +154,15 @@
                                         <span>{{ $metrica['valor'] }}</span>
                                     @endif
                                 </div>
-                                <!-- Sparkline Placeholder -->
-                                <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                    <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20 L100,30 L0,30 Z" fill="{{ $metrica['ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
-                                    <path d="M0,20 Q10,25 20,15 T40,10 T60,25 T80,15 T100,20" fill="none" stroke="{{ $metrica['ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="2"/>
-                                </svg>
+                                <!-- Sparkline -->
+                                @if(isset($metrica['sparkline']) && $metrica['sparkline'])
+                                    <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+                                        <path d="{{ $metrica['sparkline']['fill'] }}" fill="{{ $metrica['ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
+                                        <path d="{{ $metrica['sparkline']['stroke'] }}" fill="none" stroke="{{ $metrica['ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="1.5"/>
+                                    </svg>
+                                @else
+                                    <div class="neo-metric-sparkline"></div>
+                                @endif
                                 
                                 <div class="flex items-center justify-between mt-auto">
                                     <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
