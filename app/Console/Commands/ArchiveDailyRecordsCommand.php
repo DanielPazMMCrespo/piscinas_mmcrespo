@@ -124,12 +124,13 @@ class ArchiveDailyRecordsCommand extends Command
                         ->select(['id', 'daily_record_id', 'product_id', 'quantity', 'created_at', 'updated_at'])
                 );
 
-                // Copy photos to archive
+                // Copy photos to archive (resultado_ocr foi removido de record_photos
+                // quando o OCR/IA foi cancelado — nunca chegou a ser escrito)
                 DB::table('record_photos_archive')->insertUsing(
-                    ['id', 'daily_record_id', 'type', 'path', 'resultado_ocr', 'created_at', 'updated_at'],
+                    ['id', 'daily_record_id', 'type', 'path', 'created_at', 'updated_at'],
                     DB::table('record_photos')
                         ->whereIn('daily_record_id', $ids)
-                        ->select(['id', 'daily_record_id', 'type', 'path', 'resultado_ocr', 'created_at', 'updated_at'])
+                        ->select(['id', 'daily_record_id', 'type', 'path', 'created_at', 'updated_at'])
                 );
 
                 // Delete from production table (cascades deletion to additions and photos)

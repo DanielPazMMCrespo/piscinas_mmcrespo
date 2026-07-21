@@ -195,10 +195,6 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
 
     private function notificarNaoConformidade(DailyRecord $registo): void
     {
-        if ($registo->piscina) {
-            $registo->setRelation('piscina', $registo->piscina);
-        }
-
         $violacoes = array_column($registo->listarViolacoes(), 'mensagem');
 
         if ($violacoes === []) {

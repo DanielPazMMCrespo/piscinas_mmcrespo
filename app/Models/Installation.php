@@ -25,6 +25,12 @@ class Installation extends Model
         static::deleting(function (Installation $installation): void {
             $installation->incidentes()->delete();
             $installation->piscinas()->delete();
+            // stock_installation_logs.stock_installation_id é restrictOnDelete();
+            // sem apagar primeiro os logs, qualquer instalação com histórico de
+            // stock (o caso normal) falha a eliminação com violação de FK.
+            $installation->stockInstallations->each(function (StockInstallation $stock): void {
+                $stock->registos()->delete();
+            });
             $installation->stockInstallations()->delete();
         });
     }

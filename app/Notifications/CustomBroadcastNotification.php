@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -55,5 +56,14 @@ class CustomBroadcastNotification extends Notification
             ->tag($this->tag)
             ->vibrate([200, 100, 200])
             ->data(['url' => '/admin']);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage())
+            ->subject($this->titulo)
+            ->greeting($this->titulo)
+            ->line($this->corpo)
+            ->action('Ver Dashboard', url('/admin'));
     }
 }

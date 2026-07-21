@@ -284,7 +284,7 @@ class PainelPiscinasWidget extends Widget
 
             // 1. pH
             if ($controladorOnline) {
-                $phOk = $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                $phOk = $ph !== null ? ($ph >= DailyRecord::getPhMin() && $ph <= DailyRecord::getPhMax()) : null;
                 $phOkConformes = $phOk;
                 $metricas4['ph'] = [
                     'label' => 'pH',
@@ -310,7 +310,7 @@ class PainelPiscinasWidget extends Widget
             } else {
                 // Tenta controlador offline ou artefacto
                 if ($leitura !== null) {
-                    $phOk = $artefacto === null && $ph !== null ? ($ph >= DailyRecord::PH_MIN && $ph <= DailyRecord::PH_MAX) : null;
+                    $phOk = $artefacto === null && $ph !== null ? ($ph >= DailyRecord::getPhMin() && $ph <= DailyRecord::getPhMax()) : null;
                     $phOkConformes = $phOk;
                     $metricas4['ph'] = [
                         'label' => 'pH',
@@ -484,40 +484,6 @@ class PainelPiscinasWidget extends Widget
             'percentagemRegisto' => $percentagemRegisto,
             'percentagemConforme' => $percentagemConforme,
             'isNS' => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false,
-        ];
-    }
-
-    /**
-     * Conformidade de um parâmetro para o cálculo agregado: usa a sonda se estiver
-     * fresca e tiver valor; caso contrário cai para a avaliação do registo diário.
-     */
-    private static function parametroOk(bool $sensorFresco, ?float $valorSensor, ?bool $okSensor, ?bool $okRegisto): ?bool
-    {
-        return $sensorFresco && $valorSensor !== null ? $okSensor : $okRegisto;
-    }
-
-    /**
-     * Combina vários booleanos anuláveis: false se algum falhar, null se todos
-     * forem desconhecidos, true caso contrário (nulos não bloqueiam, como no resto do model).
-     */
-    private static function combinarOk(?bool ...$valores): ?bool
-    {
-        $conhecidos = array_filter($valores, fn (?bool $v) => $v !== null);
-
-        if ($conhecidos === []) {
-            return null;
-        }
-
-        return ! in_array(false, $conhecidos, true);
-    }
-
-    private static function metrica(string $label, mixed $valor, int $casas, string $sufixo, ?bool $ok, ?float $orp = null): array
-    {
-        return [
-            'label' => $label,
-            'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '').$sufixo : '—',
-            'ok' => $valor !== null ? $ok : null,
-            'orp' => $orp !== null ? number_format($orp, 0, ',', '') : null,
         ];
     }
 

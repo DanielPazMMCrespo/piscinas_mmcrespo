@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -71,5 +72,14 @@ class ResumoConformidadeNotification extends Notification
             ->tag('digest-'.now()->toDateString().'-'.$this->horario)
             ->vibrate([200, 100, 200])
             ->data(['url' => '/admin']);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage())
+            ->subject($this->titulo())
+            ->greeting('Atenção,')
+            ->line($this->corpo())
+            ->action('Ver Dashboard', url('/admin'));
     }
 }

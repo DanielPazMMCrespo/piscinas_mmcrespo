@@ -437,14 +437,14 @@ class PDFIntegrationTest extends TestCase
 
     public function test_pdf_all_metricas_constants_available(): void
     {
-        // Verify all constants defined in DailyRecord are available for PDF
-        $metricas = DailyRecord::METRICAS;
+        // Verify all metrics from the single source of truth are available for PDF
+        $metricas = DailyRecord::getMetricas();
 
         $required_metricas = ['ph', 'cloro_livre', 'cloro_combinado', 'transparencia', 'temperatura'];
 
         foreach ($required_metricas as $metrica) {
             $this->assertArrayHasKey($metrica, $metricas,
-                "METRICAS should include {$metrica}");
+                "getMetricas() should include {$metrica}");
         }
     }
 
