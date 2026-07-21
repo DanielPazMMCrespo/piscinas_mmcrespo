@@ -41,12 +41,17 @@ const getRegistration = async () => {
 
 const guardarSubscription = async (subscription) => {
     const json = subscription.toJSON();
-    await postJson('/push/subscribe', {
+    const response = await postJson('/push/subscribe', {
         endpoint: json.endpoint,
         keys: json.keys,
+        // Safari/iOS não implementa supportedContentEncodings e só fala aes128gcm
+        // (RFC 8291) — aesgcm é o esquema antigo/descontinuado.
         contentEncoding:
-            (PushManager.supportedContentEncodings || ['aesgcm'])[0] ?? 'aesgcm',
+            (PushManager.supportedContentEncodings || ['aes128gcm'])[0] ?? 'aes128gcm',
     });
+    if (!response.ok) {
+        throw new Error(`Falha ao registar subscrição (HTTP ${response.status})`);
+    }
 };
 
 // iOS só permite push quando o site está instalado no ecrã inicial (PWA).
