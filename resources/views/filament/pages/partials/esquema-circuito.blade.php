@@ -343,6 +343,22 @@
             <dl class="mmc-esq__detalhe-grelha">
                 <div><dt>Última retrolavagem</dt><dd>{{ $filtro['ultima_lavagem'] ?? '—' }}@if ($filtro['lavado_hoje']) <span class="mmc-esq__tag mmc-esq__tag--azul">hoje</span>@endif</dd></div>
             </dl>
+            @if (!empty($filtro['historico']))
+                <div class="mmc-esq__historico">
+                    <h5 class="mmc-esq__historico-titulo">Histórico de retrolavagens</h5>
+                    <ul class="mmc-esq__historico-lista">
+                        @foreach ($filtro['historico'] as $evento)
+                            <li>
+                                <span class="mmc-esq__historico-data">{{ $evento['data'] }}</span>
+                                <span class="mmc-esq__historico-fonte">{{ $evento['fonte'] }}</span>
+                                @if ($evento['por'])
+                                    <span class="mmc-esq__historico-por">{{ $evento['por'] }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             <div class="mmc-esq__ctas">
                 @can('create', \App\Models\DailyRecord::class)
                     <a href="{{ $esquema['url_registar'] }}" class="mmc-esq__cta">Novo registo</a>

@@ -25,33 +25,45 @@
 }
 
 .dark {
-    --mmc-card-border: #334155; /* slate-700 */
-    --mmc-card-bg: #1e293b; /* slate-800 */
-    --mmc-cta-bg: #3b82f6; /* blue-500 */
-    --mmc-cta-border: #3b82f6;
-    --mmc-cta-color: #ffffff;
-    --mmc-cta-hover-bg: #2563eb;
+    --mmc-card-border: rgba(0, 242, 254, 0.18);
+    --mmc-card-bg: rgba(7, 26, 51, 0.75);
+    --mmc-cta-bg: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    --mmc-cta-border: rgba(0, 242, 254, 0.4);
+    --mmc-cta-color: #031225;
+    --mmc-cta-hover-bg: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
     
-    --mmc-cta-outline-color: #cbd5e1; /* slate-300 */
-    --mmc-cta-outline-border: #475569; /* slate-600 */
-    --mmc-cta-outline-bg: transparent;
-    --mmc-cta-outline-hover-bg: #334155;
+    --mmc-cta-outline-color: #38bdf8;
+    --mmc-cta-outline-border: rgba(56, 189, 248, 0.3);
+    --mmc-cta-outline-bg: rgba(0, 242, 254, 0.06);
+    --mmc-cta-outline-hover-bg: rgba(0, 242, 254, 0.14);
 
     --mmc-bad-color: #fb7185; /* rose-400 */
-    --mmc-bad-bg: rgba(244, 63, 94, 0.1);
-    --mmc-ok-color: #34d399; /* emerald-400 */
-    --mmc-ok-bg: rgba(16, 185, 129, 0.1);
+    --mmc-bad-bg: rgba(244, 63, 94, 0.15);
+    --mmc-ok-color: #38f8d4; /* aqua green */
+    --mmc-ok-bg: rgba(0, 242, 254, 0.12);
     
-    --mmc-metric-label-opacity: 0.7;
-    --mmc-progress-bg: #334155;
-    --mmc-divider-color: #334155;
+    --mmc-metric-label-opacity: 0.8;
+    --mmc-progress-bg: rgba(255, 255, 255, 0.1);
+    --mmc-divider-color: rgba(255, 255, 255, 0.08);
     
-    --mmc-registo-tag-color: #9ca3af;
-    --mmc-registo-tag-bg: rgba(255, 255, 255, 0.06);
+    --mmc-registo-tag-color: #93c5fd;
+    --mmc-registo-tag-bg: rgba(0, 242, 254, 0.1);
+}
+
+/* Glassmorphic Cards & Hover Effects */
+.neo-kpi-card, .neo-pool-card, .neo-metric-card {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.neo-kpi-card:hover, .neo-pool-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px rgba(0, 242, 254, 0.12);
+    border-color: rgba(0, 242, 254, 0.35);
 }
 
 /* =====================================================================
- * Painel Piscinas - Top KPIs (Neumorphic)
+ * Painel Piscinas - Top KPIs (Neumorphic / Glassmorphic)
  * ===================================================================== */
 .neo-top-kpis {
     display: grid;
@@ -69,14 +81,14 @@
     border: 1px solid var(--mmc-card-border);
     border-radius: 1rem; /* rounded-2xl */
     padding: 1.25rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 /* =====================================================================
- * Painel Piscinas - Grid de Cartões (Neumorphic)
+ * Painel Piscinas - Grid de Cartões (Neumorphic / Glassmorphic)
  * ===================================================================== */
 .neo-pool-grid {
     display: grid;
@@ -94,7 +106,7 @@
     border: 1px solid var(--mmc-card-border);
     border-radius: 0.85rem;
     padding: 0.85rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     gap: 0.75rem;

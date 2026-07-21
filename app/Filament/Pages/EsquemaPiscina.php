@@ -391,7 +391,52 @@ class EsquemaPiscina extends Page
         return [
             'ultima_lavagem' => $ultimaLavagem?->format('d/m/Y'),
             'lavado_hoje' => (bool) $ultimaLavagem?->isToday(),
+            'historico' => $this->historicoLavagensFiltro($piscina, $acoes),
         ];
+    }
+
+    /**
+     * Últimas 5 lavagens de filtro da piscina, juntando registo diário,
+     * ação operacional e verificação de filtro numa única linha do tempo.
+     *
+     * @return array<int, array{data: string, por: ?string, fonte: string}>
+     */
+    private function historicoLavagensFiltro(Pool $piscina, Collection $acoes): array
+    {
+        $doRegisto = DailyRecord::query()
+            ->where('pool_id', $piscina->id)
+            ->where('filtro_faz_retrolavagem', true)
+            ->where('e_correcao', false)
+            ->with('utilizador')
+            ->latest('registado_em')
+            ->limit(5)
+            ->get()
+            ->map(fn (DailyRecord $r) => ['ts' => $r->registado_em, 'por' => $r->utilizador?->name, 'fonte' => 'Registo diário']);
+
+        $daAcao = $acoes
+            ->where('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO)
+            ->take(5)
+            ->map(fn (OperationalAction $a) => ['ts' => $a->registado_em, 'por' => $a->utilizador?->name, 'fonte' => 'Ação rápida']);
+
+        $daVerificacao = FilterCheck::query()
+            ->where('pool_id', $piscina->id)
+            ->where('tipo_operacao', 'lavagem')
+            ->with('utilizador')
+            ->latest('verificado_em')
+            ->limit(5)
+            ->get()
+            ->map(fn (FilterCheck $f) => ['ts' => $f->verificado_em, 'por' => $f->utilizador?->name, 'fonte' => 'Verificação']);
+
+        return $doRegisto->concat($daAcao)->concat($daVerificacao)
+            ->sortByDesc('ts')
+            ->take(5)
+            ->map(fn (array $e) => [
+                'data' => $e['ts']->format('d/m/Y H:i'),
+                'por' => $e['por'],
+                'fonte' => $e['fonte'],
+            ])
+            ->values()
+            ->all();
     }
 
     private function estadoTanque(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $acao): ?array

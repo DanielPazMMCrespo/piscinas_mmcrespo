@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->font('Inter')
+            ->font('Outfit')
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->profile(\App\Filament\Pages\Auth\EditProfile::class)
             ->brandName('Piscinas MMCrespo')
@@ -53,7 +53,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/logo-mmcrespo.png'))
             ->colors([
-                'primary' => Color::hex('#2563eb'), /* Blue 600 */
+                'primary' => Color::hex('#0284c7'), /* Aqua / Sky Cyan 600 */
                 'success' => Color::hex('#059669'), /* Emerald 600 */
                 'warning' => Color::Amber,
                 'danger' => Color::hex('#f43f5e'), /* Rose 500 */
@@ -117,8 +117,15 @@ class AdminPanelProvider extends PanelProvider
             )
 
             ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): string => '<div class="mmc-fluid-orb mmc-fluid-orb-1"></div><div class="mmc-fluid-orb mmc-fluid-orb-2"></div>',
+            )
+            ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'HTML'
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
 HTML,

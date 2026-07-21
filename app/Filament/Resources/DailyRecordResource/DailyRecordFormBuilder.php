@@ -29,6 +29,10 @@ class DailyRecordFormBuilder
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
+        if (request()->query('quick') == '1' && request()->query('pool')) {
+            $query->where('id', (int) request()->query('pool'));
+        }
+
         return $query;
     }
 
@@ -50,6 +54,7 @@ class DailyRecordFormBuilder
             'tanque_ok' => true,
             'tanque_observacoes' => null,
             'tanque_foto' => null,
+            'pressao_filtro' => null,
             'filtro_faz_retrolavagem' => false,
             'numero_lavagens_filtro' => 1,
             'timer_lavagem' => 3,
@@ -143,7 +148,33 @@ class DailyRecordFormBuilder
         return $campo
             ->live()
             ->extraInputAttributes(['inputmode' => 'decimal'])
-            ->hint(fn (Get $get): ?string => DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['mensagem'] ?: null)
+            ->hint(function (Get $get) use ($campo, $metrica, $pool): ?string {
+                $val = $get($campo->getName());
+                if (!filled($val)) {
+                    return null;
+                }
+
+                $eval = DailyRecord::avaliarConformidade($metrica, $val, $pool);
+                $msg = $eval['mensagem'] ?: null;
+
+                if ($eval['estado'] !== \App\Enums\EstadoConformidade::VERDE) {
+                    $param = match($metrica) {
+                        'ns_ph' => 'ph',
+                        'ns_cloro_livre' => 'cloro_livre',
+                        default => null,
+                    };
+                    if ($param) {
+                        $dosagem = app(\App\Services\DosageCalculatorService::class)->calcularDose($pool, $param, (float) $val);
+                        if ($dosagem && ($dosagem['dose_com_fator_ml'] ?? 0) > 0 && isset($dosagem['produto'])) {
+                            $prodNome = $dosagem['produto']->name;
+                            $doseFmt = number_format($dosagem['dose_com_fator_ml'], 0, ',', '.');
+                            $unidade = $dosagem['unidade'];
+                            $msg .= " | ⚡ Sugestão: +{$doseFmt} {$unidade} de {$prodNome}";
+                        }
+                    }
+                }
+                return $msg;
+            })
             ->hintColor(fn (Get $get): ?string => match(DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
                 \App\Enums\EstadoConformidade::VERDE => 'success',
                 \App\Enums\EstadoConformidade::AMARELO => 'warning',
@@ -183,6 +214,11 @@ class DailyRecordFormBuilder
                         ->required()
                         ->live()
                         ->default(function() {
+                             $poolParam = request()->query('pool');
+                             if ($poolParam) {
+                                 $p = Pool::find((int) $poolParam);
+                                 if ($p) return $p->installation_id;
+                             }
                              $pool = Pool::whereHas('users', fn($q) => $q->where('users.id', auth()->id()))->first();
                              return $pool?->installation_id;
                         })
@@ -214,6 +250,8 @@ class DailyRecordFormBuilder
                     if (!$installationId) return [];
                     $installation = Installation::find($installationId);
                     if (!$installation) return [];
+
+                    $modoRapido = !self::isNS() && request()->query('quick') == '1';
 
                     $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
@@ -262,7 +300,7 @@ class DailyRecordFormBuilder
                                             self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
                                             self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
                                         ]),
-                                    ])->columns(['default' => 2, 'sm' => 3])
+                                    ])->columns(['default' => 2, 'sm' => 3, 'lg' => 4])
                             )->toArray()
                         );
 
@@ -294,6 +332,40 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
+                                        Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
+                                            ->label('Histórico de Retrolavagens')
+                                            ->content(function () use ($pool): \Illuminate\Support\HtmlString {
+                                                $ultima = DailyRecord::query()
+                                                    ->where('pool_id', $pool->id)
+                                                    ->where('filtro_faz_retrolavagem', true)
+                                                    ->orderByDesc('registado_em')
+                                                    ->first();
+                                                if (!$ultima) {
+                                                    return new \Illuminate\Support\HtmlString('<span class="text-sm text-slate-500">Sem registo anterior de retrolavagem.</span>');
+                                                }
+                                                $dias = (int) $ultima->registado_em->diffInDays(now());
+                                                $alerta = $dias >= 7 ? ' <span class="text-amber-600 dark:text-amber-400 font-bold">⚠️ Recomendada lavagem (>7 dias)</span>' : '';
+                                                return new \Illuminate\Support\HtmlString(
+                                                    "<span class=\"text-sm font-medium\">Última: há {$dias} dia(s) ({$ultima->registado_em->format('d/m/Y')}) — {$ultima->numero_lavagens_filtro} ciclo(s){$alerta}</span>"
+                                                );
+                                            }),
+                                        Forms\Components\TextInput::make('pressao_filtro')
+                                            ->id("pressao_filtro_{$pool->id}")
+                                            ->label('Pressão do Filtro (bar)')
+                                            ->numeric()
+                                            ->step(0.05)
+                                            ->live(debounce: 500)
+                                            ->helperText(function (Get $get): ?string {
+                                                $val = $get('pressao_filtro');
+                                                if (blank($val)) return null;
+                                                $pressao = (float) $val;
+                                                if ($pressao >= 1.5) {
+                                                    return '⚠️ Pressão elevada (' . $pressao . ' bar)! Recomendada retrolavagem urgente do filtro.';
+                                                } elseif ($pressao >= 1.2) {
+                                                    return 'ℹ️ Pressão moderada (' . $pressao . ' bar). Considere programar lavagem brevemente.';
+                                                }
+                                                return '✅ Pressão normal (' . $pressao . ' bar).';
+                                            }),
                                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
                                             ->id("filtro_faz_retrolavagem_{$pool->id}")
                                             ->label('Fazer retrolavagem?')->default(false)->live(),
@@ -348,8 +420,8 @@ class DailyRecordFormBuilder
                             )->toArray()
                         );
 
-                    $stepNS = Forms\Components\Wizard\Step::make('Nadadores-salvadores')
-                        ->icon('heroicon-o-users')
+                    $stepNS = Forms\Components\Wizard\Step::make($modoRapido ? 'Registo Rápido' : 'Nadadores-salvadores')
+                        ->icon($modoRapido ? 'heroicon-o-bolt' : 'heroicon-o-users')
                         ->schema([
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn(Pool $pool) => 
@@ -390,6 +462,52 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
+                                        Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
+                                            ->hiddenLabel()
+                                            ->content(function (Get $get) use ($pool) {
+                                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+
+                                                $sugestoes = [];
+                                                $calculator = app(\App\Services\DosageCalculatorService::class);
+
+                                                if (filled($ph)) {
+                                                    $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
+                                                    if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
+                                                        $prod = $dosePh['produto']?->name ?? 'Produto pH';
+                                                        $doseFmt = number_format($dosePh['dose_com_fator_ml'], 0, ',', '.');
+                                                        $sugestoes[] = "• <strong>pH (" . number_format((float)$ph, 2, ',', '') . "):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$doseFmt} {$dosePh['unidade']}</strong> de <em>{$prod}</em>";
+                                                    }
+                                                }
+
+                                                if (filled($cl)) {
+                                                    $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
+                                                    if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
+                                                        $prod = $doseCl['produto']?->name ?? 'Cloro';
+                                                        $doseFmt = number_format($doseCl['dose_com_fator_ml'], 0, ',', '.');
+                                                        $sugestoes[] = "• <strong>Cloro Livre (" . number_format((float)$cl, 2, ',', '') . " ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseFmt} {$doseCl['unidade']}</strong> de <em>{$prod}</em>";
+                                                    }
+                                                }
+
+                                                if (empty($sugestoes)) {
+                                                    return null;
+                                                }
+
+                                                $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1 mb-2">';
+                                                $html .= '<div class="font-semibold flex items-center gap-1.5"><span class="text-base">⚡</span> <span>Sugestões Automáticas de Dosagem (Ação Corretiva Recomendada)</span></div>';
+                                                foreach ($sugestoes as $sug) {
+                                                    $html .= "<div>{$sug}</div>";
+                                                }
+                                                $html .= '</div>';
+
+                                                return new \Illuminate\Support\HtmlString($html);
+                                            })
+                                            ->visible(function (Get $get) use ($pool) {
+                                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+                                                return filled($ph) || filled($cl);
+                                            })
+                                            ->columnSpanFull(),
                                         Forms\Components\Repeater::make('adicoes')
                                             ->id("adicoes_{$pool->id}")
                                             ->label('Adições de Químicos')
@@ -485,9 +603,10 @@ class DailyRecordFormBuilder
                             )->toArray()
                         );
 
-                    $steps = self::isNS()
-                        ? [$stepNS]
-                        : [
+                    $steps = match (true) {
+                        self::isNS() => [$stepNS],
+                        $modoRapido => [$stepNS, $stepObservacoes],
+                        default => [
                             $stepBombas,
                             $stepTanques,
                             $stepLavagem,
@@ -495,7 +614,8 @@ class DailyRecordFormBuilder
                             $stepPosicaoNormal,
                             $stepNS,
                             $stepObservacoes,
-                        ];
+                        ],
+                    };
 
                     return [
                         Forms\Components\Wizard::make($steps)->skippable()
