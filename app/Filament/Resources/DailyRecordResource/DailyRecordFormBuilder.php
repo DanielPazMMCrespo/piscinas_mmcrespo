@@ -29,6 +29,10 @@ class DailyRecordFormBuilder
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
+        if (request()->query('quick') == '1' && request()->query('pool')) {
+            $query->where('id', (int) request()->query('pool'));
+        }
+
         return $query;
     }
 
@@ -50,6 +54,7 @@ class DailyRecordFormBuilder
             'tanque_ok' => true,
             'tanque_observacoes' => null,
             'tanque_foto' => null,
+            'pressao_filtro' => null,
             'filtro_faz_retrolavagem' => false,
             'numero_lavagens_filtro' => 1,
             'timer_lavagem' => 3,
@@ -209,6 +214,11 @@ class DailyRecordFormBuilder
                         ->required()
                         ->live()
                         ->default(function() {
+                             $poolParam = request()->query('pool');
+                             if ($poolParam) {
+                                 $p = Pool::find((int) $poolParam);
+                                 if ($p) return $p->installation_id;
+                             }
                              $pool = Pool::whereHas('users', fn($q) => $q->where('users.id', auth()->id()))->first();
                              return $pool?->installation_id;
                         })
@@ -320,6 +330,40 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
+                                        Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
+                                            ->label('Histórico de Retrolavagens')
+                                            ->content(function () use ($pool): \Illuminate\Support\HtmlString {
+                                                $ultima = DailyRecord::query()
+                                                    ->where('pool_id', $pool->id)
+                                                    ->where('filtro_faz_retrolavagem', true)
+                                                    ->orderByDesc('registado_em')
+                                                    ->first();
+                                                if (!$ultima) {
+                                                    return new \Illuminate\Support\HtmlString('<span class="text-sm text-slate-500">Sem registo anterior de retrolavagem.</span>');
+                                                }
+                                                $dias = (int) $ultima->registado_em->diffInDays(now());
+                                                $alerta = $dias >= 7 ? ' <span class="text-amber-600 dark:text-amber-400 font-bold">⚠️ Recomendada lavagem (>7 dias)</span>' : '';
+                                                return new \Illuminate\Support\HtmlString(
+                                                    "<span class=\"text-sm font-medium\">Última: há {$dias} dia(s) ({$ultima->registado_em->format('d/m/Y')}) — {$ultima->numero_lavagens_filtro} ciclo(s){$alerta}</span>"
+                                                );
+                                            }),
+                                        Forms\Components\TextInput::make('pressao_filtro')
+                                            ->id("pressao_filtro_{$pool->id}")
+                                            ->label('Pressão do Filtro (bar)')
+                                            ->numeric()
+                                            ->step(0.05)
+                                            ->live(debounce: 500)
+                                            ->helperText(function (Get $get): ?string {
+                                                $val = $get('pressao_filtro');
+                                                if (blank($val)) return null;
+                                                $pressao = (float) $val;
+                                                if ($pressao >= 1.5) {
+                                                    return '⚠️ Pressão elevada (' . $pressao . ' bar)! Recomendada retrolavagem urgente do filtro.';
+                                                } elseif ($pressao >= 1.2) {
+                                                    return 'ℹ️ Pressão moderada (' . $pressao . ' bar). Considere programar lavagem brevemente.';
+                                                }
+                                                return '✅ Pressão normal (' . $pressao . ' bar).';
+                                            }),
                                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
                                             ->id("filtro_faz_retrolavagem_{$pool->id}")
                                             ->label('Fazer retrolavagem?')->default(false)->live(),

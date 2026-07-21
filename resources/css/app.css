@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'widgets.css';
 @import 'esquema.css';
 @import 'login.css';
 
-/* dark: liga-se à classe .dark do Filament, não ao prefers-color-scheme do SO —
-   caso contrário o texto dark:text-white fica invisível em ecrãs com toggle
-   claro do Filament mas SO em modo escuro. */
+/* dark: liga-se à classe .dark do Filament */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -16,7 +14,7 @@
 
 @theme {
     --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-    --font-heading: 'Syne', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Syne', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Tipografia Avançada: Headings */
@@ -29,12 +27,47 @@ h1, h2, h3, h4, h5, h6,
     letter-spacing: -0.02em;
 }
 
-/* Global light theme enforcement on main background for neumorphic look */
 body {
-    background-color: #f8fafc !important; /* bg-slate-50 */
+    font-family: var(--font-sans) !important;
+    background-color: #f0f7ff !important;
+    position: relative;
+    overflow-x: hidden;
 }
+
 .dark body {
-    background-color: #0f172a !important; /* bg-slate-900 */
+    background-color: #031225 !important; /* Deep Ocean Background */
+}
+
+/* Ambient Fluid Glassmorphic Background Orbs */
+.mmc-fluid-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.45;
+    transition: all 0.8s ease;
+}
+.mmc-fluid-orb-1 {
+    width: 450px;
+    height: 450px;
+    top: -100px;
+    right: -100px;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(79, 172, 254, 0.15) 70%, transparent 100%);
+    animation: mmc-float-orb 14s ease-in-out infinite alternate;
+}
+.mmc-fluid-orb-2 {
+    width: 550px;
+    height: 550px;
+    bottom: -150px;
+    left: -150px;
+    background: radial-gradient(circle, rgba(3, 18, 37, 0.6) 0%, rgba(0, 242, 254, 0.2) 60%, transparent 100%);
+    animation: mmc-float-orb 18s ease-in-out infinite alternate-reverse;
+}
+@keyframes mmc-float-orb {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(40px, -50px) scale(1.1); }
+    100% { transform: translate(-30px, 30px) scale(0.95); }
 }
 
 

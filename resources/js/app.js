@@ -382,6 +382,18 @@ document.addEventListener('alpine:init', () => {
             } catch (e) { /* sem áudio */ }
 
             if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+
+            if (this.fase === 'lavagem' && this.poolId) {
+                const inputLavagens = document.getElementById('numero_lavagens_filtro_' + this.poolId);
+                if (inputLavagens) {
+                    const currentVal = parseInt(inputLavagens.value || 0, 10);
+                    if (!isNaN(currentVal)) {
+                        inputLavagens.value = currentVal + 1;
+                        inputLavagens.dispatchEvent(new Event('input', { bubbles: true }));
+                        inputLavagens.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }
         },
 
         get formattedTime() {
@@ -686,11 +698,14 @@ const storeName = 'photos';
 
 const getDB = () => {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(dbName, 1);
+        const request = indexedDB.open(dbName, 2);
         request.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains(storeName)) {
                 db.createObjectStore(storeName);
+            }
+            if (!db.objectStoreNames.contains('offline_queue')) {
+                db.createObjectStore('offline_queue', { keyPath: 'offline_id' });
             }
         };
         request.onsuccess = (e) => resolve(e.target.result);
