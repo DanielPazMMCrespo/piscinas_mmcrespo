@@ -7,7 +7,10 @@ namespace App\Notifications;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Filament\Notifications\Notification as FilamentNotification;
+use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -29,18 +32,30 @@ class NaoConformidadeNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('conformidade', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('conformidade', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
-        return new DatabaseMessage([
-            'title' => 'Parâmetros fora dos limites: '.$this->nomePiscina,
-            'body' => implode(' · ', $this->violacoes).'.',
-            'format' => 'filament',
-            'icon' => 'heroicon-o-beaker',
-            'color' => 'danger',
-        ]);
+        return FilamentNotification::make()
+            ->title('Parâmetros fora dos limites — '.$this->nomePiscina)
+            ->body(implode(' · ', $this->violacoes).'.')
+            ->icon('heroicon-o-exclamation-circle')
+            ->color('danger')
+            ->actions([
+                Action::make('view')
+                    ->label('Ver Registo')
+                    ->button()
+                    ->url(DailyRecordResource::getUrl('edit', ['record' => $this->registo->id])),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -53,5 +68,16 @@ class NaoConformidadeNotification extends Notification
             ->tag("nao-conforme-{$this->registo->id}")
             ->vibrate([200, 100, 200])
             ->data(['url' => DailyRecordResource::getUrl('edit', ['record' => $this->registo->id])]);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage())
+            ->subject("🔴 Parâmetros fora dos limites: {$this->nomePiscina}")
+            ->greeting('Atenção,')
+            ->line("Foram detetados parâmetros fora dos limites legais na **{$this->nomePiscina}**:")
+            ->line(implode(' · ', $this->violacoes))
+            ->action('Ver Registo', DailyRecordResource::getUrl('edit', ['record' => $this->registo->id]))
+            ->line('Por favor, verifique a situação o mais breve possível.');
     }
 }

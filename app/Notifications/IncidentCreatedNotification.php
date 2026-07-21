@@ -5,7 +5,10 @@ namespace App\Notifications;
 use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Filament\Notifications\Notification as FilamentNotification;
+use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -23,22 +26,33 @@ class IncidentCreatedNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        // TODO: adicionar 'mail' aqui quando o SMTP estiver configurado.
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('incidentes', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('incidentes', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
         $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
         $reportante = $this->incident->utilizador?->name ?? 'Utilizador';
 
-        return new DatabaseMessage([
-            'title' => "Novo incidente — {$instalacao}",
-            'body' => "{$reportante}: {$this->incident->descricao}",
-            'format' => 'filament',
-            'icon' => 'heroicon-o-exclamation-triangle',
-            'color' => 'danger',
-        ]);
+        return FilamentNotification::make()
+            ->title("Novo incidente — {$instalacao}")
+            ->body("{$reportante}: {$this->incident->descricao}")
+            ->icon('heroicon-o-exclamation-triangle')
+            ->color('danger')
+            ->actions([
+                Action::make('view')
+                    ->label('Ver Incidente')
+                    ->button()
+                    ->url(IncidentResource::getUrl('view', ['record' => $this->incident->id])),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -54,5 +68,17 @@ class IncidentCreatedNotification extends Notification
             ->tag("incident-{$this->incident->id}")
             ->vibrate([200, 100, 200])
             ->data(['url' => IncidentResource::getUrl('view', ['record' => $this->incident->id])]);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
+        
+        return (new MailMessage())
+            ->subject("Novo Incidente: {$instalacao}")
+            ->greeting("Olá,")
+            ->line("Foi reportado um novo incidente na instalação **{$instalacao}**.")
+            ->line("**Descrição:** {$this->incident->descricao}")
+            ->action('Ver Incidente', IncidentResource::getUrl('view', ['record' => $this->incident->id]));
     }
 }

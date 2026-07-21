@@ -21,7 +21,14 @@ class TimerFinishedNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return [WebPushChannel::class];
+        $channels = [];
+        if ($notifiable->wantsNotification('operacao', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('operacao', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -36,6 +43,7 @@ class TimerFinishedNotification extends Notification
             ->body('O tempo definido terminou. Pode passar à fase seguinte.')
             ->icon('/images/icon-192.png')
             ->badge('/images/icon-192.png')
+            ->action('abrir_registo', 'Abrir Registo')
             ->tag("timer-{$this->fase}")
             ->requireInteraction()
             ->vibrate([300, 150, 300])

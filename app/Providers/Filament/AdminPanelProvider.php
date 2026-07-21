@@ -47,6 +47,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->font('Inter')
             ->login(\App\Filament\Pages\Auth\Login::class)
+            ->profile(\App\Filament\Pages\Auth\EditProfile::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')

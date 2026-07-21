@@ -7,7 +7,10 @@ namespace App\Notifications;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\TapAlert;
 use Illuminate\Notifications\Messages\DatabaseMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Filament\Notifications\Notification as FilamentNotification;
+use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -26,18 +29,30 @@ class TorneiraAbertaNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('operacao', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('operacao', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
-        return new DatabaseMessage([
-            'title' => "Torneira aberta há mais de {$this->horasAberta}h — {$this->nomePiscina}",
-            'body' => 'Aberta desde '.$this->tap->opened_at->format('d/m H:i').'.',
-            'format' => 'filament',
-            'icon' => 'heroicon-o-exclamation-triangle',
-            'color' => 'warning',
-        ]);
+        return FilamentNotification::make()
+            ->title("Torneira aberta há mais de {$this->horasAberta}h — {$this->nomePiscina}")
+            ->body('Aberta desde '.$this->tap->opened_at->format('d/m H:i').'.')
+            ->icon('heroicon-o-exclamation-triangle')
+            ->color('warning')
+            ->actions([
+                Action::make('resolve')
+                    ->label('Registar Fecho')
+                    ->button()
+                    ->url(DailyRecordResource::getUrl('create')),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -47,8 +62,19 @@ class TorneiraAbertaNotification extends Notification
             ->body('Aberta desde '.$this->tap->opened_at->format('d/m H:i').'.')
             ->icon('/images/icon-192.png')
             ->badge('/images/icon-192.png')
+            ->action('abrir_registo', 'Ver Registo')
             ->tag("tap-{$this->tap->id}")
             ->vibrate([200, 100, 200])
             ->data(['url' => DailyRecordResource::getUrl('create')]);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage())
+            ->subject("Alerta: Torneira Aberta há mais de {$this->horasAberta}h")
+            ->greeting("Atenção,")
+            ->line("Foi detetado que a torneira da piscina **{$this->nomePiscina}** está aberta há mais de {$this->horasAberta} horas.")
+            ->line("Aberta desde: " . $this->tap->opened_at->format('d/m H:i'))
+            ->action('Registar Fecho / Ver Detalhes', DailyRecordResource::getUrl('create'));
     }
 }

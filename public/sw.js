@@ -64,6 +64,7 @@ self.addEventListener('push', (event) => {
         tag: payload.tag || undefined,
         renotify: Boolean(payload.tag),
         vibrate: payload.vibrate || [200, 100, 200],
+        actions: payload.actions || [],
         data: { url: dados.url || payload.url || '/admin' },
     };
 
