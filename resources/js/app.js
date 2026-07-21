@@ -527,6 +527,66 @@ document.addEventListener('alpine:init', () => {
             }
         }
     }));
+
+    /**
+     * Gráfico de barras empilhadas (Consumo de Químicos por piscina/mês).
+     * Reutiliza a mesma classe Chart.js já carregada por mmcChart quando
+     * disponível, registando adicionalmente os controllers de barras.
+     */
+    window.Alpine.data('mmcBarChart', (initialPayload = null) => ({
+        chart: null,
+        _payload: initialPayload,
+
+        async init() {
+            const chartJs = await import('chart.js');
+            if (!ChartWithPlugins) {
+                ChartWithPlugins = chartJs.Chart;
+            }
+            ChartWithPlugins.register(
+                chartJs.BarController,
+                chartJs.BarElement,
+                chartJs.CategoryScale,
+                chartJs.LinearScale,
+                chartJs.Legend,
+                chartJs.Tooltip,
+            );
+
+            this.render();
+        },
+
+        render() {
+            if (!this._payload || !this._payload.labels || !this.$refs.canvas) return;
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            this.chart = new ChartWithPlugins(this.$refs.canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: this._payload.labels,
+                    datasets: this._payload.datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true },
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                    },
+                },
+            });
+        },
+
+        destroy() {
+            if (this.chart) {
+                this.chart.destroy();
+            }
+        },
+    }));
 });
 
 // Conversão e sanitização de vírgula para ponto em campos decimais.
