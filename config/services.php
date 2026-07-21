@@ -36,4 +36,8 @@ return [
         'aes_key' => env('HANNA_AES_KEY'),
     ],
 
+    'metrics' => [
+        'token' => env('METRICS_API_TOKEN'),
+    ],
+
 ];

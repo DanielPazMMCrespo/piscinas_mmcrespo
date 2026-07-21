@@ -80,3 +80,10 @@ Schedule::command('notificacoes:resumo-turno')
 Schedule::command('notificacoes:comparacao-semanal')
     ->weeklyOn(0, '09:00')
     ->withoutOverlapping();
+
+// ── Fase 3: Analytics & Business Intelligence ───────────────────────────────
+
+// Relatório mensal automático (livro sanitário do mês anterior) — dia 1 às 06:00.
+Schedule::command('relatorio:mensal-automatico')
+    ->monthlyOn(1, '06:00')
+    ->withoutOverlapping();

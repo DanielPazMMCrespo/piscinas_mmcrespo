@@ -194,6 +194,32 @@ class CloroPhChartWidget extends Widget implements HasForms
         $this->dispatchChartRefresh();
     }
 
+    /**
+     * Atalho "Sensor vs Manual": preenche os dois eixos com o mesmo parâmetro
+     * (leitura do controlador Hanna à esquerda, leitura manual do técnico à
+     * direita), para comparar visualmente e detetar desvios de calibração.
+     */
+    public function presetSensorVsManual(string $metricaControlador, string $metricaManual): void
+    {
+        $metricas = self::getMetricas();
+        if (! array_key_exists($metricaControlador, $metricas) || ! array_key_exists($metricaManual, $metricas)) {
+            return;
+        }
+
+        $this->leftMetric = $metricaControlador;
+        $this->rightMetric = $metricaManual;
+
+        $this->form->fill([
+            'poolSelecionada' => $this->poolSelecionada,
+            'leftMetric'      => $this->leftMetric,
+            'rightMetric'     => $this->rightMetric,
+            'customStartDate' => $this->customStartDate,
+            'customEndDate'   => $this->customEndDate,
+        ]);
+
+        $this->dispatchChartRefresh();
+    }
+
     private function dispatchChartRefresh(): void
     {
         if ($this->tabAtiva === 'graph' && $this->poolSelecionada !== null) {
