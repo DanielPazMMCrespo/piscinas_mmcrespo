@@ -23,11 +23,43 @@ class OperationalActionObserver
             $this->gerirTorneira($acao);
         }
 
+        if ($acao->tipo === OperationalAction::TIPO_REABASTECIMENTO_BIDAO) {
+            $this->reabastecerBidao($acao);
+        }
+
         $this->cacheService->invalidatePoolData();
         $this->cacheService->invalidateAllAlerts();
 
         if (auth()->check()) {
             \Illuminate\Support\Facades\Cache::forget('alertas_' . auth()->id());
+        }
+    }
+
+    private function reabastecerBidao(OperationalAction $acao): void
+    {
+        $tipoBidao = $acao->dados['bidao_tipo'] ?? null;
+        $quantidadeL = isset($acao->dados['quantidade_l']) && filled($acao->dados['quantidade_l']) ? (float) $acao->dados['quantidade_l'] : null;
+
+        if ($tipoBidao === 'ambos') {
+            $tipos = [\App\Models\DosingContainer::TIPO_CLORO, \App\Models\DosingContainer::TIPO_PH_MENOS];
+        } else {
+            $tipos = [$tipoBidao];
+        }
+
+        foreach ($tipos as $tipo) {
+            if (! $tipo) {
+                continue;
+            }
+            $container = \App\Models\DosingContainer::where('pool_id', $acao->pool_id)
+                ->where('tipo', $tipo)
+                ->first();
+            if ($container) {
+                $ml = ($quantidadeL !== null && $quantidadeL > 0)
+                    ? $quantidadeL * 1000
+                    : ($container->capacidade_ml ?? 20000);
+
+                $container->reabastecer($ml, $acao->user_id, $acao->observacoes, $acao->registado_em);
+            }
         }
     }
 

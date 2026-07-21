@@ -2,9 +2,11 @@
 namespace App\Console\Commands;
 
 
+use App\Models\DosingContainer;
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
 use App\Models\User;
+use App\Notifications\DosingContainerLowAlert;
 use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCloudService;
@@ -148,11 +150,113 @@ class HannaCloudSync extends Command
                 $this->error("  ✗ {$device->name}: ".$e->getMessage());
                 Log::error("HannaCloudSync [{$device->hanna_device_id}]: ".$e->getMessage());
             }
+
+            // Desconto do volume doseado nos bidões (independente da leitura acima).
+            if ($device->pool_id !== null) {
+                try {
+                    $this->sincronizarDosagem($device, $hanna);
+                } catch (\Throwable $e) {
+                    Log::warning("HannaCloudSync dosagem [{$device->hanna_device_id}]: ".$e->getMessage());
+                }
+            }
         }
 
         $this->info("Sync concluído: {$sincronizados} leitura(s) novas.");
 
         return self::SUCCESS;
+    }
+
+    /** Janela máxima de recuperação de dosagem quando o sync esteve em baixo. */
+    private const DOSE_LOOKBACK_MAX_HORAS = 24;
+
+    /**
+     * Desconta dos bidões (cloro e pH-) o volume doseado que o controlador
+     * reportou desde a última sincronização. O campo DV do deviceLogHistory dá
+     * o volume por ciclo; somamos apenas os ciclos novos (dt > dose_sincronizada_ate)
+     * para nunca contar duas vezes.
+     */
+    private function sincronizarDosagem(HannaDevice $device, HannaCloudService $hanna): void
+    {
+        // Primeira vez: fixa a baseline sem descontar dosagem anterior à feature.
+        if ($device->dose_sincronizada_ate === null) {
+            $device->update(['dose_sincronizada_ate' => now()]);
+
+            return;
+        }
+
+        $desde = $device->dose_sincronizada_ate->copy();
+        $limite = now()->subHours(self::DOSE_LOOKBACK_MAX_HORAS);
+
+        if ($desde->lt($limite)) {
+            $this->warn("  ⚠ {$device->name}: dosagem sem sync há mais de ".self::DOSE_LOOKBACK_MAX_HORAS.'h; a recuperar só as últimas '.self::DOSE_LOOKBACK_MAX_HORAS.'h.');
+            $desde = $limite;
+        }
+
+        $leituras = $hanna->getHistoryReadings(
+            $device->hanna_device_id,
+            $desde,
+            now(),
+        );
+
+        $novas = array_filter(
+            $leituras,
+            fn (array $l) => $l['dt'] !== null && Carbon::parse($l['dt'])->gt($device->dose_sincronizada_ate),
+        );
+
+        if (empty($novas)) {
+            return;
+        }
+
+        $containerCloro = DosingContainer::firstOrCreate(
+            ['pool_id' => $device->pool_id, 'tipo' => DosingContainer::TIPO_CLORO],
+        );
+        $containerPh = DosingContainer::firstOrCreate(
+            ['pool_id' => $device->pool_id, 'tipo' => DosingContainer::TIPO_PH_MENOS],
+        );
+
+        $doseCloro = 0.0;
+        $dosePh = 0.0;
+        $ultimoDt = $device->dose_sincronizada_ate;
+
+        foreach ($novas as $l) {
+            $dt = Carbon::parse($l['dt']);
+
+            if ($containerCloro->reabastecido_em === null || $dt->gt($containerCloro->reabastecido_em)) {
+                $doseCloro += (float) ($l['dose_cloro_ml'] ?? 0);
+            }
+
+            if ($containerPh->reabastecido_em === null || $dt->gt($containerPh->reabastecido_em)) {
+                $dosePh += (float) ($l['dose_ph_ml'] ?? 0);
+            }
+
+            if ($dt->gt($ultimoDt)) {
+                $ultimoDt = $dt;
+            }
+        }
+
+        $this->descontarBidao($device, DosingContainer::TIPO_CLORO, $doseCloro);
+        $this->descontarBidao($device, DosingContainer::TIPO_PH_MENOS, $dosePh);
+
+        $device->update(['dose_sincronizada_ate' => $ultimoDt]);
+    }
+
+    private function descontarBidao(HannaDevice $device, string $tipo, float $ml): void
+    {
+        $container = DosingContainer::firstOrCreate(
+            ['pool_id' => $device->pool_id, 'tipo' => $tipo],
+        );
+
+        if ($ml > 0) {
+            $container->consumir($ml);
+            $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
+        }
+
+        // Notifica uma vez por episódio de nível baixo.
+        if ($container->estaBaixo() && $container->alerta_notificado_em === null) {
+            $container->update(['alerta_notificado_em' => now()]);
+            $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+            Notification::send($destinatarios, new DosingContainerLowAlert($container));
+        }
     }
 
     /**

@@ -117,9 +117,31 @@ class DailyRecordFormBuilder
             ->schema(array_merge(...$fotoFields));
     }
 
+    /**
+     * Um valor de 0/0.00 num parâmetro legal é quase sempre sintoma de algo
+     * (sonda avariada, sem reagente, não medido) e não uma leitura real —
+     * exige-se justificação para não passar despercebido no livro sanitário.
+     */
+    private static function valorEhZero(mixed $valor): bool
+    {
+        return filled($valor) && (float) $valor === 0.0;
+    }
+
+    private static function algumValorZero(Get $get): bool
+    {
+        foreach (['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'] as $campo) {
+            if (self::valorEhZero($get($campo))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
     {
         return $campo
+            ->live()
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => match(DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
@@ -350,6 +372,13 @@ class DailyRecordFormBuilder
                                                 },
                                             ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
+                                        Forms\Components\Textarea::make('observacoes')
+                                            ->id("observacoes_zero_{$pool->id}")
+                                            ->label('Motivo do valor 0')
+                                            ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
+                                            ->required(fn (Get $get) => self::algumValorZero($get))
+                                            ->visible(fn (Get $get) => self::algumValorZero($get))
+                                            ->columnSpanFull(),
                                     ])->columns(['default' => 2, 'sm' => 4])
                             )->toArray()
                         ]);
@@ -368,26 +397,84 @@ class DailyRecordFormBuilder
                                                 Forms\Components\Select::make('product_id')
                                                     ->label('Produto')
                                                     ->options(\App\Models\Product::query()->pluck('name', 'id'))
-                                                    ->required(),
+                                                    ->required()
+                                                    ->live(),
                                                 Forms\Components\TextInput::make('quantity')
                                                     ->label('Quantidade')
                                                     ->numeric()
                                                     ->minValue(0.01)
                                                     ->step(0.01)
                                                     ->required()
-                                                    ->rules([
-                                                        function (Get $get) use ($installation) {
-                                                            return function (string $attribute, $value, Closure $fail) use ($get, $installation) {
+                                                    ->live(onBlur: true)
+                                                    ->hint(function (Get $get) use ($installation) {
+                                                        $productId = $get('product_id');
+                                                        if (! $productId) return null;
+                                                        $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
+                                                            ->where('product_id', $productId)->first();
+                                                        $produto = \App\Models\Product::find($productId);
+                                                        $disponivel = $stock?->quantity ?? 0;
+                                                        return "Disponível na instalação: {$disponivel} {$produto?->unidade}";
+                                                    })
+                                                    ->hintColor(function (Get $get) use ($installation) {
+                                                        $productId = $get('product_id');
+                                                        $value = $get('quantity');
+                                                        if (! $productId) return 'gray';
+                                                        $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
+                                                            ->where('product_id', $productId)->first();
+                                                        $disponivel = (float) ($stock?->quantity ?? 0);
+                                                        if (! $value) return 'gray';
+                                                        return $disponivel < (float) $value ? 'danger' : 'gray';
+                                                    })
+                                                    ->hintAction(
+                                                        Forms\Components\Actions\Action::make('adicionarStockInsuficiente')
+                                                            ->label('Stock insuficiente — adicionar agora')
+                                                            ->icon('heroicon-o-plus-circle')
+                                                            ->color('danger')
+                                                            ->visible(function (Get $get) use ($installation) {
                                                                 $productId = $get('product_id');
-                                                                if (! $productId || ! $value) return;
+                                                                $value = $get('quantity');
+                                                                if (! $productId || ! $value) return false;
                                                                 $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
                                                                     ->where('product_id', $productId)->first();
-                                                                if (! $stock || $stock->quantity < (float) $value) {
-                                                                    $fail('Stock insuficiente na instalação.');
-                                                                }
-                                                            };
-                                                        },
-                                                    ]),
+                                                                $disponivel = (float) ($stock?->quantity ?? 0);
+                                                                return $disponivel < (float) $value;
+                                                            })
+                                                            ->modalHeading('Adicionar stock em falta')
+                                                            ->form([
+                                                                Forms\Components\TextInput::make('quantidade_a_adicionar')
+                                                                    ->label('Quantidade a adicionar ao stock da instalação')
+                                                                    ->numeric()
+                                                                    ->minValue(0.001)
+                                                                    ->rules(['gt:0'])
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data, Get $get) use ($installation) {
+                                                                $productId = $get('product_id');
+
+                                                                \Illuminate\Support\Facades\DB::transaction(function () use ($productId, $data, $installation) {
+                                                                    $stock = \App\Models\StockInstallation::firstOrCreate(
+                                                                        ['installation_id' => $installation->id, 'product_id' => $productId],
+                                                                        ['quantity' => 0, 'limite_minimo' => 0],
+                                                                    );
+                                                                    $stock = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stock->id);
+                                                                    $stock->quantity += $data['quantidade_a_adicionar'];
+                                                                    $stock->save();
+
+                                                                    \App\Models\StockInstallationLog::create([
+                                                                        'stock_installation_id' => $stock->id,
+                                                                        'user_id' => auth()->id(),
+                                                                        'tipo_movimento' => 'entrada',
+                                                                        'quantity' => $data['quantidade_a_adicionar'],
+                                                                        'created_at' => now(),
+                                                                    ]);
+                                                                });
+
+                                                                \Filament\Notifications\Notification::make()
+                                                                    ->success()
+                                                                    ->title('Stock adicionado')
+                                                                    ->send();
+                                                            }),
+                                                    ),
                                                 Forms\Components\Textarea::make('acao_corretiva')
                                                     ->label('Ação corretiva')
                                                     ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')

@@ -14,7 +14,7 @@ class HannaDevice extends Model
 
     protected $fillable = [
         'hanna_device_id', 'name', 'pool_id', 'active', 'raw_info',
-        'ph_out_of_band_since', 'ph_overtime_notified_at',
+        'ph_out_of_band_since', 'ph_overtime_notified_at', 'dose_sincronizada_ate',
     ];
 
     protected $casts = [
@@ -22,6 +22,7 @@ class HannaDevice extends Model
         'raw_info' => 'array',
         'ph_out_of_band_since' => 'datetime',
         'ph_overtime_notified_at' => 'datetime',
+        'dose_sincronizada_ate' => 'datetime',
     ];
 
     public function piscina(): BelongsTo

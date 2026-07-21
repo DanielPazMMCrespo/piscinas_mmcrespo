@@ -42,6 +42,7 @@ class Pool extends Model
         static::deleting(function (Pool $pool): void {
             \Illuminate\Support\Facades\DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
             \Illuminate\Support\Facades\DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
+            $pool->bidoesDosagem()->delete();
             app(\App\Services\CacheService::class)->invalidatePoolData();
             app(\App\Services\CacheService::class)->invalidateGraphCache($pool->id);
         });
@@ -84,6 +85,11 @@ class Pool extends Model
     public function verificacoesFiltro(): HasMany
     {
         return $this->hasMany(FilterCheck::class);
+    }
+
+    public function bidoesDosagem(): HasMany
+    {
+        return $this->hasMany(DosingContainer::class);
     }
 
     public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

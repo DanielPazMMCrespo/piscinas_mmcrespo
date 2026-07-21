@@ -4,8 +4,10 @@ namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
+use App\Filament\Resources\DosingContainerResource;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
+use App\Models\DosingContainer;
 use App\Models\FilterCheck;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
@@ -53,6 +55,10 @@ class EsquemaPiscina extends Page
         'off' => 'OFF sem água',
     ];
 
+    #[Url(as: 'instalacao')]
+    public ?int $installationId = null;
+
+    /** Deep-link antigo por piscina (?pool=ID) — resolve a instalação dessa piscina. */
     #[Url(as: 'pool')]
     public ?int $poolId = null;
 
@@ -65,26 +71,61 @@ class EsquemaPiscina extends Page
     {
         $permitidas = $this->piscinasPermitidas();
 
-        if ($this->poolId === null || ! $permitidas->contains('id', $this->poolId)) {
-            $this->poolId = $permitidas->first()?->id;
+        // Deep-link por piscina fixa a instalação dessa piscina.
+        if ($this->poolId !== null) {
+            $piscina = $permitidas->firstWhere('id', $this->poolId);
+            if ($piscina !== null) {
+                $this->installationId = $piscina->installation_id;
+            }
+            $this->poolId = null;
+        }
+
+        $instalacoes = $this->instalacoesPermitidas($permitidas);
+
+        if ($this->installationId === null || ! $instalacoes->contains('id', $this->installationId)) {
+            $this->installationId = $instalacoes->first()['id'] ?? null;
         }
     }
 
-    public function selecionarPiscina(int $poolId): void
+    public function selecionarInstalacao(int $installationId): void
     {
-        if ($this->piscinasPermitidas()->contains('id', $poolId)) {
-            $this->poolId = $poolId;
+        $instalacoes = $this->instalacoesPermitidas($this->piscinasPermitidas());
+
+        if ($instalacoes->contains('id', $installationId)) {
+            $this->installationId = $installationId;
         }
     }
 
     protected function getViewData(): array
     {
-        $piscinas = $this->piscinasPermitidas();
+        $permitidas = $this->piscinasPermitidas();
+        $instalacoes = $this->instalacoesPermitidas($permitidas);
+
+        $piscinasDaInstalacao = $permitidas
+            ->filter(fn (Pool $p) => $p->installation_id === $this->installationId)
+            ->values();
 
         return [
-            'grupos' => $piscinas->groupBy(fn (Pool $p) => $p->instalacao?->name ?? '—'),
-            'esquema' => $this->buildEsquema($piscinas),
+            'instalacoes' => $instalacoes,
+            'instalacaoAtiva' => $this->installationId,
+            'estados' => $piscinasDaInstalacao->map(fn (Pool $p) => $this->buildPoolState($p))->all(),
         ];
+    }
+
+    /**
+     * Instalações com pelo menos uma piscina permitida.
+     *
+     * @return Collection<int, array{id: int, nome: string}>
+     */
+    private function instalacoesPermitidas(Collection $piscinas): Collection
+    {
+        return $piscinas
+            ->groupBy('installation_id')
+            ->map(fn (Collection $g, $id) => [
+                'id' => (int) $id,
+                'nome' => $g->first()->instalacao?->name ?? '—',
+            ])
+            ->values();
     }
 
     private function piscinasPermitidas(): Collection
@@ -102,14 +143,8 @@ class EsquemaPiscina extends Page
         return $query->get();
     }
 
-    private function buildEsquema(Collection $piscinas): ?array
+    private function buildPoolState(Pool $piscina): array
     {
-        $piscina = $piscinas->firstWhere('id', $this->poolId);
-
-        if (! $piscina instanceof Pool) {
-            return null;
-        }
-
         $registo = DailyRecord::latestPerPool()
             ->where('pool_id', $piscina->id)
             ->with('utilizador')
@@ -137,19 +172,87 @@ class EsquemaPiscina extends Page
 
         $agua = $this->valoresAgua($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_ANALISE_PONTUAL));
 
+        $torneira = $this->estadoTorneira($registo, $tapAberta, $ultimaAcao);
+        $bomba = $this->estadoBomba($registo, $ultimaAcao->get(OperationalAction::TIPO_BOMBA));
+        $filtro = $this->estadoFiltro($piscina, $registo, $acoes);
+        $tanque = $this->estadoTanque($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_TANQUE));
+        $bidoes = $this->bidoes($piscina);
+
         return [
             'piscina' => $piscina,
             'registo' => $registo,
             'stale' => $stale,
-            'torneira' => $this->estadoTorneira($registo, $tapAberta, $ultimaAcao),
-            'bomba' => $this->estadoBomba($registo, $ultimaAcao->get(OperationalAction::TIPO_BOMBA)),
-            'filtro' => $this->estadoFiltro($piscina, $registo, $acoes),
-            'tanque' => $this->estadoTanque($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_TANQUE)),
+            'torneira' => $torneira,
+            'bomba' => $bomba,
+            'filtro' => $filtro,
+            'tanque' => $tanque,
             'agua' => $agua,
+            'bidoes' => $bidoes,
+            'estado_geral' => $this->estadoGeral($agua, $torneira, $bomba, $tanque, $bidoes),
             'justificacoes' => $agua['algum_mau'] ? $this->justificacoes($acoes) : [],
             'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
+            'url_bidoes' => DosingContainerResource::getUrl('index'),
             'url_acoes_rapidas' => $this->urlsAcoesRapidas($piscina),
         ];
+    }
+
+    /**
+     * Bidões de reagente (cloro / pH-) da piscina, prontos para a vista.
+     *
+     * @return array<int, array{tipo: string, label: string, pct: ?float, nivel: string, restante_l: string, capacidade_l: ?string, reabastecido: ?string}>
+     */
+    private function bidoes(Pool $piscina): array
+    {
+        return DosingContainer::query()
+            ->where('pool_id', $piscina->id)
+            ->orderByRaw("CASE tipo WHEN 'cloro' THEN 0 ELSE 1 END")
+            ->get()
+            ->map(fn (DosingContainer $c) => [
+                'tipo' => $c->tipo,
+                'label' => $c->tipoLabel(),
+                'pct' => $c->percentagem(),
+                'nivel' => $c->nivel(),
+                'restante_l' => number_format((float) $c->restante_ml / 1000, 1, ',', ' '),
+                'capacidade_l' => $c->capacidade_ml !== null
+                    ? number_format($c->capacidade_ml / 1000, 0, ',', ' ')
+                    : null,
+                'reabastecido' => $c->reabastecido_em?->locale('pt')->diffForHumans(),
+            ])
+            ->all();
+    }
+
+    /**
+     * Estado geral da piscina para a vista de conjunto (semáforo): 'critico',
+     * 'aviso', 'ok' ou 'sem_dados'. Cor mais grave vence.
+     *
+     * @param  array<string, mixed>  $agua
+     * @param  array<string, mixed>  $torneira
+     * @param  array<string, mixed>  $bomba
+     * @param  array<string, mixed>|null  $tanque
+     * @param  array<int, array<string, mixed>>  $bidoes
+     */
+    private function estadoGeral(array $agua, array $torneira, array $bomba, ?array $tanque, array $bidoes): string
+    {
+        $niveisBidoes = array_column($bidoes, 'nivel');
+
+        if ($agua['algum_mau'] || $torneira['estado'] === 'aberta' || in_array('critico', $niveisBidoes, true)) {
+            return 'critico';
+        }
+
+        if (
+            $agua['stale']
+            || $bomba['estado'] === 'parada'
+            || ($tanque !== null && $tanque['estado'] === 'verificar')
+            || in_array('aviso', $niveisBidoes, true)
+        ) {
+            return 'aviso';
+        }
+
+        if ($agua['origem'] === null) {
+            return 'sem_dados';
+        }
+
+        return 'ok';
     }
 
     /**
