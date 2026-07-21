@@ -257,6 +257,63 @@ class DailyRecord extends Model
     }
 
     /**
+     * Fonte única de deteção de violações (sino de notificações + Kanban de alertas).
+     *
+     * @return array<int, array{parametro: string, mensagem: string}>
+     */
+    public function listarViolacoes(): array
+    {
+        $settings = app(\App\Services\SettingsService::class);
+        $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
+        $violacoes = [];
+
+        if ($this->ph_efetivo !== null && ! $this->phConforme()) {
+            $ph = (float) $this->ph_efetivo;
+            $phMin = $settings->getFloat('ph_min', self::PH_MIN);
+            $phMax = $settings->getFloat('ph_max', self::PH_MAX);
+            $violacoes[] = [
+                'parametro' => 'ph',
+                'mensagem' => $ph < $phMin
+                    ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
+                    : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')',
+            ];
+        }
+
+        if ($this->cloro_livre_efetivo !== null && ! $this->cloroLivreConforme()) {
+            $cl = (float) $this->cloro_livre_efetivo;
+            $clMin = $settings->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
+            $clMax = $settings->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+            $violacoes[] = [
+                'parametro' => 'cloro_livre',
+                'mensagem' => $cl < $clMin
+                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
+                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')',
+            ];
+        }
+
+        if ($this->cloro_total_efetivo !== null && $this->cloro_livre_efetivo !== null && ! $this->cloroCombinadoConforme()) {
+            $clCombMax = $settings->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+            $violacoes[] = [
+                'parametro' => 'cloro_combinado',
+                'mensagem' => 'cloro combinado '.$fmt((float) $this->cloro_combinado)
+                    .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')',
+            ];
+        }
+
+        if ($this->temperatura_efetivo !== null && ! $this->temperaturaConforme() && $this->piscina) {
+            $temp = (float) $this->temperatura_efetivo;
+            $violacoes[] = [
+                'parametro' => 'temperatura',
+                'mensagem' => $temp < (float) $this->piscina->temp_min
+                    ? 'temperatura '.$fmt($temp, 1).' °C abaixo do mínimo ('.$fmt((float) $this->piscina->temp_min, 1).')'
+                    : 'temperatura '.$fmt($temp, 1).' °C acima do máximo ('.$fmt((float) $this->piscina->temp_max, 1).')',
+            ];
+        }
+
+        return $violacoes;
+    }
+
+    /**
      * @return BelongsTo
      */
     public function piscina(): BelongsTo
