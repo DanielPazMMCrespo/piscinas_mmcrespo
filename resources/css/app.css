@@ -167,3 +167,107 @@ body {
     display: none !important;
 }
 
+/* =====================================================================
+ * Global Luxury Deep Water / Glassmorphic Filament Theme Override
+ * ===================================================================== */
+
+/* Dark Mode Global Glassmorphism Overrides */
+.dark .fi-topbar {
+    background: rgba(3, 18, 37, 0.85) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.15) !important;
+}
+
+.dark .fi-sidebar {
+    background: rgba(3, 18, 37, 0.9) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-right: 1px solid rgba(0, 242, 254, 0.15) !important;
+}
+
+.dark .fi-sidebar-item-active > a,
+.dark .fi-sidebar-item-active > button {
+    background: linear-gradient(90deg, rgba(0, 242, 254, 0.18) 0%, rgba(79, 172, 254, 0.08) 100%) !important;
+    border-left: 3px solid #00F2FE !important;
+    color: #00F2FE !important;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2) !important;
+}
+
+.dark .fi-sidebar-item-active svg {
+    color: #00F2FE !important;
+}
+
+/* Filament Cards, Sections, Tables & Modals */
+.dark .fi-section,
+.dark .fi-ta-ctn,
+.dark .fi-card,
+.dark .fi-fo-field-wrp,
+.dark .fi-modal-window,
+.dark .fi-dropdown-panel {
+    background-color: rgba(7, 26, 51, 0.75) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(0, 242, 254, 0.15) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.dark .fi-section-header,
+.dark .fi-ta-header,
+.dark .fi-ta-table th {
+    background: rgba(3, 18, 37, 0.5) !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.12) !important;
+}
+
+.dark .fi-ta-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark .fi-ta-row:hover {
+    background-color: rgba(0, 242, 254, 0.06) !important;
+}
+
+/* Form Inputs & Selects */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="date"],
+.dark select,
+.dark textarea,
+.dark .fi-input-wrp {
+    background-color: rgba(3, 18, 37, 0.6) !important;
+    border: 1px solid rgba(0, 242, 254, 0.2) !important;
+    color: #f8fafc !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus,
+.dark .fi-input-wrp:focus-within {
+    border-color: #00F2FE !important;
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.3) !important;
+}
+
+/* Light Mode Soft Glass Enhancements */
+.fi-topbar {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+.fi-sidebar {
+    background: rgba(240, 247, 255, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+.fi-section,
+.fi-ta-ctn,
+.fi-card {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(2, 132, 199, 0.15) !important;
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.06) !important;
+}
+

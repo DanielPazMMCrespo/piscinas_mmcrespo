@@ -762,6 +762,165 @@ const clearAllPhotosFromDB = async () => {
     }
 };
 
+// Offline Queue Management
+const saveToOfflineQueue = async (payload) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('offline_queue', 'readwrite');
+        const item = {
+            offline_id: 'off_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            data: payload,
+            created_at: Date.now()
+        };
+        tx.objectStore('offline_queue').put(item);
+        await new Promise((res, rej) => {
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+        });
+        updateOfflineStatusBadge();
+        return item.offline_id;
+    } catch (e) {
+        console.error('Error saving to offline queue:', e);
+        return null;
+    }
+};
+
+const getOfflineQueue = async () => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('offline_queue', 'readonly');
+        const req = tx.objectStore('offline_queue').getAll();
+        return new Promise((res) => {
+            req.onsuccess = () => res(req.result || []);
+            req.onerror = () => res([]);
+        });
+    } catch (e) {
+        return [];
+    }
+};
+
+const deleteFromOfflineQueue = async (offlineId) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('offline_queue', 'readwrite');
+        tx.objectStore('offline_queue').delete(offlineId);
+        await new Promise((res) => { tx.oncomplete = res; });
+    } catch (e) {
+        console.error('Error deleting from offline queue:', e);
+    }
+};
+
+const syncOfflineRecords = async () => {
+    if (!navigator.onLine) return;
+    const items = await getOfflineQueue();
+    if (!items || items.length === 0) {
+        updateOfflineStatusBadge();
+        return;
+    }
+
+    const badge = document.getElementById('mmc-offline-badge');
+    if (badge) badge.innerHTML = `🔄 Sincronizando (${items.length})...`;
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const response = await fetch('/offline-sync/daily-records', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken || '',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ records: items })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result && result.success && Array.isArray(result.synced_ids)) {
+                for (const id of result.synced_ids) {
+                    await deleteFromOfflineQueue(id);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Offline sync failed:', e);
+    } finally {
+        updateOfflineStatusBadge();
+    }
+};
+
+const updateOfflineStatusBadge = async () => {
+    let badge = document.getElementById('mmc-offline-badge');
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'mmc-offline-badge';
+        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer';
+        badge.addEventListener('click', () => syncOfflineRecords());
+        document.body.appendChild(badge);
+    }
+
+    const items = await getOfflineQueue();
+    const count = items.length;
+
+    if (!navigator.onLine) {
+        badge.style.display = 'flex';
+        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-amber-500 text-white animate-pulse';
+        badge.innerHTML = `<span>⚡ Offline (${count} em fila)</span>`;
+    } else if (count > 0) {
+        badge.style.display = 'flex';
+        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-blue-600 text-white';
+        badge.innerHTML = `<span>🔄 Sincronizar (${count} pendentes)</span>`;
+        syncOfflineRecords();
+    } else {
+        badge.className = 'fixed bottom-4 left-4 z-50 px-4 py-2 rounded-full font-semibold text-sm shadow-lg transition-all transform flex items-center gap-2 cursor-pointer bg-emerald-600 text-white';
+        badge.innerHTML = `<span>✅ Online</span>`;
+        setTimeout(() => {
+            if (navigator.onLine && (badge.innerHTML.includes('Online') || count === 0)) {
+                badge.style.display = 'none';
+            }
+        }, 3000);
+    }
+};
+
+// Voice Input Setup
+const setupVoiceInput = () => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    document.addEventListener('dblclick', (e) => {
+        const input = e.target;
+        if (!input || (input.tagName !== 'INPUT' && input.tagName !== 'TEXTAREA')) return;
+        if (input.type !== 'number' && input.type !== 'text' && input.tagName !== 'TEXTAREA') return;
+
+        const recognition = new SpeechRec();
+        recognition.lang = 'pt-PT';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        const originalBg = input.style.backgroundColor;
+        input.style.backgroundColor = '#fef3c7';
+        input.placeholder = '🎤 A ouvir... Fale agora';
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            let cleaned = transcript.trim();
+            if (input.type === 'number' || input.id.includes('ph') || input.id.includes('cloro') || input.id.includes('temperatura')) {
+                cleaned = cleaned.replace(/vírgula/gi, '.').replace(/ponto/gi, '.').replace(',', '.').replace(/[^0-9.]/g, '');
+            }
+            if (cleaned) {
+                input.value = cleaned;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        };
+
+        recognition.onend = () => { input.style.backgroundColor = originalBg; };
+        recognition.onerror = () => { input.style.backgroundColor = originalBg; };
+
+        try { recognition.start(); } catch (err) { /* já ativo */ }
+    });
+};
+
+
 const getFieldKey = (filepondRoot) => {
     const input = filepondRoot.querySelector('input[name]');
     if (input) {
@@ -1072,6 +1231,37 @@ const mmcSetup = () => {
     setupFormDraft();
     setupFormDraftPhotos();
     setupGlobalImageLightbox();
+    setupVoiceInput();
+    updateOfflineStatusBadge();
+
+    window.addEventListener('online', updateOfflineStatusBadge);
+    window.addEventListener('offline', updateOfflineStatusBadge);
+
+    // Intercetação do botão Guardar no modo Offline
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn || navigator.onLine) return;
+        if (window.location.pathname.includes('/daily-records/create') && (btn.innerText.includes('Criar') || btn.innerText.includes('Confirmar e guardar'))) {
+            e.preventDefault();
+            e.stopPropagation();
+            const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+            const draftStr = localStorage.getItem(formKey);
+            if (draftStr) {
+                try {
+                    const draft = JSON.parse(draftStr);
+                    if (draft && draft.data) {
+                        await saveToOfflineQueue(draft.data);
+                        alert('⚡ Modo Offline: O registo foi guardado na fila local do dispositivo e será sincronizado automaticamente quando a internet for restaurada!');
+                        updateOfflineStatusBadge();
+                    }
+                } catch (err) {
+                    console.error('Offline save error:', err);
+                }
+            } else {
+                alert('⚡ Modo Offline: Por favor preencha os campos de medições antes de guardar na fila.');
+            }
+        }
+    }, true);
 };
 
 document.addEventListener('DOMContentLoaded', mmcSetup);
@@ -1087,7 +1277,7 @@ document.addEventListener('livewire:init', () => {
             respond(() => {
                 const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
                 try {
-    const currentData = component.get('data');
+                    const currentData = component.get('data');
                     if (currentData) {
                         localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
                     }
@@ -1115,4 +1305,5 @@ document.addEventListener('livewire:init', () => {
 // Setup form draft on Livewire SPA page transitions
 document.addEventListener('livewire:navigated', () => {
     setupFormDraft();
+    updateOfflineStatusBadge();
 });
