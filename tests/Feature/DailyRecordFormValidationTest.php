@@ -112,9 +112,10 @@ class DailyRecordFormValidationTest extends TestCase
     }
 
     /**
-     * Teste: Adição de químicos com quantidade superior ao stock disponível deve falhar.
+     * Teste: Adição de químicos com quantidade superior ao stock disponível não bloqueia
+     * o formulário (o stock insuficiente é resolvido no backend, não impede o registo).
      */
-    public function test_chemical_addition_fails_if_quantity_exceeds_available_stock(): void
+    public function test_chemical_addition_does_not_fail_if_quantity_exceeds_available_stock(): void
     {
         // Definir stock de 10.0 kg na instalação
         StockInstallation::create([
@@ -145,7 +146,7 @@ class DailyRecordFormValidationTest extends TestCase
                 ]
             ])
             ->call('create')
-            ->assertHasFormErrors(["pools.{$this->competicao->id}.adicoes.0.quantity"]);
+            ->assertHasNoFormErrors(["pools.{$this->competicao->id}.adicoes.0.quantity"]);
     }
 
     /**

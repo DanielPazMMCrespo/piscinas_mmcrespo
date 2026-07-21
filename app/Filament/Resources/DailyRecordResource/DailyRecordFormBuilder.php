@@ -397,26 +397,84 @@ class DailyRecordFormBuilder
                                                 Forms\Components\Select::make('product_id')
                                                     ->label('Produto')
                                                     ->options(\App\Models\Product::query()->pluck('name', 'id'))
-                                                    ->required(),
+                                                    ->required()
+                                                    ->live(),
                                                 Forms\Components\TextInput::make('quantity')
                                                     ->label('Quantidade')
                                                     ->numeric()
                                                     ->minValue(0.01)
                                                     ->step(0.01)
                                                     ->required()
-                                                    ->rules([
-                                                        function (Get $get) use ($installation) {
-                                                            return function (string $attribute, $value, Closure $fail) use ($get, $installation) {
+                                                    ->live(onBlur: true)
+                                                    ->hint(function (Get $get) use ($installation) {
+                                                        $productId = $get('product_id');
+                                                        if (! $productId) return null;
+                                                        $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
+                                                            ->where('product_id', $productId)->first();
+                                                        $produto = \App\Models\Product::find($productId);
+                                                        $disponivel = $stock?->quantity ?? 0;
+                                                        return "Disponível na instalação: {$disponivel} {$produto?->unidade}";
+                                                    })
+                                                    ->hintColor(function (Get $get) use ($installation) {
+                                                        $productId = $get('product_id');
+                                                        $value = $get('quantity');
+                                                        if (! $productId) return 'gray';
+                                                        $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
+                                                            ->where('product_id', $productId)->first();
+                                                        $disponivel = (float) ($stock?->quantity ?? 0);
+                                                        if (! $value) return 'gray';
+                                                        return $disponivel < (float) $value ? 'danger' : 'gray';
+                                                    })
+                                                    ->hintAction(
+                                                        Forms\Components\Actions\Action::make('adicionarStockInsuficiente')
+                                                            ->label('Stock insuficiente — adicionar agora')
+                                                            ->icon('heroicon-o-plus-circle')
+                                                            ->color('danger')
+                                                            ->visible(function (Get $get) use ($installation) {
                                                                 $productId = $get('product_id');
-                                                                if (! $productId || ! $value) return;
+                                                                $value = $get('quantity');
+                                                                if (! $productId || ! $value) return false;
                                                                 $stock = \App\Models\StockInstallation::where('installation_id', $installation->id)
                                                                     ->where('product_id', $productId)->first();
-                                                                if (! $stock || $stock->quantity < (float) $value) {
-                                                                    $fail('Stock insuficiente na instalação.');
-                                                                }
-                                                            };
-                                                        },
-                                                    ]),
+                                                                $disponivel = (float) ($stock?->quantity ?? 0);
+                                                                return $disponivel < (float) $value;
+                                                            })
+                                                            ->modalHeading('Adicionar stock em falta')
+                                                            ->form([
+                                                                Forms\Components\TextInput::make('quantidade_a_adicionar')
+                                                                    ->label('Quantidade a adicionar ao stock da instalação')
+                                                                    ->numeric()
+                                                                    ->minValue(0.001)
+                                                                    ->rules(['gt:0'])
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data, Get $get) use ($installation) {
+                                                                $productId = $get('product_id');
+
+                                                                \Illuminate\Support\Facades\DB::transaction(function () use ($productId, $data, $installation) {
+                                                                    $stock = \App\Models\StockInstallation::firstOrCreate(
+                                                                        ['installation_id' => $installation->id, 'product_id' => $productId],
+                                                                        ['quantity' => 0, 'limite_minimo' => 0],
+                                                                    );
+                                                                    $stock = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stock->id);
+                                                                    $stock->quantity += $data['quantidade_a_adicionar'];
+                                                                    $stock->save();
+
+                                                                    \App\Models\StockInstallationLog::create([
+                                                                        'stock_installation_id' => $stock->id,
+                                                                        'user_id' => auth()->id(),
+                                                                        'tipo_movimento' => 'entrada',
+                                                                        'quantity' => $data['quantidade_a_adicionar'],
+                                                                        'created_at' => now(),
+                                                                    ]);
+                                                                });
+
+                                                                \Filament\Notifications\Notification::make()
+                                                                    ->success()
+                                                                    ->title('Stock adicionado')
+                                                                    ->send();
+                                                            }),
+                                                    ),
                                                 Forms\Components\Textarea::make('acao_corretiva')
                                                     ->label('Ação corretiva')
                                                     ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
