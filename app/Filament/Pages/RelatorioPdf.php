@@ -300,6 +300,158 @@ class RelatorioPdf extends Page implements HasForms
         $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
         $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
 
+        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $modo, $modoControlador);
+
+        $pdf = Pdf::loadView('pdf.livro-sanitario', [
+            'instalacao' => $instalacao,
+            'seccoes' => $seccoes,
+            'inicio' => $inicio,
+            'fim' => $fim,
+            'emitidoEm' => now(),
+            'emitidoPor' => auth()->user()?->name,
+            'colunasVisiveis' => $colunasVisiveis,
+            'seccoesVisiveis' => $seccoesVisiveis,
+            'modo' => $modo,
+            'controladorModo' => $estado['controlador_modo'] ?? 'media_diaria',
+        ])->setPaper('a4', 'landscape');
+
+        // Numeração "Página X de Y": render explícito no objeto Dompdf e
+        // page_text no canvas ANTES de extrair o output (script PHP inline
+        // do dompdf está desativado por omissão — esta é a via suportada).
+        $domPdf = $pdf->getDomPDF();
+        $domPdf->render();
+
+        $canvas = $domPdf->getCanvas();
+        $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
+        $canvas->page_text(
+            $canvas->get_width() - 130,
+            $canvas->get_height() - 26,
+            'Página {PAGE_NUM} de {PAGE_COUNT}',
+            $fonte,
+            7.0,
+            [0, 0, 0],
+        );
+
+        $conteudo = (string) $domPdf->output();
+
+        $nomePiscina = $todas
+            ? 'todas'
+            : Str::slug((string) $piscinas->first()?->name);
+
+        $nomeFicheiro = sprintf(
+            'livro-sanitario_%s_%s_%s_%s.pdf',
+            Str::slug($instalacao->name),
+            $nomePiscina,
+            $inicio->format('Y-m-d'),
+            $fim->format('Y-m-d'),
+        );
+
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Gerou relatório PDF: {$nomeFicheiro}");
+
+        return response()->streamDownload(
+            fn () => print($conteudo),
+            $nomeFicheiro,
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    /**
+     * Exporta os registos filtrados (mesmos parâmetros do formulário) em CSV
+     * plano — um registo por linha, sem agregação diária — para análise em
+     * Excel/BI externo. Não aplica limite de 7 dias (não gera gráficos).
+     */
+    public function exportarCsv(): ?StreamedResponse
+    {
+        $estado = $this->form->getState();
+
+        $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
+        $fim = Carbon::parse((string) $estado['data_fim'])->endOfDay();
+
+        if ($inicio->isAfter($fim) || $inicio->isFuture() || $fim->isFuture()) {
+            Notification::make()
+                ->title('Erro de validação')
+                ->body('Verifique as datas de início e fim.')
+                ->danger()
+                ->send();
+            return null;
+        }
+
+        $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
+        $todas = $estado['pool_id'] === 'todas';
+
+        $piscinas = $instalacao->piscinas()
+            ->when(! $todas, fn ($query) => $query->whereKey((int) $estado['pool_id']))
+            ->orderBy('name')
+            ->get();
+
+        if ($piscinas->isEmpty()) {
+            Notification::make()
+                ->title('Sem piscinas')
+                ->body('A instalação selecionada não tem piscinas registadas.')
+                ->warning()
+                ->send();
+            return null;
+        }
+
+        $registos = \App\Models\DailyRecord::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->whereDoesntHave('correcoes')
+            ->with(['piscina', 'utilizador'])
+            ->orderBy('registado_em')
+            ->get();
+
+        $nomeFicheiro = sprintf(
+            'registos_%s_%s_%s_%s.csv',
+            Str::slug($instalacao->name),
+            $todas ? 'todas' : Str::slug((string) $piscinas->first()?->name),
+            $inicio->format('Y-m-d'),
+            $fim->format('Y-m-d'),
+        );
+
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Exportou registos CSV: {$nomeFicheiro}");
+
+        return response()->streamDownload(function () use ($registos) {
+            $saida = fopen('php://output', 'w');
+            // BOM UTF-8: Excel no Windows abre acentos corretamente sem isto ficarem ilegíveis.
+            fwrite($saida, "\xEF\xBB\xBF");
+            fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Conforme'], ';');
+
+            foreach ($registos as $registo) {
+                fputcsv($saida, [
+                    $registo->piscina?->name,
+                    $registo->registado_em->format('d/m/Y H:i'),
+                    $registo->utilizador?->name,
+                    $registo->ph_efetivo,
+                    $registo->cloro_livre_efetivo,
+                    $registo->cloro_total_efetivo,
+                    $registo->cloro_combinado,
+                    $registo->temperatura_efetivo,
+                    $registo->transparencia,
+                    $registo->contador_valor,
+                    empty($registo->listarViolacoes()) ? 'Sim' : 'Não',
+                ], ';');
+            }
+
+            fclose($saida);
+        }, $nomeFicheiro, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Constrói uma secção do livro sanitário por piscina (registos do período,
+     * agregados diários opcionais, e leituras do controlador Hanna). Extraído
+     * de exportar() para ser reutilizado pelo relatório mensal automático
+     * (GerarRelatorioMensalCommand) sem depender do estado do Livewire form.
+     *
+     * @param  \Illuminate\Support\Collection<int, Pool>  $piscinas
+     * @return array<int, array{piscina: Pool, registos: \Illuminate\Support\Collection, controlador: \Illuminate\Support\Collection, acoes_operacionais: \Illuminate\Support\Collection}>
+     */
+    public static function construirSeccoes(\Illuminate\Support\Collection $piscinas, Carbon $inicio, Carbon $fim, string $modo, string $modoControlador): array
+    {
         // Ações operacionais no período, agrupadas por piscina — justificam
         // valores anómalos do livro sanitário (ex.: lavagem de filtro).
         $acoesOperacionais = OperationalAction::query()
@@ -314,7 +466,7 @@ class RelatorioPdf extends Page implements HasForms
 
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $estado): array {
+        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $modoControlador): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina', 'adicoes'])
                 ->whereBetween('registado_em', [$inicio, $fim])
@@ -326,7 +478,7 @@ class RelatorioPdf extends Page implements HasForms
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
                     ->map(function ($grupo, $dataStr) use ($piscina) {
                         $dia = Carbon::parse($dataStr);
-                        
+
                         $phAvg = $grupo->map(fn ($r) => $r->ph ?? $r->ns_ph)->filter(fn ($v) => $v !== null)->average();
                         $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre ?? $r->ns_cloro_livre)->filter(fn ($v) => $v !== null)->average();
                         $cloroTotalAvg = $grupo->map(fn ($r) => $r->cloro_total ?? $r->ns_cloro_total)->filter(fn ($v) => $v !== null)->average();
@@ -334,11 +486,11 @@ class RelatorioPdf extends Page implements HasForms
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
                         $pressaoAvg = $grupo->whereNotNull('pressao_filtro')->avg('pressao_filtro');
-                        
+
                         $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
                         $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
                         $tecnicos = $grupo->map(fn ($r) => $r->utilizador?->name)->filter()->unique()->implode(', ');
-                        
+
                         $bombaFerrada = null;
                         if ($grupo->whereNotNull('bomba_ferrada')->isNotEmpty()) {
                             $bombaFerrada = $grupo->where('bomba_ferrada', false)->isEmpty();
@@ -347,17 +499,17 @@ class RelatorioPdf extends Page implements HasForms
                         if ($grupo->whereNotNull('tanque_ok')->isNotEmpty()) {
                             $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
                         }
-                        
+
                         $lavagensFiltro = $grupo->sum('numero_lavagens_filtro');
                         $lavouFiltroGrp = $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty() || $lavagensFiltro > 0;
-                        
-                        $renovacaoAgua = $grupo->where('renovacao_agua', true)->isNotEmpty() 
+
+                        $renovacaoAgua = $grupo->where('renovacao_agua', true)->isNotEmpty()
                             || $grupo->where('agua_modo', 'on_com_agua')->isNotEmpty()
                             || ($grupo->where('agua_modo', 'auto_com_agua')->isNotEmpty() && $lavouFiltroGrp)
                             ? true : null;
-                            
+
                         $caleiraFeita = $grupo->where('caleira_feita', true)->isNotEmpty() ? true : null;
-                        
+
                         if ($lavagensFiltro === 0 && $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty()) {
                             $lavagensFiltro = 1;
                         }
@@ -390,8 +542,6 @@ class RelatorioPdf extends Page implements HasForms
                         return $mockRecord;
                     })->values();
             }
-
-            $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
 
             // Controlador Hanna: lida com leituras artefacto (lavagem/bomba parada)
             $janelas = $artefactoService->janelas($piscina->id, $inicio, $fim);
@@ -537,59 +687,5 @@ class RelatorioPdf extends Page implements HasForms
                 'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
             ];
         })->all();
-
-        $pdf = Pdf::loadView('pdf.livro-sanitario', [
-            'instalacao' => $instalacao,
-            'seccoes' => $seccoes,
-            'inicio' => $inicio,
-            'fim' => $fim,
-            'emitidoEm' => now(),
-            'emitidoPor' => auth()->user()?->name,
-            'colunasVisiveis' => $colunasVisiveis,
-            'seccoesVisiveis' => $seccoesVisiveis,
-            'modo' => $modo,
-            'controladorModo' => $estado['controlador_modo'] ?? 'media_diaria',
-        ])->setPaper('a4', 'landscape');
-
-        // Numeração "Página X de Y": render explícito no objeto Dompdf e
-        // page_text no canvas ANTES de extrair o output (script PHP inline
-        // do dompdf está desativado por omissão — esta é a via suportada).
-        $domPdf = $pdf->getDomPDF();
-        $domPdf->render();
-
-        $canvas = $domPdf->getCanvas();
-        $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
-        $canvas->page_text(
-            $canvas->get_width() - 130,
-            $canvas->get_height() - 26,
-            'Página {PAGE_NUM} de {PAGE_COUNT}',
-            $fonte,
-            7.0,
-            [0, 0, 0],
-        );
-
-        $conteudo = (string) $domPdf->output();
-
-        $nomePiscina = $todas
-            ? 'todas'
-            : Str::slug((string) $piscinas->first()?->name);
-
-        $nomeFicheiro = sprintf(
-            'livro-sanitario_%s_%s_%s_%s.pdf',
-            Str::slug($instalacao->name),
-            $nomePiscina,
-            $inicio->format('Y-m-d'),
-            $fim->format('Y-m-d'),
-        );
-
-        activity('relatorio')
-            ->causedBy(auth()->user())
-            ->log("Gerou relatório PDF: {$nomeFicheiro}");
-
-        return response()->streamDownload(
-            fn () => print($conteudo),
-            $nomeFicheiro,
-            ['Content-Type' => 'application/pdf'],
-        );
     }
 }

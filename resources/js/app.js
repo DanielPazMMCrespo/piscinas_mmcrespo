@@ -804,7 +804,9 @@ const saveToOfflineQueue = async (payload) => {
             tx.oncomplete = res;
             tx.onerror = () => rej(tx.error);
         });
-        updateOfflineStatusBadge();
+        if (navigator.onLine) {
+            syncOfflineRecords();
+        }
         return item.offline_id;
     } catch (e) {
         console.error('Error saving to offline queue:', e);
@@ -841,12 +843,8 @@ const syncOfflineRecords = async () => {
     if (!navigator.onLine) return;
     const items = await getOfflineQueue();
     if (!items || items.length === 0) {
-        updateOfflineStatusBadge();
         return;
     }
-
-    const badge = document.getElementById('mmc-offline-badge');
-    if (badge) badge.innerHTML = `🔄 Sincronizando (${items.length})...`;
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -870,51 +868,6 @@ const syncOfflineRecords = async () => {
         }
     } catch (e) {
         console.error('Offline sync failed:', e);
-    } finally {
-        updateOfflineStatusBadge();
-    }
-};
-
-const updateOfflineStatusBadge = async () => {
-    let badge = document.getElementById('mmc-offline-badge');
-    if (!badge) {
-        badge = document.createElement('div');
-        badge.id = 'mmc-offline-badge';
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-sm ml-2';
-        badge.addEventListener('click', () => syncOfflineRecords());
-
-        const targetContainer = document.querySelector('.fi-topbar-end') ||
-                                document.querySelector('.fi-topbar') ||
-                                document.querySelector('nav');
-
-        if (targetContainer) {
-            targetContainer.insertBefore(badge, targetContainer.firstChild);
-        } else {
-            badge.className += ' fixed top-3 right-24 z-40';
-            document.body.appendChild(badge);
-        }
-    }
-
-    const items = await getOfflineQueue();
-    const count = items.length;
-
-    if (!navigator.onLine) {
-        badge.style.display = 'inline-flex';
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 animate-pulse ml-2';
-        badge.innerHTML = `<span>⚡ Offline (${count} em fila)</span>`;
-    } else if (count > 0) {
-        badge.style.display = 'inline-flex';
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-blue-500/20 text-blue-800 dark:text-blue-300 border border-blue-500/30 ml-2';
-        badge.innerHTML = `<span>🔄 Sincronizar (${count} pendentes)</span>`;
-        syncOfflineRecords();
-    } else {
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide cursor-pointer bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 ml-2';
-        badge.innerHTML = `<span>✅ Online</span>`;
-        setTimeout(() => {
-            if (navigator.onLine && (badge.innerHTML.includes('Online') || count === 0)) {
-                badge.style.display = 'none';
-            }
-        }, 3000);
     }
 };
 
@@ -1126,23 +1079,6 @@ const setupFormDraft = () => {
             stored = await getDraftFromDB(formKey);
         }
 
-        const isDataDirty = (obj) => {
-            if (!obj) return false;
-            if (typeof obj !== 'object') return obj !== '' && obj !== null;
-            
-            for (const key in obj) {
-                if (key === 'user_id' || key === 'registado_em' || key === 'pool_id') continue;
-                const val = obj[key];
-                if (val === null || val === undefined || val === '') continue;
-                if (typeof val === 'object') {
-                    if (isDataDirty(val)) return true;
-                } else {
-                    return true;
-                }
-            }
-            return false;
-        };
-
         if (stored && stored.data) {
             const draftData = stored.data;
             const savedAt = stored.savedAt ?? 0;
@@ -1150,34 +1086,18 @@ const setupFormDraft = () => {
 
             if (expired) {
                 localStorage.removeItem(formKey);
-            } else if (draftData && isDataDirty(draftData) && !window.__mmcDraftRestored) {
+            } else if (draftData && Object.keys(draftData).length > 0 && !window.__mmcDraftRestored) {
                 window.__mmcDraftRestored = true;
                 await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
             }
         }
 
-        window.addEventListener('dailyRecordSaved', () => {
-            window.__mmcDraftCleared = true;
-            localStorage.removeItem(formKey);
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('mmc_timer_')) {
-                    localStorage.removeItem(key);
-                }
-            });
-            if (typeof clearAllPhotosFromDB === 'function') {
-                clearAllPhotosFromDB();
-            }
-        });
-
         const saveDraft = async () => {
-            if (window.__mmcDraftCleared) return;
             const currentData = component.get('data');
-            if (currentData && isDataDirty(currentData)) {
+            if (currentData && Object.keys(currentData).length > 0) {
                 const payload = { data: currentData, savedAt: Date.now() };
                 localStorage.setItem(formKey, JSON.stringify(payload));
-                if (typeof saveDraftToDB === 'function') {
-                    await saveDraftToDB(formKey, payload);
-                }
+                await saveDraftToDB(formKey, payload);
             }
         };
 
@@ -1301,10 +1221,9 @@ const mmcSetup = () => {
     setupFormDraftPhotos();
     setupGlobalImageLightbox();
     setupVoiceInput();
-    updateOfflineStatusBadge();
+    syncOfflineRecords();
 
-    window.addEventListener('online', updateOfflineStatusBadge);
-    window.addEventListener('offline', updateOfflineStatusBadge);
+    window.addEventListener('online', syncOfflineRecords);
 
     // Intercetação do botão Guardar no modo Offline
     document.addEventListener('click', async (e) => {
@@ -1320,14 +1239,13 @@ const mmcSetup = () => {
                     const draft = JSON.parse(draftStr);
                     if (draft && draft.data) {
                         await saveToOfflineQueue(draft.data);
-                        alert('⚡ Modo Offline: O registo foi guardado na fila local do dispositivo e será sincronizado automaticamente quando a internet for restaurada!');
-                        updateOfflineStatusBadge();
+                        alert('⚡ Modo Offline: O registo foi guardado localmente e será sincronizado automaticamente quando a internet for restaurada!');
                     }
                 } catch (err) {
                     console.error('Offline save error:', err);
                 }
             } else {
-                alert('⚡ Modo Offline: Por favor preencha os campos de medições antes de guardar na fila.');
+                alert('⚡ Modo Offline: Por favor preencha os campos de medições antes de guardar.');
             }
         }
     }, true);
@@ -1374,5 +1292,5 @@ document.addEventListener('livewire:init', () => {
 // Setup form draft on Livewire SPA page transitions
 document.addEventListener('livewire:navigated', () => {
     setupFormDraft();
-    updateOfflineStatusBadge();
+    syncOfflineRecords();
 });
