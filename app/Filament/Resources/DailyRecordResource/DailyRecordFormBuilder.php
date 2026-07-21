@@ -61,6 +61,7 @@ class DailyRecordFormBuilder
             'ns_cloro_livre' => null,
             'ns_cloro_total' => null,
             'ns_temperatura' => null,
+            'motivo_valor_zero' => null,
             'adicoes' => [],
             'observacoes' => null,
         ];
@@ -117,9 +118,31 @@ class DailyRecordFormBuilder
             ->schema(array_merge(...$fotoFields));
     }
 
+    /**
+     * Um valor de 0/0.00 num parâmetro legal é quase sempre sintoma de algo
+     * (sonda avariada, sem reagente, não medido) e não uma leitura real —
+     * exige-se justificação para não passar despercebido no livro sanitário.
+     */
+    private static function valorEhZero(mixed $valor): bool
+    {
+        return filled($valor) && (float) $valor === 0.0;
+    }
+
+    private static function algumValorZero(Get $get): bool
+    {
+        foreach (['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'] as $campo) {
+            if (self::valorEhZero($get($campo))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
     {
         return $campo
+            ->live(onBlur: true)
             ->extraInputAttributes(['inputmode' => 'decimal'])
             ->hint(fn (Get $get): ?string => DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['mensagem'] ?: null)
             ->hintColor(fn (Get $get): ?string => match(DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
@@ -350,6 +373,13 @@ class DailyRecordFormBuilder
                                                 },
                                             ]), 'ns_cloro_total', $pool),
                                         self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
+                                        Forms\Components\Textarea::make('motivo_valor_zero')
+                                            ->id("motivo_valor_zero_{$pool->id}")
+                                            ->label('Motivo do valor 0')
+                                            ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
+                                            ->required()
+                                            ->visible(fn (Get $get) => self::algumValorZero($get))
+                                            ->columnSpanFull(),
                                     ])->columns(['default' => 2, 'sm' => 4])
                             )->toArray()
                         ]);

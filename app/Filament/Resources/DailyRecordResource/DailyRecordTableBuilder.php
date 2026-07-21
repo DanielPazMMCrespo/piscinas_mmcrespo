@@ -354,6 +354,9 @@ class DailyRecordTableBuilder
                                         \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                     ]),
                                 self::fotoEntry('ns_foto', 'Foto da Análise NS'),
+                                \Filament\Infolists\Components\TextEntry::make('motivo_valor_zero')
+                                    ->label('Motivo do valor 0')
+                                    ->visible(fn ($record) => filled($record?->motivo_valor_zero)),
                             ]),
                         \Filament\Infolists\Components\TextEntry::make('observacoes')
                             ->label('Observações')
@@ -419,6 +422,9 @@ class DailyRecordTableBuilder
                                                 \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                             ]),
                                         self::fotoEntry('ns_foto', 'Foto da Análise NS'),
+                                        \Filament\Infolists\Components\TextEntry::make('motivo_valor_zero')
+                                            ->label('Motivo do valor 0')
+                                            ->visible(fn ($record) => filled($record?->motivo_valor_zero)),
                                     ]),
                                 \Filament\Infolists\Components\Section::make('Técnico')
                                     ->schema([
