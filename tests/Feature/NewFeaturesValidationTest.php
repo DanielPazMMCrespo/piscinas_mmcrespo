@@ -345,4 +345,61 @@ class NewFeaturesValidationTest extends TestCase
         $this->assertEquals(8000.0, (float) $containerCloro->restante_ml);
         $this->assertEquals(8000.0, (float) $containerPh->restante_ml);
     }
+
+    public function test_retroactive_refill_recalculates_and_deducts_consumption_correctly(): void
+    {
+        config(['services.hanna.email' => 'test@example.com']);
+        config(['services.hanna.password' => 'password']);
+
+        $env = $this->createTestEnvironment();
+        $pool = $env['pool'];
+        $admin = $env['admin'];
+
+        // Create Hanna device with sync time at 10:35
+        $device = \App\Models\HannaDevice::create([
+            'hanna_device_id' => 'DID-RETRO-TEST',
+            'name' => 'Controlador Teste',
+            'active' => true,
+            'pool_id' => $pool->id,
+            'dose_sincronizada_ate' => \Illuminate\Support\Carbon::parse('2026-07-21 10:35:00'),
+        ]);
+
+        // Create dosing container currently at 5,000 mL
+        $container = \App\Models\DosingContainer::create([
+            'pool_id' => $pool->id,
+            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 20000,
+            'restante_ml' => 5000,
+            'alerta_percent' => 20,
+        ]);
+
+        // Mock HannaCloudService
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getHistoryReadings')
+            ->with('DID-RETRO-TEST', \Mockery::on(fn($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 09:00:00'), \Mockery::on(fn($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 10:35:00'))
+            ->once()
+            ->andReturn([
+                ['dt' => '2026-07-21 09:15:00', 'dose_cloro_ml' => 100.0, 'dose_ph_ml' => 0.0],
+                ['dt' => '2026-07-21 09:45:00', 'dose_cloro_ml' => 200.0, 'dose_ph_ml' => 0.0],
+                ['dt' => '2026-07-21 10:15:00', 'dose_cloro_ml' => 300.0, 'dose_ph_ml' => 0.0],
+            ]);
+
+        // Run retroactive refill yesterday at 09:00 (which is before syncTime 10:35)
+        $container->reabastecer(20000, $admin->id, 'Retroactive Refill', \Illuminate\Support\Carbon::parse('2026-07-21 09:00:00'));
+
+        // Refresh container level
+        $container->refresh();
+
+        // Level should be 20000 - 600 (100 + 200 + 300) = 19400 mL.
+        $this->assertEquals(19400.0, (float) $container->restante_ml);
+
+        // Check that a consumo_sonda log entry was generated
+        $this->assertDatabaseHas('dosing_container_logs', [
+            'dosing_container_id' => $container->id,
+            'tipo_movimento' => 'consumo_sonda',
+            'quantidade_ml' => 600,
+            'nota' => 'Consumo recalculado retroativamente após reabastecimento',
+        ]);
+    }
 }

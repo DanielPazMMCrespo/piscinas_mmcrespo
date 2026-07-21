@@ -150,5 +150,79 @@ class DosingContainer extends Model
                 'registado_em' => $timestamp ?? now(),
             ]);
         });
+
+        // Run retroactive consumption catch-up outside the transaction to prevent database lockups during API HTTP requests
+        $this->recalcularConsumoAposReabastecimento();
+    }
+
+    /** Recalcula retroativamente o consumo de químicos desde a data de reabastecimento. */
+    public function recalcularConsumoAposReabastecimento(): void
+    {
+        if ($this->reabastecido_em === null) {
+            return;
+        }
+
+        $device = \App\Models\HannaDevice::where('pool_id', $this->pool_id)->first();
+        if (! $device) {
+            return;
+        }
+
+        $syncTime = $device->dose_sincronizada_ate;
+        if ($syncTime === null || $this->reabastecido_em->gte($syncTime)) {
+            return;
+        }
+
+        try {
+            $hanna = app(\App\Services\HannaCloudService::class);
+            $email = config('services.hanna.email');
+            $password = config('services.hanna.password');
+
+            if (empty($email) || empty($password)) {
+                return;
+            }
+
+            $hanna->authenticate($email, $password);
+
+            $leituras = $hanna->getHistoryReadings(
+                $device->hanna_device_id,
+                $this->reabastecido_em,
+                $syncTime
+            );
+
+            $doseMl = 0.0;
+            foreach ($leituras as $l) {
+                if ($l['dt'] === null) {
+                    continue;
+                }
+
+                $dt = \Illuminate\Support\Carbon::parse($l['dt']);
+                if ($dt->gt($this->reabastecido_em) && $dt->lte($syncTime)) {
+                    if ($this->tipo === self::TIPO_CLORO) {
+                        $doseMl += (float) ($l['dose_cloro_ml'] ?? 0);
+                    } else {
+                        $doseMl += (float) ($l['dose_ph_ml'] ?? 0);
+                    }
+                }
+            }
+
+            if ($doseMl > 0) {
+                DB::transaction(function () use ($doseMl) {
+                    $this->refresh();
+                    $this->restante_ml = max(0.0, round($this->restante_ml - $doseMl, 2));
+                    $this->save();
+
+                    $this->logs()->create([
+                        'tipo_movimento' => 'consumo_sonda',
+                        'quantidade_ml' => round($doseMl, 2),
+                        'restante_apos_ml' => $this->restante_ml,
+                        'origem' => 'sonda',
+                        'nota' => 'Consumo recalculado retroativamente após reabastecimento',
+                        'registado_em' => now(),
+                    ]);
+                });
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Erro ao recalcular consumo após reabastecimento do bidão {$this->id}: " . $e->getMessage());
+        }
     }
 }
