@@ -9,8 +9,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 /**
  * Score de Conformidade: percentagem de registos sem violações legais nos
- * últimos 30 dias, geral e por melhor/pior piscina. KPI de gestão para
- * auditorias CN 14/DA — mede a qualidade da água, não a rapidez de resposta.
+ * últimos 7 dias. KPI de gestão para auditorias CN 14/DA — mede a
+ * qualidade da água.
  */
 class ScoreConformidadeWidget extends BaseWidget
 {
@@ -25,7 +25,7 @@ class ScoreConformidadeWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $inicio = now()->subDays(30);
+        $inicio = now()->subDays(7);
 
         $registos = DailyRecord::query()
             ->where('e_correcao', false)
@@ -36,7 +36,7 @@ class ScoreConformidadeWidget extends BaseWidget
 
         if ($registos->isEmpty()) {
             return [
-                Stat::make('Conformidade geral (30 dias)', '—')
+                Stat::make('Conformidade geral (7 dias)', '—')
                     ->description('Sem registos no período')
                     ->color('gray'),
             ];
@@ -45,37 +45,11 @@ class ScoreConformidadeWidget extends BaseWidget
         $conformes = $registos->filter(fn (DailyRecord $r) => empty($r->listarViolacoes()));
         $scoreGeral = round(($conformes->count() / $registos->count()) * 100, 1);
 
-        $porPiscina = $registos->groupBy('pool_id')
-            ->map(function ($grupo) {
-                /** @var Pool $piscina */
-                $piscina = $grupo->first()->piscina;
-                $conformesGrupo = $grupo->filter(fn (DailyRecord $r) => empty($r->listarViolacoes()))->count();
-
-                return [
-                    'nome' => $piscina->nomeCompleto(' — '),
-                    'score' => round(($conformesGrupo / $grupo->count()) * 100, 1),
-                ];
-            })
-            ->sortBy('score');
-
-        $pior = $porPiscina->first();
-        $melhor = $porPiscina->last();
-
         return [
-            Stat::make('Conformidade geral (30 dias)', number_format($scoreGeral, 1, ',', '') . '%')
+            Stat::make('Conformidade geral (7 dias)', number_format($scoreGeral, 1, ',', '') . '%')
                 ->description($registos->count() . ' registo(s) avaliado(s)')
                 ->descriptionIcon('heroicon-m-shield-check')
                 ->color($scoreGeral >= 95 ? 'success' : ($scoreGeral >= 85 ? 'warning' : 'danger')),
-
-            Stat::make('Melhor piscina', $melhor ? number_format($melhor['score'], 1, ',', '') . '%' : '—')
-                ->description($melhor['nome'] ?? '—')
-                ->descriptionIcon('heroicon-m-trophy')
-                ->color('success'),
-
-            Stat::make('Pior piscina', $pior ? number_format($pior['score'], 1, ',', '') . '%' : '—')
-                ->description($pior['nome'] ?? '—')
-                ->descriptionIcon('heroicon-m-exclamation-triangle')
-                ->color($pior && $pior['score'] < 85 ? 'danger' : 'warning'),
         ];
     }
 }
