@@ -199,19 +199,7 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             $registo->setRelation('piscina', $registo->piscina);
         }
 
-        $violacoes = [];
-        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
-            $violacoes[] = 'pH '.$registo->ph_efetivo;
-        }
-        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
-            $violacoes[] = 'cloro livre '.$registo->cloro_livre_efetivo.' mg/L';
-        }
-        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
-            $violacoes[] = 'cloro combinado '.$registo->cloro_combinado.' mg/L';
-        }
-        if ($registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme()) {
-            $violacoes[] = 'temperatura '.$registo->temperatura_efetivo.' ºC';
-        }
+        $violacoes = array_column($registo->listarViolacoes(), 'mensagem');
 
         if ($violacoes === []) {
             return;
