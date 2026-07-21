@@ -50,16 +50,22 @@ class DosingContainerResource extends Resource
                 ->required(),
 
             Forms\Components\TextInput::make('capacidade_ml')
-                ->label('Capacidade (mL)')
+                ->label('Capacidade (L)')
                 ->numeric()
+                ->step('any')
                 ->minValue(0)
-                ->helperText('Ex.: um bidão de 20 L = 20000 mL. Necessária para calcular a percentagem.'),
+                ->formatStateUsing(fn ($state) => $state === null ? null : $state / 1000)
+                ->dehydrateStateUsing(fn ($state) => $state === null ? null : (int) ($state * 1000))
+                ->helperText('Ex.: um bidão de 20 L. Necessária para calcular a percentagem.'),
 
             Forms\Components\TextInput::make('restante_ml')
-                ->label('Restante (mL)')
+                ->label('Restante (L)')
                 ->numeric()
+                ->step('any')
                 ->minValue(0)
                 ->default(0)
+                ->formatStateUsing(fn ($state) => $state === null ? null : $state / 1000)
+                ->dehydrateStateUsing(fn ($state) => $state === null ? null : round($state * 1000, 2))
                 ->helperText('Nível atual. Normalmente ajustado pelo botão "Reabastecer".'),
 
             Forms\Components\TextInput::make('alerta_percent')
@@ -116,12 +122,13 @@ class DosingContainerResource extends Resource
                     ->icon('heroicon-o-arrow-up-circle')
                     ->color('success')
                     ->form([
-                        Forms\Components\TextInput::make('quantidade_ml')
-                            ->label('Nível após reabastecimento (mL)')
+                        Forms\Components\TextInput::make('quantidade_l')
+                            ->label('Nível após reabastecimento (L)')
                             ->numeric()
+                            ->step('any')
                             ->minValue(0)
                             ->required()
-                            ->default(fn (DosingContainer $record) => $record->capacidade_ml)
+                            ->default(fn (DosingContainer $record) => $record->capacidade_ml !== null ? $record->capacidade_ml / 1000 : null)
                             ->helperText('Por defeito, bidão cheio (capacidade).'),
                         Forms\Components\TextInput::make('nota')
                             ->label('Nota (opcional)')
@@ -129,7 +136,7 @@ class DosingContainerResource extends Resource
                     ])
                     ->action(function (DosingContainer $record, array $data): void {
                         $record->reabastecer(
-                            (float) $data['quantidade_ml'],
+                            (float) $data['quantidade_l'] * 1000,
                             auth()->id(),
                             $data['nota'] ?? null,
                         );
@@ -146,18 +153,19 @@ class DosingContainerResource extends Resource
                     ->icon('heroicon-o-pencil-square')
                     ->color('gray')
                     ->form([
-                        Forms\Components\TextInput::make('restante_ml')
-                            ->label('Nível real medido (mL)')
+                        Forms\Components\TextInput::make('restante_l')
+                            ->label('Nível real medido (L)')
                             ->numeric()
+                            ->step('any')
                             ->minValue(0)
                             ->required()
-                            ->default(fn (DosingContainer $record) => (float) $record->restante_ml),
+                            ->default(fn (DosingContainer $record) => $record->restante_ml !== null ? (float) $record->restante_ml / 1000 : 0),
                         Forms\Components\TextInput::make('nota')
                             ->label('Motivo do ajuste')
                             ->maxLength(255),
                     ])
                     ->action(function (DosingContainer $record, array $data): void {
-                        $novo = round((float) $data['restante_ml'], 2);
+                        $novo = round((float) $data['restante_l'] * 1000, 2);
                         $delta = $novo - (float) $record->restante_ml;
                         $record->update(['restante_ml' => $novo]);
                         $record->logs()->create([

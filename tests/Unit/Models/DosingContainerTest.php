@@ -32,6 +32,7 @@ class DosingContainerTest extends TestCase
             'tipo' => DosingContainer::TIPO_CLORO,
             'capacidade_ml' => 20000,
             'restante_ml' => 20000,
+            'alerta_percent' => 20,
         ], $attrs));
     }
 
