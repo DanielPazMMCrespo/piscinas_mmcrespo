@@ -118,10 +118,32 @@ class DefinicoesSistema extends Page
                             ->label('Aviso de Torneira Aberta (Horas)')
                             ->numeric()
                             ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
-                        TagsInput::make('digest_conformidade_horas')
-                            ->label('Horários do Resumo de Conformidade')
-                            ->placeholder('HH:MM')
-                            ->helperText('Horas (formato HH:MM) a que é enviado o resumo de piscinas não conformes, caso existam. Lista vazia desliga o resumo.')
+                        Forms\Components\CheckboxList::make('digest_conformidade_horas')
+                            ->label('Horários de Envio do Resumo de Conformidade')
+                            ->options([
+                                '07:00' => '07:00',
+                                '08:00' => '08:00',
+                                '09:00' => '09:00',
+                                '10:00' => '10:00',
+                                '11:00' => '11:00',
+                                '12:00' => '12:00',
+                                '13:00' => '13:00',
+                                '14:00' => '14:00',
+                                '15:00' => '15:00',
+                                '16:00' => '16:00',
+                                '17:00' => '17:00',
+                                '18:00' => '18:00',
+                                '19:00' => '19:00',
+                                '20:00' => '20:00',
+                                '21:00' => '21:00',
+                                '22:00' => '22:00',
+                            ])
+                            ->columns([
+                                'default' => 3,
+                                'sm' => 4,
+                                'md' => 6,
+                            ])
+                            ->helperText('Horários em que é enviado o resumo de piscinas não conformes.')
                             ->columnSpanFull(),
                     ]),
 

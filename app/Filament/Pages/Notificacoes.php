@@ -87,10 +87,32 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->schema(array_filter([
                             $this->getSingleNotificationItemSchema('Análise Fora dos Limites', 'nao_conformidade', 'Alerta imediato quando um registo diário viola os parâmetros legais.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
-                            $this->podeGerir() ? Forms\Components\TagsInput::make('digest_conformidade_horas')
-                                ->label('Horários do Resumo de Conformidade')
-                                ->placeholder('HH:MM (ex: 08:00, 13:00, 18:00)')
-                                ->helperText('Horários fixos do dia em que o servidor envia o resumo de piscinas não conformes.')
+                            $this->podeGerir() ? Forms\Components\CheckboxList::make('digest_conformidade_horas')
+                                ->label('Horários de Envio do Resumo de Conformidade')
+                                ->options([
+                                    '07:00' => '07:00',
+                                    '08:00' => '08:00',
+                                    '09:00' => '09:00',
+                                    '10:00' => '10:00',
+                                    '11:00' => '11:00',
+                                    '12:00' => '12:00',
+                                    '13:00' => '13:00',
+                                    '14:00' => '14:00',
+                                    '15:00' => '15:00',
+                                    '16:00' => '16:00',
+                                    '17:00' => '17:00',
+                                    '18:00' => '18:00',
+                                    '19:00' => '19:00',
+                                    '20:00' => '20:00',
+                                    '21:00' => '21:00',
+                                    '22:00' => '22:00',
+                                ])
+                                ->columns([
+                                    'default' => 3,
+                                    'sm' => 4,
+                                    'md' => 6,
+                                ])
+                                ->helperText('Selecione as horas exatas em que a aplicação envia o resumo de piscinas não conformes.')
                                 ->columnSpanFull() : null,
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
