@@ -95,6 +95,16 @@
         </template>
     </div>
 
+    <form wire:submit="savePreferences" class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-6 mb-6">
+        {{ $this->preferencesForm }}
+        
+        <div class="flex justify-end">
+            <x-filament::button type="submit" size="sm">
+                Guardar Preferências
+            </x-filament::button>
+        </div>
+    </form>
+
     @if($this->podeGerir())
         <div class="space-y-6">
             {{-- Tabela de Custom Broadcasts (Avisos Personalizados) --}}

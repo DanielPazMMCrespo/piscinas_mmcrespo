@@ -41,15 +41,73 @@ class Notificacoes extends Page implements HasForms, HasTable
     public ?int $destinoUtilizador = null;
     public string $manualTitulo = '';
     public string $manualCorpo = '';
+    
+    public ?array $preferencesData = [];
 
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
     }
 
+    protected function getForms(): array
+    {
+        return [
+            'preferencesForm',
+        ];
+    }
+
+    public function preferencesForm(Forms\Form $form): Forms\Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Preferências de Notificação')
+                    ->description('Escolha como deseja ser notificado sobre diferentes eventos da aplicação.')
+                    ->schema([
+                        $this->getNotificationPreferencesSchema('Incidentes', 'incidentes', 'Alertas de novos incidentes e novas mensagens na conversa.'),
+                        $this->getNotificationPreferencesSchema('Operação', 'operacao', 'Alertas de fim de timer de retrolavagem, torneiras abertas, ou bidões com nível baixo.'),
+                        $this->getNotificationPreferencesSchema('Conformidade', 'conformidade', 'Resumos diários de conformidade e alertas de parâmetros fora dos limites.'),
+                        $this->getNotificationPreferencesSchema('Sistema', 'sistema', 'Avisos gerais e anúncios dos administradores.'),
+                    ]),
+            ])
+            ->statePath('preferencesData');
+    }
+
+    private function getNotificationPreferencesSchema(string $label, string $key, string $description): Forms\Components\Section
+    {
+        return Forms\Components\Section::make($label)
+            ->description($description)
+            ->schema([
+                Forms\Components\Toggle::make("notification_preferences.{$key}.push")
+                    ->label('Notificação Push (Dispositivo)')
+                    ->default(true),
+                Forms\Components\Toggle::make("notification_preferences.{$key}.mail")
+                    ->label('Notificação por E-mail')
+                    ->default($key === 'conformidade'),
+            ])
+            ->columns(2)
+            ->collapsible();
+    }
+
+    public function savePreferences(): void
+    {
+        $data = $this->preferencesForm->getState();
+        $user = auth()->user();
+        $user->update([
+            'notification_preferences' => $data['notification_preferences'] ?? [],
+        ]);
+
+        Notification::make()
+            ->title('Preferências guardadas com sucesso!')
+            ->success()
+            ->send();
+    }
+
     public function mount(): void
     {
         $this->destinoCargo = UserRole::ADMIN;
+        $this->preferencesForm->fill([
+            'notification_preferences' => auth()->user()->notification_preferences ?? [],
+        ]);
     }
 
     public function podeGerir(): bool
