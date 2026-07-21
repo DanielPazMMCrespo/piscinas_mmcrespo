@@ -49,12 +49,12 @@ class PainelPiscinasWidget extends Widget
         $scope = $this->cacheScope();
         $cached = $cacheService->getPoolData($scope);
         if ($cached !== null) {
-            return $cached;
+            return $this->attachQuickActions($cached);
         }
 
         try {
             // Lock de 15 segundos para evitar cache stampede, block up to 5 seconds.
-            return \Illuminate\Support\Facades\Cache::lock("painel_piscinas_widget_lock_{$scope}", 15)->block(5, function () use ($cacheService, $scope) {
+            $viewData = \Illuminate\Support\Facades\Cache::lock("painel_piscinas_widget_lock_{$scope}", 15)->block(5, function () use ($cacheService, $scope) {
                 // Verifica novamente após obter o lock
                 $cached = $cacheService->getPoolData($scope);
                 if ($cached !== null) {
@@ -68,14 +68,41 @@ class PainelPiscinasWidget extends Widget
 
                 return $viewData;
             });
+
+            return $this->attachQuickActions($viewData);
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             // Fallback: build without caching, or return the cache data if it got set in the meantime
             $cached = $cacheService->getPoolData($scope);
             if ($cached !== null) {
-                return $cached;
+                return $this->attachQuickActions($cached);
             }
-            return $this->buildPoolData();
+            return $this->attachQuickActions($this->buildPoolData());
         }
+    }
+
+    private function attachQuickActions(array $viewData): array
+    {
+        $viewData['piscinas'] = $viewData['piscinas']->map(function (array $item) {
+            $piscinaId = $item['piscina']->id;
+            
+            $item['acoes_rapidas'] = collect([
+                [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+            ])->filter(fn (array $a) => $a[4])
+            ->map(fn (array $a) => [
+                'url' => $a[0],
+                'label' => $a[1],
+                'icon' => $a[2],
+                'primary' => $a[3],
+            ])->all();
+            
+            return $item;
+        });
+        
+        return $viewData;
     }
 
     /**
@@ -455,19 +482,6 @@ class PainelPiscinasWidget extends Widget
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
                 'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['cloro']['valor_orp'] !== null || $metricas4['cloro']['valor_livre'] !== null,
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
-                'acoes_rapidas' => collect([
-                    [DailyRecordResource::getUrl('create', ['pool' => $piscina->id, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                    [OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                ])->filter(fn (array $a) => $a[4])
-                ->map(fn (array $a) => [
-                    'url' => $a[0],
-                    'label' => $a[1],
-                    'icon' => $a[2],
-                    'primary' => $a[3],
-                ])->all(),
             ];
         });
 
