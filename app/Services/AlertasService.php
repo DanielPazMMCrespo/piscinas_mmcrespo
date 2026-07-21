@@ -163,51 +163,21 @@ class AlertasService
 
     private function violacoesLegais(DailyRecord $registo): array
     {
-        $violacoes = [];
-        $fmt = fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
-        $settings = app(\App\Services\SettingsService::class);
-
-        // Leituras em falta (registos legados) não são violações — a falta de
-        // registo recente já é coberta pelo alerta "sem registo diário hoje".
-        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
-            $ph = (float) $registo->ph_efetivo;
-            $phMin = $settings->getFloat('ph_min', DailyRecord::PH_MIN);
-            $phMax = $settings->getFloat('ph_max', DailyRecord::PH_MAX);
-            $violacoes[] = $ph < $phMin
-                ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
-                : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')';
-        }
-
-        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
-            $cl = (float) $registo->cloro_livre_efetivo;
-            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::CLORO_LIVRE_MIN);
-            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::CLORO_LIVRE_MAX);
-            $violacoes[] = $cl < $clMin
-                ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
-                : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')';
-        }
-
-        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
-            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::CLORO_COMBINADO_MAX);
-            $violacoes[] = 'cloro combinado '.$fmt((float) $registo->cloro_combinado)
-                .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')';
-        }
-
-        return $violacoes;
+        return array_column(
+            array_filter($registo->listarViolacoes(), fn (array $v) => $v['parametro'] !== 'temperatura'),
+            'mensagem'
+        );
     }
 
-    private function violacaoTemperatura(DailyRecord $registo, Pool $piscina): ?string
+    private function violacaoTemperatura(DailyRecord $registo): ?string
     {
-        if ($registo->temperatura_efetivo === null || $registo->temperaturaConforme()) {
-            return null;
+        foreach ($registo->listarViolacoes() as $violacao) {
+            if ($violacao['parametro'] === 'temperatura') {
+                return $violacao['mensagem'];
+            }
         }
 
-        $fmt = fn (float $v): string => number_format($v, 1, ',', '');
-        $temp = (float) $registo->temperatura_efetivo;
-
-        return $temp < (float) $piscina->temp_min
-            ? 'temperatura '.$fmt($temp).' °C abaixo do mínimo ('.$fmt((float) $piscina->temp_min).')'
-            : 'temperatura '.$fmt($temp).' °C acima do máximo ('.$fmt((float) $piscina->temp_max).')';
+        return null;
     }
 
     /**
@@ -242,7 +212,7 @@ class AlertasService
             $registo->setRelation('piscina', $piscina);
 
             $violacoes = $this->violacoesLegais($registo);
-            $violacaoTemp = $this->violacaoTemperatura($registo, $piscina);
+            $violacaoTemp = $this->violacaoTemperatura($registo);
 
             if ($violacoes !== []) {
                 $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
