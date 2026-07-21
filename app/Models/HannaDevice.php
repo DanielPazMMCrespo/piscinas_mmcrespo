@@ -5,8 +5,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+
 class HannaDevice extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'hanna_device_id', 'name', 'pool_id', 'active', 'raw_info',
         'ph_out_of_band_since', 'ph_overtime_notified_at', 'dose_sincronizada_ate',
@@ -64,5 +69,12 @@ class HannaDevice extends Model
         ];
     }
 
-}
 
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+}

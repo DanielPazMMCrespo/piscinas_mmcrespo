@@ -53,10 +53,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/logo-mmcrespo.png'))
             ->colors([
-                'primary' => Color::hex('#2b9cd8'),
-                'success' => Color::hex('#76b82a'),
+                'primary' => Color::hex('#2563eb'), /* Blue 600 */
+                'success' => Color::hex('#059669'), /* Emerald 600 */
                 'warning' => Color::Amber,
-                'danger' => Color::hex('#dc2626'),
+                'danger' => Color::hex('#f43f5e'), /* Rose 500 */
                 'gray' => Color::Zinc,
             ])
             ->databaseNotifications()
