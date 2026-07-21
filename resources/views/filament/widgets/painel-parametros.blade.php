@@ -7,6 +7,28 @@
             {{ $this->form }}
         </div>
 
+        @unless ($this->isNS())
+            {{-- Atalhos: comparar leitura do controlador Hanna com a leitura manual do técnico --}}
+            <div class="flex gap-2 mb-3 flex-wrap">
+                <span class="text-xs text-gray-400 dark:text-gray-500 self-center">Sensor vs Manual:</span>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_ph', 'ph')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >pH</button>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_orp', 'cloro_livre')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >Cloro (ORP vs livre)</button>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_temp', 'temperatura')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >Temperatura</button>
+            </div>
+        @endunless
+
         {{-- Tabs + botões de período --}}
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <div class="flex gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-sm font-medium">

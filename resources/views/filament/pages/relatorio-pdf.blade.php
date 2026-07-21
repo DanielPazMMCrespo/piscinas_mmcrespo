@@ -3,14 +3,27 @@
     <form wire:submit="exportar" class="space-y-6">
         {{ $this->form }}
 
-        <x-filament::button
-            type="submit"
-            icon="heroicon-o-arrow-down-tray"
-            wire:loading.attr="disabled"
-        >
-            <span wire:loading.remove wire:target="exportar">Exportar PDF</span>
-            <span wire:loading wire:target="exportar">A gerar PDF…</span>
-        </x-filament::button>
+        <div class="flex gap-2">
+            <x-filament::button
+                type="submit"
+                icon="heroicon-o-arrow-down-tray"
+                wire:loading.attr="disabled"
+            >
+                <span wire:loading.remove wire:target="exportar">Exportar PDF</span>
+                <span wire:loading wire:target="exportar">A gerar PDF…</span>
+            </x-filament::button>
+
+            <x-filament::button
+                type="button"
+                color="gray"
+                icon="heroicon-o-table-cells"
+                wire:click="exportarCsv"
+                wire:loading.attr="disabled"
+            >
+                <span wire:loading.remove wire:target="exportarCsv">Exportar CSV</span>
+                <span wire:loading wire:target="exportarCsv">A gerar CSV…</span>
+            </x-filament::button>
+        </div>
     </form>
 
     <x-filament::section icon="heroicon-o-information-circle" collapsible collapsed>
