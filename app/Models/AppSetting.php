@@ -8,8 +8,6 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class AppSetting extends Model
 {
-    use LogsActivity;
-
     protected $table = 'app_settings';
     
     protected $primaryKey = 'key';
@@ -35,13 +33,5 @@ class AppSetting extends Model
     {
         static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
         static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logFillable()
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
     }
 }
