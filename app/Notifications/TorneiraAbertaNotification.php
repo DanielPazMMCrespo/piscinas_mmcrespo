@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Constants\NotificationType;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\TapAlert;
 use Illuminate\Notifications\Messages\DatabaseMessage;
@@ -26,6 +27,10 @@ class TorneiraAbertaNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
+        if (! $notifiable->querNotificacao(NotificationType::TORNEIRA_ABERTA)) {
+            return [];
+        }
+
         return ['database', WebPushChannel::class];
     }
 

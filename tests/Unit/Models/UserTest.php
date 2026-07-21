@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Models;
 
+use App\Constants\NotificationType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -103,5 +104,26 @@ class UserTest extends TestCase
             'email' => 'unique@example.com',
             'password' => bcrypt('password123'),
         ]);
+    }
+
+    public function test_quer_notificacao_defaults_to_true_when_unset(): void
+    {
+        $user = User::factory()->create(['notification_preferences' => null]);
+
+        foreach (NotificationType::all() as $tipo) {
+            $this->assertTrue($user->querNotificacao($tipo));
+        }
+    }
+
+    public function test_quer_notificacao_respects_opt_out(): void
+    {
+        $user = User::factory()->create([
+            'notification_preferences' => [NotificationType::INCIDENTE, NotificationType::STOCK_BAIXO],
+        ]);
+
+        $this->assertTrue($user->querNotificacao(NotificationType::INCIDENTE));
+        $this->assertTrue($user->querNotificacao(NotificationType::STOCK_BAIXO));
+        $this->assertFalse($user->querNotificacao(NotificationType::NAO_CONFORMIDADE));
+        $this->assertFalse($user->querNotificacao(NotificationType::TORNEIRA_ABERTA));
     }
 }

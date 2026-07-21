@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Constants\NotificationType;
 use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
@@ -21,6 +22,17 @@ class NaoConformidadeWebPushTest extends TestCase
         $notification = new NaoConformidadeNotification($registo, ['pH 9.5'], 'Leiria Competição');
 
         $this->assertContains(WebPushChannel::class, $notification->via(new User()));
+    }
+
+    public function test_nao_envia_a_utilizador_que_desativou_o_tipo(): void
+    {
+        $registo = new DailyRecord();
+        $notification = new NaoConformidadeNotification($registo, ['pH 9.5'], 'Leiria Competição');
+        $utilizador = User::factory()->make([
+            'notification_preferences' => [NotificationType::INCIDENTE],
+        ]);
+
+        $this->assertSame([], $notification->via($utilizador));
     }
 
     public function test_payload_tem_titulo_corpo_e_url_do_registo(): void

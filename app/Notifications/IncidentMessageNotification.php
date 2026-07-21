@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Constants\NotificationType;
 use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
 use App\Models\User;
@@ -25,6 +26,10 @@ class IncidentMessageNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
+        if (! $notifiable->querNotificacao(NotificationType::INCIDENTE)) {
+            return [];
+        }
+
         // TODO: adicionar 'mail' aqui quando o SMTP estiver configurado.
         return ['database', WebPushChannel::class];
     }

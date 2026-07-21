@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Constants\NotificationType;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -26,6 +27,10 @@ class ResumoConformidadeNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
+        if (! $notifiable->querNotificacao(NotificationType::RESUMO_DIARIO)) {
+            return [];
+        }
+
         return ['database', WebPushChannel::class];
     }
 

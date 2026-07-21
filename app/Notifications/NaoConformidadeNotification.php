@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Constants\NotificationType;
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
 use Illuminate\Notifications\Messages\DatabaseMessage;
@@ -29,6 +30,10 @@ class NaoConformidadeNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
+        if (! $notifiable->querNotificacao(NotificationType::NAO_CONFORMIDADE)) {
+            return [];
+        }
+
         return ['database', WebPushChannel::class];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Constants\NotificationType;
 use App\Models\HannaDevice;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
@@ -16,6 +17,10 @@ class HannaThresholdAlert extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
+        if (! $notifiable->querNotificacao(NotificationType::HANNA)) {
+            return [];
+        }
+
         return ['database'];
     }
 

@@ -13,6 +13,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
+use App\Constants\NotificationType;
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -116,6 +117,15 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     }
 
     /**
+     * Se este utilizador deve receber o tipo de alerta indicado (sino + push).
+     * Sem preferência definida, assume-se tudo ativo (opt-out, não opt-in).
+     */
+    public function querNotificacao(string $tipo): bool
+    {
+        return in_array($tipo, $this->notification_preferences ?? NotificationType::all(), true);
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -130,6 +140,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'pin',
         'must_change_password',
         'ns_permissions',
+        'notification_preferences',
     ];
 
     /**
@@ -155,6 +166,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'password' => 'hashed',
             'pin' => 'hashed',
             'ns_permissions' => 'array',
+            'notification_preferences' => 'array',
         ];
     }
 }

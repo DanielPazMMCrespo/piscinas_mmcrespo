@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Constants\NotificationType;
 use App\Models\DailyRecord;
 use App\Models\RecordPhoto;
 use App\Models\StockInstallation;
@@ -177,7 +178,8 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             return;
         }
 
-        $destinatarios = User::role('admin')->get();
+        $destinatarios = User::role('admin')->get()
+            ->filter(fn (User $u) => $u->querNotificacao(NotificationType::STOCK_BAIXO));
         if ($destinatarios->isEmpty()) {
             return;
         }

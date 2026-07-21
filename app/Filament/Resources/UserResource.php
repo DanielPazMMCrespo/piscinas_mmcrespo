@@ -3,6 +3,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Constants\NotificationType;
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use Filament\Forms;
@@ -144,6 +145,16 @@ class UserResource extends Resource
                     ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
                         || self::rolesIncluemNS($get))
                     ->helperText('Secções visíveis para este nadador salvador. Sem seleção, não vê nada.'),
+                Forms\Components\CheckboxList::make('notification_preferences')
+                    ->label('Notificações que recebe (sino e telemóvel)')
+                    ->options(NotificationType::labels())
+                    ->default(NotificationType::all())
+                    ->afterStateHydrated(fn (Forms\Components\CheckboxList $component, $state) => $state === null
+                        ? $component->state(NotificationType::all())
+                        : null)
+                    ->columns(2)
+                    ->visible(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
+                    ->helperText('Desmarcar impede o envio deste tipo de alerta a este utilizador, no sino e no push do telemóvel.'),
             ]);
     }
 
