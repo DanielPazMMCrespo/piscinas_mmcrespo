@@ -68,16 +68,20 @@ class NewFeaturesValidationTest extends TestCase
         $env = $this->createTestEnvironment();
         $admin = $env['admin'];
         $pool = $env['pool'];
+        $installation = $env['installation'];
 
         $this->actingAs($admin);
 
-        // Access the Esquema page via Livewire to inspect view data
+        // Access the Esquema page via Livewire to inspect view data.
+        // A vista agrupa por instalação; cada piscina traz os seus atalhos rápidos.
         Livewire::test(\App\Filament\Pages\EsquemaPiscina::class)
-            ->assertSet('poolId', $pool->id)
-            ->assertViewHas('esquema', function (array $esquema) use ($pool) {
-                $this->assertArrayHasKey('url_acoes_rapidas', $esquema);
-                $this->assertStringContainsString('tipo=torneira', $esquema['url_acoes_rapidas']['torneira']);
-                $this->assertStringContainsString('pool=' . $pool->id, $esquema['url_acoes_rapidas']['torneira']);
+            ->assertSet('installationId', $installation->id)
+            ->assertViewHas('estados', function (array $estados) use ($pool) {
+                $estado = collect($estados)->first(fn (array $e) => $e['piscina']->id === $pool->id);
+                $this->assertNotNull($estado);
+                $this->assertArrayHasKey('url_acoes_rapidas', $estado);
+                $this->assertStringContainsString('tipo=torneira', $estado['url_acoes_rapidas']['torneira']);
+                $this->assertStringContainsString('pool=' . $pool->id, $estado['url_acoes_rapidas']['torneira']);
                 return true;
             });
     }
