@@ -147,6 +147,41 @@ class DefinicoesSistema extends Page
                             ->columnSpanFull(),
                     ]),
 
+                Section::make('Automação Operacional')
+                    ->description('Configuração da calculadora de dosagem, resumos automáticos e regras de negócio.')
+                    ->icon('heroicon-o-cpu-chip')
+                    ->collapsible()
+                    ->schema([
+                        TextInput::make('fator_compensacao_dosagem')
+                            ->label('Fator de Compensação (Dosagem)')
+                            ->numeric()
+                            ->step(0.05)
+                            ->helperText('Multiplica a dose calculada para compensar filtros, utilização, etc. (Padrão: 1.25 = +25%)'),
+                        \Filament\Forms\Components\Select::make('resumo_turno_horas')
+                            ->label('Horários do Resumo de Turno')
+                            ->options([
+                                '06:00' => '06:00', '07:00' => '07:00', '08:00' => '08:00',
+                                '09:00' => '09:00', '10:00' => '10:00', '11:00' => '11:00',
+                                '12:00' => '12:00', '13:00' => '13:00', '14:00' => '14:00',
+                                '15:00' => '15:00', '16:00' => '16:00', '17:00' => '17:00',
+                                '18:00' => '18:00', '19:00' => '19:00', '20:00' => '20:00',
+                                '21:00' => '21:00', '22:00' => '22:00',
+                            ])
+                            ->multiple()
+                            ->maxItems(4)
+                            ->searchable()
+                            ->helperText('Horários em que a app envia o resumo operacional à equipa. (Padrão: 14:00 e 20:00)')
+                            ->columnSpanFull(),
+                        TextInput::make('tendencia_registos_minimos')
+                            ->label('Registos para Deteção de Tendência')
+                            ->numeric()
+                            ->helperText('Número mínimo de registos consecutivos para detetar tendências degradantes. (Padrão: 3)'),
+                        TextInput::make('auto_incidente_violacoes_minimas')
+                            ->label('Violações para Auto-Incidente')
+                            ->numeric()
+                            ->helperText('Quantas violações do mesmo parâmetro no mesmo dia/piscina disparam um incidente automático. (Padrão: 3)'),
+                    ])->columns(2),
+
 
 
                 Section::make('Templates de Email')

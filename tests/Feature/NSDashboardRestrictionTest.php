@@ -51,14 +51,14 @@ class NSDashboardRestrictionTest extends TestCase
         Livewire::actingAs($this->nadador)
             ->test(PainelPiscinasWidget::class)
             ->assertSee('Piscinas Conformes')
-            ->assertDontSee('Registos Diários de Hoje');
+            ->assertDontSee('Registos Hoje');
     }
 
     public function test_admin_dashboard_shows_daily_records_progress_bar(): void
     {
         Livewire::actingAs($this->admin)
             ->test(PainelPiscinasWidget::class)
-            ->assertSee('Registos Diários de Hoje');
+            ->assertSee('Registos Hoje');
     }
 
     public function test_swimmer_chart_defaults_to_12h_and_cannot_change_period(): void

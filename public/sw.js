@@ -1,24 +1,33 @@
-// Service worker mínimo — Piscinas MMCrespo (PWA leve).
+// Service worker expandido — Piscinas MMCrespo (PWA Offline / Sync).
 //
-// Estratégia: network-first sem cache de conteúdo dinâmico. Esta app gere
-// registos sanitários legais; mostrar dados em cache desatualizados seria
-// pior que mostrar um erro de rede. O SW existe sobretudo para tornar a app
-// instalável no ecrã principal do telemóvel.
-//
-// NOTA: cache offline real (rascunhos em localStorage / sincronização) está
-// planeado para o futuro — ver CLAUDE.md, "PWA com cache offline".
+// Estratégia:
+// - Ativos estáticos (/build/assets/*, /images/*, manifesto): Stale-while-revalidate ou Cache-First.
+// - Navegações HTML (/admin/*): Network-First com fallback para cache local, permitindo ao técnico abrir o formulário de registo e o dashboard mesmo no terreno sem rede.
+// - Notificações Push: VAPID nativo para alertas e timers.
 
-const VERSAO = 'mmcrespo-v2';
+const VERSAO = 'mmcrespo-v3';
+const CORE_ASSETS = [
+    '/manifest.json',
+    '/images/icon-192.png',
+    '/images/logo-mmcrespo.png',
+    '/admin',
+    '/admin/daily-records/create'
+];
 
 self.addEventListener('install', (event) => {
-    // Ativa imediatamente a nova versão sem esperar pelas abas antigas.
     self.skipWaiting();
+    event.waitUntil(
+        caches.open(VERSAO).then((cache) => {
+            return cache.addAll(CORE_ASSETS).catch(() => {
+                // Se algum endpoint falhar durante a instalação, o SW instala na mesma
+            });
+        })
+    );
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         (async () => {
-            // Limpa caches de versões anteriores, se existirem.
             const chaves = await caches.keys();
             await Promise.all(
                 chaves.filter((c) => c !== VERSAO).map((c) => caches.delete(c))
@@ -29,24 +38,67 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Só tratamos navegações GET; o resto segue o caminho normal da rede.
     if (event.request.method !== 'GET') {
         return;
     }
 
+    const url = new URL(event.request.url);
+    const isStaticAsset = url.pathname.startsWith('/build/') || url.pathname.startsWith('/images/') || url.pathname === '/manifest.json';
+    const isNavigation = event.request.mode === 'navigate';
+
+    if (isStaticAsset) {
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                const fetchPromise = fetch(event.request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(VERSAO).then((cache) => cache.put(event.request, responseClone));
+                    }
+                    return networkResponse;
+                }).catch(() => cachedResponse);
+
+                return cachedResponse || fetchPromise;
+            })
+        );
+        return;
+    }
+
+    if (isNavigation) {
+        event.respondWith(
+            fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseClone = networkResponse.clone();
+                    caches.open(VERSAO).then((cache) => cache.put(event.request, responseClone));
+                }
+                return networkResponse;
+            }).catch(async () => {
+                const cachedResponse = await caches.match(event.request);
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                const fallbackForm = await caches.match('/admin/daily-records/create');
+                if (fallbackForm && url.pathname.includes('/daily-records/create')) {
+                    return fallbackForm;
+                }
+                const fallbackAdmin = await caches.match('/admin');
+                if (fallbackAdmin) {
+                    return fallbackAdmin;
+                }
+                return new Response(
+                    '<h1>Sem ligação e sem cache</h1><p>Esta aplicação não conseguiu carregar a página offline. Verifique a ligação.</p>',
+                    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+                );
+            })
+        );
+        return;
+    }
+
     event.respondWith(
-        fetch(event.request).catch(() => {
-            // Sem rede: devolve uma resposta simples (não há página offline cacheada).
-            return new Response(
-                '<h1>Sem ligação</h1><p>Esta aplicação precisa de internet. Verifique a ligação e tente novamente.</p>',
-                { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-            );
-        })
+        fetch(event.request).catch(() => caches.match(event.request))
     );
 });
 
-// Web Push: o servidor envia via VAPID e o browser acorda o SW mesmo com a app
-// fechada. O payload é JSON produzido por App\Notifications\*::toWebPush().
+// Web Push: o servidor envia via VAPID e o browser acorda o SW mesmo com a app fechada.
 self.addEventListener('push', (event) => {
     let payload = {};
     try {

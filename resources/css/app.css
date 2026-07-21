@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'widgets.css';
 @import 'esquema.css';
 @import 'login.css';
 
-/* dark: liga-se à classe .dark do Filament, não ao prefers-color-scheme do SO —
-   caso contrário o texto dark:text-white fica invisível em ecrãs com toggle
-   claro do Filament mas SO em modo escuro. */
+/* dark: liga-se à classe .dark do Filament */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -15,8 +13,8 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-heading: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Syne', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Tipografia Avançada: Headings */
@@ -29,12 +27,47 @@ h1, h2, h3, h4, h5, h6,
     letter-spacing: -0.02em;
 }
 
-/* Global light theme enforcement on main background for neumorphic look */
 body {
-    background-color: #f8fafc !important; /* bg-slate-50 */
+    font-family: var(--font-sans) !important;
+    background-color: #f0f7ff !important;
+    position: relative;
+    overflow-x: hidden;
 }
+
 .dark body {
-    background-color: #0f172a !important; /* bg-slate-900 */
+    background-color: #031225 !important; /* Deep Ocean Background */
+}
+
+/* Ambient Fluid Glassmorphic Background Orbs */
+.mmc-fluid-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.45;
+    transition: all 0.8s ease;
+}
+.mmc-fluid-orb-1 {
+    width: 450px;
+    height: 450px;
+    top: -100px;
+    right: -100px;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(79, 172, 254, 0.15) 70%, transparent 100%);
+    animation: mmc-float-orb 14s ease-in-out infinite alternate;
+}
+.mmc-fluid-orb-2 {
+    width: 550px;
+    height: 550px;
+    bottom: -150px;
+    left: -150px;
+    background: radial-gradient(circle, rgba(3, 18, 37, 0.6) 0%, rgba(0, 242, 254, 0.2) 60%, transparent 100%);
+    animation: mmc-float-orb 18s ease-in-out infinite alternate-reverse;
+}
+@keyframes mmc-float-orb {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(40px, -50px) scale(1.1); }
+    100% { transform: translate(-30px, 30px) scale(0.95); }
 }
 
 
@@ -132,5 +165,109 @@ body {
 /* Alpine x-cloak utility to prevent FOUC and hide failed elements */
 [x-cloak] {
     display: none !important;
+}
+
+/* =====================================================================
+ * Global Luxury Deep Water / Glassmorphic Filament Theme Override
+ * ===================================================================== */
+
+/* Dark Mode Global Glassmorphism Overrides */
+.dark .fi-topbar {
+    background: rgba(3, 18, 37, 0.85) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.15) !important;
+}
+
+.dark .fi-sidebar {
+    background: rgba(3, 18, 37, 0.9) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-right: 1px solid rgba(0, 242, 254, 0.15) !important;
+}
+
+.dark .fi-sidebar-item-active > a,
+.dark .fi-sidebar-item-active > button {
+    background: linear-gradient(90deg, rgba(0, 242, 254, 0.18) 0%, rgba(79, 172, 254, 0.08) 100%) !important;
+    border-left: 3px solid #00F2FE !important;
+    color: #00F2FE !important;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2) !important;
+}
+
+.dark .fi-sidebar-item-active svg {
+    color: #00F2FE !important;
+}
+
+/* Filament Cards, Sections, Tables & Modals */
+.dark .fi-section,
+.dark .fi-ta-ctn,
+.dark .fi-card,
+.dark .fi-fo-field-wrp,
+.dark .fi-modal-window,
+.dark .fi-dropdown-panel {
+    background-color: rgba(7, 26, 51, 0.75) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(0, 242, 254, 0.15) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.dark .fi-section-header,
+.dark .fi-ta-header,
+.dark .fi-ta-table th {
+    background: rgba(3, 18, 37, 0.5) !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.12) !important;
+}
+
+.dark .fi-ta-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark .fi-ta-row:hover {
+    background-color: rgba(0, 242, 254, 0.06) !important;
+}
+
+/* Form Inputs & Selects */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="date"],
+.dark select,
+.dark textarea,
+.dark .fi-input-wrp {
+    background-color: rgba(3, 18, 37, 0.6) !important;
+    border: 1px solid rgba(0, 242, 254, 0.2) !important;
+    color: #f8fafc !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus,
+.dark .fi-input-wrp:focus-within {
+    border-color: #00F2FE !important;
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.3) !important;
+}
+
+/* Light Mode Soft Glass Enhancements */
+.fi-topbar {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+.fi-sidebar {
+    background: rgba(240, 247, 255, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+.fi-section,
+.fi-ta-ctn,
+.fi-card {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(2, 132, 199, 0.15) !important;
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.06) !important;
 }
 

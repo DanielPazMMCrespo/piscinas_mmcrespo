@@ -193,10 +193,10 @@
                     </div>
 
                 <!-- Actions Footer -->
-                @if (\App\Filament\Resources\OperationalActionResource::canCreate())
+                @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
                     <div class="neo-pool-actions">
-                        @foreach ($item['acoes_rapidas'] as $idx => $acao)
-                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if($idx === 0) neo-action-btn--primary @else neo-action-btn--outline @endif">
+                        @foreach ($item['acoes_rapidas'] as $acao)
+                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline @endif">
                                 <x-filament::icon :icon="$acao['icon']" class="neo-icon-sm" />
                                 {{ $acao['label'] }}
                             </a>
