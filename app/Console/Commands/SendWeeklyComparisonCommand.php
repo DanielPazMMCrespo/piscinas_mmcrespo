@@ -55,11 +55,11 @@ class SendWeeklyComparisonCommand extends Command
                 ->whereDoesntHave('correcoes')
                 ->get();
 
-            $avgPhThis = round((float) $thisWeekRecords->avg('ph') ?: 0, 2);
-            $avgPhLast = round((float) $lastWeekRecords->avg('ph') ?: 0, 2);
+            $avgPhThis = round((float) $thisWeekRecords->avg('ph_efetivo') ?: 0, 2);
+            $avgPhLast = round((float) $lastWeekRecords->avg('ph_efetivo') ?: 0, 2);
             
-            $avgClThis = round((float) $thisWeekRecords->avg('cloro_livre') ?: 0, 2);
-            $avgClLast = round((float) $lastWeekRecords->avg('cloro_livre') ?: 0, 2);
+            $avgClThis = round((float) $thisWeekRecords->avg('cloro_livre_efetivo') ?: 0, 2);
+            $avgClLast = round((float) $lastWeekRecords->avg('cloro_livre_efetivo') ?: 0, 2);
 
             $violationsThis = $thisWeekRecords->filter(fn($r) => !empty($r->listarViolacoes()))->count();
             $violationsLast = $lastWeekRecords->filter(fn($r) => !empty($r->listarViolacoes()))->count();
