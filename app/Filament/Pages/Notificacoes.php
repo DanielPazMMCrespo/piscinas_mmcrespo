@@ -60,32 +60,66 @@ class Notificacoes extends Page implements HasForms, HasTable
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Preferências de Notificação')
-                    ->description('Escolha como deseja ser notificado sobre diferentes eventos da aplicação.')
+                Forms\Components\Section::make('Preferências Globais de Notificação')
+                    ->description('Personalize exatamente quais notificações deseja receber por Push (no dispositivo/browser) e por E-mail.')
                     ->schema([
-                        $this->getNotificationPreferencesSchema('Incidentes', 'incidentes', 'Alertas de novos incidentes e novas mensagens na conversa.'),
-                        $this->getNotificationPreferencesSchema('Operação', 'operacao', 'Alertas de fim de timer de retrolavagem, torneiras abertas, ou bidões com nível baixo.'),
-                        $this->getNotificationPreferencesSchema('Conformidade', 'conformidade', 'Resumos diários de conformidade e alertas de parâmetros fora dos limites.'),
-                        $this->getNotificationPreferencesSchema('Sistema', 'sistema', 'Avisos gerais e anúncios dos administradores.'),
+                        // 1. Incidentes
+                        Forms\Components\Section::make('Incidentes e Ocorrências')
+                            ->icon('heroicon-o-exclamation-triangle')
+                            ->schema([
+                                $this->getSingleNotificationItemSchema('Novo Incidente', 'incident_created', 'Receber aviso quando um novo incidente é reportado.'),
+                                $this->getSingleNotificationItemSchema('Mensagens em Incidentes', 'incident_message', 'Notificações de novas mensagens e respostas no chat de um incidente.'),
+                            ])
+                            ->collapsible(),
+
+                        // 2. Operação
+                        Forms\Components\Section::make('Operação e Casa das Máquinas')
+                            ->icon('heroicon-o-wrench-screwdriver')
+                            ->schema([
+                                $this->getSingleNotificationItemSchema('Fim de Temporizador', 'timer_finished', 'Alerta quando o temporizador da retrolavagem/enxaguamento chega ao fim.'),
+                                $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
+                                $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
+                            ])
+                            ->collapsible(),
+
+                        // 3. Conformidade & Sensores
+                        Forms\Components\Section::make('Segurança, Conformidade & Sensores')
+                            ->icon('heroicon-o-shield-check')
+                            ->schema([
+                                $this->getSingleNotificationItemSchema('Análise Fora dos Limites', 'nao_conformidade', 'Alerta imediato quando um registo diário viola os parâmetros legais.', defaultMail: true),
+                                $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
+                                $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
+                                $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
+                            ])
+                            ->collapsible(),
+
+                        // 4. Sistema
+                        Forms\Components\Section::make('Avisos do Sistema')
+                            ->icon('heroicon-o-megaphone')
+                            ->schema([
+                                $this->getSingleNotificationItemSchema('Anúncios e Avisos Globais', 'custom_broadcast', 'Comunicados e mensagens emitidas pela administração.'),
+                            ])
+                            ->collapsible(),
                     ]),
             ])
             ->statePath('preferencesData');
     }
 
-    private function getNotificationPreferencesSchema(string $label, string $key, string $description): Forms\Components\Section
+    private function getSingleNotificationItemSchema(string $label, string $key, string $description, bool $defaultMail = false): Forms\Components\Group
     {
-        return Forms\Components\Section::make($label)
-            ->description($description)
-            ->schema([
+        return Forms\Components\Group::make([
+            Forms\Components\Placeholder::make("label_{$key}")
+                ->label($label)
+                ->content($description),
+            Forms\Components\Grid::make(2)->schema([
                 Forms\Components\Toggle::make("notification_preferences.{$key}.push")
-                    ->label('Notificação Push (Dispositivo)')
+                    ->label('Push (Dispositivo)')
                     ->default(true),
                 Forms\Components\Toggle::make("notification_preferences.{$key}.mail")
-                    ->label('Notificação por E-mail')
-                    ->default($key === 'conformidade'),
-            ])
-            ->columns(2)
-            ->collapsible();
+                    ->label('E-mail')
+                    ->default($defaultMail),
+            ]),
+        ])->columns(1);
     }
 
     public function savePreferences(): void

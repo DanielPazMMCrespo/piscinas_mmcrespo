@@ -116,28 +116,34 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     }
 
     /**
-     * Se este utilizador quer ser notificado sobre um evento, através de um canal.
-     * Categorias: incidentes, operacao, conformidade, sistema
+     * Se este utilizador quer ser notificado sobre um evento específico, através de um canal.
      * Canais: push, mail
      */
-    public function wantsNotification(string $categoria, string $canal): bool
+    public function wantsNotification(string $key, string $canal): bool
     {
-        // Se for conformidade, admin/gestor não podem desligar (compliance mandatory)
-        if ($categoria === 'conformidade' && $this->hasRole([UserRole::ADMIN, UserRole::GESTOR])) {
+        // Se for conformidade legal, admin/gestor não podem desligar (compliance mandatory)
+        if (in_array($key, ['nao_conformidade', 'resumo_conformidade', 'hanna_threshold', 'hanna_overtime'], true)
+            && $this->hasRole([UserRole::ADMIN, UserRole::GESTOR])) {
             return true;
         }
         
         $prefs = $this->notification_preferences ?? [];
         
-        // Default (se null): Push ativo para tudo, Mail inativo por omissão (excepto se quisermos alterar)
+        // Defaults: Push ativo por padrão para quase tudo, E-mail inativo por padrão exceto conformidade
         $defaults = [
-            'incidentes' => ['push' => true, 'mail' => false],
-            'operacao'   => ['push' => true, 'mail' => false],
-            'conformidade' => ['push' => true, 'mail' => true],
-            'sistema'    => ['push' => true, 'mail' => false],
+            'incident_created'    => ['push' => true, 'mail' => false],
+            'incident_message'    => ['push' => true, 'mail' => false],
+            'timer_finished'      => ['push' => true, 'mail' => false],
+            'torneira_aberta'     => ['push' => true, 'mail' => false],
+            'dosing_low'          => ['push' => true, 'mail' => false],
+            'nao_conformidade'    => ['push' => true, 'mail' => true],
+            'resumo_conformidade' => ['push' => true, 'mail' => true],
+            'hanna_threshold'     => ['push' => true, 'mail' => false],
+            'hanna_overtime'      => ['push' => true, 'mail' => false],
+            'custom_broadcast'    => ['push' => true, 'mail' => false],
         ];
 
-        return $prefs[$categoria][$canal] ?? $defaults[$categoria][$canal] ?? false;
+        return $prefs[$key][$canal] ?? $defaults[$key][$canal] ?? false;
     }
 
     /**

@@ -22,10 +22,10 @@ class TimerFinishedNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = [];
-        if ($notifiable->wantsNotification('operacao', 'push')) {
+        if ($notifiable->wantsNotification('timer_finished', 'push')) {
             $channels[] = WebPushChannel::class;
         }
-        if ($notifiable->wantsNotification('operacao', 'mail')) {
+        if ($notifiable->wantsNotification('timer_finished', 'mail')) {
             $channels[] = 'mail';
         }
         return $channels;

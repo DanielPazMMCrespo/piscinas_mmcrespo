@@ -27,10 +27,10 @@ class IncidentCreatedNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if ($notifiable->wantsNotification('incidentes', 'push')) {
+        if ($notifiable->wantsNotification('incident_created', 'push')) {
             $channels[] = WebPushChannel::class;
         }
-        if ($notifiable->wantsNotification('incidentes', 'mail')) {
+        if ($notifiable->wantsNotification('incident_created', 'mail')) {
             $channels[] = 'mail';
         }
         return $channels;
