@@ -24,7 +24,14 @@ class CustomBroadcastNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('sistema', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('sistema', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toDatabase(object $notifiable): DatabaseMessage

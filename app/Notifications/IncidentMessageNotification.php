@@ -25,8 +25,14 @@ class IncidentMessageNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        // TODO: adicionar 'mail' aqui quando o SMTP estiver configurado.
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('incidentes', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('incidentes', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toDatabase(object $notifiable): DatabaseMessage

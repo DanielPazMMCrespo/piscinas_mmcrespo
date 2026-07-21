@@ -26,7 +26,14 @@ class ResumoConformidadeNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database', WebPushChannel::class];
+        $channels = ['database'];
+        if ($notifiable->wantsNotification('conformidade', 'push')) {
+            $channels[] = WebPushChannel::class;
+        }
+        if ($notifiable->wantsNotification('conformidade', 'mail')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     private function titulo(): string

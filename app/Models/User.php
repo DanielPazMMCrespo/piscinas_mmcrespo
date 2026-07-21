@@ -116,6 +116,31 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     }
 
     /**
+     * Se este utilizador quer ser notificado sobre um evento, através de um canal.
+     * Categorias: incidentes, operacao, conformidade, sistema
+     * Canais: push, mail
+     */
+    public function wantsNotification(string $categoria, string $canal): bool
+    {
+        // Se for conformidade, admin/gestor não podem desligar (compliance mandatory)
+        if ($categoria === 'conformidade' && $this->hasRole([UserRole::ADMIN, UserRole::GESTOR])) {
+            return true;
+        }
+        
+        $prefs = $this->notification_preferences ?? [];
+        
+        // Default (se null): Push ativo para tudo, Mail inativo por omissão (excepto se quisermos alterar)
+        $defaults = [
+            'incidentes' => ['push' => true, 'mail' => false],
+            'operacao'   => ['push' => true, 'mail' => false],
+            'conformidade' => ['push' => true, 'mail' => true],
+            'sistema'    => ['push' => true, 'mail' => false],
+        ];
+
+        return $prefs[$categoria][$canal] ?? $defaults[$categoria][$canal] ?? false;
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -130,6 +155,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'pin',
         'must_change_password',
         'ns_permissions',
+        'notification_preferences',
     ];
 
     /**
@@ -155,6 +181,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'password' => 'hashed',
             'pin' => 'hashed',
             'ns_permissions' => 'array',
+            'notification_preferences' => 'array',
         ];
     }
 }
