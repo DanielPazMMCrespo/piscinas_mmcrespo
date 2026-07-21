@@ -52,13 +52,23 @@ class DosageCalculatorService
                 return null;
             }
             
-            // Para pH, recomendação simplificada
+            $target = ($min + $max) / 2;
+            $diff = abs($target - $valorAtual);
+            
+            // Regra prática para pH: ~10ml/g por m³ por cada 0.1 de alteração no pH
+            $volumeM3 = $piscina->volume;
+            $doseCalculada = $volumeM3 * ($diff / 0.1) * 10;
+            $doseComFator = $doseCalculada * $fatorCompensacao;
+
+            $acao = $valorAtual < $min ? 'Aumentar pH' : 'Reduzir pH';
+            $targetFmt = number_format($target, 2, ',', '');
+
             return [
                 'produto' => $produto,
-                'dose_calculada_ml' => 0.0,
-                'dose_com_fator_ml' => 0.0,
-                'unidade' => 'ml',
-                'explicacao' => $valorAtual < $min ? 'Aumentar pH usando produto pH+' : 'Reduzir pH usando produto pH-'
+                'dose_calculada_ml' => round($doseCalculada, 2),
+                'dose_com_fator_ml' => round($doseComFator, 2),
+                'unidade' => $produto->unidade ?? 'ml',
+                'explicacao' => "{$acao} para o valor ideal ({$targetFmt})."
             ];
         } else {
             return null; // Parametro nao suportado para calculo automatico
@@ -74,7 +84,7 @@ class DosageCalculatorService
             'produto' => $produto,
             'dose_calculada_ml' => round($doseCalculada, 2),
             'dose_com_fator_ml' => round($doseComFator, 2),
-            'unidade' => 'ml',
+            'unidade' => $produto->unidade ?? 'ml',
             'explicacao' => $explicacao
         ];
     }
@@ -90,12 +100,23 @@ class DosageCalculatorService
             return null;
         }
 
-        return Product::where('categoria', $categoria)
+        // Tentar primeiro produtos com stock positivo na instalação
+        $produtoComStock = Product::where('categoria', $categoria)
             ->where('active', true)
             ->whereHas('stockInstalacoes', function ($q) use ($installationId) {
                 $q->where('installation_id', $installationId)
                   ->where('quantity', '>', 0);
             })
+            ->orderByDesc('concentracao_cl')
+            ->first();
+
+        if ($produtoComStock) {
+            return $produtoComStock;
+        }
+
+        // Fallback: qualquer produto ativo da categoria para não deixar de sugerir
+        return Product::where('categoria', $categoria)
+            ->where('active', true)
             ->orderByDesc('concentracao_cl')
             ->first();
     }

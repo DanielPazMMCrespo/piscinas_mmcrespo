@@ -143,7 +143,33 @@ class DailyRecordFormBuilder
         return $campo
             ->live()
             ->extraInputAttributes(['inputmode' => 'decimal'])
-            ->hint(fn (Get $get): ?string => DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['mensagem'] ?: null)
+            ->hint(function (Get $get) use ($campo, $metrica, $pool): ?string {
+                $val = $get($campo->getName());
+                if (!filled($val)) {
+                    return null;
+                }
+
+                $eval = DailyRecord::avaliarConformidade($metrica, $val, $pool);
+                $msg = $eval['mensagem'] ?: null;
+
+                if ($eval['estado'] !== \App\Enums\EstadoConformidade::VERDE) {
+                    $param = match($metrica) {
+                        'ns_ph' => 'ph',
+                        'ns_cloro_livre' => 'cloro_livre',
+                        default => null,
+                    };
+                    if ($param) {
+                        $dosagem = app(\App\Services\DosageCalculatorService::class)->calcularDose($pool, $param, (float) $val);
+                        if ($dosagem && ($dosagem['dose_com_fator_ml'] ?? 0) > 0 && isset($dosagem['produto'])) {
+                            $prodNome = $dosagem['produto']->name;
+                            $doseFmt = number_format($dosagem['dose_com_fator_ml'], 0, ',', '.');
+                            $unidade = $dosagem['unidade'];
+                            $msg .= " | ⚡ Sugestão: +{$doseFmt} {$unidade} de {$prodNome}";
+                        }
+                    }
+                }
+                return $msg;
+            })
             ->hintColor(fn (Get $get): ?string => match(DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
                 \App\Enums\EstadoConformidade::VERDE => 'success',
                 \App\Enums\EstadoConformidade::AMARELO => 'warning',
@@ -390,6 +416,52 @@ class DailyRecordFormBuilder
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
                                     ->schema([
+                                        Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
+                                            ->hiddenLabel()
+                                            ->content(function (Get $get) use ($pool) {
+                                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+
+                                                $sugestoes = [];
+                                                $calculator = app(\App\Services\DosageCalculatorService::class);
+
+                                                if (filled($ph)) {
+                                                    $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
+                                                    if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
+                                                        $prod = $dosePh['produto']?->name ?? 'Produto pH';
+                                                        $doseFmt = number_format($dosePh['dose_com_fator_ml'], 0, ',', '.');
+                                                        $sugestoes[] = "• <strong>pH (" . number_format((float)$ph, 2, ',', '') . "):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$doseFmt} {$dosePh['unidade']}</strong> de <em>{$prod}</em>";
+                                                    }
+                                                }
+
+                                                if (filled($cl)) {
+                                                    $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
+                                                    if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
+                                                        $prod = $doseCl['produto']?->name ?? 'Cloro';
+                                                        $doseFmt = number_format($doseCl['dose_com_fator_ml'], 0, ',', '.');
+                                                        $sugestoes[] = "• <strong>Cloro Livre (" . number_format((float)$cl, 2, ',', '') . " ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseFmt} {$doseCl['unidade']}</strong> de <em>{$prod}</em>";
+                                                    }
+                                                }
+
+                                                if (empty($sugestoes)) {
+                                                    return null;
+                                                }
+
+                                                $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1 mb-2">';
+                                                $html .= '<div class="font-semibold flex items-center gap-1.5"><span class="text-base">⚡</span> <span>Sugestões Automáticas de Dosagem (Ação Corretiva Recomendada)</span></div>';
+                                                foreach ($sugestoes as $sug) {
+                                                    $html .= "<div>{$sug}</div>";
+                                                }
+                                                $html .= '</div>';
+
+                                                return new \Illuminate\Support\HtmlString($html);
+                                            })
+                                            ->visible(function (Get $get) use ($pool) {
+                                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+                                                return filled($ph) || filled($cl);
+                                            })
+                                            ->columnSpanFull(),
                                         Forms\Components\Repeater::make('adicoes')
                                             ->id("adicoes_{$pool->id}")
                                             ->label('Adições de Químicos')
