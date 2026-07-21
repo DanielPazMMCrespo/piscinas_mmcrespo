@@ -151,6 +151,36 @@ class OperationalActionResource extends Resource
                 ->default(true)
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TANQUE),
 
+            // Reabastecimento de bidão.
+            Forms\Components\Select::make('dados.bidao_tipo')
+                ->label('Tipo de bidão')
+                ->options(\App\Models\DosingContainer::TIPOS)
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
+                ->live(),
+
+            Forms\Components\TextInput::make('dados.quantidade_l')
+                ->label('Quantidade reabastecida (L)')
+                ->numeric()
+                ->step('any')
+                ->minValue(0)
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
+                ->default(function (Get $get) {
+                    $poolId = $get('pool_id');
+                    $tipo = $get('dados.bidao_tipo');
+                    if ($poolId && $tipo) {
+                        $container = \App\Models\DosingContainer::where('pool_id', $poolId)
+                            ->where('tipo', $tipo)
+                            ->first();
+                        if ($container && $container->capacidade_ml) {
+                            return $container->capacidade_ml / 1000;
+                        }
+                    }
+                    return null;
+                })
+                ->helperText('Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
+
             // Análise rápida (parcial): pelo menos um parâmetro.
             Forms\Components\Fieldset::make('Valores medidos')
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_ANALISE_PONTUAL)

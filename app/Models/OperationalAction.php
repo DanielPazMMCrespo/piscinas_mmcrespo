@@ -23,6 +23,7 @@ class OperationalAction extends Model
     public const TIPO_CONTADOR = 'contador';
     public const TIPO_TANQUE = 'tanque';
     public const TIPO_ANALISE_PONTUAL = 'analise_pontual';
+    public const TIPO_REABASTECIMENTO_BIDAO = 'reabastecimento_bidao';
     public const TIPO_OUTRO = 'outro';
 
     public const TIPOS = [
@@ -33,6 +34,7 @@ class OperationalAction extends Model
         self::TIPO_CONTADOR => 'Contador (m³)',
         self::TIPO_TANQUE => 'Tanque',
         self::TIPO_ANALISE_PONTUAL => 'Análise rápida',
+        self::TIPO_REABASTECIMENTO_BIDAO => 'Reabastecimento de bidão',
         self::TIPO_OUTRO => 'Outro',
     ];
 
@@ -126,6 +128,17 @@ class OperationalAction extends Model
                 }
                 if (isset($this->dados['temperatura']) && filled($this->dados['temperatura'])) {
                     $partes[] = 'Temp: ' . number_format((float) $this->dados['temperatura'], 1, ',', '') . ' °C';
+                }
+                break;
+
+            case self::TIPO_REABASTECIMENTO_BIDAO:
+                if (isset($this->dados['bidao_tipo']) && filled($this->dados['bidao_tipo'])) {
+                    $tipoLabel = DosingContainer::TIPOS[$this->dados['bidao_tipo']] ?? $this->dados['bidao_tipo'];
+                    $partes[] = "Bidão: {$tipoLabel}";
+                }
+                if (isset($this->dados['quantidade_l']) && filled($this->dados['quantidade_l'])) {
+                    $quantidade = number_format((float) $this->dados['quantidade_l'], 2, ',', ' ');
+                    $partes[] = "Quantidade: {$quantidade} L";
                 }
                 break;
 

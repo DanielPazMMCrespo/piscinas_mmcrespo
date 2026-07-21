@@ -182,4 +182,47 @@ class NewFeaturesValidationTest extends TestCase
         $this->assertEquals('Ajuste pH e Cloro manual', $addition->acao_corretiva);
         $this->assertEquals($product->id, $addition->product_id);
     }
+
+    public function test_refill_dosing_container_operational_action(): void
+    {
+        $env = $this->createTestEnvironment();
+        $admin = $env['admin'];
+        $pool = $env['pool'];
+
+        $container = \App\Models\DosingContainer::create([
+            'pool_id' => $pool->id,
+            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 20000,
+            'restante_ml' => 5000,
+            'alerta_percent' => 20,
+        ]);
+
+        $this->assertEquals(5000.0, (float) $container->restante_ml);
+
+        // Record an operational action to refill the chlorine container
+        OperationalAction::create([
+            'pool_id' => $pool->id,
+            'user_id' => $admin->id,
+            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+            'registado_em' => now(),
+            'dados' => [
+                'bidao_tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+                'quantidade_l' => 15.0,
+            ],
+            'observacoes' => 'Reabastecido com 15L de cloro',
+        ]);
+
+        $container->refresh();
+        $this->assertEquals(15000.0, (float) $container->restante_ml);
+        $this->assertNotNull($container->reabastecido_em);
+        $this->assertEquals($admin->id, $container->reabastecido_por);
+
+        // Check that a log entry was generated
+        $this->assertDatabaseHas('dosing_container_logs', [
+            'dosing_container_id' => $container->id,
+            'tipo_movimento' => 'reabastecimento',
+            'quantidade_ml' => 15000,
+            'nota' => 'Reabastecido com 15L de cloro',
+        ]);
+    }
 }

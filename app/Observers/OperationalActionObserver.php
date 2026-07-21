@@ -23,11 +23,29 @@ class OperationalActionObserver
             $this->gerirTorneira($acao);
         }
 
+        if ($acao->tipo === OperationalAction::TIPO_REABASTECIMENTO_BIDAO) {
+            $this->reabastecerBidao($acao);
+        }
+
         $this->cacheService->invalidatePoolData();
         $this->cacheService->invalidateAllAlerts();
 
         if (auth()->check()) {
             \Illuminate\Support\Facades\Cache::forget('alertas_' . auth()->id());
+        }
+    }
+
+    private function reabastecerBidao(OperationalAction $acao): void
+    {
+        $tipoBidao = $acao->dados['bidao_tipo'] ?? null;
+        $quantidadeL = (float) ($acao->dados['quantidade_l'] ?? 0);
+        if ($tipoBidao && $quantidadeL > 0) {
+            $container = \App\Models\DosingContainer::where('pool_id', $acao->pool_id)
+                ->where('tipo', $tipoBidao)
+                ->first();
+            if ($container) {
+                $container->reabastecer($quantidadeL * 1000, $acao->user_id, $acao->observacoes);
+            }
         }
     }
 
