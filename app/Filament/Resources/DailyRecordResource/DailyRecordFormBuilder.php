@@ -251,6 +251,8 @@ class DailyRecordFormBuilder
                     $installation = Installation::find($installationId);
                     if (!$installation) return [];
 
+                    $modoRapido = !self::isNS() && request()->query('quick') == '1';
+
                     $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
 
@@ -298,7 +300,7 @@ class DailyRecordFormBuilder
                                             self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
                                             self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
                                         ]),
-                                    ])->columns(['default' => 2, 'sm' => 3])
+                                    ])->columns(['default' => 2, 'sm' => 3, 'lg' => 4])
                             )->toArray()
                         );
 
@@ -418,8 +420,8 @@ class DailyRecordFormBuilder
                             )->toArray()
                         );
 
-                    $stepNS = Forms\Components\Wizard\Step::make('Nadadores-salvadores')
-                        ->icon('heroicon-o-users')
+                    $stepNS = Forms\Components\Wizard\Step::make($modoRapido ? 'Registo Rápido' : 'Nadadores-salvadores')
+                        ->icon($modoRapido ? 'heroicon-o-bolt' : 'heroicon-o-users')
                         ->schema([
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn(Pool $pool) => 
@@ -601,9 +603,10 @@ class DailyRecordFormBuilder
                             )->toArray()
                         );
 
-                    $steps = self::isNS()
-                        ? [$stepNS]
-                        : [
+                    $steps = match (true) {
+                        self::isNS() => [$stepNS],
+                        $modoRapido => [$stepNS, $stepObservacoes],
+                        default => [
                             $stepBombas,
                             $stepTanques,
                             $stepLavagem,
@@ -611,7 +614,8 @@ class DailyRecordFormBuilder
                             $stepPosicaoNormal,
                             $stepNS,
                             $stepObservacoes,
-                        ];
+                        ],
+                    };
 
                     return [
                         Forms\Components\Wizard::make($steps)->skippable()
