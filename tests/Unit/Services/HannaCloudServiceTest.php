@@ -200,4 +200,63 @@ class HannaCloudServiceTest extends TestCase
 
         $this->assertSame('history_data_array', $history['data']);
     }
+
+    public function test_parse_history_entry_maps_positional_csv(): void
+    {
+        $parsed = HannaCloudService::parseHistoryEntry([
+            'DT' => '2026-07-21 07:55:57',
+            'RD' => '7.28,767,29.82,-44.5',
+            'DV' => '0.00,74.76',
+            'EV' => '00000000,00000000,00000000',
+            'noFlow' => false,
+        ]);
+
+        $this->assertSame('2026-07-21 07:55:57', $parsed['dt']);
+        $this->assertSame(7.28, $parsed['ph']);
+        $this->assertSame(767.0, $parsed['orp']);
+        $this->assertSame(29.82, $parsed['temperatura_agua']);
+        $this->assertSame(-44.5, $parsed['temperatura_ar']);
+        $this->assertSame(0.0, $parsed['dose_ph_ml']);
+        $this->assertSame(74.76, $parsed['dose_cloro_ml']);
+        $this->assertFalse($parsed['no_flow']);
+    }
+
+    public function test_parse_history_entry_tolerates_missing_fields(): void
+    {
+        $parsed = HannaCloudService::parseHistoryEntry(['DT' => '2026-07-21 07:00:00']);
+
+        $this->assertNull($parsed['ph']);
+        $this->assertNull($parsed['dose_cloro_ml']);
+        $this->assertFalse($parsed['no_flow']);
+    }
+
+    public function test_get_history_readings_sorts_oldest_first(): void
+    {
+        Cache::put('hanna_cloud_access_token', 'mock_access_token_123', 3600);
+        $this->service->authenticate('test@mmcrespo.pt', 'secret_password');
+
+        Http::fake([
+            'https://www.hannacloud.com/api/graphql' => Http::response([
+                'data' => [
+                    'deviceLogHistory' => [
+                        'data' => [
+                            ['DT' => '2026-07-21 07:55:57', 'RD' => '7.28,767,29.82,-44.5', 'DV' => '0.00,74.76'],
+                            ['DT' => '2026-07-21 07:39:27', 'RD' => '7.27,766,29.80,-44.5', 'DV' => '0.00,75.34'],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $leituras = $this->service->getHistoryReadings(
+            'DID-001',
+            new \DateTime('2026-07-21 07:00:00'),
+            new \DateTime('2026-07-21 08:00:00'),
+        );
+
+        $this->assertCount(2, $leituras);
+        $this->assertSame('2026-07-21 07:39:27', $leituras[0]['dt']);
+        $this->assertSame('2026-07-21 07:55:57', $leituras[1]['dt']);
+        $this->assertSame(75.34, $leituras[0]['dose_cloro_ml']);
+    }
 }
