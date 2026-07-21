@@ -118,9 +118,10 @@ class DefinicoesSistema extends Page
                             ->label('Aviso de Torneira Aberta (Horas)')
                             ->numeric()
                             ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
-                        Forms\Components\CheckboxList::make('digest_conformidade_horas')
-                            ->label('Horários de Envio do Resumo de Conformidade')
+                        Forms\Components\Select::make('digest_conformidade_horas')
+                            ->label('Horários do Resumo de Conformidade (Máx. 4)')
                             ->options([
+                                '06:00' => '06:00',
                                 '07:00' => '07:00',
                                 '08:00' => '08:00',
                                 '09:00' => '09:00',
@@ -137,13 +138,12 @@ class DefinicoesSistema extends Page
                                 '20:00' => '20:00',
                                 '21:00' => '21:00',
                                 '22:00' => '22:00',
+                                '23:00' => '23:00',
                             ])
-                            ->columns([
-                                'default' => 3,
-                                'sm' => 4,
-                                'md' => 6,
-                            ])
-                            ->helperText('Horários em que é enviado o resumo de piscinas não conformes.')
+                            ->multiple()
+                            ->maxItems(4)
+                            ->searchable()
+                            ->helperText('Escolha na combobox até 4 horários do dia em que a aplicação envia o resumo de conformidade.')
                             ->columnSpanFull(),
                     ]),
 
