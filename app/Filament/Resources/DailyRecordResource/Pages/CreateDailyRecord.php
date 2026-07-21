@@ -161,6 +161,16 @@ class CreateDailyRecord extends CreateRecord
     {
         try {
             $this->form->getState();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $mensagens = collect($e->errors())->flatten()->unique()->values();
+
+            Notification::make()
+                ->danger()
+                ->title('Corrija os campos assinalados')
+                ->body($mensagens->implode("\n"))
+                ->send();
+
+            throw $e;
         } catch (\Throwable $e) {
             Notification::make()
                 ->danger()
