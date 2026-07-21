@@ -193,6 +193,7 @@ body {
     height: 100dvh !important;
     top: 0 !important;
     bottom: 0 !important;
+    z-index: 40 !important;
 }
 
 .dark .fi-sidebar-item-active > a,
@@ -274,6 +275,7 @@ body {
     height: 100dvh !important;
     top: 0 !important;
     bottom: 0 !important;
+    z-index: 40 !important;
 }
 .fi-section,
 .fi-ta-ctn,
