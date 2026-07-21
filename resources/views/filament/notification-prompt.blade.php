@@ -20,6 +20,7 @@
         showPrompt: false,
         isProcessing: false,
         successState: false,
+        iosInstalar: false,
         init() {
             const verificarEInicializar = () => {
                 if (!window.mmcPush || typeof window.mmcPush.estado !== 'function') {
@@ -34,8 +35,12 @@
                     return;
                 }
 
-                // Apenas mostrar se o estado atual for 'default' (não ativou nem negou explicitamente)
-                if (window.mmcPush.estado() === 'default') {
+                // 'default': ainda não ativou nem negou. 'ios-instalar': iOS Safari
+                // fora do ecrã principal — mostra-se também, mas com instruções em
+                // vez do botão "Ativar" (pedir permissão não funciona nesse estado).
+                const estado = window.mmcPush.estado();
+                if (estado === 'default' || estado === 'ios-instalar') {
+                    this.iosInstalar = estado === 'ios-instalar';
                     setTimeout(() => {
                         this.showPrompt = true;
                     }, 2000); // 2 segundos de delay após carregar a app
@@ -90,11 +95,19 @@
             </svg>
         </div>
         <div class="space-y-1">
-            <template x-if="!successState">
+            <template x-if="!successState && !iosInstalar">
                 <div>
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Ative as Notificações</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                         {{ $textoPrompt }}
+                    </p>
+                </div>
+            </template>
+            <template x-if="!successState && iosInstalar">
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Instale a app para receber notificações</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        No Safari, toque em <strong>Partilhar</strong> e depois em <strong>Adicionar ao Ecrã Principal</strong>. O iPhone só permite notificações a apps instaladas assim.
                     </p>
                 </div>
             </template>
@@ -126,6 +139,7 @@
             </button>
             <button
                 type="button"
+                x-show="!iosInstalar"
                 x-on:click="ativar()"
                 x-bind:disabled="isProcessing"
                 class="px-4 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-500 dark:hover:bg-primary-400 text-white rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"

@@ -13,9 +13,11 @@ use App\Observers\StockInstallationObserver;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use App\Listeners\LogUserAuthentication;
+use NotificationChannels\WebPush\Events\NotificationFailed;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -52,5 +54,17 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(Login::class, [LogUserAuthentication::class, 'handleLogin']);
         Event::listen(Logout::class, [LogUserAuthentication::class, 'handleLogout']);
+
+        // Sem isto, uma falha de envio WebPush (endpoint inválido, encoding
+        // errado, etc.) não deixava rasto nenhum — nem log, nem admin visível.
+        Event::listen(NotificationFailed::class, function (NotificationFailed $event): void {
+            Log::warning('webpush_send_failed', [
+                'subscribable_type' => $event->subscription->subscribable_type,
+                'subscribable_id' => $event->subscription->subscribable_id,
+                'endpoint' => $event->report->getEndpoint(),
+                'reason' => $event->report->getReason(),
+                'status_code' => $event->report->getResponse()?->getStatusCode(),
+            ]);
+        });
     }
 }
