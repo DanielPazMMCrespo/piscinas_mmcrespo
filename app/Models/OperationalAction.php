@@ -133,12 +133,19 @@ class OperationalAction extends Model
 
             case self::TIPO_REABASTECIMENTO_BIDAO:
                 if (isset($this->dados['bidao_tipo']) && filled($this->dados['bidao_tipo'])) {
-                    $tipoLabel = DosingContainer::TIPOS[$this->dados['bidao_tipo']] ?? $this->dados['bidao_tipo'];
+                    $labels = [
+                        DosingContainer::TIPO_CLORO => 'Cloro',
+                        DosingContainer::TIPO_PH_MENOS => 'pH-',
+                        'ambos' => 'Ambos (Cloro e pH-)',
+                    ];
+                    $tipoLabel = $labels[$this->dados['bidao_tipo']] ?? $this->dados['bidao_tipo'];
                     $partes[] = "Bidão: {$tipoLabel}";
                 }
                 if (isset($this->dados['quantidade_l']) && filled($this->dados['quantidade_l'])) {
                     $quantidade = number_format((float) $this->dados['quantidade_l'], 2, ',', ' ');
                     $partes[] = "Quantidade: {$quantidade} L";
+                } elseif (isset($this->dados['bidao_tipo']) && $this->dados['bidao_tipo'] === 'ambos') {
+                    $partes[] = "Quantidade: Capacidade total";
                 }
                 break;
 

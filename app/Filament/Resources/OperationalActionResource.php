@@ -154,7 +154,11 @@ class OperationalActionResource extends Resource
             // Reabastecimento de bidão.
             Forms\Components\Select::make('dados.bidao_tipo')
                 ->label('Tipo de bidão')
-                ->options(\App\Models\DosingContainer::TIPOS)
+                ->options([
+                    \App\Models\DosingContainer::TIPO_CLORO => 'Cloro',
+                    \App\Models\DosingContainer::TIPO_PH_MENOS => 'pH-',
+                    'ambos' => 'Ambos (Cloro e pH-)',
+                ])
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
                 ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
                 ->live(),
@@ -165,11 +169,11 @@ class OperationalActionResource extends Resource
                 ->step('any')
                 ->minValue(0)
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
-                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO && $get('dados.bidao_tipo') !== 'ambos')
                 ->default(function (Get $get) {
                     $poolId = $get('pool_id');
                     $tipo = $get('dados.bidao_tipo');
-                    if ($poolId && $tipo) {
+                    if ($poolId && $tipo && $tipo !== 'ambos') {
                         $container = \App\Models\DosingContainer::where('pool_id', $poolId)
                             ->where('tipo', $tipo)
                             ->first();
@@ -179,7 +183,9 @@ class OperationalActionResource extends Resource
                     }
                     return null;
                 })
-                ->helperText('Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
+                ->helperText(fn (Get $get) => $get('dados.bidao_tipo') === 'ambos'
+                    ? 'Deixe em branco para encher ambos os bidões até às respetivas capacidades totais.'
+                    : 'Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
 
             // Análise rápida (parcial): pelo menos um parâmetro.
             Forms\Components\Fieldset::make('Valores medidos')

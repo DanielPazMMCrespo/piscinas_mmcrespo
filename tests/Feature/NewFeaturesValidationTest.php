@@ -285,4 +285,64 @@ class NewFeaturesValidationTest extends TestCase
         // 100 mL should be ignored because it was at 09:55 (before refill at 10:00).
         $this->assertEquals(19920.0, (float) $container->restante_ml);
     }
+
+    public function test_refill_both_dosing_containers_operational_action(): void
+    {
+        $env = $this->createTestEnvironment();
+        $admin = $env['admin'];
+        $pool = $env['pool'];
+
+        $containerCloro = \App\Models\DosingContainer::create([
+            'pool_id' => $pool->id,
+            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 20000,
+            'restante_ml' => 5000,
+            'alerta_percent' => 20,
+        ]);
+
+        $containerPh = \App\Models\DosingContainer::create([
+            'pool_id' => $pool->id,
+            'tipo' => \App\Models\DosingContainer::TIPO_PH_MENOS,
+            'capacidade_ml' => 10000,
+            'restante_ml' => 2000,
+            'alerta_percent' => 20,
+        ]);
+
+        // 1. Refill both leaving quantity blank (should refill to capacity)
+        OperationalAction::create([
+            'pool_id' => $pool->id,
+            'user_id' => $admin->id,
+            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+            'registado_em' => now(),
+            'dados' => [
+                'bidao_tipo' => 'ambos',
+            ],
+            'observacoes' => 'Encher ambos os bidoes',
+        ]);
+
+        $containerCloro->refresh();
+        $containerPh->refresh();
+
+        $this->assertEquals(20000.0, (float) $containerCloro->restante_ml);
+        $this->assertEquals(10000.0, (float) $containerPh->restante_ml);
+
+        // 2. Refill both specifying a custom quantity (e.g. 8 Litres)
+        OperationalAction::create([
+            'pool_id' => $pool->id,
+            'user_id' => $admin->id,
+            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+            'registado_em' => now(),
+            'dados' => [
+                'bidao_tipo' => 'ambos',
+                'quantidade_l' => 8.0,
+            ],
+            'observacoes' => 'Definir ambos a 8L',
+        ]);
+
+        $containerCloro->refresh();
+        $containerPh->refresh();
+
+        $this->assertEquals(8000.0, (float) $containerCloro->restante_ml);
+        $this->assertEquals(8000.0, (float) $containerPh->restante_ml);
+    }
 }

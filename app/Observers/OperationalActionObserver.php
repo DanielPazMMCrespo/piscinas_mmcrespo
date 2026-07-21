@@ -38,13 +38,27 @@ class OperationalActionObserver
     private function reabastecerBidao(OperationalAction $acao): void
     {
         $tipoBidao = $acao->dados['bidao_tipo'] ?? null;
-        $quantidadeL = (float) ($acao->dados['quantidade_l'] ?? 0);
-        if ($tipoBidao && $quantidadeL > 0) {
+        $quantidadeL = isset($acao->dados['quantidade_l']) && filled($acao->dados['quantidade_l']) ? (float) $acao->dados['quantidade_l'] : null;
+
+        if ($tipoBidao === 'ambos') {
+            $tipos = [\App\Models\DosingContainer::TIPO_CLORO, \App\Models\DosingContainer::TIPO_PH_MENOS];
+        } else {
+            $tipos = [$tipoBidao];
+        }
+
+        foreach ($tipos as $tipo) {
+            if (! $tipo) {
+                continue;
+            }
             $container = \App\Models\DosingContainer::where('pool_id', $acao->pool_id)
-                ->where('tipo', $tipoBidao)
+                ->where('tipo', $tipo)
                 ->first();
             if ($container) {
-                $container->reabastecer($quantidadeL * 1000, $acao->user_id, $acao->observacoes, $acao->registado_em);
+                $ml = ($quantidadeL !== null && $quantidadeL > 0)
+                    ? $quantidadeL * 1000
+                    : ($container->capacidade_ml ?? 20000);
+
+                $container->reabastecer($ml, $acao->user_id, $acao->observacoes, $acao->registado_em);
             }
         }
     }
