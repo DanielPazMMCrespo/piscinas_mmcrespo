@@ -37,7 +37,7 @@
 
                 // 'default': ainda não ativou nem negou. 'ios-instalar': iOS Safari
                 // fora do ecrã principal — mostra-se também, mas com instruções em
-                // vez do botão "Ativar" (pedir permissão não funciona nesse estado).
+                // vez do botão 'Ativar' (pedir permissão não funciona nesse estado).
                 const estado = window.mmcPush.estado();
                 if (estado === 'default' || estado === 'ios-instalar') {
                     this.iosInstalar = estado === 'ios-instalar';
