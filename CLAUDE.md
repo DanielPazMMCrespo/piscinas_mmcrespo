@@ -1,3 +1,36 @@
+# Comandos & Arquitetura
+
+## Comandos
+
+```bash
+composer install && npm install        # setup inicial (ou: composer run setup)
+php artisan migrate --seed             # schema + dados iniciais (users, piscinas, produtos)
+
+composer run dev                       # serve + queue:listen + pail + vite, tudo junto
+npm run dev                            # só Vite (hot reload)
+
+composer test                          # == php artisan config:clear && php artisan test
+php artisan test --filter=NomeDoTeste  # correr um teste único
+vendor/bin/pest tests/Feature/Foo.php  # idem, via Pest diretamente
+
+vendor/bin/pint                        # lint/format (Laravel Pint)
+npm run build                          # build de assets para produção
+```
+
+Nota: testes manuais/funcionais (browser, mobile) fazem-se sempre em produção (ver "Testes" abaixo) — os comandos `test`/`pest` acima são só para a suite automatizada (308 testes, SQLite in-memory).
+
+## Arquitetura
+
+- **Só admin**: a app inteira vive dentro do painel Filament em `/admin` (`AdminPanelProvider`). Não há front-end público separado — a raiz `/` redireciona para `/admin`.
+- **Padrão append-only**: `DailyRecord`, `FilterCheck` e `Incident` nunca apagam o registo original numa edição. Uma correção cria uma nova linha com `e_correcao=true` + `corrige_registo_id` a apontar para a original; `razao_correcao` documenta o porquê. Gráficos e relatórios filtram sempre com `whereDoesntHave('correcoes')` para não contar o registo substituído duas vezes.
+- **Duas fontes de verdade por piscina**: o valor "atual" de pH/cloro/temperatura vem ou do último `DailyRecord` manual (`_efetivo` accessors combinam manual + NS) ou da última leitura do controlador Hanna Cloud (`SensorReading`, sincronizado por `hanna:sync`). `PainelPiscinasWidget` e `AlertasService` decidem qual usar por piscina (sonda online <60min > registo manual <8h > sonda offline > sem dados) — esta ordem de prioridade é a lógica central do dashboard.
+- **Roles via `App\Constants\UserRole`** (não strings soltas) + `spatie/laravel-permission`. Nadador-Salvador só vê as suas piscinas e um subconjunto de secções do formulário de registo diário (sem Bomba/Filtros/Contador/Químicos); Policies (`DailyRecordPolicy`, `IncidentPolicy`, etc.) fazem a validação de autorização real.
+- **Stock em duas camadas**: `StockWarehouse` (central) → `StockInstallation` (por instalação). Toda a movimentação (transferência, consumo em "Adições de Químicos", reabastecimento) é `DB::transaction()` + `lockForUpdate()` e gera um `StockWarehouseLog`/`StockInstallationLog` para auditoria.
+- **Cache do dashboard é versionado**: `CacheService` guarda o payload do `PainelPiscinasWidget` sob uma chave `cache_painel_piscinas_{scope}_v{N}`. Ao mudar a forma do array cacheado (`metricas4`, etc.), incrementar `PainelPiscinasWidget::CACHE_SHAPE_VERSION` — caso contrário um deploy pode devolver dados com a forma antiga a uma view já atualizada e rebentar com "Undefined array key" (já aconteceu).
+- **Notificações**: `laravel-notification-channels/webpush` (push) + `DatabaseNotification` (sino do Filament). Trilhos de conformidade/incidentes/torneira passam todos por `AlertasService` como fonte única — não recalcular a lógica de "está fora dos limites" noutro sítio.
+
+---
+
 # Regras de Sessão
 
 ## Branch de Trabalho
