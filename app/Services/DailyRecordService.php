@@ -39,7 +39,7 @@ class DailyRecordService
             return null;
         }
 
-        if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
             $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
             foreach (array_keys($poolsData) as $poolId) {
                 abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
