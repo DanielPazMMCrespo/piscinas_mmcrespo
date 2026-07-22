@@ -1,3 +1,11 @@
+# Branch Atual: TEST
+
+Este ficheiro está checked-in no branch `test` (staging — `https://piscinasmmcrespo-testes.up.railway.app`).
+**Push automático para `test`** (`git push origin test`) — não perguntar "main ou teste?" antes de dar push.
+Se em algum momento este texto disser "TEST" mas `git branch --show-current` disser outra coisa, o ficheiro está desatualizado nesse checkout — confiar no `git branch`, não neste texto.
+
+---
+
 # Comandos & Arquitetura
 
 ## Comandos
@@ -35,7 +43,7 @@ Nota: testes manuais/funcionais (browser, mobile) fazem-se sempre em produção 
 
 ## Branch de Trabalho
 - Trabalhar sempre no branch ativo no momento. Não fazer checkout para outro branch.
-- No fim de cada tarefa, antes do push, perguntar: "é push para teste ou main?"
+- Push automático para o branch indicado no topo deste ficheiro ("Branch Atual") — não perguntar main/teste, o CLAUDE.md de cada branch já diz qual é.
 
 ## Testes
 - Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app (`https://piscinas-mmcrespo-main.up.railway.app`). Não montar ambiente local (SQLite, artisan serve) para validar features.
