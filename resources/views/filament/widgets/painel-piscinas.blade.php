@@ -32,12 +32,6 @@
         </div>
     @endif
 
-    <!-- Main Header & Action -->
-    <div class="text-center mb-6">
-        <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
-        <p class="text-sm text-slate-500 mt-1">Visão global das piscinas.</p>
-    </div>
-
     <!-- Pools Grid -->
     <div class="neo-pool-grid"
          x-data="{
