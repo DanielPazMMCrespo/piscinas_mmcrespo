@@ -4,7 +4,13 @@ namespace App\Filament\Pages;
 
 class Dashboard extends \Filament\Pages\Dashboard
 {
-    protected static ?string $title = 'Visão global das piscinas';
+    protected static ?string $title = 'Painel de Controlo';
+
+    /** O cabecalho fica a cargo do PainelPiscinasWidget (estilo proprio, no topo). */
+    public function getHeading(): string
+    {
+        return '';
+    }
 
     public function getWidgets(): array
     {
