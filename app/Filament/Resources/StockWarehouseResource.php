@@ -148,54 +148,23 @@ class StockWarehouseResource extends Resource
                             ->maxLength(255),
                     ])
                     ->action(function (StockWarehouse $record, array $data): void {
-                        DB::transaction(function () use ($record, $data) {
-                            $freshArmazem = StockWarehouse::lockForUpdate()->findOrFail($record->id);
+                        $success = app(\App\Services\StockService::class)->transferWarehouseStockToInstallation(
+                            $record->id,
+                            (int) $data['installation_id'],
+                            (float) $data['quantidade'],
+                            (int) auth()->id(),
+                            $data['observacoes'] ?? null
+                        );
 
-                            $stockInstalacao = StockInstallation::firstOrCreate(
-                                [
-                                    'installation_id' => $data['installation_id'],
-                                    'product_id' => $freshArmazem->product_id,
-                                ],
-                                [
-                                    'quantity' => 0.0,
-                                    'limite_minimo' => 0,
-                                ]
-                            );
+                        if (! $success) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Stock insuficiente no armazém')
+                                ->body("Disponível: {$record->fresh()->quantity}. Pedido: {$data['quantidade']}.")
+                                ->send();
 
-                            $stockInstalacao = StockInstallation::lockForUpdate()->findOrFail($stockInstalacao->id);
-
-                            if ($freshArmazem->quantity < $data['quantidade']) {
-                                Notification::make()
-                                    ->danger()
-                                    ->title('Stock insuficiente no armazém')
-                                    ->body("Disponível: {$freshArmazem->quantity}. Pedido: {$data['quantidade']}.")
-                                    ->send();
-
-                                return;
-                            }
-
-                            $freshArmazem->quantity -= $data['quantidade'];
-                            $freshArmazem->save();
-
-                            StockWarehouseLog::create([
-                                'product_id' => $freshArmazem->product_id,
-                                'user_id' => auth()->id(),
-                                'tipo_movimento' => 'saida',
-                                'quantity' => $data['quantidade'],
-                                'fornecedor' => $data['observacoes'] ?? null,
-                            ]);
-
-                            $stockInstalacao->quantity += $data['quantidade'];
-                            $stockInstalacao->save();
-
-                            StockInstallationLog::create([
-                                'stock_installation_id' => $stockInstalacao->id,
-                                'user_id' => auth()->id(),
-                                'tipo_movimento' => 'entrada',
-                                'quantity' => $data['quantidade'],
-                                'created_at' => now(),
-                            ]);
-                        });
+                            return;
+                        }
 
                         Notification::make()
                             ->success()

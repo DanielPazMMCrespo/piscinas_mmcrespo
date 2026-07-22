@@ -18,55 +18,11 @@ class CreateDailyRecord extends CreateRecord
     
     protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
-        $commonData = [
-            'user_id' => $data['user_id'] ?? auth()->id(),
-            'registado_em' => $data['registado_em'] ?? now(),
-        ];
-        
-        if (isset($data['ns_foto'])) {
-            $commonData['ns_foto'] = is_array($data['ns_foto']) ? array_values($data['ns_foto'])[0] : $data['ns_foto'];
-        }
-        
-        $poolsData = $data['pools'] ?? [];
-        $lastRecord = null;
-
         $user = auth()->user();
-        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
-            foreach (array_keys($poolsData) as $poolId) {
-                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
-            }
-        }
+        $service = app(\App\Services\DailyRecordService::class);
+        $record = $service->createRecords($user, $data);
 
-        foreach ($poolsData as $poolId => $poolData) {
-            $adicoes = $poolData['adicoes'] ?? [];
-            unset($poolData['adicoes']); // Remove from attributes
-            
-            $photoFields = ['bomba_foto', 'contador_foto', 'torneira_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
-            foreach ($photoFields as $pf) {
-                if (isset($poolData[$pf])) {
-                    if (is_array($poolData[$pf])) {
-                        $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
-                    } elseif ($poolData[$pf] === '') {
-                        $poolData[$pf] = null;
-                    }
-                } else {
-                    $poolData[$pf] = null;
-                }
-            }
-
-            $recordData = array_merge($commonData, $poolData, ['pool_id' => $poolId]);
-            $lastRecord = static::getModel()::create($recordData);
-            
-            // Gravar adicões no pivot (relacionamento 'adicoes')
-            if (!empty($adicoes)) {
-                $lastRecord->adicoes()->createMany($adicoes);
-            }
-            
-            \App\Jobs\ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, (int) auth()->id());
-        }
-        
-        return $lastRecord;
+        return $record ?? static::getModel()::newModelInstance();
     }
     
     protected function afterCreate(): void

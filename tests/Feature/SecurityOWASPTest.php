@@ -344,4 +344,53 @@ class SecurityOWASPTest extends TestCase
         // Este teste é mais para CI/CD, mas verificamos que não há exceções
         $this->assertTrue(true);
     }
+
+    public function test_offline_sync_prevents_user_id_spoofing(): void
+    {
+        $pool = $this->criarPiscina();
+        $userActual = User::factory()->create();
+        $userVictim = User::factory()->create();
+        $userActual->assignRole('tecnico');
+
+        $payload = [
+            'records' => [
+                [
+                    'offline_id' => 'offline-123',
+                    'data' => [
+                        'user_id' => $userVictim->id, // Attempt to spoof author
+                        'registado_em' => now()->toIso8601String(),
+                        'pools' => [
+                            $pool->id => [
+                                'cloro_livre' => 1.5,
+                                'cloro_total' => 1.7,
+                                'ph' => 7.2,
+                                'temperatura' => 26.5,
+                                'transparencia' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($userActual)->postJson('/offline-sync/daily-records', $payload);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'synced_count' => 1]);
+
+        $record = DailyRecord::where('pool_id', $pool->id)->first();
+        $this->assertNotNull($record);
+        $this->assertEquals($userActual->id, $record->user_id);
+        $this->assertNotEquals($userVictim->id, $record->user_id);
+    }
+
+    public function test_require_password_change_allows_logout(): void
+    {
+        $user = User::factory()->create(['must_change_password' => true]);
+
+        $response = $this->actingAs($user)->get('/admin/logout');
+
+        // Should NOT be redirected back to /primeiro-acesso (302 to login or logout handler)
+        $this->assertNotEquals(url('/primeiro-acesso'), $response->headers->get('Location'));
+    }
 }
