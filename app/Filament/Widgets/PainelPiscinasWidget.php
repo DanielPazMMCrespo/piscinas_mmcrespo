@@ -106,6 +106,13 @@ class PainelPiscinasWidget extends Widget
     }
 
     /**
+     * Versão da estrutura de dados cacheada por buildPoolData(). Incrementar sempre
+     * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
+     * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
+     */
+    private const CACHE_SHAPE_VERSION = 2;
+
+    /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
      * dados de instalações diferentes entre utilizadores com esse papel.
      */
@@ -114,10 +121,10 @@ class PainelPiscinasWidget extends Widget
         $utilizador = auth()->user();
 
         if ($utilizador?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return "ns_{$utilizador->id}";
+            return "ns_{$utilizador->id}_v" . self::CACHE_SHAPE_VERSION;
         }
 
-        return 'full';
+        return 'full_v' . self::CACHE_SHAPE_VERSION;
     }
 
     private function buildPoolData(): array
