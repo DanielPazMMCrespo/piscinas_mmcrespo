@@ -126,25 +126,16 @@
                 <div x-show="open" x-collapse x-cloak class="flex flex-col gap-4 mt-2">
                     <!-- Metrics Grid 2x2 -->
                     <div class="neo-metrics-grid">
-                        @foreach ($item['metricas4'] as $key => $metrica)
+                        @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
+                            @php($metrica = $item['metricas4'][$key])
                             <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif">
-                                <div class="neo-metric-label">
-                                    <span>{{ $metrica['label'] }}</span>
-                                    <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 opacity-50" />
-                                </div>
-                                <div class="neo-metric-value flex items-baseline gap-1">
-                                    @if($key === 'cloro')
-                                        @if($metrica['valor_orp'])
-                                            <span>{{ $metrica['valor_orp'] }}</span>
-                                            @if($metrica['valor_livre'])
-                                                <span class="text-lg text-slate-400 font-normal ml-1">{{ $metrica['valor_livre'] }}</span>
-                                            @endif
-                                        @else
-                                            <span>{{ $metrica['valor_livre'] ?? '—' }}</span>
-                                        @endif
-                                    @else
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="neo-metric-label">
+                                        <span>{{ $metrica['label'] }}</span>
+                                    </div>
+                                    <div class="neo-metric-value text-right">
                                         <span>{{ $metrica['valor'] }}</span>
-                                    @endif
+                                    </div>
                                 </div>
                                 <!-- Sparkline -->
                                 @if(isset($metrica['sparkline']) && $metrica['sparkline'])
@@ -155,7 +146,7 @@
                                 @else
                                     <div class="neo-metric-sparkline"></div>
                                 @endif
-                                
+
                                 <div class="flex items-center justify-between mt-auto">
                                     <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
                                         @if($metrica['ok'] !== null)

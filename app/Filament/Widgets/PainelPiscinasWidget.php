@@ -198,6 +198,7 @@ class PainelPiscinasWidget extends Widget
                 'cloro_livre' => $r->cloro_livre_efetivo !== null ? (float)$r->cloro_livre_efetivo : null,
                 'cloro_combinado' => $r->cloro_combinado !== null ? (float)$r->cloro_combinado : null,
                 'temperatura' => $r->temperatura_efetivo !== null ? (float)$r->temperatura_efetivo : null,
+                'transparencia' => $r->transparencia !== null ? (float)$r->transparencia : null,
             ])->concat($acoes->map(function($a) {
                 $cl = $a->dados['cloro_livre'] ?? null;
                 $ct = $a->dados['cloro_total'] ?? null;
@@ -351,60 +352,62 @@ class PainelPiscinasWidget extends Widget
                 }
             }
 
-            // 2. Cloro (ORP e Livre)
+            // 2. Redox (ORP)
             $valorOrp = null;
-            $valorLivre = null;
-            $cloroOk = null;
-            $cloroOrigem = 'sem_dados';
-            $cloroIdade = '';
+            $orpOk = null;
+            $orpOrigem = 'sem_dados';
+            $orpIdade = '';
 
             if ($controladorOnline) {
                 $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
                 $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
-                $cloroOk = $orpOk;
                 $cloroOkConformes = $orpOk;
-                $cloroOrigem = 'controlador';
-                $cloroIdade = match (true) {
+                $orpOrigem = 'controlador';
+                $orpIdade = match (true) {
                     $idadeMin < 1 => 'agora',
                     $idadeMin < 60 => "há {$idadeMin}m",
                     default => $leitura->lida_em->locale('pt')->diffForHumans(),
                 };
             } elseif ($usarRegistoManual) {
-                $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
-                $cloroOk = $livreOk;
-                $cloroOkConformes = $livreOk;
-                $cloroOrigem = 'manual';
-                $cloroIdade = $registo->registado_em->locale('pt')->diffForHumans();
                 $orpNoMomento = $orpsNoMomento[$piscina->id] ?? null;
                 if ($orpNoMomento !== null) {
                     $valorOrp = number_format($orpNoMomento, 0, ',', '') . ' mV';
+                    $orpOk = $orpNoMomento >= ($piscina->orp_min ?? self::ORP_MIN) && $orpNoMomento <= ($piscina->orp_max ?? self::ORP_MAX);
+                    $orpOrigem = 'manual';
+                    $orpIdade = $registo->registado_em->locale('pt')->diffForHumans();
                 }
+                $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
+                $cloroOkConformes = $livreOk;
             } elseif ($leitura !== null) {
                 $orpOk = $artefacto === null && $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
-                $cloroOk = $orpOk;
                 $cloroOkConformes = $orpOk;
                 $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
-                $cloroOrigem = $artefacto !== null ? 'artefacto' : 'controlador_offline';
-                $cloroIdade = $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans();
+                $orpOrigem = $artefacto !== null ? 'artefacto' : 'controlador_offline';
+                $orpIdade = $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans();
             }
 
-            if ($registo?->cloro_livre_efetivo !== null) {
-                $valorLivre = number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L';
-                if ($cloroOrigem === 'controlador_offline' || $cloroOrigem === 'artefacto') {
-                    $cloroIdade = $registo->registado_em->locale('pt')->diffForHumans() . ' (Manual)';
-                }
-            }
-
-            $metricas4['cloro'] = [
-                'label' => 'ORP / Cl. Livre',
-                'valor_orp' => $valorOrp,
-                'valor_livre' => $valorLivre,
-                'ok' => $cloroOk,
-                'origem' => $cloroOrigem,
-                'idade' => $cloroIdade
+            $metricas4['redox'] = [
+                'label' => 'Redox (ORP)',
+                'valor' => $valorOrp ?? '—',
+                'ok' => $orpOk,
+                'origem' => $orpOrigem,
+                'idade' => $orpIdade,
             ];
 
-            // 3. Cloro Combinado (Sempre Manual se houver, independentemente do tempo)
+            // 3. Cloro Livre
+            $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
+            $metricas4['livre'] = [
+                'label' => 'Cl. Livre',
+                'valor' => $registo?->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L' : '—',
+                'ok' => $livreOk,
+                'origem' => $registo ? 'manual' : 'sem_dados',
+                'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
+            ];
+            if ($cloroOkConformes === null) {
+                $cloroOkConformes = $livreOk;
+            }
+
+            // 4. Cloro Combinado (Sempre Manual se houver, independentemente do tempo)
             $combOk = $registo?->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null;
             $metricas4['combinado'] = [
                 'label' => 'Cl. Combinado',
@@ -414,7 +417,7 @@ class PainelPiscinasWidget extends Widget
                 'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : ''
             ];
 
-            // 4. Temperatura
+            // 5. Temperatura
             if ($controladorOnline) {
                 $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
                     ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
@@ -459,20 +462,34 @@ class PainelPiscinasWidget extends Widget
                 }
             }
 
+            // 6. Turbidez (só manual — sem variante de sonda/NS)
+            $turbidezOk = $registo?->transparencia !== null
+                ? (float) $registo->transparencia <= DailyRecord::getTransparenciaMax()
+                : null;
+            $metricas4['turbidez'] = [
+                'label' => 'Turbidez',
+                'valor' => $registo?->transparencia !== null ? number_format((float) $registo->transparencia, 2, ',', '') . ' FNU' : '—',
+                'ok' => $turbidezOk,
+                'origem' => $registo?->transparencia !== null ? 'manual' : 'sem_dados',
+                'idade' => $registo?->transparencia !== null ? $registo->registado_em->locale('pt')->diffForHumans() : '',
+            ];
+
             $getSparklineData = function(?string $origem, string $key) use ($piscina, $device, $historicoManualArray, $historicoSensoresArray) {
                 if (in_array($origem, ['controlador', 'controlador_offline', 'artefacto'])) {
-                    return array_filter($historicoSensoresArray->get($device?->hanna_device_id)?->pluck($key === 'cloro' ? 'orp' : $key)->toArray() ?? [], fn($v) => $v !== null);
+                    return array_filter($historicoSensoresArray->get($device?->hanna_device_id)?->pluck($key === 'redox' ? 'orp' : $key)->toArray() ?? [], fn($v) => $v !== null);
                 } elseif ($origem === 'manual') {
-                    $k = $key === 'cloro' ? 'cloro_livre' : $key;
+                    $k = $key === 'redox' ? 'orp' : ($key === 'livre' ? 'cloro_livre' : $key);
                     return array_filter($historicoManualArray->get($piscina->id)?->pluck($k)->toArray() ?? [], fn($v) => $v !== null);
                 }
                 return [];
             };
 
             $metricas4['ph']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['ph']['origem'], 'ph'));
-            $metricas4['cloro']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['cloro']['origem'], 'cloro'));
+            $metricas4['redox']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['redox']['origem'], 'redox'));
+            $metricas4['livre']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['livre']['origem'], 'livre'));
             $metricas4['combinado']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['combinado']['origem'], 'cloro_combinado'));
             $metricas4['temp']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['temp']['origem'], 'temperatura'));
+            $metricas4['turbidez']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['turbidez']['origem'], 'transparencia'));
 
             return [
                 'piscina' => $piscina,
@@ -480,7 +497,7 @@ class PainelPiscinasWidget extends Widget
                 'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
                 'metricas4' => $metricas4,
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
-                'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['cloro']['valor_orp'] !== null || $metricas4['cloro']['valor_livre'] !== null,
+                'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['redox']['valor'] !== '—' || $metricas4['livre']['valor'] !== '—',
                 'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
             ];
         });
