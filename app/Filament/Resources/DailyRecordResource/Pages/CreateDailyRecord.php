@@ -1,9 +1,8 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
-use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
-use App\Models\DailyRecord;
+use App\Services\DailyRecordService;
 use Filament\Actions\Action;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
@@ -18,11 +17,17 @@ class CreateDailyRecord extends CreateRecord
     
     protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
+        /** @var DailyRecordService $service */
+        $service = app(DailyRecordService::class);
         $user = auth()->user();
-        $service = app(\App\Services\DailyRecordService::class);
+
         $record = $service->createRecords($user, $data);
 
-        return $record ?? static::getModel()::newModelInstance();
+        if ($record === null) {
+            throw new \RuntimeException('Nenhum registo de piscina foi criado.');
+        }
+
+        return $record;
     }
     
     protected function afterCreate(): void
@@ -146,10 +151,6 @@ class CreateDailyRecord extends CreateRecord
                 ->label('Criar')
                 ->action('validarERegistosGuardar')
                 ->keyBindings(['mod+s']),
-            // Nota: NÃO usar ->hidden() aqui — no Filament, isDisabled() inclui
-            // isHidden(), pelo que uma ação hidden() fica também "disabled" e
-            // mountAction() recusa-se a montá-la (unmount imediato, modal nunca abre).
-            // Esconder apenas visualmente via CSS mantém a ação "mountável".
             Action::make('confirmarCriacao')
                 ->label('Confirmar e guardar')
                 ->extraAttributes(['class' => 'hidden'])

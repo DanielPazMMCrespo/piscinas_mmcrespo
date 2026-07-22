@@ -41,8 +41,8 @@ class DailyRecordObserver
         // Invalida gráficos da piscina afetada.
         $this->cacheService->invalidateGraphCache((int) $record->pool_id);
 
-        // Invalida alertas (para todos os utilizadores — conformidade pode ter mudado).
-        $this->cacheService->invalidateAllAlerts();
+        // Invalida alertas globais em background (para não bloquear o Request HTTP)
+        \App\Jobs\InvalidateAlertsJob::dispatch();
 
         // Invalida o cache local temporário do utilizador autenticado
         if (auth()->check()) {

@@ -3,26 +3,23 @@
 namespace App\Services;
 
 use App\Constants\UserRole;
+use App\Jobs\ProcessDailyRecordAfterCreate;
 use App\Models\DailyRecord;
 use App\Models\User;
-use App\Jobs\ProcessDailyRecordAfterCreate;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class DailyRecordService
 {
     /**
-     * Processa e persiste a criação de registos diários para uma ou várias piscinas.
-     * Garante de forma estrita o user_id autenticado no servidor e as permissões de piscina.
-     *
-     * @param User $user Utilizador autenticado
-     * @param array $data Dados brutos de registo
-     * @return DailyRecord|null O último registo criado
+     * Cria os registos diários para uma ou várias piscinas em nome do utilizador autenticado ou especificado.
      */
     public function createRecords(?User $user, array $data): ?DailyRecord
     {
         $userId = $user?->id ?? (isset($data['user_id']) ? (int) $data['user_id'] : null);
+        
         if ($userId === null) {
-            return null;
+            throw new InvalidArgumentException('Utilizador não autenticado ou ID de utilizador ausente.');
         }
 
         $commonData = [
@@ -35,29 +32,21 @@ class DailyRecordService
         }
 
         $poolsData = $data['pools'] ?? [];
-        if (empty($poolsData)) {
-            return null;
-        }
+        $lastRecord = null;
 
-        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if ($user !== null && $user->hasRole(UserRole::NADADOR_SALVADOR)) {
             $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
             foreach (array_keys($poolsData) as $poolId) {
-                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
+                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403, 'Acesso não autorizado a uma ou mais piscinas.');
             }
         }
 
-        $lastRecord = null;
-
         DB::transaction(function () use ($poolsData, $commonData, $userId, &$lastRecord): void {
-            $photoFields = [
-                'bomba_foto', 'contador_foto', 'torneira_foto', 'tanque_foto',
-                'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'
-            ];
-
             foreach ($poolsData as $poolId => $poolData) {
                 $adicoes = $poolData['adicoes'] ?? [];
                 unset($poolData['adicoes']);
 
+                $photoFields = ['bomba_foto', 'contador_foto', 'torneira_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
                 foreach ($photoFields as $pf) {
                     if (isset($poolData[$pf])) {
                         if (is_array($poolData[$pf])) {
@@ -77,9 +66,7 @@ class DailyRecordService
                     $lastRecord->adicoes()->createMany($adicoes);
                 }
 
-                if ($lastRecord) {
-                    ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, $userId);
-                }
+                ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, $userId);
             }
         });
 

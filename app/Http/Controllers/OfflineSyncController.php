@@ -9,14 +9,11 @@ use Illuminate\Support\Facades\Log;
 
 class OfflineSyncController extends Controller
 {
-    public function __construct(
-        private readonly DailyRecordService $dailyRecordService
-    ) {}
-
     /**
      * Recebe um array de registos diários submetidos em modo offline e sincroniza-os com a base de dados.
+     * Utiliza o DailyRecordService para garantir validação de permissões e prevenção de IDOR.
      */
-    public function storeDailyRecords(Request $request): JsonResponse
+    public function storeDailyRecords(Request $request, DailyRecordService $dailyRecordService): JsonResponse
     {
         $user = auth()->user();
         if ($user === null) {
@@ -43,11 +40,12 @@ class OfflineSyncController extends Controller
             }
 
             try {
-                $created = $this->dailyRecordService->createRecords($user, $data);
-                if ($created !== null) {
-                    $poolsCount = count($data['pools'] ?? []);
-                    $syncedCount += max(1, $poolsCount);
-                }
+                $poolsData = $data['pools'] ?? [];
+                $poolCount = count($poolsData);
+
+                $dailyRecordService->createRecords($user, $data);
+                
+                $syncedCount += $poolCount;
 
                 if ($offlineId !== null) {
                     $syncedIds[] = $offlineId;

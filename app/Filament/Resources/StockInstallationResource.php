@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
+use App\Services\StockService;
+use DomainException;
 
 class StockInstallationResource extends Resource
 {
@@ -114,27 +116,24 @@ class StockInstallationResource extends Resource
                             ->required(),
                     ])
                     ->action(function (StockInstallation $record, array $data): void {
-                        DB::transaction(function () use ($record, $data) {
-                            $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
-                            if ($fresh->quantity < $data['quantidade']) {
-                                Notification::make()
-                                    ->danger()
-                                    ->title('Stock insuficiente')
-                                    ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
-                                    ->send();
-
-                                return;
-                            }
-                            $fresh->quantity -= $data['quantidade'];
-                            $fresh->save();
-                            StockInstallationLog::create([
-                                'stock_installation_id' => $fresh->id,
-                                'user_id' => auth()->id(),
-                                'tipo_movimento' => 'consumo',
-                                'quantity' => $data['quantidade'],
-                                'created_at' => now(),
-                            ]);
-                        });
+                        try {
+                            app(StockService::class)->consumeInstallationStock(
+                                $record->id,
+                                (float) $data['quantidade'],
+                                auth()->id()
+                            );
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Consumo registado')
+                                ->send();
+                        } catch (DomainException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Stock insuficiente')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     }),
             ])
             ->bulkActions([

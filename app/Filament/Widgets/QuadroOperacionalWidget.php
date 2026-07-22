@@ -6,7 +6,6 @@ use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Services\AlertasService;
 use Filament\Widgets\Widget;
-use Illuminate\Support\Facades\RateLimiter;
 use Filament\Notifications\Notification;
 
 /**
@@ -42,40 +41,12 @@ class QuadroOperacionalWidget extends Widget
      */
     public function moverAlerta(string $key, string $status): void
     {
-        if (! in_array($status, ['pendente', 'resolvido'], true)) {
-            return;
-        }
-
-        $executed = RateLimiter::attempt(
-            'move_alert_' . auth()->id(),
-            30, // 30 movimentos
-            function () use ($key, $status) {
-                $ativos = \Illuminate\Support\Facades\Cache::remember(
-                    'alertas_' . auth()->id(),
-                    30,
-                    fn () => app(AlertasService::class)->calcular(auth()->user())
-                )['alertas'];
-
-                \Illuminate\Support\Facades\DB::transaction(function () use ($key, $status, $ativos) {
-                    AlertState::updateOrCreate(
-                        ['alert_key' => $key],
-                        [
-                            'status' => $status,
-                            // Snapshot para o cartão continuar legível depois de a condição sumir.
-                            'payload' => $ativos[$key] ?? null,
-                            'moved_by' => auth()->id(),
-                            'moved_at' => now(),
-                        ],
-                    );
-                });
-            },
-            60 // por minuto
-        );
-
-        if (! $executed) {
+        try {
+            app(AlertasService::class)->moverAlerta(auth()->user(), $key, $status);
+        } catch (\DomainException $e) {
             Notification::make()
-                ->title('Muitos movimentos')
-                ->body('Aguarde um momento antes de mover mais cartões.')
+                ->title('Erro ao mover')
+                ->body($e->getMessage())
                 ->warning()
                 ->send();
         }

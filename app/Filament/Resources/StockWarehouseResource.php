@@ -15,6 +15,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
+use App\Services\StockService;
+use DomainException;
 
 class StockWarehouseResource extends Resource
 {
@@ -112,18 +114,17 @@ class StockWarehouseResource extends Resource
                              ->maxLength(255),
                      ])
                      ->action(function (StockWarehouse $record, array $data): void {
-                         DB::transaction(function () use ($record, $data) {
-                             $fresh = StockWarehouse::lockForUpdate()->findOrFail($record->id);
-                             $fresh->quantity += $data['quantidade'];
-                             $fresh->save();
-                             StockWarehouseLog::create([
-                                 'product_id' => $fresh->product_id,
-                                 'user_id' => auth()->id(),
-                                 'tipo_movimento' => 'entrada',
-                                 'quantity' => $data['quantidade'],
-                                 'fornecedor' => $data['observacoes'] ?? null,
-                             ]);
-                         });
+                         app(StockService::class)->addWarehouseStock(
+                             $record->id,
+                             (float) $data['quantidade'],
+                             auth()->id(),
+                             $data['observacoes'] ?? null
+                         );
+                         
+                         Notification::make()
+                             ->success()
+                             ->title('Entrada registada')
+                             ->send();
                      }),
                  Tables\Actions\Action::make('transferir_instalacao')
                      ->label('Transferir p/ Instalação')
@@ -148,28 +149,26 @@ class StockWarehouseResource extends Resource
                             ->maxLength(255),
                     ])
                     ->action(function (StockWarehouse $record, array $data): void {
-                        $success = app(\App\Services\StockService::class)->transferWarehouseStockToInstallation(
-                            $record->id,
-                            (int) $data['installation_id'],
-                            (float) $data['quantidade'],
-                            (int) auth()->id(),
-                            $data['observacoes'] ?? null
-                        );
+                        try {
+                            app(StockService::class)->transferToInstallation(
+                                $record->id,
+                                $data['installation_id'],
+                                (float) $data['quantidade'],
+                                auth()->id(),
+                                $data['observacoes'] ?? null
+                            );
 
-                        if (! $success) {
+                            Notification::make()
+                                ->success()
+                                ->title('Transferência concluída')
+                                ->send();
+                        } catch (DomainException $e) {
                             Notification::make()
                                 ->danger()
-                                ->title('Stock insuficiente no armazém')
-                                ->body("Disponível: {$record->fresh()->quantity}. Pedido: {$data['quantidade']}.")
+                                ->title('Erro na transferência')
+                                ->body($e->getMessage())
                                 ->send();
-
-                            return;
                         }
-
-                        Notification::make()
-                            ->success()
-                            ->title('Transferência concluída')
-                            ->send();
                     }),
             ])
             ->bulkActions([

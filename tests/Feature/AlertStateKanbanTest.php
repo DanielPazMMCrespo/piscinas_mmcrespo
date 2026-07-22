@@ -46,22 +46,23 @@ class AlertStateKanbanTest extends TestCase
 
     private function mockAlertasWithKey(string $key): void
     {
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn([
-                'alertas' => [
-                    $key => [
-                        'nivel'  => AlertLevel::VERMELHO,
-                        'icone'  => 'heroicon-o-clipboard',
-                        'titulo' => 'Teste',
-                        'detalhe' => 'detalhe',
-                        'url'    => '/admin',
-                        'acao'   => 'Ver',
+        $this->partialMock(AlertasService::class, function ($mock) use ($key) {
+            $mock->shouldReceive('calcular')
+                ->andReturn([
+                    'alertas' => [
+                        $key => [
+                            'nivel'  => AlertLevel::VERMELHO,
+                            'icone'  => 'heroicon-o-clipboard',
+                            'titulo' => 'Teste',
+                            'detalhe' => 'detalhe',
+                            'url'    => '/admin',
+                            'acao'   => 'Ver',
+                        ],
                     ],
-                ],
-                'totalPiscinas' => 1,
-                'conformesHoje' => 0,
-            ]);
+                    'totalPiscinas' => 1,
+                    'conformesHoje' => 0,
+                ]);
+        });
     }
 
     public function test_mover_alerta_persists_state(): void
@@ -157,9 +158,10 @@ class AlertStateKanbanTest extends TestCase
         ]);
 
         // Alertas vazios: condição desapareceu
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        $this->partialMock(AlertasService::class, function ($mock) {
+            $mock->shouldReceive('calcular')
+                 ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        });
 
         Livewire::actingAs($admin)
             ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class);
@@ -186,9 +188,10 @@ class AlertStateKanbanTest extends TestCase
 
         $admin = $this->adminUser();
 
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        $this->partialMock(AlertasService::class, function ($mock) {
+            $mock->shouldReceive('calcular')
+                 ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        });
 
         Livewire::actingAs($admin)
             ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class);

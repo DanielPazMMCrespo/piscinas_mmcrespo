@@ -1,52 +1,48 @@
 <?php declare(strict_types=1);
-
 namespace App\Services;
 
-use App\Models\StockInstallation;
-use App\Models\StockInstallationLog;
 use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
+use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
 use Illuminate\Support\Facades\DB;
+use DomainException;
 
+/**
+ * Serviço responsável por toda a gestão de movimentos de Stock.
+ * Encapsula transações da BD, isolando a lógica de negócio do UI (Filament).
+ */
 class StockService
 {
     /**
-     * Regista uma entrada de stock no armazém central.
+     * Dá entrada de stock no armazém principal.
      */
-    public function addWarehouseStock(int $warehouseStockId, float $quantidade, int $userId, ?string $observacoes = null): void
+    public function addWarehouseStock(int|string $warehouseId, float $quantity, int|string $userId, ?string $observacoes = null): void
     {
-        DB::transaction(function () use ($warehouseStockId, $quantidade, $userId, $observacoes): void {
-            $fresh = StockWarehouse::lockForUpdate()->findOrFail($warehouseStockId);
-            $fresh->quantity += $quantidade;
+        DB::transaction(function () use ($warehouseId, $quantity, $userId, $observacoes) {
+            $fresh = StockWarehouse::lockForUpdate()->findOrFail($warehouseId);
+            $fresh->quantity += $quantity;
             $fresh->save();
 
             StockWarehouseLog::create([
                 'product_id' => $fresh->product_id,
                 'user_id' => $userId,
                 'tipo_movimento' => 'entrada',
-                'quantity' => $quantidade,
+                'quantity' => $quantity,
                 'fornecedor' => $observacoes,
             ]);
         });
     }
 
     /**
-     * Transfer stock do armazém central para uma instalação.
-     * Retorna true se a transferência for bem-sucedida, false se o stock for insuficiente.
+     * Transfere stock do armazém principal para uma instalação específica.
+     * 
+     * @throws DomainException Se o stock no armazém for insuficiente.
      */
-    public function transferWarehouseStockToInstallation(
-        int $warehouseStockId,
-        int $installationId,
-        float $quantidade,
-        int $userId,
-        ?string $observacoes = null
-    ): bool {
-        return DB::transaction(function () use ($warehouseStockId, $installationId, $quantidade, $userId, $observacoes): bool {
-            $freshArmazem = StockWarehouse::lockForUpdate()->findOrFail($warehouseStockId);
-
-            if ($freshArmazem->quantity < $quantidade) {
-                return false;
-            }
+    public function transferToInstallation(int|string $warehouseId, int|string $installationId, float $quantity, int|string $userId, ?string $observacoes = null): void
+    {
+        DB::transaction(function () use ($warehouseId, $installationId, $quantity, $userId, $observacoes) {
+            $freshArmazem = StockWarehouse::lockForUpdate()->findOrFail($warehouseId);
 
             $stockInstalacao = StockInstallation::firstOrCreate(
                 [
@@ -61,29 +57,58 @@ class StockService
 
             $stockInstalacao = StockInstallation::lockForUpdate()->findOrFail($stockInstalacao->id);
 
-            $freshArmazem->quantity -= $quantidade;
+            if ($freshArmazem->quantity < $quantity) {
+                throw new DomainException("Stock insuficiente no armazém. Disponível: {$freshArmazem->quantity}. Pedido: {$quantity}.");
+            }
+
+            $freshArmazem->quantity -= $quantity;
             $freshArmazem->save();
 
             StockWarehouseLog::create([
                 'product_id' => $freshArmazem->product_id,
                 'user_id' => $userId,
                 'tipo_movimento' => 'saida',
-                'quantity' => $quantidade,
+                'quantity' => $quantity,
                 'fornecedor' => $observacoes,
             ]);
 
-            $stockInstalacao->quantity += $quantidade;
+            $stockInstalacao->quantity += $quantity;
             $stockInstalacao->save();
 
             StockInstallationLog::create([
                 'stock_installation_id' => $stockInstalacao->id,
                 'user_id' => $userId,
                 'tipo_movimento' => 'entrada',
-                'quantity' => $quantidade,
+                'quantity' => $quantity,
                 'created_at' => now(),
             ]);
+        });
+    }
 
-            return true;
+    /**
+     * Consome (reduz) stock manualmente de uma instalação.
+     * 
+     * @throws DomainException Se o stock na instalação for insuficiente.
+     */
+    public function consumeInstallationStock(int|string $stockInstallationId, float $quantity, int|string $userId): void
+    {
+        DB::transaction(function () use ($stockInstallationId, $quantity, $userId) {
+            $fresh = StockInstallation::lockForUpdate()->findOrFail($stockInstallationId);
+            
+            if ($fresh->quantity < $quantity) {
+                throw new DomainException("Stock insuficiente na instalação. Disponível: {$fresh->quantity}. Pedido: {$quantity}.");
+            }
+
+            $fresh->quantity -= $quantity;
+            $fresh->save();
+
+            StockInstallationLog::create([
+                'stock_installation_id' => $fresh->id,
+                'user_id' => $userId,
+                'tipo_movimento' => 'consumo',
+                'quantity' => $quantity,
+                'created_at' => now(),
+            ]);
         });
     }
 }

@@ -12,6 +12,7 @@ use App\Filament\Resources\StockInstallationResource;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\Pool;
+use App\Models\AlertState;
 use App\Models\StockInstallation;
 use App\Models\TapAlert;
 use App\Models\User;
@@ -42,6 +43,44 @@ class AlertasService
     public static function resetMemo(): void
     {
         self::$memo = [];
+    }
+
+    /**
+     * Move um alerta entre pendente e resolvido (Kanban).
+     *
+     * @throws \DomainException Se houver demasiados movimentos (Rate Limiting).
+     */
+    public function moverAlerta(User $user, string $key, string $status): void
+    {
+        if (! in_array($status, ['pendente', 'resolvido'], true)) {
+            return;
+        }
+
+        $executed = \Illuminate\Support\Facades\RateLimiter::attempt(
+            'move_alert_' . $user->id,
+            30, // 30 movimentos
+            function () use ($user, $key, $status) {
+                // Recupera do cache (garantido pela chamada do widget antes) ou recalcula se necessário
+                $ativos = $this->calcular($user)['alertas'];
+
+                DB::transaction(function () use ($user, $key, $status, $ativos) {
+                    AlertState::updateOrCreate(
+                        ['alert_key' => $key],
+                        [
+                            'status' => $status,
+                            'payload' => $ativos[$key] ?? null,
+                            'moved_by' => $user->id,
+                            'moved_at' => now(),
+                        ],
+                    );
+                });
+            },
+            60 // por minuto
+        );
+
+        if (! $executed) {
+            throw new \DomainException('Muitos movimentos. Aguarde um momento antes de mover mais cartões.');
+        }
     }
 
     /**
