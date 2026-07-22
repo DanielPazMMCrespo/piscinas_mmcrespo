@@ -77,7 +77,9 @@ class DailyRecordService
                     $lastRecord->adicoes()->createMany($adicoes);
                 }
 
-                ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, (int) $user->id);
+                if ($lastRecord) {
+                    ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, $userId);
+                }
             }
         });
 
