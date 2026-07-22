@@ -48,7 +48,7 @@ class DailyRecordService
 
         $lastRecord = null;
 
-        DB::transaction(function () use ($poolsData, $commonData, $user, &$lastRecord): void {
+        DB::transaction(function () use ($poolsData, $commonData, $userId, &$lastRecord): void {
             $photoFields = [
                 'bomba_foto', 'contador_foto', 'torneira_foto', 'tanque_foto',
                 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'
