@@ -1,5 +1,7 @@
 <x-filament-widgets::widget>
-    @php($dados = $this->getDados())
+    @php
+        $dados = $this->getDados();
+    @endphp
 
     <x-filament::section icon="heroicon-o-scale">
         <x-slot name="heading">
