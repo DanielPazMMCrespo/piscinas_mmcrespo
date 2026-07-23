@@ -22,6 +22,10 @@ class StockService
      */
     public function addWarehouseStock(int|string $warehouseId, float $quantity, int|string $userId, ?string $observacoes = null): void
     {
+        if ($quantity <= 0) {
+            throw new DomainException('A quantidade de entrada tem de ser positiva.');
+        }
+
         DB::transaction(function () use ($warehouseId, $quantity, $userId, $observacoes) {
             $fresh = StockWarehouse::lockForUpdate()->findOrFail($warehouseId);
             $fresh->quantity += $quantity;
@@ -44,6 +48,10 @@ class StockService
      */
     public function transferToInstallation(int|string $warehouseId, int|string $installationId, float $quantity, int|string $userId, ?string $observacoes = null): void
     {
+        if ($quantity <= 0) {
+            throw new DomainException('A quantidade a transferir tem de ser positiva.');
+        }
+
         DB::transaction(function () use ($warehouseId, $installationId, $quantity, $userId, $observacoes) {
             $freshArmazem = StockWarehouse::lockForUpdate()->findOrFail($warehouseId);
 

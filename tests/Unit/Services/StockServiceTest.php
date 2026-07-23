@@ -7,6 +7,7 @@ namespace Tests\Unit\Services;
 use App\Models\Installation;
 use App\Models\Product;
 use App\Models\StockInstallation;
+use App\Models\StockWarehouse;
 use App\Models\User;
 use App\Services\StockService;
 use DomainException;
@@ -53,5 +54,28 @@ class StockServiceTest extends TestCase
         $this->expectException(DomainException::class);
 
         app(StockService::class)->addInstallationStock($stock->id, 0.0, $user->id);
+    }
+
+    public function test_add_warehouse_stock_rejects_non_positive(): void
+    {
+        $product = Product::factory()->create();
+        $warehouse = StockWarehouse::create(['product_id' => $product->id, 'quantity' => 10.0]);
+        $user = User::factory()->create();
+
+        $this->expectException(DomainException::class);
+
+        app(StockService::class)->addWarehouseStock($warehouse->id, -1.0, $user->id);
+    }
+
+    public function test_transfer_rejects_non_positive(): void
+    {
+        $installation = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $product = Product::factory()->create();
+        $warehouse = StockWarehouse::create(['product_id' => $product->id, 'quantity' => 10.0]);
+        $user = User::factory()->create();
+
+        $this->expectException(DomainException::class);
+
+        app(StockService::class)->transferToInstallation($warehouse->id, $installation->id, 0.0, $user->id);
     }
 }

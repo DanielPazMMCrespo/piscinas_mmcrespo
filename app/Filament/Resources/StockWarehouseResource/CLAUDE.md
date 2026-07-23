@@ -26,4 +26,4 @@ Stock centralizado no armazém municipal (um registo por produto). Acesso Admin+
 `app/Services/StockService.php` — `addWarehouseStock()`, `transferToInstallation()`, `consumeInstallationStock()`, todos com `DB::transaction`+`lockForUpdate`. Só usado por estas duas Resources (as ações "Entrada"/"Transferir"/"Consumo Manual"). **Não** é chamado por `ProcessDailyRecordAfterCreate::descontarStock()`, que reimplementa a lógica de consumo à parte (ver StockInstallationResource/CLAUDE.md).
 
 - `transferToInstallation()` faz `firstOrCreate` + um `lockForUpdate()->findOrFail()` **separado** sobre o registo recém-criado — dois round-trips à BD onde um único lock inicial bastaria (redundante, não incorreto).
-- Sem validação de `$quantity > 0` dentro do próprio serviço (só nas regras do formulário Filament) — se chamado de outro contexto (comando, API), nada impede quantidade zero/negativa.
+- ~~Sem validação de `$quantity > 0` dentro do próprio serviço~~ — **resolvido**: `addWarehouseStock`, `transferToInstallation` e `addInstallationStock` lançam `DomainException` para quantidade não-positiva, independentes das regras do formulário.
