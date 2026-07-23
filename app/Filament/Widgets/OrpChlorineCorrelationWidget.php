@@ -20,7 +20,6 @@ class OrpChlorineCorrelationWidget extends ChartWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected static bool $isDiscovered = false;
 
     protected static ?string $maxHeight = '400px';
 
