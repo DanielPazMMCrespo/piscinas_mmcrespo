@@ -559,33 +559,37 @@ class DailyRecordFormBuilder
                                     Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
                                         ->hiddenLabel()
                                         ->columnSpanFull()
-                                        ->visible(fn (): bool => self::sondaFresca($pool) !== null)
                                         ->content(function () use ($pool): ?HtmlString {
                                             $sonda = self::sondaFresca($pool);
-                                            if ($sonda === null) {
-                                                return null;
+                                            if ($sonda !== null) {
+                                                $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
+                                                $partes = [];
+                                                if ($sonda->ph !== null) {
+                                                    $partes[] = 'pH <strong>'.$fmt((float) $sonda->ph).'</strong>';
+                                                }
+                                                if ($sonda->orp !== null) {
+                                                    $partes[] = 'ORP <strong>'.$fmt((float) $sonda->orp, 0).' mV</strong>';
+                                                }
+                                                if ($sonda->temperatura_agua !== null) {
+                                                    $partes[] = '<strong>'.$fmt((float) $sonda->temperatura_agua, 1).' °C</strong>';
+                                                }
+                                                if ($partes === []) {
+                                                    return null;
+                                                }
+
+                                                $idade = (int) $sonda->lida_em->diffInMinutes(now());
+
+                                                return new HtmlString(
+                                                    '<div class="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-900 dark:text-sky-200 text-sm">'
+                                                    .'📡 Sonda agora: '.implode(' · ', $partes)." — há {$idade} min. Compare a sua análise com estes valores."
+                                                    .'</div>'
+                                                );
                                             }
 
-                                            $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
-                                            $partes = [];
-                                            if ($sonda->ph !== null) {
-                                                $partes[] = 'pH <strong>'.$fmt((float) $sonda->ph).'</strong>';
-                                            }
-                                            if ($sonda->orp !== null) {
-                                                $partes[] = 'ORP <strong>'.$fmt((float) $sonda->orp, 0).' mV</strong>';
-                                            }
-                                            if ($sonda->temperatura_agua !== null) {
-                                                $partes[] = '<strong>'.$fmt((float) $sonda->temperatura_agua, 1).' °C</strong>';
-                                            }
-                                            if ($partes === []) {
-                                                return null;
-                                            }
-
-                                            $idade = (int) $sonda->lida_em->diffInMinutes(now());
-
+                                            // Fallback: mostrar feedback quando sonda não está disponível
                                             return new HtmlString(
-                                                '<div class="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-900 dark:text-sky-200 text-sm">'
-                                                .'📡 Sonda agora: '.implode(' · ', $partes)." — há {$idade} min. Compare a sua análise com estes valores."
+                                                '<div class="p-2 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">'
+                                                .'ℹ️ Sonda Hanna não disponível. Introduza a sua própria análise.'
                                                 .'</div>'
                                             );
                                         }),
