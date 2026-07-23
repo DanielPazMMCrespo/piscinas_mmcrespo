@@ -7,17 +7,15 @@ CRUD de piscinas dentro de uma instalação — os dados físicos (volume, limit
 
 ## Estrutura de dados
 - `installation_id`, `name`, `type` (texto livre, ex. Interior/Exterior/Infantil — não é enum), `temp_min`/`temp_max` (obrigatórios), `orp_min`/`orp_max` (opcionais, só com placeholder "660"/"750" — **não gravam esse valor se ficarem vazios**, o fallback tem de estar implementado noutro sítio em runtime), `volume` (usado na calculadora de dosagem), `active`.
-- `$fillable` do model inclui `ordem_bombas`/`ordem_filtros`, que **não aparecem no formulário** — geridos noutro lado ou dead code.
+- `$fillable` do model inclui `ordem_bombas`/`ordem_filtros`, que **não aparecem no formulário** — não são dead code: `DailyRecordFormBuilder` usa-os para ordenar as piscinas nos passos de Bomba/Filtros. Só não são editáveis na UI (set via seed/tinker).
 - `nomeCompleto()`: concatena instalação + piscina, exceto se forem iguais.
-- Hook `deleting`: apaga manualmente `tap_alerts`, `sensor_readings` e `bidoesDosagem()` associados (queries diretas, não cascade); `registosDiarios()` **não** é limpo.
+- Hook `deleting`: apaga `filter_checks` (FK RESTRICT — obrigatório), `tap_alerts`, `sensor_readings`, `bidoesDosagem()`. `daily_records`/`operational_actions`/`user_pools` têm `cascadeOnDelete` na BD, logo caem sozinhos.
 
 ## Ações
-Ver, Editar, Eliminar (bulk, **sem** confirmação extra nem bloqueio por dados associados).
+Ver, Editar, Eliminar (bulk, com aviso de cascata no modal de confirmação).
 
 ## Coisas resolvidas
 - ✓ **`canAccess()` agora usa null-safe operator**: consistente com UserResource e outras páginas.
-
-## Coisas a rever
-- `orp_min`/`orp_max` só têm placeholder, não `->default()` — confirmar onde está o fallback real de 660/750 quando o campo fica null.
-- Ao apagar uma Pool, `sensor_readings`/`tap_alerts`/bidões são limpos mas `registosDiarios()` fica — inconsistência dentro do próprio hook.
-- `$fillable` inclui `ordem_bombas`/`ordem_filtros` mas não aparecem no formulário — dead code ou geridos noutro lado?
+- ✓ **`filter_checks` no hook de delete**: `filter_checks.pool_id` é `constrained()` sem cascade (RESTRICT) — apagar uma piscina com verificações rebentava com FK violation em PostgreSQL. O hook agora apaga-as primeiro.
+- ✓ **Aviso de cascata**: o modal de eliminação lista o que é apagado em cascata.
+- ✓ **`orp_min`/`orp_max` sem default confirmado como intencional**: null = usar o range padrão do BL132 (660/750). O fallback `?? 660/750` está aplicado em `PainelPiscinasWidget` e `EsquemaPiscina` onde o ORP é avaliado. (Nota: a constante 660/750 está duplicada nesses dois sítios + `CloroPhChartWidget` — candidato a `WaterQualityThresholds`.)

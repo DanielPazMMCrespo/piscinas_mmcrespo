@@ -25,7 +25,13 @@ class Installation extends Model
     {
         static::deleting(function (Installation $installation): void {
             $installation->incidentes()->delete();
-            $installation->piscinas()->delete();
+            // Apagar piscina a piscina (não `piscinas()->delete()` em massa) para
+            // disparar o hook Pool::deleting de cada uma — senão os filhos das
+            // piscinas (filter_checks, tap_alerts, sensor_readings, bidões) ficam
+            // órfãos ou rebentam com FK violation.
+            $installation->piscinas->each(function (Pool $pool): void {
+                $pool->delete();
+            });
             // stock_installation_logs.stock_installation_id é restrictOnDelete();
             // sem apagar primeiro os logs, qualquer instalação com histórico de
             // stock (o caso normal) falha a eliminação com violação de FK.

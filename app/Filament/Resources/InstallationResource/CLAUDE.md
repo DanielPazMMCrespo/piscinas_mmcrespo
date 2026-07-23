@@ -8,15 +8,15 @@ CRUD do nível hierárquico acima de Pool (instalação municipal com várias pi
 ## Estrutura de dados
 - Form simples: `name`, `morada`, `active`.
 - `$fillable` do model inclui `tanques_verificaveis` (bool), que **não existe no formulário** — decide se a instalação exige registo de "verificações de tanque" (usado em `EsquemaPiscina`/`DailyRecordResource`), configurado só por seed/tinker.
-- Hook `deleting`: apaga em cascata `incidentes()`, depois (por causa de FK `restrictOnDelete`) apaga primeiro os `registos()` de cada `stockInstallation` antes de apagar o próprio `stockInstallation`. `piscinas()` é apagada via query builder direta.
+- Hook `deleting`: apaga `incidentes()`; depois cada piscina **uma a uma** (`piscinas->each->delete()`) para disparar o hook `Pool::deleting` de cada (limpa filter_checks/tap_alerts/sensor_readings/bidões); depois (FK `restrictOnDelete`) apaga os `registos()` de cada `stockInstallation` antes do próprio `stockInstallation`.
 
 ## Ações
-Ver, Editar, Eliminar (bulk, sem confirmação/bloqueio).
+Ver, Editar, Eliminar (bulk, com aviso de cascata no modal).
 
 ## Coisas resolvidas
 - ✓ **`canAccess()` agora usa null-safe operator**: consistente com UserResource e outras páginas.
+- ✓ **Cascade das piscinas corrigido**: era `piscinas()->delete()` em massa (não disparava `Pool::deleting`), deixando `tap_alerts`/`sensor_readings`/bidões órfãos e rebentando no `filter_checks` RESTRICT. Agora apaga piscina a piscina, disparando o hook de cada.
+- ✓ **Aviso de cascata no modal de eliminação**.
 
 ## Coisas a rever
-- **`tanques_verificaveis` não é exposto no formulário Filament** — se precisares de mudar isto por instalação, tem de ser via tinker/seed, não pela UI.
-- Apagar uma Instalação com piscinas associadas **não** dispara o hook `deleting` do model `Pool` (delete em massa via query builder não dispara eventos por registo) — `tap_alerts`/`sensor_readings`/bidões dessas piscinas ficam órfãos, ao contrário de quando se apaga uma Pool isoladamente pelo `PoolResource`.
-- Eliminar não tem confirmação/aviso do impacto (contraste com as salvaguardas do UserResource).
+- **`tanques_verificaveis` não é exposto no formulário Filament** — se precisares de mudar isto por instalação, tem de ser via tinker/seed, não pela UI. (Gap menor, deixado por decidir se vale expor.)
