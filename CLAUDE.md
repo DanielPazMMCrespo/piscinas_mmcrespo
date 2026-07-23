@@ -64,7 +64,7 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 
 - `app/Filament/Resources/DailyRecordResource/CLAUDE.md`, `IncidentResource/CLAUDE.md`, `OperationalActionResource/CLAUDE.md`
 - `app/Filament/Resources/StockWarehouseResource/CLAUDE.md` (+ StockService), `StockInstallationResource/CLAUDE.md`, `ProductResource/CLAUDE.md`, `DosingContainerResource/CLAUDE.md`, `StockWarehouseLogResource/CLAUDE.md`, `StockInstallationLogResource/CLAUDE.md`
-- `app/Filament/Resources/UserResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
+- `app/Filament/Resources/UserResource/CLAUDE.md`, `UserInvitationResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
 - `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `esquema-piscina.md`, `notificacoes.md`, `operacao-hub.md`, `relatorio-pdf.md`, `auth-login.md`
 
 ## Operação
@@ -86,6 +86,7 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 - **Definições** (`DefinicoesSistema`, admin only): limites regulamentares CN 14/DA (pH, cloro livre, cloro combinado, turbidez, tolerância de aviso), tempos/prazos (validade de leitura, timeout de sonda, validade de convite, aviso de torneira aberta, horários de digest), automação operacional (fator de compensação de dosagem, etc.). Cada campo já tem `helperText` com o valor padrão — a fonte de verdade dos números é este ficheiro de código + `AppSetting`, não este documento.
 - **Notificações** (`Notificacoes`): três coisas na mesma página — ativação de push neste dispositivo, zona de testes, e Notificações Personalizadas (broadcast manual por cargo ou utilizador). Uso real: avisos operacionais (piscina fechada, trocar produto no armazém) e lembretes administrativos (reuniões, RH).
 - **Utilizadores** (`UserResource`, admin/gestor): gestão de contas + convites (`UserInvitation`/`InvitationService`, token expira em `convite_validade_horas`). Nadador-Salvador pode ter piscinas pré-atribuídas no convite.
+- **Convites** (`UserInvitationResource`, admin/gestor): lista convites pendentes/expirados/aceites; ações "Reenviar" (regenera token + reenvia email) e "Revogar".
 - **Sensores Hanna** (`HannaDeviceResource`, admin only): mapeamento dispositivo Hanna Cloud → piscina. `php artisan hanna:sync --discover` lista os dispositivos da conta e cria/atualiza este mapeamento.
 
 ## Estrutura
