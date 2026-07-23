@@ -122,7 +122,7 @@ class DefinicoesSistema extends Page
                             ->label('Aviso de Torneira Aberta (Horas)')
                             ->numeric()
                             ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
-                        \Filament\Forms\Components\Select::make('digest_conformidade_horas')
+                        Select::make('digest_conformidade_horas')
                             ->label('Horários do Resumo de Conformidade (Máx. 4)')
                             ->options([
                                 '06:00' => '06:00',
