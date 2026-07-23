@@ -104,11 +104,37 @@ class OperationalActionResource extends Resource
                 ->seconds(false)
                 ->required(),
 
-            // Lavagem / enxaguamento de filtro: duração opcional em minutos.
+            // Lavagem / enxaguamento de filtro.
+            Forms\Components\TextInput::make('dados.filtro_nome')
+                ->label('Identificação do filtro (opcional)')
+                ->placeholder('Ex.: Filtro 1, Filtro Principal')
+                ->visible(fn (Get $get) => in_array($get('tipo'), [
+                    OperationalAction::TIPO_LAVAGEM_FILTRO,
+                    OperationalAction::TIPO_ENXAGUAMENTO_FILTRO,
+                ], true)),
+
             Forms\Components\TextInput::make('dados.duracao_min')
                 ->label('Duração (min)')
                 ->numeric()->minValue(0)->step(1)
                 ->extraInputAttributes(['inputmode' => 'numeric'])
+                ->visible(fn (Get $get) => in_array($get('tipo'), [
+                    OperationalAction::TIPO_LAVAGEM_FILTRO,
+                    OperationalAction::TIPO_ENXAGUAMENTO_FILTRO,
+                ], true)),
+
+            Forms\Components\TextInput::make('dados.pressao_antes_bar')
+                ->label('Pressão inicial (bar)')
+                ->numeric()->minValue(0)->step(0.01)
+                ->extraInputAttributes(['inputmode' => 'decimal'])
+                ->visible(fn (Get $get) => in_array($get('tipo'), [
+                    OperationalAction::TIPO_LAVAGEM_FILTRO,
+                    OperationalAction::TIPO_ENXAGUAMENTO_FILTRO,
+                ], true)),
+
+            Forms\Components\TextInput::make('dados.pressao_depois_bar')
+                ->label('Pressão final (bar)')
+                ->numeric()->minValue(0)->step(0.01)
+                ->extraInputAttributes(['inputmode' => 'decimal'])
                 ->visible(fn (Get $get) => in_array($get('tipo'), [
                     OperationalAction::TIPO_LAVAGEM_FILTRO,
                     OperationalAction::TIPO_ENXAGUAMENTO_FILTRO,
@@ -128,6 +154,21 @@ class OperationalActionResource extends Resource
                 ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TORNEIRA),
 
             // Bomba.
+            Forms\Components\TextInput::make('dados.bomba_nome')
+                ->label('Identificação da bomba (opcional)')
+                ->placeholder('Ex.: Bomba 1, Recirculação')
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_BOMBA),
+
+            Forms\Components\Select::make('dados.bomba_acao')
+                ->label('Ação realizada')
+                ->options([
+                    'ferragem' => 'Ferragem de bomba',
+                    'limpeza_pre_filtro' => 'Limpeza de pré-filtro',
+                    'paragem_arranque' => 'Paragem / Arranque',
+                    'manutencao' => 'Manutenção / Reparação',
+                ])
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_BOMBA),
+
             Forms\Components\Toggle::make('dados.bomba_ferrada')
                 ->label('Bomba ferrada')
                 ->default(true)
@@ -142,6 +183,17 @@ class OperationalActionResource extends Resource
                 ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_CONTADOR),
 
             // Tanque.
+            Forms\Components\TextInput::make('dados.tanque_nome')
+                ->label('Identificação do tanque')
+                ->placeholder('Ex.: Tanque de Compensação')
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TANQUE),
+
+            Forms\Components\TextInput::make('dados.tanque_nivel_pct')
+                ->label('Nível estimado (%)')
+                ->numeric()->minValue(0)->maxValue(100)->step(1)
+                ->extraInputAttributes(['inputmode' => 'numeric'])
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TANQUE),
+
             Forms\Components\Toggle::make('dados.tanque_ok')
                 ->label('Tanque OK')
                 ->default(true)
@@ -149,10 +201,13 @@ class OperationalActionResource extends Resource
 
             // Reabastecimento de bidão.
             Forms\Components\Select::make('dados.bidao_tipo')
-                ->label('Tipo de bidão')
+                ->label('Tipo de bidão / produto')
                 ->options([
                     DosingContainer::TIPO_CLORO => 'Cloro',
                     DosingContainer::TIPO_PH_MENOS => 'pH-',
+                    'coagulante' => 'Coagulante / Floculante',
+                    'ph_mais' => 'pH+',
+                    'anti_algas' => 'Anti-algas',
                     'ambos' => 'Ambos (Cloro e pH-)',
                 ])
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
@@ -184,6 +239,19 @@ class OperationalActionResource extends Resource
                     ? 'Deixe em branco para encher ambos os bidões até às respetivas capacidades totais.'
                     : 'Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
 
+            // Tratamento de choque.
+            Forms\Components\TextInput::make('dados.produto')
+                ->label('Produto utilizado')
+                ->placeholder('Ex.: Hipoclorito de Cálcio / Cloro Choque')
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TRATAMENTO_CHOQUE)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TRATAMENTO_CHOQUE),
+
+            Forms\Components\TextInput::make('dados.quantidade')
+                ->label('Quantidade / Dose')
+                ->placeholder('Ex.: 5 kg, 10 L')
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TRATAMENTO_CHOQUE)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_TRATAMENTO_CHOQUE),
+
             // Análise rápida (parcial): pelo menos um parâmetro.
             Forms\Components\Fieldset::make('Valores medidos')
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_ANALISE_PONTUAL)
@@ -191,31 +259,45 @@ class OperationalActionResource extends Resource
                     Forms\Components\TextInput::make('dados.ph')
                         ->label('pH')->numeric()->step(0.01)
                         ->extraInputAttributes(['inputmode' => 'decimal'])
-                        ->rules([
-                            fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                $preenchido = filled($value)
-                                    || filled($get('dados.cloro_livre'))
-                                    || filled($get('dados.cloro_total'))
-                                    || filled($get('dados.temperatura'));
-                                if (! $preenchido) {
-                                    $fail('Preencha pelo menos um valor na análise rápida.');
-                                }
-                            },
+                        ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_ANALISE_PONTUAL
+                            && !filled($get('dados.cloro_livre'))
+                            && !filled($get('dados.cloro_total'))
+                            && !filled($get('dados.orp'))
+                            && !filled($get('dados.temperatura'))
+                        )
+                        ->validationMessages([
+                            'required' => 'Preencha pelo menos um valor na análise rápida.',
                         ]),
                     Forms\Components\TextInput::make('dados.cloro_livre')
-                        ->label('Cl livre')->numeric()->step(0.01)
+                        ->label('Cl livre (mg/L)')->numeric()->step(0.01)
                         ->extraInputAttributes(['inputmode' => 'decimal']),
                     Forms\Components\TextInput::make('dados.cloro_total')
-                        ->label('Cl total')->numeric()->step(0.01)
+                        ->label('Cl total (mg/L)')->numeric()->step(0.01)
                         ->extraInputAttributes(['inputmode' => 'decimal']),
+                    Forms\Components\TextInput::make('dados.orp')
+                        ->label('ORP (mV)')->numeric()->step(1)
+                        ->extraInputAttributes(['inputmode' => 'numeric']),
                     Forms\Components\TextInput::make('dados.temperatura')
-                        ->label('Temp')->numeric()->step(0.01)
+                        ->label('Temp (°C)')->numeric()->step(0.1)
                         ->extraInputAttributes(['inputmode' => 'decimal']),
-                ])->columns(['default' => 2, 'sm' => 4]),
+                ])->columns(['default' => 2, 'sm' => 5]),
 
             Forms\Components\Textarea::make('observacoes')
                 ->label('Observações')
                 ->rows(3)
+                ->required(fn (Get $get) => in_array($get('tipo'), [
+                    OperationalAction::TIPO_OUTRO,
+                    OperationalAction::TIPO_LIMPEZA_PRAIAS,
+                    OperationalAction::TIPO_ASPIRACAO_FUNDO,
+                    OperationalAction::TIPO_MANUTENCAO_EQUIPAMENTO,
+                ], true))
+                ->helperText(fn (Get $get) => match ($get('tipo')) {
+                    OperationalAction::TIPO_OUTRO => 'Descreva detalhadamente a ação realizada.',
+                    OperationalAction::TIPO_LIMPEZA_PRAIAS => 'Especifique as zonas limpas ou desinfetadas.',
+                    OperationalAction::TIPO_ASPIRACAO_FUNDO => 'Indique se usou robô ou aspiração manual.',
+                    OperationalAction::TIPO_MANUTENCAO_EQUIPAMENTO => 'Descreva o equipamento e o trabalho efetuado.',
+                    default => null,
+                })
                 ->columnSpanFull(),
 
             Forms\Components\FileUpload::make('foto')
@@ -283,7 +365,13 @@ class OperationalActionResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('observacoes')
                     ->label('Observações')
+                    ->searchable()
                     ->limit(40)
+                    ->toggleable(),
+                Tables\Columns\IconColumn::make('foto')
+                    ->label('Foto')
+                    ->icon('heroicon-o-camera')
+                    ->boolean(fn ($record) => filled($record->foto))
                     ->toggleable(),
             ])
             ->filters([
@@ -293,6 +381,16 @@ class OperationalActionResource extends Resource
                 Tables\Filters\SelectFilter::make('pool_id')
                     ->label('Piscina')
                     ->options(fn () => self::piscinasOptions()),
+                Tables\Filters\Filter::make('registado_em')
+                    ->form([
+                        Forms\Components\DatePicker::make('data_de')->label('Desde'),
+                        Forms\Components\DatePicker::make('data_ate')->label('Até'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['data_de'] ?? null, fn (Builder $query, $date) => $query->whereDate('registado_em', '>=', $date))
+                            ->when($data['data_ate'] ?? null, fn (Builder $query, $date) => $query->whereDate('registado_em', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

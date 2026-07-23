@@ -210,4 +210,27 @@ class LeituraArtefactoServiceTest extends TestCase
         $checkTimeOutside = Carbon::parse('2026-07-19 11:30:00');
         $this->assertNull($this->service->motivoEm($this->pool->id, $checkTimeOutside));
     }
+    public function test_creates_artifact_window_for_filter_check_action(): void
+    {
+        $start = Carbon::parse('2026-07-19 10:00:00');
+        $end = Carbon::parse('2026-07-19 12:00:00');
+        $actionTime = Carbon::parse('2026-07-19 11:00:00');
+
+        $user = User::factory()->create();
+
+        \App\Models\FilterCheck::create([
+            'pool_id' => $this->pool->id,
+            'user_id' => $user->id,
+            'tipo_operacao' => 'lavagem',
+            'verificado_em' => $actionTime,
+        ]);
+
+        $janelas = $this->service->janelas($this->pool->id, $start, $end);
+
+        $this->assertCount(1, $janelas);
+        $this->assertEquals($actionTime, $janelas[0]['inicio']);
+        // Default 20 min + 10 min stabilization
+        $this->assertEquals($actionTime->copy()->addMinutes(30), $janelas[0]['fim']);
+        $this->assertEquals('Lavagem de filtro', $janelas[0]['motivo']);
+    }
 }

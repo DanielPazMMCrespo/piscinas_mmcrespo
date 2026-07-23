@@ -105,6 +105,17 @@ class LeituraArtefactoService
             $janelas[] = $this->janela($registo->registado_em, 0, 'Lavagem de filtro');
         }
 
+        $filterChecks = \App\Models\FilterCheck::query()
+            ->where('pool_id', $poolId)
+            ->whereIn('tipo_operacao', ['lavagem', 'enxaguamento'])
+            ->whereBetween('verificado_em', [$inicioQuery, $ate])
+            ->get();
+
+        foreach ($filterChecks as $check) {
+            $motivo = $check->tipo_operacao === 'enxaguamento' ? 'Enxaguamento de filtro' : 'Lavagem de filtro';
+            $janelas[] = $this->janela($check->verificado_em, 0, $motivo);
+        }
+
         return $janelas;
     }
 
