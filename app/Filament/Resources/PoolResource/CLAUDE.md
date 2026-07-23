@@ -14,7 +14,10 @@ CRUD de piscinas dentro de uma instalação — os dados físicos (volume, limit
 ## Ações
 Ver, Editar, Eliminar (bulk, **sem** confirmação extra nem bloqueio por dados associados).
 
+## Coisas resolvidas
+- ✓ **`canAccess()` agora usa null-safe operator**: consistente com UserResource e outras páginas.
+
 ## Coisas a rever
 - `orp_min`/`orp_max` só têm placeholder, não `->default()` — confirmar onde está o fallback real de 660/750 quando o campo fica null.
-- `canAccess()` sem `?->` (diferente de UserResource) — pode lançar erro se chamado sem utilizador autenticado.
 - Ao apagar uma Pool, `sensor_readings`/`tap_alerts`/bidões são limpos mas `registosDiarios()` fica — inconsistência dentro do próprio hook.
+- `$fillable` inclui `ordem_bombas`/`ordem_filtros` mas não aparecem no formulário — dead code ou geridos noutro lado?
