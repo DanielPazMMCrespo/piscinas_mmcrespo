@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pré-visualização · Dashboard Piscinas MMC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+    <!-- CSS real da dashboard, para a pré-visualização refletir o design de produção -->
+    <link rel="stylesheet" href="/resources/css/widgets.css" />
+    <style>
+        /* Apenas contexto de página para a pré-visualização — não faz parte da app */
+        :root { --font-sans: 'Outfit', sans-serif; --font-heading: 'Syne', sans-serif; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; }
+        body {
+            font-family: var(--font-sans);
+            background: #f0f7ff;
+            color: #0f172a;
+            padding: 2rem 1.25rem 4rem;
+        }
+        html.dark body { background: #031225; color: #eaf2ff; }
+
+        .preview-shell { max-width: 1240px; margin: 0 auto; }
+        .preview-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1rem; flex-wrap: wrap;
+            max-width: 1240px; margin: 0 auto 1.5rem;
+            font-family: var(--font-sans);
+        }
+        .preview-bar__note { font-size: 0.75rem; opacity: 0.6; }
+        .preview-toggle {
+            font-family: var(--font-sans);
+            font-size: 0.8rem; font-weight: 600; cursor: pointer;
+            padding: 0.5rem 1rem; border-radius: 9999px;
+            border: 1px solid rgba(120,140,170,0.35);
+            background: transparent; color: inherit;
+        }
+        /* Ícones inline (substituem os componentes Blade do Filament na pré-visualização) */
+        .ico { width: 1.1em; height: 1.1em; display: inline-block; vertical-align: -0.15em; }
+        [x-cloak] { display: none; }
+    </style>
+</head>
+<body>
+    <div class="preview-bar">
+        <span class="preview-bar__note">Pré-visualização estática · dados fictícios · reflete <code>widgets.css</code></span>
+        <button class="preview-toggle" onclick="document.documentElement.classList.toggle('dark')">Alternar tema</button>
+    </div>
+
+    <div class="preview-shell">
+        <!-- CABEÇALHO EXECUTIVO -->
+        <header class="mmc-cmd-header mmc-cmd-header--bad">
+            <div class="mmc-cmd-header__main">
+                <div class="mmc-cmd-header__eyebrow">
+                    <span class="mmc-cmd-mark">MMC</span>
+                    <span>Centro de Operações</span>
+                </div>
+                <h1 class="mmc-cmd-header__title">Monitorização de Piscinas</h1>
+                <p class="mmc-cmd-header__subtitle">Estado da qualidade da água e conformidade em tempo real</p>
+            </div>
+            <div class="mmc-cmd-header__status">
+                <div class="mmc-cmd-status-chip mmc-cmd-status-chip--bad">
+                    <span class="mmc-cmd-status-dot"></span>Intervenção necessária
+                </div>
+                <div class="mmc-cmd-header__clock">
+                    <svg class="mmc-cmd-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    <span>23/07/2026 · 09:14</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI STRIP -->
+        <section class="mmc-kpi-strip">
+            <article class="mmc-kpi-block">
+                <div class="mmc-kpi-block__head">
+                    <span class="mmc-kpi-block__label">Registos hoje</span>
+                    <div class="mmc-kpi-ring">
+                        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__bg"/><circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__arc mmc-kpi-ring__arc--blue" stroke-dasharray="75, 100" stroke-dashoffset="25"/></svg>
+                        <span class="mmc-kpi-ring__pct">75%</span>
+                    </div>
+                </div>
+                <div class="mmc-kpi-block__row"><span class="mmc-kpi-block__val">6</span><span class="mmc-kpi-block__total">de 8</span></div>
+                <div class="mmc-kpi-block__foot">
+                    <div class="mmc-kpi-block__bar"><div class="mmc-kpi-block__bar-fill mmc-kpi-block__bar-fill--blue" style="width:75%"></div></div>
+                    <span class="mmc-kpi-block__hint">2 por registar</span>
+                </div>
+            </article>
+
+            <article class="mmc-kpi-block">
+                <div class="mmc-kpi-block__head">
+                    <span class="mmc-kpi-block__label">Conformidade</span>
+                    <div class="mmc-kpi-ring">
+                        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__bg"/><circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__arc mmc-kpi-ring__arc--amber" stroke-dasharray="62, 100" stroke-dashoffset="25"/></svg>
+                        <span class="mmc-kpi-ring__pct">62%</span>
+                    </div>
+                </div>
+                <div class="mmc-kpi-block__row"><span class="mmc-kpi-block__val">5</span><span class="mmc-kpi-block__total">de 8 conformes</span></div>
+                <div class="mmc-kpi-block__foot">
+                    <div class="mmc-kpi-block__bar"><div class="mmc-kpi-block__bar-fill mmc-kpi-block__bar-fill--amber" style="width:62%"></div></div>
+                    <span class="mmc-kpi-block__hint">3 fora de conformidade</span>
+                </div>
+            </article>
+
+            <article class="mmc-kpi-block mmc-kpi-block--focus mmc-kpi-block--alert">
+                <div class="mmc-kpi-block__head">
+                    <span class="mmc-kpi-block__label">Parâmetros fora de limite</span>
+                    <div class="mmc-kpi-block__icon mmc-kpi-block__icon--red">
+                        <svg class="mmc-kpi-block__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                    </div>
+                </div>
+                <div class="mmc-kpi-block__row"><span class="mmc-kpi-block__val mmc-kpi-block__val--red">4</span><span class="mmc-kpi-block__total">alertas ativos</span></div>
+                <div class="mmc-kpi-block__foot">
+                    <span class="mmc-kpi-block__status-pill mmc-kpi-block__status-pill--red">Requer atenção imediata</span>
+                </div>
+            </article>
+        </section>
+
+        <!-- GRELHA DE ESTAÇÕES -->
+        <section class="mmc-pool-grid">
+            <div class="mmc-pool-grid__controls">
+                <div class="mmc-pool-grid__count">
+                    <svg class="mmc-pool-grid__count-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    3 estações monitorizadas
+                </div>
+                <button class="mmc-toggle-all-btn">
+                    <svg class="mmc-toggle-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 9 4 4m0 5V4h5m6 5 5-5m0 5V4h-5M9 15l-5 5m5 0H4v-5m11 5 5-5m0 5v-5h-5"/></svg>
+                    Recolher todas
+                </button>
+            </div>
+
+            <!-- Estação com alerta -->
+            <article class="mmc-pool-card mmc-pool-card--bad">
+                <div class="mmc-pool-card__accent"></div>
+                <div class="mmc-pool-card__inner">
+                    <div class="mmc-pool-header">
+                        <div class="mmc-pool-header__info">
+                            <div class="mmc-pool-header__icon-wrap mmc-pool-header__icon-wrap--bad">
+                                <svg class="mmc-pool-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v4l4 12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L9 7Z"/><path d="M6.5 14h11"/></svg>
+                            </div>
+                            <div class="mmc-pool-header__meta">
+                                <div class="mmc-pool-header__name">Piscina Olímpica</div>
+                                <div class="mmc-pool-header__install"><svg class="mmc-pool-header__install-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.5 7-11a7 7 0 0 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>Complexo Municipal Norte</div>
+                            </div>
+                        </div>
+                        <div class="mmc-pool-header__right">
+                            <span class="mmc-status-badge mmc-status-badge--bad"><span class="mmc-status-badge__dot"></span>2 alertas</span>
+                            <button class="mmc-pool-header__chev mmc-pool-header__chev--open"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="mmc-pool-body">
+                        <div class="mmc-metrics-grid">
+                            <div class="mmc-metric mmc-metric--alert">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">pH</span><span class="mmc-metric__dot mmc-metric__dot--bad"></span></div>
+                                <div class="mmc-metric__value mmc-metric__value--bad">7.9</div>
+                                <svg class="mmc-metric__sparkline" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,20 L20,18 L40,14 L60,10 L80,7 L100,5 L100,28 L0,28 Z" fill="rgba(255,61,107,0.14)"/><path d="M0,20 L20,18 L40,14 L60,10 L80,7 L100,5" fill="none" stroke="#FF3D6B" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--bad">Alerta</span><span class="mmc-metric__origin">Sonda · 5 min</span></div>
+                            </div>
+                            <div class="mmc-metric mmc-metric--ok">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">Redox</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div>
+                                <div class="mmc-metric__value">720 mV</div>
+                                <svg class="mmc-metric__sparkline" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,14 L20,12 L40,15 L60,11 L80,13 L100,12 L100,28 L0,28 Z" fill="rgba(0,242,254,0.10)"/><path d="M0,14 L20,12 L40,15 L60,11 L80,13 L100,12" fill="none" stroke="#00F2FE" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 5 min</span></div>
+                            </div>
+                            <div class="mmc-metric mmc-metric--alert">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">Cloro livre</span><span class="mmc-metric__dot mmc-metric__dot--bad"></span></div>
+                                <div class="mmc-metric__value mmc-metric__value--bad">0.3</div>
+                                <svg class="mmc-metric__sparkline" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,8 L20,10 L40,13 L60,16 L80,19 L100,22 L100,28 L0,28 Z" fill="rgba(255,61,107,0.14)"/><path d="M0,8 L20,10 L40,13 L60,16 L80,19 L100,22" fill="none" stroke="#FF3D6B" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--bad">Alerta</span><span class="mmc-metric__origin">Manual · 1 h</span></div>
+                            </div>
+                            <div class="mmc-metric mmc-metric--ok">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">Cloro comb.</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div>
+                                <div class="mmc-metric__value">0.2</div>
+                                <div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Manual · 1 h</span></div>
+                            </div>
+                            <div class="mmc-metric mmc-metric--ok">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">Temp.</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div>
+                                <div class="mmc-metric__value">27 °C</div>
+                                <div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 5 min</span></div>
+                            </div>
+                            <div class="mmc-metric">
+                                <div class="mmc-metric__top"><span class="mmc-metric__label">Turbidez</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div>
+                                <div class="mmc-metric__value">—</div>
+                                <div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div>
+                                <div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div>
+                            </div>
+                        </div>
+                        <div class="mmc-pool-actions">
+                            <a href="#" class="mmc-action mmc-action--primary"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Registo diário</a>
+                            <a href="#" class="mmc-action mmc-action--ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Ação operacional</a>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Estação conforme -->
+            <article class="mmc-pool-card mmc-pool-card--ok">
+                <div class="mmc-pool-card__accent"></div>
+                <div class="mmc-pool-card__inner">
+                    <div class="mmc-pool-header">
+                        <div class="mmc-pool-header__info">
+                            <div class="mmc-pool-header__icon-wrap mmc-pool-header__icon-wrap--ok">
+                                <svg class="mmc-pool-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v4l4 12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L9 7Z"/><path d="M6.5 14h11"/></svg>
+                            </div>
+                            <div class="mmc-pool-header__meta">
+                                <div class="mmc-pool-header__name">Piscina de Lazer</div>
+                                <div class="mmc-pool-header__install"><svg class="mmc-pool-header__install-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.5 7-11a7 7 0 0 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>Complexo Municipal Norte</div>
+                            </div>
+                        </div>
+                        <div class="mmc-pool-header__right">
+                            <span class="mmc-status-badge mmc-status-badge--ok"><span class="mmc-status-badge__dot"></span>Conforme</span>
+                            <button class="mmc-pool-header__chev mmc-pool-header__chev--open"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="mmc-pool-body">
+                        <div class="mmc-metrics-grid">
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">pH</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">7.3</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 3 min</span></div></div>
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">Redox</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">755 mV</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 3 min</span></div></div>
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">Cloro livre</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">1.2</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Manual · 40 min</span></div></div>
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">Cloro comb.</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">0.1</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Manual · 40 min</span></div></div>
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">Temp.</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">28 °C</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 3 min</span></div></div>
+                            <div class="mmc-metric mmc-metric--ok"><div class="mmc-metric__top"><span class="mmc-metric__label">Turbidez</span><span class="mmc-metric__dot mmc-metric__dot--ok"></span></div><div class="mmc-metric__value">0.3</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--ok">OK</span><span class="mmc-metric__origin">Sonda · 3 min</span></div></div>
+                        </div>
+                        <div class="mmc-pool-actions">
+                            <a href="#" class="mmc-action mmc-action--primary"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Registo diário</a>
+                            <a href="#" class="mmc-action mmc-action--ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Ação operacional</a>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Estação sem dados -->
+            <article class="mmc-pool-card mmc-pool-card--neutro">
+                <div class="mmc-pool-card__accent"></div>
+                <div class="mmc-pool-card__inner">
+                    <div class="mmc-pool-header">
+                        <div class="mmc-pool-header__info">
+                            <div class="mmc-pool-header__icon-wrap">
+                                <svg class="mmc-pool-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v4l4 12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L9 7Z"/><path d="M6.5 14h11"/></svg>
+                            </div>
+                            <div class="mmc-pool-header__meta">
+                                <div class="mmc-pool-header__name">Piscina Infantil</div>
+                                <div class="mmc-pool-header__install"><svg class="mmc-pool-header__install-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.5 7-11a7 7 0 0 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>Complexo Sul</div>
+                            </div>
+                        </div>
+                        <div class="mmc-pool-header__right">
+                            <span class="mmc-status-badge mmc-status-badge--neutral">Sem dados</span>
+                            <button class="mmc-pool-header__chev mmc-pool-header__chev--open"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="mmc-pool-body">
+                        <div class="mmc-metrics-grid">
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">pH</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">Redox</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">Cloro livre</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">Cloro comb.</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">Temp.</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                            <div class="mmc-metric"><div class="mmc-metric__top"><span class="mmc-metric__label">Turbidez</span><span class="mmc-metric__dot mmc-metric__dot--na"></span></div><div class="mmc-metric__value">—</div><div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div><div class="mmc-metric__footer"><span class="mmc-metric__badge mmc-metric__badge--na">N/A</span></div></div>
+                        </div>
+                        <div class="mmc-pool-actions">
+                            <a href="#" class="mmc-action mmc-action--primary"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Registo diário</a>
+                            <a href="#" class="mmc-action mmc-action--ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Ação operacional</a>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </div>
+</body>
+</html>
