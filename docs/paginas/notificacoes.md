@@ -16,11 +16,12 @@ Três funções na mesma página:
 
 ## `FireDueCustomBroadcastsCommand` (`notificacoes:custom-fire-due`, agendado a cada minuto)
 - Únicos: `enviado_em IS NULL AND enviar_em <= now()` → envia e marca.
-- Diários: compara `hora_diaria` com a hora atual **exata** (sem janela de tolerância) — se o scheduler atrasar/falhar nesse minuto exato, o disparo desse dia perde-se silenciosamente. Protegido de duplo-envio no mesmo dia por `ultima_data_enviada`.
+- Diários: dispara em **qualquer corrida do dia a partir da hora agendada** (`hora_diaria <= agora`), não só no minuto exato — uma falha pontual do scheduler nesse minuto já não perde o envio. Protegido de duplo-envio no mesmo dia por `ultima_data_enviada`. (Nota: um broadcast diário criado depois da hora agendada dispara nesse mesmo dia; comportamento aceite.)
 - Destinatários via `User::role($broadcast->cargos)` — se vazio, não faz nada (sem log/aviso).
 
 ## Coisas resolvidas
 - ✓ **Campo "Horários do Resumo de Conformidade" removido**: fonte de verdade agora só em DefinicoesSistema.php (página apropriada para settings globais, não para preferências pessoais).
+- ✓ **Janela de tolerância no disparo diário**: `FireDueCustomBroadcastsCommand` dispara a partir da hora agendada (não só no minuto exato), recuperando de uma falha pontual do scheduler sem risco de duplo-envio.
 
 ## Coisas a rever
-- Disparo diário sem janela de tolerância — se o scheduler tiver uma falha pontual nesse minuto, o resumo desse dia simplesmente não sai (sem aviso).
+- Nada pendente.
