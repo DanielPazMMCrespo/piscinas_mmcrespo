@@ -32,8 +32,10 @@ Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do d
 - Criar (**sem confirmação em modal**, ao contrário de DailyRecord/Incident), Ver, Eliminar (bulk, admin only). Sem editar/corrigir.
 - Atalhos com querystring (`?pool=X&tipo=Y`) usados a partir de `PainelPiscinasWidget` e `EsquemaPiscina`.
 
+## Coisas resolvidas
+- ✓ **`canEdit()` removido**: dead code — não havia rota edit registada, portanto nenhuma razão para ter validação de autorização.
+- ✓ **`piscinasOptions()` simplificado**: removida validação redundante de NS piscinas (já bloqueado em `canAccess()`).
+
 ## Coisas a rever
-- `canEdit($record)` está definido no Resource (Admin) mas **não há página `edit` registada** — dead code de autorização, ou falta implementar a rota.
-- `piscinasOptions()` reaplica a restrição de piscinas por NS mesmo que `canAccess()` já bloqueie NS de todo o Resource — código morto/inofensivo, mas confuso.
 - Falta confirmação em modal ao criar, inconsistente com DailyRecord/Incident — a ação pode ter efeitos colaterais relevantes (reabastecimento de bidão, alerta de torneira).
 - Efeitos colaterais síncronos (sem fila) tornam a criação mais lenta/menos resiliente que o fluxo assíncrono do DailyRecord; sem tratamento de erro explícito no Observer.

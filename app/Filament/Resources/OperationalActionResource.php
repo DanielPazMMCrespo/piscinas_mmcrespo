@@ -53,11 +53,6 @@ class OperationalActionResource extends Resource
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
     }
 
-    public static function canEdit($record): bool
-    {
-        return auth()->user()->hasRole(UserRole::ADMIN);
-    }
-
     public static function canDelete($record): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
@@ -70,13 +65,12 @@ class OperationalActionResource extends Resource
 
     private static function piscinasOptions(): array
     {
-        $query = Pool::query()->where('active', true)->with('instalacao');
-
-        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
-        }
-
-        return $query->orderBy('installation_id')->orderBy('name')->get()
+        return Pool::query()
+            ->where('active', true)
+            ->with('instalacao')
+            ->orderBy('installation_id')
+            ->orderBy('name')
+            ->get()
             ->mapWithKeys(fn (Pool $p) => [$p->id => $p->nome_completo])
             ->toArray();
     }
