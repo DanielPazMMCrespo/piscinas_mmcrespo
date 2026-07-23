@@ -15,7 +15,6 @@ use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Validation\ValidationException;
 
 class CreateDailyRecord extends CreateRecord
 {
@@ -59,6 +58,14 @@ class CreateDailyRecord extends CreateRecord
                 $this->callHook('beforeValidate');
                 $data = $this->form->getState();
                 $this->callHook('afterValidate');
+
+                if (! $this->validatePoolsCloro($data)) {
+                    $this->rollBackDatabaseTransaction();
+                    $this->isCreating = false;
+
+                    return false;
+                }
+
                 $data = $this->mutateFormDataBeforeCreate($data);
                 $this->callHook('beforeCreate');
 
@@ -152,6 +159,32 @@ class CreateDailyRecord extends CreateRecord
         }
 
         $this->mountAction('confirmarCriacao');
+    }
+
+    private function validatePoolsCloro(array $data): bool
+    {
+        $pools = $data['pools'] ?? [];
+        $hasErrors = false;
+
+        foreach ($pools as $poolId => $poolData) {
+            $cloroTotal = $poolData['ns_cloro_total'] ?? null;
+            $cloroLivre = $poolData['ns_cloro_livre'] ?? null;
+
+            if (filled($cloroTotal) && filled($cloroLivre) && (float) $cloroTotal < (float) $cloroLivre) {
+                $this->addError("data.pools.{$poolId}.ns_cloro_total", 'O cloro total não pode ser inferior ao cloro livre.');
+                $hasErrors = true;
+            }
+
+            $cloroTotal = $poolData['cloro_total'] ?? null;
+            $cloroLivre = $poolData['cloro_livre'] ?? null;
+
+            if (filled($cloroTotal) && filled($cloroLivre) && (float) $cloroTotal < (float) $cloroLivre) {
+                $this->addError("data.pools.{$poolId}.cloro_total", 'O cloro total não pode ser inferior ao cloro livre.');
+                $hasErrors = true;
+            }
+        }
+
+        return ! $hasErrors;
     }
 
     protected function getFormActions(): array

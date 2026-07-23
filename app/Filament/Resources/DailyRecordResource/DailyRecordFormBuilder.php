@@ -456,14 +456,7 @@ class DailyRecordFormBuilder
                                         ->label('Cl total')
                                         ->numeric()
                                         ->step(0.01)
-                                        ->required()
-                                        ->rules([
-                                            fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                                if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
-                                                    $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                                }
-                                            },
-                                        ]), 'ns_cloro_total', $pool),
+                                        ->required(), 'ns_cloro_total', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
                                     Forms\Components\Textarea::make('observacoes')
                                         ->id("observacoes_zero_{$pool->id}")
