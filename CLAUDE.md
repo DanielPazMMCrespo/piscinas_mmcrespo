@@ -1,8 +1,8 @@
-# Branch Atual: MAIN
+# Branch Atual: TEST
 
-Este ficheiro está checked-in no branch `main` (produção — `https://piscinas-mmcrespo-main.up.railway.app`).
-**Push automático para `main`** (`git push origin main`) — não perguntar "main ou teste?" antes de dar push.
-Se em algum momento este texto disser "MAIN" mas `git branch --show-current` disser outra coisa, o ficheiro está desatualizado nesse checkout — confiar no `git branch`, não neste texto.
+Este ficheiro está checked-in no branch `test` (staging — `https://piscinasmmcrespo-testes.up.railway.app`).
+**Push automático para `test`** (`git push origin test`) — não perguntar "main ou teste?" antes de dar push.
+Se em algum momento este texto disser "TEST" mas `git branch --show-current` disser outra coisa, o ficheiro está desatualizado nesse checkout — confiar no `git branch`, não neste texto.
 
 ---
 
