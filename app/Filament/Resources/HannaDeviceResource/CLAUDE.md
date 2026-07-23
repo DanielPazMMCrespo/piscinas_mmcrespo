@@ -3,7 +3,7 @@
 Contexto local desta pasta. O `CLAUDE.md` da raiz tem a arquitetura geral do projeto.
 
 ## Propósito
-Mapeamento dispositivo Hanna Cloud (BL132) → piscina. Só Admin. Hoje todas as 5 piscinas têm sonda ativa. Sem página `view` — "ver" é um modal (`recordAction`), não uma rota Filament separada.
+Mapeamento dispositivo Hanna Cloud (BL132) → piscina. Só Admin. Hoje todas as 5 piscinas têm sonda ativa. Existe rota `view` (`ViewHannaDevice`) **e** um modal "Detalhes" (`recordAction('ver_detalhes')`); o clique na linha abre o modal, não a página — redundância conhecida, ambos funcionais.
 
 ## Estrutura de dados
 - `hanna_device_id` (DID, imutável depois de criado), `name`, `pool_id`, `active`.
@@ -27,7 +27,7 @@ Por dispositivo ativo: atualiza `raw_info`, lê última leitura (protegida pelo 
 "Sincronizar agora", "Descobrir dispositivos" (com confirmação), "Detalhes" (modal), "Configurar" (link externo para hannacloud.com), Editar, Eliminar.
 
 ## Coisas resolvidas
-- ✓ **Página `ViewHannaDevice` adicionada**: consistente com Pool/Installation/User; substituiu modal "Detalhes" por ViewAction navegável.
+- ✓ **Página `ViewHannaDevice` adicionada**: consistente com Pool/Installation/User. (O modal "Detalhes" não chegou a ser removido — o row-click ainda o usa; redundância a limpar um dia.)
 - ✓ **`--discover` já não reativa disable manual**: só cria novos como `active=true`; existentes mantêm o `active` atual.
 - ✓ **Dispositivos desaparecidos da conta**: `--discover` avisa quais os ativos que já não constam (não desativa automaticamente — evita desligar sensores bons num discover parcial por glitch da API).
 

@@ -3,7 +3,7 @@
 Contexto local desta pasta. O `CLAUDE.md` da raiz tem a arquitetura geral do projeto.
 
 ## Propósito
-Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do dia, torneira, reabastecimento de bidão, etc.) — mais leve que o `DailyRecord`, serve também para justificar anomalias detetadas pelo controlador automático nesse período. Acesso: só **Admin e Técnico** (nenhum acesso de NS). Não existe página de edição (`getPages()` só tem `index`/`create`/`view`).
+Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do dia, torneira, reabastecimento de bidão, etc.) — mais leve que o `DailyRecord`, serve também para justificar anomalias detetadas pelo controlador automático nesse período. Acesso: só **Admin e Técnico** (nenhum acesso de NS). `getPages()`: `index`/`create`/`view`/`edit` — a edição re-sincroniza os efeitos colaterais (ver secção Ações).
 
 ## Estrutura de dados
 - Campos comuns: `user_id` (fixo ao autor), `pool_id`, `tipo` (`OperationalAction::TIPOS`, reativo), `registado_em`, `observacoes`, `foto` opcional.
