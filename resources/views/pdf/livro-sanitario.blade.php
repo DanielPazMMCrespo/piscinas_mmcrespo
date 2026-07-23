@@ -744,6 +744,9 @@
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
                     Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.
                 </p>
+                <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
+                    Nota (Cloro Livre Manual): o valor na coluna «Cl. Livre Manual» da tabela da sonda é apenas apresentado quando um registo manual coincide com uma leitura automática, de modo a permitir verificar qual o cloro livre que coincide com o valor de ORP. Caso o valor não seja credível (por estar fora dos limites ou em incoerência com o ORP), este é apresentado com destaque numa cor/formatação específica acompanhado do motivo da não conformidade.
+                </p>
                 @endif
             @endif
 

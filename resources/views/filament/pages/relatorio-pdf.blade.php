@@ -40,6 +40,9 @@
                 Registos corrigidos pelos técnicos são excluídos (mantém-se apenas a versão válida,
                 assinalada com "(correção)"), em linha com o modelo append-only da aplicação.
             </p>
+            <p>
+                Na tabela de leituras automáticas da sonda, o valor na coluna de <strong>Cloro Livre Manual</strong> apenas é apresentado quando um registo manual e uma leitura automática coincidem, permitindo verificar a correspondência entre o cloro livre e o valor de ORP medido. Caso o valor de cloro livre manual não seja credível (por estar fora dos limites legais ou em incoerência com o ORP), o mesmo é apresentado com destaque numa cor específica e acompanhado pela indicação do motivo.
+            </p>
         </div>
     </x-filament::section>
 </x-filament-panels::page>
