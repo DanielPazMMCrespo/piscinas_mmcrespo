@@ -611,29 +611,28 @@ class DailyRecordFormBuilder
 
                                                                 if (! $armazem || (float) $armazem->quantity < $pedido) {
                                                                     $insuficiente = true;
-
                                                                     return;
                                                                 }
 
                                                                 $armazem->quantity -= $pedido;
                                                                 $armazem->save();
 
-                                                                StockWarehouseLog::create([
-                                                                    'product_id' => $productId,
+                                                                \App\Models\StockWarehouseLog::create([
+                                                                    'stock_warehouse_id' => $armazem->id,
                                                                     'user_id' => auth()->id(),
                                                                     'tipo_movimento' => 'saida',
                                                                     'quantity' => $pedido,
                                                                 ]);
 
-                                                                $stockInstalacao = StockInstallation::firstOrCreate(
+                                                                $stockInstalacao = \App\Models\StockInstallation::firstOrCreate(
                                                                     ['installation_id' => $installation->id, 'product_id' => $productId],
                                                                     ['quantity' => 0, 'limite_minimo' => 0],
                                                                 );
-                                                                $stockInstalacao = StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
+                                                                $stockInstalacao = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
                                                                 $stockInstalacao->quantity += $pedido;
                                                                 $stockInstalacao->save();
 
-                                                                StockInstallationLog::create([
+                                                                \App\Models\StockInstallationLog::create([
                                                                     'stock_installation_id' => $stockInstalacao->id,
                                                                     'user_id' => auth()->id(),
                                                                     'tipo_movimento' => 'entrada',

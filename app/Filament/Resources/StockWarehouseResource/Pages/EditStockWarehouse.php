@@ -52,7 +52,7 @@ class EditStockWarehouse extends EditRecord
         }
 
         StockWarehouseLog::create([
-            'product_id' => $record->product_id,
+            'stock_warehouse_id' => $record->id,
             'user_id' => auth()->id(),
             'tipo_movimento' => $delta > 0 ? 'entrada' : 'saida',
             'quantity' => abs($delta),

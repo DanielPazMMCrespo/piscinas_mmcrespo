@@ -17,6 +17,7 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\TapAlert;
 use App\Services\LeituraArtefactoService;
+use App\Services\SourceSelectionService;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
@@ -41,9 +42,6 @@ class EsquemaPiscina extends Page
     protected static string $view = 'filament.pages.esquema-piscina';
 
     protected static ?string $slug = 'esquema';
-
-    /** Estados do registo diário com mais de 24h já não descrevem o presente. */
-    private const STALE_HORAS = 24;
 
     /** Mesmos ranges do PainelPiscinasWidget (BL132). */
     private const ORP_MIN = 660;
@@ -163,8 +161,12 @@ class EsquemaPiscina extends Page
             ->get();
         $ultimaAcao = $acoes->groupBy('tipo')->map(fn (Collection $g) => $g->first());
 
-        $stale = $registo === null
-            || $registo->registado_em->lt(now()->subHours(self::STALE_HORAS));
+        $sourceSelection = app(SourceSelectionService::class);
+        $source = $sourceSelection->selectSource($piscina);
+
+        $stale = $source['source'] === 'none'
+            || ($source['source'] === 'hanna_stale')
+            || ($source['source'] === 'manual' && $registo?->registado_em->lt(now()->subHours(8)));
 
         $tapAberta = TapAlert::query()
             ->where('pool_id', $piscina->id)
@@ -297,7 +299,7 @@ class EsquemaPiscina extends Page
 
     private function estaStale(mixed $ts): bool
     {
-        return $ts === null || $ts->lt(now()->subHours(self::STALE_HORAS));
+        return $ts === null || $ts->lt(now()->subHours(8));
     }
 
     /** @param array<string, mixed>|null $efetivo */
@@ -488,37 +490,14 @@ class EsquemaPiscina extends Page
             ->all();
     }
 
-    /**
-     * Cascata de fontes: sonda fresca (≤60 min) → leitura manual mais recente
-     * (≤8h: registo diário ou análise rápida) → sonda stale → sem dados.
-     */
     private function valoresAgua(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $analise = null): array
     {
-        $device = HannaDevice::query()
-            ->where('active', true)
-            ->where('pool_id', $piscina->id)
-            ->first();
-
-        $leitura = $device
-            ? SensorReading::query()
-                ->where('hanna_device_id', $device->hanna_device_id)
-                ->latest('lida_em')
-                ->first()
-            : null;
-
-        $idadeMin = $leitura?->lida_em ? (int) $leitura->lida_em->diffInMinutes(now()) : null;
-
-        // Leitura do controlador durante uma lavagem/bomba parada é artefacto:
-        // não conta para conformidade (a água não circula no sensor).
-        $artefacto = $leitura !== null
-            ? app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
-            : null;
-
-        $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60 && $artefacto === null;
+        $sourceSelection = app(SourceSelectionService::class);
+        $source = $sourceSelection->selectSource($piscina);
 
         // Leitura manual mais recente (≤8h): registo diário vs análise rápida.
         $manual = null;
-        if (! $controladorOnline) {
+        if (in_array($source['source'], ['manual', 'none'], true)) {
             $manual = $this->maisRecente(
                 ($registo !== null && abs((int) $registo->registado_em->diffInHours(now())) <= 8)
                     ? ['ts' => $registo->registado_em, 'ph' => $registo->ph_efetivo, 'cloro' => $registo->cloro_livre_efetivo, 'cloro_total' => $registo->cloro_total_efetivo, 'temp' => $registo->temperatura_efetivo, 'origem' => 'Registo manual']
@@ -529,7 +508,8 @@ class EsquemaPiscina extends Page
             );
         }
 
-        if ($controladorOnline || ($manual === null && $leitura !== null && $artefacto === null)) {
+        if ($source['source'] === 'hanna_online' || ($manual === null && $source['source'] === 'hanna_stale' && !$source['is_artifact'])) {
+            $leitura = $source['reading'];
             $ph = $leitura->ph !== null ? (float) $leitura->ph : null;
             $orp = $leitura->orp !== null ? (float) $leitura->orp : null;
             $temp = $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
@@ -543,8 +523,8 @@ class EsquemaPiscina extends Page
             ];
 
             return [
-                'origem' => $controladorOnline ? 'Controlador' : 'Controlador (desatualizado)',
-                'stale' => ! $controladorOnline,
+                'origem' => $source['source'] === 'hanna_online' ? 'Controlador' : 'Controlador (desatualizado)',
+                'stale' => $source['source'] === 'hanna_stale',
                 'artefacto' => null,
                 'combinado' => null,
                 'atualizado' => $leitura->lida_em->locale('pt')->diffForHumans(),
@@ -589,12 +569,15 @@ class EsquemaPiscina extends Page
 
         // Só resta a leitura do controlador em artefacto: mostra os valores em
         // tom neutro (não conta como não-conformidade) com o motivo.
-        if ($leitura !== null && $artefacto !== null) {
+        if ($source['source'] === 'hanna_stale' && $source['is_artifact']) {
+            $leitura = $source['reading'];
             $valores = [
                 $this->valor('pH', $leitura->ph !== null ? (float) $leitura->ph : null, 2, '', null),
                 $this->valor('ORP', $leitura->orp !== null ? (float) $leitura->orp : null, 0, ' mV', null),
                 $this->valor('Temp.', $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null, 1, ' °C', null),
             ];
+
+            $artefacto = app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em);
 
             return [
                 'origem' => 'Controlador em artefacto',

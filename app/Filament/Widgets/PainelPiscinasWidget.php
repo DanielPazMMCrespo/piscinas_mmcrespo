@@ -13,7 +13,7 @@ use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Services\CacheService;
-use App\Services\LeituraArtefactoService;
+use App\Services\SourceSelectionService;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -307,23 +307,18 @@ class PainelPiscinasWidget extends Widget
             $device = $sondas->get($piscina->id);
             $leitura = $device ? $ultimasLeituras->get($device->hanna_device_id) : null;
 
-            $idadeMin = $leitura?->lida_em
-                ? (int) $leitura->lida_em->diffInMinutes(now())
-                : null;
+            // Use centralized source selection
+            $sourceSelection = app(SourceSelectionService::class);
+            $source = $sourceSelection->selectSource($piscina);
 
+            $idadeMin = $source['age_minutes'];
             $ph = $leitura?->ph !== null ? (float) $leitura->ph : null;
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $artefacto = $leitura !== null
-                ? app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
-                : null;
-
-            $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60 && $artefacto === null;
-
-            $usarRegistoManual = ! $controladorOnline
-                && $registo !== null
-                && abs((int) $registo->registado_em->diffInHours(now())) <= 8;
+            $artefacto = $source['is_artifact'];
+            $controladorOnline = $source['source'] === 'hanna_online';
+            $usarRegistoManual = $source['source'] === 'manual';
 
             $metricas4 = [];
             $phOkConformes = null;

@@ -28,7 +28,7 @@ class StockService
             $fresh->save();
 
             StockWarehouseLog::create([
-                'product_id' => $fresh->product_id,
+                'stock_warehouse_id' => $fresh->id,
                 'user_id' => $userId,
                 'tipo_movimento' => 'entrada',
                 'quantity' => $quantity,
@@ -68,7 +68,7 @@ class StockService
             $freshArmazem->save();
 
             StockWarehouseLog::create([
-                'product_id' => $freshArmazem->product_id,
+                'stock_warehouse_id' => $freshArmazem->id,
                 'user_id' => $userId,
                 'tipo_movimento' => 'saida',
                 'quantity' => $quantity,

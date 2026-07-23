@@ -25,7 +25,7 @@ class StockWarehouse extends Model
 
     public function registos(): HasMany
     {
-        return $this->hasMany(StockWarehouseLog::class, 'product_id', 'product_id');
+        return $this->hasMany(StockWarehouseLog::class, 'stock_warehouse_id');
     }
 
     public function getActivitylogOptions(): LogOptions
