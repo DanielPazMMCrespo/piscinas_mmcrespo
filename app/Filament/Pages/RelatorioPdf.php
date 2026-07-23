@@ -734,14 +734,17 @@ class RelatorioPdf extends Page implements HasForms
         })->all();
     }
 
-    private static function cumpresRegraLavagemFiltro(?float $ph, ?float $orp): bool
+    private static function cumpresRegraLavagemFiltro(mixed $ph, mixed $orp): bool
     {
-        if ($ph === null || $orp === null) {
+        if ($ph === null || $orp === null || $ph === '' || $orp === '') {
             return false;
         }
 
-        $phForaLimites = $ph < WaterQualityThresholds::FILTER_WASH_PH_MIN || $ph > WaterQualityThresholds::FILTER_WASH_PH_MAX;
-        $orpForaLimites = $orp < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orp > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+        $phFloat = (float) $ph;
+        $orpFloat = (float) $orp;
+
+        $phForaLimites = $phFloat < WaterQualityThresholds::FILTER_WASH_PH_MIN || $phFloat > WaterQualityThresholds::FILTER_WASH_PH_MAX;
+        $orpForaLimites = $orpFloat < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orpFloat > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
 
         return $phForaLimites && $orpForaLimites;
     }
