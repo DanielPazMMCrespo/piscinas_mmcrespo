@@ -18,4 +18,4 @@ Esquema visual do circuito de água por instalação (torneira/contador → pisc
 - `justificacoes()`: ações operacionais das últimas 6h usadas para explicar valores fora dos limites (ex. lavagem de filtro a afetar pH/ORP temporariamente).
 
 ## Coisas a rever
-- Lógica de cascata de fontes (sonda vs manual vs artefacto) duplicada entre esta página e o `PainelPiscinasWidget`, com constantes e nomes diferentes — candidato a extrair para um serviço partilhado, para não divergirem silenciosamente com o tempo.
+- ~~Cascata de fontes duplicada com o `PainelPiscinasWidget`~~ — **resolvido**: ambos usam agora o `SourceSelectionService` (`app/Services/SourceSelectionService.php`). `valoresAgua()` delega no serviço, já não reimplementa a lógica.

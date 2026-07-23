@@ -35,7 +35,5 @@ Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do d
 ## Coisas resolvidas
 - ✓ **`canEdit()` removido**: dead code — não havia rota edit registada, portanto nenhuma razão para ter validação de autorização.
 - ✓ **`piscinasOptions()` simplificado**: removida validação redundante de NS piscinas (já bloqueado em `canAccess()`).
-
-## Coisas a rever
-- Falta confirmação em modal ao criar, inconsistente com DailyRecord/Incident — a ação pode ter efeitos colaterais relevantes (reabastecimento de bidão, alerta de torneira).
-- Efeitos colaterais síncronos (sem fila) tornam a criação mais lenta/menos resiliente que o fluxo assíncrono do DailyRecord; sem tratamento de erro explícito no Observer.
+- ✓ **Modal de confirmação ao criar** (`CreateOperationalAction::getCreateFormAction()`): mensagem varia por tipo, avisa quando há efeito colateral (bidão/torneira).
+- ✓ **Efeitos colaterais resilientes** (`OperationalActionObserver::comEfeitoResiliente()`): o registo grava sempre; decisão do Daniel de que a criação nunca pode falhar. Uma falha no reabastecimento do bidão ou na gestão da torneira é apanhada, registada em log e vira aviso suave — nunca 500 nem rollback do registo. (Optou-se por resiliência síncrona em vez de fila, para o estado atualizar de imediato no esquema.)

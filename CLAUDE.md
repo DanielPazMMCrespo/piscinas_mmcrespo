@@ -113,6 +113,7 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 - No filler: no "great question", no "certainly", no "I'd be happy to".
 - No hedging: no "you might want to consider", no "one approach could be".
 - Short sentences. If a paragraph can be a bullet list, use the list.
+- Respostas curtas — menos texto, especialmente com Opus. Contexto extenso, planos e trade-offs longos vão para o CLAUDE.md/docs da página, não para o chat. No chat: o essencial e a decisão.
 - Code must be complete and runnable. Never truncate with "// rest of code here".
 <<<<<<< Updated upstream
 =======

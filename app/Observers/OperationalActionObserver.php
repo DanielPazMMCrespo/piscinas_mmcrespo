@@ -8,7 +8,9 @@ use App\Models\DosingContainer;
 use App\Models\OperationalAction;
 use App\Models\TapAlert;
 use App\Services\CacheService;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Uma ação operacional é o evento mais recente do seu componente, por isso
@@ -23,11 +25,11 @@ class OperationalActionObserver
     public function created(OperationalAction $acao): void
     {
         if ($acao->tipo === OperationalAction::TIPO_TORNEIRA) {
-            $this->gerirTorneira($acao);
+            $this->comEfeitoResiliente('alerta de torneira', fn () => $this->gerirTorneira($acao));
         }
 
         if ($acao->tipo === OperationalAction::TIPO_REABASTECIMENTO_BIDAO) {
-            $this->reabastecerBidao($acao);
+            $this->comEfeitoResiliente('reabastecimento do bidão', fn () => $this->reabastecerBidao($acao));
         }
 
         $this->cacheService->invalidatePoolData();
@@ -35,6 +37,29 @@ class OperationalActionObserver
 
         if (auth()->check()) {
             Cache::forget('alertas_'.auth()->id());
+        }
+    }
+
+    /**
+     * O registo já foi inserido quando este observer corre. Uma falha no efeito
+     * colateral não pode rebentar a submissão (rollback do registo) — a criação
+     * nunca deve falhar. Apanha o erro, regista-o e avisa o utilizador para
+     * verificar o estado manualmente.
+     */
+    private function comEfeitoResiliente(string $descricao, \Closure $efeito): void
+    {
+        try {
+            $efeito();
+        } catch (\Throwable $e) {
+            Log::error("Falha no efeito colateral ({$descricao}) de ação operacional", [
+                'exception' => $e->getMessage(),
+            ]);
+
+            Notification::make()
+                ->warning()
+                ->title('Ação registada, mas o '.$descricao.' falhou')
+                ->body('O registo foi guardado. Verifique manualmente o estado — o efeito automático não foi aplicado.')
+                ->send();
         }
     }
 

@@ -10,4 +10,4 @@ Página "hub" que substitui dois itens de menu (Registos Diários, Incidentes) p
 - `getDailyRecordUrl()`/`getIncidentUrl()` só devolvem URL se o utilizador tiver `canViewAny()` do Resource respetivo, senão `null` (a view esconde os botões correspondentes).
 
 ## Coisas a rever
-- `shouldRegisterNavigation() => false` está combinado com `$navigationLabel`/`$navigationIcon`/`$navigationSort` definidos — esses atributos ficam mortos porque a página nunca aparece na sidebar (parece copiado de um padrão de Page normal e nunca limpo).
+- Nada pendente. Os atributos de navegação mortos (`$navigationLabel`/`$navigationIcon`/`$navigationSort`) já não existem no ficheiro — só `shouldRegisterNavigation() => false`, `$title` e `$view`.

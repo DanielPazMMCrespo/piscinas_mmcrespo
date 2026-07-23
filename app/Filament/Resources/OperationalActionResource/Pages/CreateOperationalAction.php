@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\OperationalActionResource\Pages;
 
 use App\Filament\Resources\OperationalActionResource;
+use App\Models\OperationalAction;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateOperationalAction extends CreateRecord
@@ -16,6 +18,24 @@ class CreateOperationalAction extends CreateRecord
         $data['user_id'] = auth()->id();
 
         return $data;
+    }
+
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()
+            ->requiresConfirmation()
+            ->modalHeading('Confirmar ação operacional')
+            ->modalDescription(fn (): string => $this->mensagemConfirmacao())
+            ->modalSubmitActionLabel('Confirmar e guardar');
+    }
+
+    private function mensagemConfirmacao(): string
+    {
+        return match ($this->data['tipo'] ?? null) {
+            OperationalAction::TIPO_REABASTECIMENTO_BIDAO => 'Esta ação vai reabastecer o bidão de dosagem da piscina. Confirmar?',
+            OperationalAction::TIPO_TORNEIRA => 'Esta ação vai atualizar o alerta de torneira da piscina. Confirmar?',
+            default => 'Confirmar o registo desta ação operacional?',
+        };
     }
 
     protected function getCreatedNotificationTitle(): ?string
