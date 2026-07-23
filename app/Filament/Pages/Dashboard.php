@@ -40,6 +40,7 @@ class Dashboard extends \Filament\Pages\Dashboard
         return [
             PainelPiscinasWidget::class,
             CloroPhChartWidget::class,
+            \App\Filament\Widgets\OrpChlorineCorrelationWidget::class,
             QuadroOperacionalWidget::class,
             StockBaixoWidget::class,
         ];
