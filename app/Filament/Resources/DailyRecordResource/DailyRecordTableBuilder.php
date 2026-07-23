@@ -177,14 +177,7 @@ class DailyRecordTableBuilder
                                     ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                                 Forms\Components\TextInput::make('ns_cloro_total')
                                     ->label('Cloro Total (mg/L)')
-                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                                    ->rules([
-                                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                            if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
-                                                $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                            }
-                                        },
-                                    ]),
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                                 Forms\Components\TextInput::make('ns_temperatura')
                                     ->label('Temperatura (°C)')
                                     ->required()->numeric()->step(0.01),
@@ -203,14 +196,7 @@ class DailyRecordTableBuilder
                                     ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                                 Forms\Components\TextInput::make('cloro_total')
                                     ->label('Cloro Total (mg/L)')
-                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20)
-                                    ->rules([
-                                        fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                            if (filled($get('cloro_livre')) && (float) $value < (float) $get('cloro_livre')) {
-                                                $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                            }
-                                        },
-                                    ]),
+                                    ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                                 Forms\Components\TextInput::make('temperatura')
                                     ->label('Temperatura (°C)')
                                     ->required()->numeric()->step(0.1),
@@ -239,6 +225,21 @@ class DailyRecordTableBuilder
                             }
 
                             $isNS = $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+
+                            $cloroTotalKey = $isNS ? 'ns_cloro_total' : 'cloro_total';
+                            $cloroLivreKey = $isNS ? 'ns_cloro_livre' : 'cloro_livre';
+                            $cloroTotal = $data[$cloroTotalKey] ?? null;
+                            $cloroLivre = $data[$cloroLivreKey] ?? null;
+
+                            if (filled($cloroTotal) && filled($cloroLivre) && (float) $cloroTotal < (float) $cloroLivre) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Erro na correção')
+                                    ->body('O cloro total não pode ser inferior ao cloro livre.')
+                                    ->send();
+
+                                return;
+                            }
 
                             $novoRegisto = DailyRecord::create([
                                 'pool_id' => $record->pool_id,
