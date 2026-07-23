@@ -140,7 +140,47 @@ class IncidentChatTest extends TestCase
         Notification::assertNotSentTo($outroNs, \App\Notifications\IncidentMessageNotification::class);
     }
 
-    public function test_new_message_reopens_resolved_incident(): void
+    public function test_tecnico_message_reopens_resolved_incident(): void
+    {
+        Notification::fake();
+
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $ns = User::factory()->create();
+        $ns->assignRole(UserRole::NADADOR_SALVADOR);
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+
+        $incidente = Incident::create([
+            'installation_id' => $inst->id,
+            'user_id' => $ns->id,
+            'ocorreu_em' => now(),
+            'type' => 'fuga_agua',
+            'descricao' => 'Fuga junto ao filtro',
+            'status' => 'resolvido',
+            'resolvido_em' => now(),
+            'resolvido_por' => $tecnico->id,
+            'resolucao' => 'Junta substituída.',
+        ]);
+
+        $this->actingAs($tecnico);
+
+        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+            ->set('texto', 'Voltou a haver fuga.')
+            ->call('enviarMensagem');
+
+        $incidente->refresh();
+
+        $this->assertSame('aberto', $incidente->status);
+        $this->assertNull($incidente->resolvido_em);
+        $this->assertNull($incidente->resolvido_por);
+        $this->assertNull($incidente->resolucao);
+
+        $textos = $incidente->mensagens()->pluck('texto')->all();
+        $this->assertContains('Voltou a haver fuga.', $textos);
+        $this->assertContains('Reaberto automaticamente após nova mensagem.', $textos);
+    }
+
+    public function test_ns_message_does_not_reopen_resolved_incident(): void
     {
         Notification::fake();
 
@@ -165,19 +205,19 @@ class IncidentChatTest extends TestCase
         $this->actingAs($ns);
 
         Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
-            ->set('texto', 'Voltou a haver fuga.')
+            ->set('texto', 'Fica só a confirmar que ficou bem.')
             ->call('enviarMensagem');
 
         $incidente->refresh();
 
-        $this->assertSame('aberto', $incidente->status);
-        $this->assertNull($incidente->resolvido_em);
-        $this->assertNull($incidente->resolvido_por);
-        $this->assertNull($incidente->resolucao);
+        $this->assertSame('resolvido', $incidente->status);
+        $this->assertNotNull($incidente->resolvido_em);
+        $this->assertNotNull($incidente->resolvido_por);
+        $this->assertNotNull($incidente->resolucao);
 
         $textos = $incidente->mensagens()->pluck('texto')->all();
-        $this->assertContains('Voltou a haver fuga.', $textos);
-        $this->assertContains('Reaberto automaticamente após nova mensagem.', $textos);
+        $this->assertContains('Fica só a confirmar que ficou bem.', $textos);
+        $this->assertNotContains('Reaberto automaticamente após nova mensagem.', $textos);
     }
 
     public function test_blank_message_is_ignored(): void

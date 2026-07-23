@@ -9,6 +9,7 @@ use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\User;
 use App\Constants\IncidentStatus;
+use App\Constants\IncidentType;
 use App\Constants\UserRole;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -88,8 +89,9 @@ class ExecuteBusinessRulesCommand extends Command
                         
                         Incident::create([
                             'installation_id' => $instalacaoId,
+                            'pool_id' => $poolId,
                             'ocorreu_em' => now(),
-                            'type' => 'qualidade_agua',
+                            'type' => IncidentType::QUALIDADE_AGUA,
                             'status' => IncidentStatus::ABERTO,
                             'descricao' => "Não-conformidade recorrente: {$param} violado em {$count} registos consecutivos na piscina {$nomePiscina}"
                         ]);

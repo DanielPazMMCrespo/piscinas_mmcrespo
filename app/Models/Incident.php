@@ -2,6 +2,7 @@
 namespace App\Models;
 
 
+use App\Constants\IncidentStatus;
 use App\Constants\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,7 @@ class Incident extends Model
     use HasFactory, LogsActivity;
 
     protected $fillable = [
-        'installation_id', 'user_id', 'ocorreu_em',
+        'installation_id', 'pool_id', 'user_id', 'ocorreu_em',
         'type', 'descricao', 'observacoes',
         'status', 'resolvido_em', 'resolvido_por', 'resolucao',
     ];
@@ -27,7 +28,7 @@ class Incident extends Model
 
     public function estaResolvido(): bool
     {
-        return $this->status === 'resolvido';
+        return $this->status === IncidentStatus::RESOLVIDO;
     }
 
     /**
@@ -36,6 +37,14 @@ class Incident extends Model
     public function instalacao(): BelongsTo
     {
         return $this->belongsTo(Installation::class, 'installation_id');
+    }
+
+    /**
+     * @return BelongsTo
+     */
+    public function piscina(): BelongsTo
+    {
+        return $this->belongsTo(Pool::class, 'pool_id');
     }
 
     /**

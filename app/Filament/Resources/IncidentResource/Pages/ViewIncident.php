@@ -14,6 +14,7 @@ class ViewIncident extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            IncidentResource::resolverHeaderAction(),
             Actions\EditAction::make(),
         ];
     }

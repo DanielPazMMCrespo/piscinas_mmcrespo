@@ -23,7 +23,7 @@ class NaoConformidadeWebPushTest extends TestCase
         $this->assertContains(WebPushChannel::class, $notification->via(new User()));
     }
 
-    public function test_payload_tem_titulo_corpo_e_url_do_registo(): void
+    public function test_payload_tem_titulo_corpo_e_url_da_listagem(): void
     {
         $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
         $pool = Pool::factory()->create(['installation_id' => $inst->id, 'active' => true]);
@@ -35,6 +35,7 @@ class NaoConformidadeWebPushTest extends TestCase
         $this->assertStringContainsString('Leiria Competição', $payload['title']);
         $this->assertStringContainsString('pH 9.5', $payload['body']);
         $this->assertSame("nao-conforme-{$registo->id}", $payload['tag']);
-        $this->assertStringContainsString((string) $registo->id, $payload['data']['url']);
+        // Não há página de edição/detalhe (livro append-only) — o link aponta para a listagem.
+        $this->assertStringContainsString('/admin/daily-records', $payload['data']['url']);
     }
 }

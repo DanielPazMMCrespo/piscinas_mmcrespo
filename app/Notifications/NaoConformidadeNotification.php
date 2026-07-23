@@ -53,7 +53,7 @@ class NaoConformidadeNotification extends Notification
                 Action::make('view')
                     ->label('Ver Registo')
                     ->button()
-                    ->url(DailyRecordResource::getUrl('edit', ['record' => $this->registo->id])),
+                    ->url(DailyRecordResource::getUrl('index')),
             ])
             ->getDatabaseMessage();
     }
@@ -67,7 +67,7 @@ class NaoConformidadeNotification extends Notification
             ->badge('/images/icon-192.png')
             ->tag("nao-conforme-{$this->registo->id}")
             ->vibrate([200, 100, 200])
-            ->data(['url' => DailyRecordResource::getUrl('edit', ['record' => $this->registo->id])]);
+            ->data(['url' => DailyRecordResource::getUrl('index')]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -77,7 +77,7 @@ class NaoConformidadeNotification extends Notification
             ->greeting('Atenção,')
             ->line("Foram detetados parâmetros fora dos limites legais na **{$this->nomePiscina}**:")
             ->line(implode(' · ', $this->violacoes))
-            ->action('Ver Registo', DailyRecordResource::getUrl('edit', ['record' => $this->registo->id]))
+            ->action('Ver Registo', DailyRecordResource::getUrl('index'))
             ->line('Por favor, verifique a situação o mais breve possível.');
     }
 }

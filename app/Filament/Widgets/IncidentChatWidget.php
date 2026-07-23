@@ -2,6 +2,7 @@
 namespace App\Filament\Widgets;
 
 
+use App\Constants\UserRole;
 use App\Models\Incident;
 use App\Models\IncidentMessage;
 use App\Notifications\IncidentMessageNotification;
@@ -13,7 +14,9 @@ use Illuminate\Support\Facades\Notification;
  * Timeline de mensagens de um incidente (chat entre quem reporta e quem
  * corrige) + caixa de resposta. Mistura mensagens livres com mensagens
  * automáticas de mudança de estado geradas noutros pontos (CreateIncident,
- * ação "Resolver"). Responder a um incidente resolvido reabre-o.
+ * ação "Resolver"). Responder a um incidente resolvido só o reabre se
+ * quem escreve tiver permissão para o resolver (Admin/Técnico) — evita
+ * que um comentário trivial de um NS reabra um incidente já fechado.
  */
 class IncidentChatWidget extends Widget
 {
@@ -46,7 +49,7 @@ class IncidentChatWidget extends Widget
                 'texto' => $texto,
             ]);
 
-            if ($incident->status === 'resolvido') {
+            if ($incident->status === 'resolvido' && $autor->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
                 $incident->update([
                     'status' => 'aberto',
                     'resolvido_em' => null,
