@@ -2,7 +2,6 @@
 namespace App\Filament\Resources\DailyRecordResource;
 
 use App\Constants\UserRole;
-use App\Filament\Resources\DailyRecordResource\Pages;
 use App\Models\DailyRecord;
 use App\Models\Pool;
 use Closure;
@@ -121,15 +120,7 @@ class DailyRecordTableBuilder
             ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()
-                        ->extraModalFooterActions([
-                            Tables\Actions\Action::make('ir_para_edicao')
-                                ->label('Editar')
-                                ->icon('heroicon-o-pencil')
-                                ->color('gray')
-                                ->url(fn (DailyRecord $record): string => Pages\EditDailyRecord::getUrl(['record' => $record])),
-                        ]),
-                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\ViewAction::make(),
                     Tables\Actions\Action::make('corrigir')
                         ->label('Corrigir')
                         ->icon('heroicon-o-pencil-square')
@@ -160,6 +151,10 @@ class DailyRecordTableBuilder
                                 'ph' => $record->ph,
                                 'cloro_livre' => $record->cloro_livre,
                                 'cloro_total' => $record->cloro_total,
+                                'temperatura' => $record->temperatura,
+                                'transparencia' => $record->transparencia,
+                                'caleira_feita' => $record->caleira_feita,
+                                'renovacao_agua' => $record->renovacao_agua,
                             ])
                         ->form(fn (DailyRecord $record): array => $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR)
                             ? [
@@ -205,6 +200,16 @@ class DailyRecordTableBuilder
                                             }
                                         },
                                     ]),
+                                Forms\Components\TextInput::make('temperatura')
+                                    ->label('Temperatura (°C)')
+                                    ->required()->numeric()->step(0.1),
+                                Forms\Components\TextInput::make('transparencia')
+                                    ->label('Turbidez (FNU)')
+                                    ->required()->numeric()->step(0.1)->minValue(0),
+                                Forms\Components\Toggle::make('caleira_feita')
+                                    ->label('Caleira feita'),
+                                Forms\Components\Toggle::make('renovacao_agua')
+                                    ->label('Renovação de água'),
                                 Forms\Components\Textarea::make('razao_correcao')
                                     ->label('Razão da correção')
                                     ->required()
@@ -223,26 +228,49 @@ class DailyRecordTableBuilder
 
                             $isNS = $record->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
-                            DailyRecord::create([
+                            $novoRegisto = DailyRecord::create([
                                 'pool_id' => $record->pool_id,
-                                'user_id' => auth()->id(),
+                                'user_id' => $record->user_id,
                                 'registado_em' => $record->registado_em,
                                 'ph' => $isNS ? $record->ph : $data['ph'],
                                 'cloro_livre' => $isNS ? $record->cloro_livre : $data['cloro_livre'],
                                 'cloro_total' => $isNS ? $record->cloro_total : $data['cloro_total'],
-                                'transparencia' => $record->transparencia,
-                                'temperatura' => $record->temperatura,
+                                'transparencia' => $isNS ? $record->transparencia : $data['transparencia'],
+                                'temperatura' => $isNS ? $record->temperatura : $data['temperatura'],
                                 'ns_ph' => $isNS ? $data['ns_ph'] : $record->ns_ph,
                                 'ns_cloro_livre' => $isNS ? $data['ns_cloro_livre'] : $record->ns_cloro_livre,
                                 'ns_cloro_total' => $isNS ? $data['ns_cloro_total'] : $record->ns_cloro_total,
                                 'ns_temperatura' => $isNS ? $data['ns_temperatura'] : $record->ns_temperatura,
-                                'caleira_feita' => $record->caleira_feita,
-                                'renovacao_agua' => $record->renovacao_agua,
+                                'caleira_feita' => $isNS ? $record->caleira_feita : $data['caleira_feita'],
+                                'renovacao_agua' => $isNS ? $record->renovacao_agua : $data['renovacao_agua'],
                                 'observacoes' => $record->observacoes,
                                 'e_correcao' => true,
                                 'corrige_registo_id' => $record->id,
                                 'razao_correcao' => $data['razao_correcao'],
                             ]);
+
+                            $pool = $novoRegisto->piscina;
+                            $violacoes = [];
+                            foreach (['ph', 'cloro_livre', 'temperatura', 'transparencia'] as $campo) {
+                                $valor = $novoRegisto->{$isNS ? "ns_{$campo}" : $campo};
+                                if ($valor === null) {
+                                    continue;
+                                }
+                                $estado = DailyRecord::avaliarConformidade($isNS ? "ns_{$campo}" : $campo, $valor, $pool);
+                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                                    $violacoes[] = $estado['mensagem'];
+                                }
+                            }
+
+                            if ($violacoes !== []) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Correção registada — fora de conformidade')
+                                    ->body('O registo original foi mantido, mas os valores corrigidos continuam fora dos limites: '.implode('; ', $violacoes))
+                                    ->send();
+
+                                return;
+                            }
 
                             Notification::make()
                                 ->success()

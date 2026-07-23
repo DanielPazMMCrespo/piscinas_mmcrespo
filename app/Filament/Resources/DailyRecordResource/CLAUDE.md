@@ -24,10 +24,15 @@ Livro de registo sanitário legal (CN 14/DA) — página núcleo, uso diário. A
 - **Lock de duplo-submit**: `Cache::lock('create_record_'.userId, 10)` + modal de confirmação com resumo antes de gravar.
 
 ## Ações
-- Criar (wizard + confirmação), Ver (infolist, com botão "Editar" que leva à página de edição), Editar (admin only), Corrigir (append-only), Eliminar (bulk, admin only).
+- Criar (wizard + confirmação), Ver (infolist), Corrigir (append-only, única forma de alterar um registo), Eliminar (bulk, admin only).
+- **Não há ação "Editar"**: `canEdit()` devolve sempre `false` e a rota `edit` foi removida de `getPages()`. Decisão consciente — reforça append-only; a única forma de alterar dados é "Corrigir" na tabela, que cria um novo registo ligado ao original.
+
+## Ação "Corrigir" — detalhe
+- Formulário do técnico/admin cobre agora **todos** os campos relevantes: `ph`, `cloro_livre`, `cloro_total`, `temperatura`, `transparencia`, `caleira_feita`, `renovacao_agua` (antes só cobria pH/cloro e copiava os restantes silenciosamente do original). NS continua só a corrigir os seus `ns_*`.
+- `user_id` da correção preserva o autor do registo original (`$record->user_id`) — antes ficava com o utilizador que fez a correção, quebrando a atribuição do registo. Quem efetivamente corrigiu fica no `causer` do activity log (`LogsActivity` no model).
+- Após gravar, valida conformidade dos valores corrigidos (`DailyRecord::avaliarConformidade()`); se algum ficar fora dos limites, notificação de aviso (amarela) lista os parâmetros em causa — a correção é sempre gravada (é um valor real), só muda o tom da notificação.
 
 ## Coisas a rever (encontradas no código, não confirmadas contigo)
-- **`EditDailyRecord` não edita de facto**: `DailyRecordFormBuilder::form()` devolve só um `Placeholder` ("Edição não suportada neste Wizard") sempre que a operação não é `create`. A única forma real de corrigir dados é a ação "corrigir" na tabela — se alguém for à página de edição à espera de mexer campo a campo, não vai conseguir.
 - `analises_fotos` está no `$fillable`/usado no job, mas não existe nenhum campo de upload correspondente no wizard atual — ou é preenchido por outra via (API/import) ou é código morto.
-- `bomba_com_bolhas`, `estado_valvulas_filtro`, `caleira_feita`, `renovacao_agua`, `transparencia` estão no `$fillable`/casts mas sem campo no wizard atual (alguns aparecem só no infolist "Técnico").
+- `bomba_com_bolhas`, `estado_valvulas_filtro` estão no `$fillable`/casts mas sem campo em nenhum form (nem no wizard, nem na correção) — a decidir se devem ser removidos ou capturados algures.
 - Lógica de "cloro total ≥ cloro livre" e "gestão de torneira" duplicada entre form builder, table builder e job — candidato a extrair para serviço/Rule partilhado.

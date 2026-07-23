@@ -192,10 +192,6 @@ class DailyRecordFormBuilder
 
     public static function form(Form $form): Form
     {
-        if ($form->getOperation() !== 'create') {
-            return $form->schema([ Forms\Components\Placeholder::make('Edição não suportada neste Wizard.') ]);
-        }
-
         return $form->schema([
             Forms\Components\Section::make('Início')
                 ->schema([
