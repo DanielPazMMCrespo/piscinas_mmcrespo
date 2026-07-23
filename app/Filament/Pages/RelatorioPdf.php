@@ -1,7 +1,7 @@
 <?php declare(strict_types=1);
 namespace App\Filament\Pages;
 
-
+use App\Constants\WaterQualityThresholds;
 use App\Models\Installation;
 use App\Models\OperationalAction;
 use App\Models\Pool;
@@ -558,14 +558,14 @@ class RelatorioPdf extends Page implements HasForms
                     ->orderByRaw('DATE(lida_em)')
                     ->get();
 
-                // 1. Procurar anomalias ativas (pH < 6, ORP < 400, ORP > 900)
+                // 1. Procurar anomalias ativas (pH < min, ORP < min ou ORP > max)
                 $anomalias = SensorReading::query()
                     ->where('pool_id', $piscina->id)
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
-                        $q->where('ph', '<', 6)
-                          ->orWhere('orp', '<', 400)
-                          ->orWhere('orp', '>', 900);
+                        $q->where('ph', '<', WaterQualityThresholds::ANOMALY_PH_MIN)
+                          ->orWhere('orp', '<', WaterQualityThresholds::ANOMALY_ORP_MIN)
+                          ->orWhere('orp', '>', WaterQualityThresholds::ANOMALY_ORP_MAX);
                     })
                     ->get();
 
@@ -582,17 +582,17 @@ class RelatorioPdf extends Page implements HasForms
                 }
 
                 // Regra automática de lavagem de filtro para o controlador
-                // (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
+                // (pH fora de [min, max]) E (ORP fora de [min, max])
                 $leiturasLavagem = SensorReading::query()
                     ->where('pool_id', $piscina->id)
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
-                        $q->where('ph', '<', 6.0)
-                          ->orWhere('ph', '>', 8.0);
+                        $q->where('ph', '<', WaterQualityThresholds::FILTER_WASH_PH_MIN)
+                          ->orWhere('ph', '>', WaterQualityThresholds::FILTER_WASH_PH_MAX);
                     })
                     ->where(function ($q) {
-                        $q->where('orp', '<', 600.0)
-                          ->orWhere('orp', '>', 870.0);
+                        $q->where('orp', '<', WaterQualityThresholds::FILTER_WASH_ORP_MIN)
+                          ->orWhere('orp', '>', WaterQualityThresholds::FILTER_WASH_ORP_MAX);
                     })
                     ->get();
 
@@ -663,12 +663,13 @@ class RelatorioPdf extends Page implements HasForms
                         }
                     }
 
-                    // Se não tiver motivo da janela, mas cumprir a regra da lavagem de filtro:
-                    // (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
+                    // Se não tiver motivo da janela, mas cumprir a regra da lavagem de filtro
                     if ($motivo === null) {
                         $phVal = $leitura->ph !== null ? (float) $leitura->ph : null;
                         $orpVal = $leitura->orp !== null ? (float) $leitura->orp : null;
-                        if ($phVal !== null && $orpVal !== null && ($phVal < 6.0 || $phVal > 8.0) && ($orpVal < 600.0 || $orpVal > 870.0)) {
+                        if ($phVal !== null && $orpVal !== null
+                            && ($phVal < WaterQualityThresholds::FILTER_WASH_PH_MIN || $phVal > WaterQualityThresholds::FILTER_WASH_PH_MAX)
+                            && ($orpVal < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orpVal > WaterQualityThresholds::FILTER_WASH_ORP_MAX)) {
                             $motivo = 'Lavagem de filtro';
                         }
                     }
