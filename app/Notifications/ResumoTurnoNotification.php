@@ -45,7 +45,7 @@ class ResumoTurnoNotification extends Notification implements ShouldQueue
     public function toWebPush(object $notifiable, object $notification): WebPushMessage
     {
         $date = now()->format('Y-m-d');
-        
+
         return (new WebPushMessage)
             ->title("Resumo operacional — {$this->horario}")
             ->body(implode(' · ', $this->linhas))

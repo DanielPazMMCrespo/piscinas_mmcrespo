@@ -34,6 +34,7 @@ class ResumoConformidadeNotification extends Notification
         if ($notifiable->wantsNotification('resumo_conformidade', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -64,7 +65,7 @@ class ResumoConformidadeNotification extends Notification
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title($this->titulo())
             ->body($this->corpo())
             ->icon('/images/icon-192.png')
@@ -76,7 +77,7 @@ class ResumoConformidadeNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject($this->titulo())
             ->greeting('Atenção,')
             ->line($this->corpo())

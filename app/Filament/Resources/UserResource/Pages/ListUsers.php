@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Resources\UserResource\Pages;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\UserResource;
 use App\Models\Pool;
 use App\Services\InvitationService;
@@ -13,7 +16,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use App\Constants\UserRole;
 
 class ListUsers extends ListRecords
 {
@@ -25,8 +27,8 @@ class ListUsers extends ListRecords
 
         $opcoesCargo = $isAdmin
             ? [
-                UserRole::GESTOR           => 'Gestor',
-                UserRole::TECNICO          => 'Técnico',
+                UserRole::GESTOR => 'Gestor',
+                UserRole::TECNICO => 'Técnico',
                 UserRole::NADADOR_SALVADOR => 'Nadador Salvador',
             ]
             : [

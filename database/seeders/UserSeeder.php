@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Seeders;
 
@@ -28,10 +30,10 @@ class UserSeeder extends Seeder
         $daniel = User::updateOrCreate(
             ['email' => 'daniel@mmcrespo.pt'],
             [
-                'name'       => 'Daniel Paz',
+                'name' => 'Daniel Paz',
                 'first_name' => 'Daniel',
-                'last_name'  => 'Paz',
-                'password'   => Hash::make($passwordDaniel),
+                'last_name' => 'Paz',
+                'password' => Hash::make($passwordDaniel),
                 'email_verified_at' => now(),
             ]
         );
@@ -43,10 +45,10 @@ class UserSeeder extends Seeder
         $marcio = User::updateOrCreate(
             ['email' => 'marcio@mmcrespo.pt'],
             [
-                'name'       => 'Márcio',
+                'name' => 'Márcio',
                 'first_name' => 'Márcio',
-                'last_name'  => '',
-                'password'   => Hash::make($passwordMarcio),
+                'last_name' => '',
+                'password' => Hash::make($passwordMarcio),
                 'email_verified_at' => now(),
             ]
         );
@@ -60,7 +62,7 @@ class UserSeeder extends Seeder
             $admin = User::firstOrCreate(
                 ['email' => 'admin@mmcrespo.pt'],
                 [
-                    'name'     => 'Admin Teste',
+                    'name' => 'Admin Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
                     'must_change_password' => false,
@@ -71,7 +73,7 @@ class UserSeeder extends Seeder
             $tec = User::firstOrCreate(
                 ['email' => 'tecnico@mmcrespo.pt'],
                 [
-                    'name'     => 'Técnico Teste',
+                    'name' => 'Técnico Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
                     'must_change_password' => false,
@@ -82,7 +84,7 @@ class UserSeeder extends Seeder
             $ns = User::firstOrCreate(
                 ['email' => 'ns@mmcrespo.pt'],
                 [
-                    'name'     => 'Nadador Salvador Teste',
+                    'name' => 'Nadador Salvador Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
                     'must_change_password' => false,
@@ -93,7 +95,7 @@ class UserSeeder extends Seeder
             $gestor = User::firstOrCreate(
                 ['email' => 'gestor@mmcrespo.pt'],
                 [
-                    'name'     => 'Gestor Teste',
+                    'name' => 'Gestor Teste',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
                     'must_change_password' => false,

@@ -1,34 +1,39 @@
-<?php declare(strict_types=1);
- 
+<?php
+
+declare(strict_types=1);
+
 namespace Tests\Feature;
- 
+
 use App\Constants\UserRole;
-use App\Models\User;
-use App\Models\CustomBroadcast;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use Livewire\Livewire;
 use App\Filament\Pages\Notificacoes;
- 
+use App\Models\CustomBroadcast;
+use App\Models\User;
+use App\Notifications\CustomBroadcastNotification;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
 class NotificacoesPageTest extends TestCase
 {
     use RefreshDatabase;
- 
+
     protected function setUp(): void
     {
         parent::setUp();
- 
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRole::ADMIN, 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRole::GESTOR, 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRole::TECNICO, 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRole::NADADOR_SALVADOR, 'guard_name' => 'web']);
+
+        Role::firstOrCreate(['name' => UserRole::ADMIN, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => UserRole::GESTOR, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => UserRole::TECNICO, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => UserRole::NADADOR_SALVADOR, 'guard_name' => 'web']);
     }
- 
+
     public function test_admin_can_open_notificacoes_page_with_broadcasts(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole(UserRole::ADMIN);
- 
+
         // Create a broadcast
         CustomBroadcast::create([
             'titulo' => 'Aviso Teste',
@@ -37,20 +42,20 @@ class NotificacoesPageTest extends TestCase
             'tipo_agendamento' => CustomBroadcast::TIPO_UNICO,
             'enviar_em' => now()->addDay(),
         ]);
- 
+
         $this->actingAs($admin);
- 
+
         $response = $this->get('/admin/notificacoes');
         $response->assertStatus(200);
     }
- 
+
     public function test_admin_can_create_broadcast(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole(UserRole::ADMIN);
- 
+
         $this->actingAs($admin);
- 
+
         Livewire::test(Notificacoes::class)
             ->callTableAction('novo_aviso', null, [
                 'titulo' => 'Novo de Teste',
@@ -60,7 +65,7 @@ class NotificacoesPageTest extends TestCase
                 'enviar_em' => now()->addDay()->format('Y-m-d H:i:s'),
             ])
             ->assertHasNoErrors();
- 
+
         $this->assertDatabaseHas('custom_broadcasts', [
             'titulo' => 'Novo de Teste',
         ]);
@@ -76,7 +81,7 @@ class NotificacoesPageTest extends TestCase
 
         $this->actingAs($admin);
 
-        \Illuminate\Support\Facades\Notification::fake();
+        Notification::fake();
 
         Livewire::test(Notificacoes::class)
             ->set('destinoTipo', 'cargo')
@@ -86,9 +91,9 @@ class NotificacoesPageTest extends TestCase
             ->call('enviarManual')
             ->assertHasNoErrors();
 
-        \Illuminate\Support\Facades\Notification::assertSentTo(
+        Notification::assertSentTo(
             $tecnico,
-            \App\Notifications\CustomBroadcastNotification::class
+            CustomBroadcastNotification::class
         );
     }
 
@@ -102,7 +107,7 @@ class NotificacoesPageTest extends TestCase
 
         $this->actingAs($admin);
 
-        \Illuminate\Support\Facades\Notification::fake();
+        Notification::fake();
 
         Livewire::test(Notificacoes::class)
             ->set('destinoTipo', 'utilizador')
@@ -112,9 +117,9 @@ class NotificacoesPageTest extends TestCase
             ->call('enviarManual')
             ->assertHasNoErrors();
 
-        \Illuminate\Support\Facades\Notification::assertSentTo(
+        Notification::assertSentTo(
             $tecnico,
-            \App\Notifications\CustomBroadcastNotification::class
+            CustomBroadcastNotification::class
         );
     }
 
@@ -126,7 +131,7 @@ class NotificacoesPageTest extends TestCase
             'notification_preferences' => [
                 'incident_created' => ['push' => true, 'mail' => false],
                 'custom_broadcast' => ['push' => false, 'mail' => false],
-            ]
+            ],
         ]);
 
         $this->actingAs($swimmer);
@@ -136,17 +141,17 @@ class NotificacoesPageTest extends TestCase
             ->assertFormFieldDoesNotExist('notification_preferences.incident_created.push', 'preferencesForm')
             ->fillForm([
                 'notification_preferences' => [
-                    'custom_broadcast' => ['push' => true, 'mail' => true]
-                ]
+                    'custom_broadcast' => ['push' => true, 'mail' => true],
+                ],
             ], 'preferencesForm')
             ->call('savePreferences')
             ->assertHasNoErrors();
 
         $swimmer->refresh();
-        
+
         $this->assertTrue($swimmer->notification_preferences['custom_broadcast']['push']);
         $this->assertTrue($swimmer->notification_preferences['custom_broadcast']['mail']);
-        
+
         $this->assertTrue($swimmer->notification_preferences['incident_created']['push']);
         $this->assertFalse($swimmer->notification_preferences['incident_created']['mail']);
     }

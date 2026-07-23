@@ -1,11 +1,15 @@
-<?php declare(strict_types=1);
-namespace App\Constants;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Constants;
 
 final class AlertLevel
 {
     public const VERMELHO = 'vermelho';
+
     public const AMARELO = 'amarelo';
+
     public const NEUTRO = 'neutro';
 
     private function __construct()

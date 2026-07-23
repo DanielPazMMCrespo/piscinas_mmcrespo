@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Constants\UserRole;
 use App\Models\User;
-use App\Notifications\IncidentCreatedNotification;
-use App\Notifications\NaoConformidadeNotification;
-use App\Notifications\TimerFinishedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use NotificationChannels\WebPush\WebPushChannel;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;

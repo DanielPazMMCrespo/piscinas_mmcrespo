@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Console\Commands;
 
@@ -35,8 +37,9 @@ class ImportLazerRecordsCommand extends Command
             ?? User::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->first()
             ?? User::first();
 
-        if (!$user) {
+        if (! $user) {
             $this->error('Erro: Nenhum utilizador encontrado na base de dados para associar os registos.');
+
             return 1;
         }
 
@@ -218,7 +221,7 @@ class ImportLazerRecordsCommand extends Command
         $skipped = 0;
 
         foreach ($records as $item) {
-            $registadoEm = Carbon::createFromFormat('d/m/Y H:i', $item['data'] . ' ' . $item['hora']);
+            $registadoEm = Carbon::createFromFormat('d/m/Y H:i', $item['data'].' '.$item['hora']);
 
             // Verificar se o registo já existe para esta piscina neste horário
             $exists = DailyRecord::where('pool_id', 2)
@@ -228,6 +231,7 @@ class ImportLazerRecordsCommand extends Command
             if ($exists) {
                 $skipped++;
                 $this->line("Registo em {$item['data']} {$item['hora']} já existe. A saltar...");
+
                 continue;
             }
 

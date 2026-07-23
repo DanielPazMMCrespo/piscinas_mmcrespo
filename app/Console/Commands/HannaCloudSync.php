@@ -1,7 +1,12 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
-
+use App\Constants\UserRole;
+use App\Exceptions\SensorCommunicationException;
+use App\Models\DailyRecord;
 use App\Models\DosingContainer;
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
@@ -9,10 +14,9 @@ use App\Models\User;
 use App\Notifications\DosingContainerLowAlert;
 use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
+use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
-use App\Constants\UserRole;
-use App\Models\DailyRecord;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -86,7 +90,7 @@ class HannaCloudSync extends Command
 
         foreach ($devices as $device) {
             try {
-                $reading = \App\Services\HannaCircuitBreaker::execute(
+                $reading = HannaCircuitBreaker::execute(
                     function () use ($hanna, $device) {
                         try {
                             return $hanna->getLastReading($device->hanna_device_id);
@@ -97,7 +101,7 @@ class HannaCloudSync extends Command
                             } elseif (isset($e->response) && method_exists($e->response, 'status')) {
                                 $statusCode = (int) $e->response->status();
                             }
-                            throw new \App\Exceptions\SensorCommunicationException(
+                            throw new SensorCommunicationException(
                                 $device->hanna_device_id,
                                 1,
                                 $statusCode,
@@ -110,6 +114,7 @@ class HannaCloudSync extends Command
 
                 if ($reading === null) {
                     $this->warn("  ⚠ {$device->name}: API indisponível (circuit breaker aberto).");
+
                     continue;
                 }
 
@@ -263,7 +268,7 @@ class HannaCloudSync extends Command
      * Leitura obtida durante uma lavagem/bomba parada é artefacto (a água não
      * circula no sensor) — não deve gerar alertas de pH.
      *
-     * @param array<string, mixed> $reading
+     * @param  array<string, mixed>  $reading
      */
     private function emArtefacto(HannaDevice $device, array $reading): bool
     {
@@ -308,7 +313,7 @@ class HannaCloudSync extends Command
      * por episódio — a mesma condição que a Hanna Cloud assinala como
      * "pH Overtime" no dashboard deles.
      *
-     * @param array<string, mixed> $reading
+     * @param  array<string, mixed>  $reading
      */
     private function atualizarPhOvertime(HannaDevice $device, array $reading): void
     {
@@ -399,7 +404,7 @@ class HannaCloudSync extends Command
      * porque esta funcionalidade acabou de ser lançada — a Hanna Cloud já
      * vinha a contar overtime há horas.
      *
-     * @param array{setpoint: float, band: float, overtimeMinutes: int} $ds
+     * @param  array{setpoint: float, band: float, overtimeMinutes: int}  $ds
      */
     private function inicioForaDaBanda(HannaDevice $device, array $ds): Carbon
     {

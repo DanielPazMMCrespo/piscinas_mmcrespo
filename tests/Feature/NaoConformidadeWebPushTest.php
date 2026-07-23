@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Feature;
 
@@ -17,10 +19,10 @@ class NaoConformidadeWebPushTest extends TestCase
 
     public function test_usa_canal_webpush(): void
     {
-        $registo = new DailyRecord();
+        $registo = new DailyRecord;
         $notification = new NaoConformidadeNotification($registo, ['pH 9.5'], 'Leiria Competição');
 
-        $this->assertContains(WebPushChannel::class, $notification->via(new User()));
+        $this->assertContains(WebPushChannel::class, $notification->via(new User));
     }
 
     public function test_payload_tem_titulo_corpo_e_url_da_listagem(): void
@@ -30,7 +32,7 @@ class NaoConformidadeWebPushTest extends TestCase
         $registo = DailyRecord::factory()->create(['pool_id' => $pool->id]);
 
         $notification = new NaoConformidadeNotification($registo, ['pH 9.5'], 'Leiria Competição');
-        $payload = $notification->toWebPush(new User(), $notification)->toArray();
+        $payload = $notification->toWebPush(new User, $notification)->toArray();
 
         $this->assertStringContainsString('Leiria Competição', $payload['title']);
         $this->assertStringContainsString('pH 9.5', $payload['body']);

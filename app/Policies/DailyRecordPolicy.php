@@ -39,6 +39,7 @@ class DailyRecordPolicy
         if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
             return $user->podeVer(NSPermission::REGISTO_DIARIO) && $user->piscinas()->exists();
         }
+
         return false;
     }
 

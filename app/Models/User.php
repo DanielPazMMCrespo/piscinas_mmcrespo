@@ -1,23 +1,25 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
-
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Constants\NSPermission;
+use App\Constants\UserRole;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
-use App\Constants\NSPermission;
-use App\Constants\UserRole;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar
 {
@@ -36,6 +38,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     {
         if ($this->hasRole(UserRole::INATIVO)) {
             session()->flash('mmc_inativo', true);
+
             return false;
         }
 
@@ -126,21 +129,21 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             && $this->hasRole([UserRole::ADMIN, UserRole::GESTOR])) {
             return true;
         }
-        
+
         $prefs = $this->notification_preferences ?? [];
-        
+
         // Defaults: Push ativo por padrão para quase tudo, E-mail inativo por padrão exceto conformidade
         $defaults = [
-            'incident_created'    => ['push' => true, 'mail' => false],
-            'incident_message'    => ['push' => true, 'mail' => false],
-            'timer_finished'      => ['push' => true, 'mail' => false],
-            'torneira_aberta'     => ['push' => true, 'mail' => false],
-            'dosing_low'          => ['push' => true, 'mail' => false],
-            'nao_conformidade'    => ['push' => true, 'mail' => true],
+            'incident_created' => ['push' => true, 'mail' => false],
+            'incident_message' => ['push' => true, 'mail' => false],
+            'timer_finished' => ['push' => true, 'mail' => false],
+            'torneira_aberta' => ['push' => true, 'mail' => false],
+            'dosing_low' => ['push' => true, 'mail' => false],
+            'nao_conformidade' => ['push' => true, 'mail' => true],
             'resumo_conformidade' => ['push' => true, 'mail' => true],
-            'hanna_threshold'     => ['push' => true, 'mail' => false],
-            'hanna_overtime'      => ['push' => true, 'mail' => false],
-            'custom_broadcast'    => ['push' => true, 'mail' => false],
+            'hanna_threshold' => ['push' => true, 'mail' => false],
+            'hanna_overtime' => ['push' => true, 'mail' => false],
+            'custom_broadcast' => ['push' => true, 'mail' => false],
         ];
 
         return $prefs[$key][$canal] ?? $defaults[$key][$canal] ?? false;

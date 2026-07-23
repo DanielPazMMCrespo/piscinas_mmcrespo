@@ -25,7 +25,7 @@ class DosageCalculatorService
         $fatorCompensacao = $this->settingsService->getFloat('fator_compensacao_dosagem', 1.25);
         $produto = $this->sugerirProduto($parametro, $piscina->installation_id);
 
-        if (!$produto) {
+        if (! $produto) {
             return null; // Nao ha produto disponivel
         }
 
@@ -36,7 +36,7 @@ class DosageCalculatorService
         if ($parametro === 'cloro_livre') {
             $min = DailyRecord::getCloroLivreMin();
             $max = DailyRecord::getCloroLivreMax();
-            
+
             if ($valorAtual >= $min) {
                 return null; // Dentro ou acima dos limites, nao precisa de dosagem positiva
             }
@@ -47,14 +47,14 @@ class DosageCalculatorService
         } elseif ($parametro === 'ph') {
             $min = DailyRecord::getPhMin();
             $max = DailyRecord::getPhMax();
-            
+
             if ($valorAtual >= $min && $valorAtual <= $max) {
                 return null;
             }
-            
+
             $target = ($min + $max) / 2;
             $diff = abs($target - $valorAtual);
-            
+
             // Regra prática para pH: ~10ml/g por m³ por cada 0.1 de alteração no pH
             $volumeM3 = $piscina->volume;
             $doseCalculada = $volumeM3 * ($diff / 0.1) * 10;
@@ -68,7 +68,7 @@ class DosageCalculatorService
                 'dose_calculada_ml' => round($doseCalculada, 2),
                 'dose_com_fator_ml' => round($doseComFator, 2),
                 'unidade' => $produto->unidade ?? 'ml',
-                'explicacao' => "{$acao} para o valor ideal ({$targetFmt})."
+                'explicacao' => "{$acao} para o valor ideal ({$targetFmt}).",
             ];
         } else {
             return null; // Parametro nao suportado para calculo automatico
@@ -85,7 +85,7 @@ class DosageCalculatorService
             'dose_calculada_ml' => round($doseCalculada, 2),
             'dose_com_fator_ml' => round($doseComFator, 2),
             'unidade' => $produto->unidade ?? 'ml',
-            'explicacao' => $explicacao
+            'explicacao' => $explicacao,
         ];
     }
 
@@ -105,7 +105,7 @@ class DosageCalculatorService
             ->where('active', true)
             ->whereHas('stockInstalacoes', function ($q) use ($installationId) {
                 $q->where('installation_id', $installationId)
-                  ->where('quantity', '>', 0);
+                    ->where('quantity', '>', 0);
             })
             ->orderByDesc('concentracao_cl')
             ->first();
@@ -139,7 +139,7 @@ class DosageCalculatorService
             } elseif ($parametro === 'cloro_livre') {
                 $val = $registo->cloro_livre_efetivo;
             }
-            
+
             if ($val !== null) {
                 $valores[] = (float) $val;
             }
@@ -192,27 +192,31 @@ class DosageCalculatorService
         $sumY = 0;
         $sumXY = 0;
         $sumX2 = 0;
-        
+
         foreach ($valores as $x => $y) {
             $sumX += $x;
             $sumY += $y;
             $sumXY += ($x * $y);
             $sumX2 += ($x * $x);
         }
-        
+
         $slope = ($n * $sumXY - $sumX * $sumY) / ($n * $sumX2 - $sumX * $sumX);
         $intercept = ($sumY - $slope * $sumX) / $n;
         $previsao = $slope * $n + $intercept; // predict for index $n
 
         $tendencia = 'estavel';
-        if ($degrading) $tendencia = 'degradante';
-        if ($improving) $tendencia = 'melhorante';
+        if ($degrading) {
+            $tendencia = 'degradante';
+        }
+        if ($improving) {
+            $tendencia = 'melhorante';
+        }
 
         return [
             'tendencia' => $tendencia,
             'valores' => $valores,
             'previsao' => round($previsao, 2),
-            'mensagem' => "Tendência atual é {$tendencia}."
+            'mensagem' => "Tendência atual é {$tendencia}.",
         ];
     }
 

@@ -22,8 +22,11 @@ class DailyRecordFormValidationTest extends TestCase
     use RefreshDatabase;
 
     private User $tecnico;
+
     private Installation $leiria;
+
     private Pool $competicao;
+
     private Product $cloro;
 
     protected function setUp(): void
@@ -68,8 +71,8 @@ class DailyRecordFormValidationTest extends TestCase
                         'ns_cloro_livre' => 2.0,
                         'ns_cloro_total' => 1.5, // menor que ns_cloro_livre
                         'ns_temperatura' => 27.0,
-                    ]
-                ]
+                    ],
+                ],
             ])
             ->call('create')
             ->assertHasFormErrors(["pools.{$this->competicao->id}.ns_cloro_total"]);
@@ -104,8 +107,8 @@ class DailyRecordFormValidationTest extends TestCase
                         'ns_cloro_livre' => 1.0,
                         'ns_cloro_total' => 1.2,
                         'ns_temperatura' => 27.0,
-                    ]
-                ]
+                    ],
+                ],
             ])
             ->call('create')
             ->assertHasFormErrors(["pools.{$this->competicao->id}.contador_valor"]);
@@ -140,10 +143,10 @@ class DailyRecordFormValidationTest extends TestCase
                             [
                                 'product_id' => $this->cloro->id,
                                 'quantity' => 12.5, // Maior que 10.0
-                            ]
-                        ]
-                    ]
-                ]
+                            ],
+                        ],
+                    ],
+                ],
             ])
             ->call('create')
             ->assertHasNoFormErrors(["pools.{$this->competicao->id}.adicoes.0.quantity"]);
@@ -155,7 +158,7 @@ class DailyRecordFormValidationTest extends TestCase
     public function test_confirmation_modal_lists_non_compliant_parameters(): void
     {
         // pH fora dos limites (CN 14/DA: 6.9 - 8.0) -> pH 8.5
-        $page = new CreateDailyRecord();
+        $page = new CreateDailyRecord;
         $page->data = [
             'installation_id' => $this->leiria->id,
             'pools' => [
@@ -164,8 +167,8 @@ class DailyRecordFormValidationTest extends TestCase
                     'ns_cloro_livre' => 1.2,
                     'ns_cloro_total' => 1.5,
                     'ns_temperatura' => 27.0,
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Usar reflexão para aceder ao método privado conteudoModalConfirmacao
@@ -176,9 +179,9 @@ class DailyRecordFormValidationTest extends TestCase
         // Procurar a ação 'confirmarCriacao'
         $confirmAction = collect($actions)->first(fn ($action) => $action->getName() === 'confirmarCriacao');
         $view = $confirmAction->getModalContent();
-        
+
         $viewData = $view->getData();
-        
+
         $this->assertNotEmpty($viewData['valores']);
         $this->assertEquals('Competição', $viewData['valores'][0]['piscina']);
         $this->assertEquals(8.5, $viewData['valores'][0]['ph']);

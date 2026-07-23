@@ -11,7 +11,6 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -22,10 +21,15 @@ class RelatorioPdfFineCombTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $tecnico;
+
     private User $nadador;
+
     private Installation $installation;
+
     private Pool $poolLazer;
+
     private Pool $poolCompeticao;
 
     protected function setUp(): void
@@ -190,7 +194,7 @@ class RelatorioPdfFineCombTest extends TestCase
         // Let's call exportar manually on the component instance to assert the file response headers.
         $streamResponse = $instance->exportar();
         $this->assertNotNull($streamResponse);
-        
+
         $contentDisposition = $streamResponse->headers->get('Content-Disposition');
         $this->assertStringContainsString('attachment;', $contentDisposition);
         // Slug check: complexo-aquatico-de-teste-leiria-at-2026 (due to '@' in name)
@@ -341,13 +345,14 @@ class RelatorioPdfFineCombTest extends TestCase
                 $phAvg = $grupo->map(fn ($r) => $r->ph)->filter(fn ($v) => $v !== null)->average();
                 $tempAvg = $grupo->map(fn ($r) => $r->temperatura)->filter(fn ($v) => $v !== null)->average();
                 $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre)->filter(fn ($v) => $v !== null)->average();
-                
-                $mockRecord = new DailyRecord();
-                $mockRecord->ph = $phAvg !== null ? round((float)$phAvg, 2) : null;
-                $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
-                $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float)$cloroLivreAvg, 2) : null;
+
+                $mockRecord = new DailyRecord;
+                $mockRecord->ph = $phAvg !== null ? round((float) $phAvg, 2) : null;
+                $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
+                $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float) $cloroLivreAvg, 2) : null;
                 $mockRecord->e_correcao = false;
                 $mockRecord->registado_em = $grupo->first()->registado_em;
+
                 return $mockRecord;
             });
 
@@ -514,7 +519,7 @@ class RelatorioPdfFineCombTest extends TestCase
         ]);
 
         $controlador = collect();
-        $sintetico = new \stdClass();
+        $sintetico = new \stdClass;
         $sintetico->dia = now()->subDays(3)->format('Y-m-d');
         $sintetico->hora = '12:00';
         $sintetico->ph = 7.2;
@@ -592,7 +597,7 @@ class RelatorioPdfFineCombTest extends TestCase
         // Since we want to test what comes out of the query, we can test by calling exportar
         // or simulating the controller query directly using the same logic.
         // We will call the controller logic via the view data.
-        
+
         $seccoes = $this->poolLazer->registosDiarios()
             ->whereBetween('registado_em', [now()->subDays(4)->startOfDay(), now()->subDays(1)->endOfDay()])
             ->get();
@@ -616,11 +621,11 @@ class RelatorioPdfFineCombTest extends TestCase
             ->whereBetween('lida_em', [now()->subDays(4)->startOfDay(), now()->subDays(1)->endOfDay()])
             ->where(function ($q) {
                 $q->where('ph', '<', 6.0)
-                  ->orWhere('ph', '>', 8.0);
+                    ->orWhere('ph', '>', 8.0);
             })
             ->where(function ($q) {
                 $q->where('orp', '<', 600.0)
-                  ->orWhere('orp', '>', 870.0);
+                    ->orWhere('orp', '>', 870.0);
             })
             ->get();
 

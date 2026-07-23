@@ -1,37 +1,52 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Widgets;
 
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Pool;
 use App\Models\SensorReading;
+use App\Services\LeituraArtefactoService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class CloroPhChartWidget extends Widget implements HasForms
 {
     use InteractsWithForms;
 
     protected static ?int $sort = 2;
+
     protected int|string|array $columnSpan = 'full';
+
     protected static bool $isDiscovered = false;
+
     protected static string $view = 'filament.widgets.painel-parametros';
 
     public ?string $poolSelecionada = null;
+
     public string $leftMetric = 'controlador_ph';
+
     public string $rightMetric = 'controlador_orp';
+
     public string $period = '7d';
+
     public string $tabAtiva = 'graph';
+
     public ?string $customStartDate = null;
+
     public ?string $customEndDate = null;
 
     private const NS_CAMPOS = ['ph', 'cloro_livre', 'cloro_total', 'temperatura'];
+
     private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', 'custom'];
+
     private const TABS_VALIDAS = ['graph', 'table'];
 
     /** Métricas escondidas do Nadador-Salvador (sem relevância operacional para o seu papel). */
@@ -104,7 +119,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public static function canView(): bool
     {
-        return (bool) auth()->user()?->podeVer(\App\Constants\NSPermission::ANALISE_PARAMETROS);
+        return (bool) auth()->user()?->podeVer(NSPermission::ANALISE_PARAMETROS);
     }
 
     public function mount(): void
@@ -126,10 +141,10 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->form->fill([
             'poolSelecionada' => $this->poolSelecionada,
-            'leftMetric'      => $this->leftMetric,
-            'rightMetric'     => $this->rightMetric,
+            'leftMetric' => $this->leftMetric,
+            'rightMetric' => $this->rightMetric,
             'customStartDate' => $this->customStartDate,
-            'customEndDate'   => $this->customEndDate,
+            'customEndDate' => $this->customEndDate,
         ]);
     }
 
@@ -211,10 +226,10 @@ class CloroPhChartWidget extends Widget implements HasForms
 
         $this->form->fill([
             'poolSelecionada' => $this->poolSelecionada,
-            'leftMetric'      => $this->leftMetric,
-            'rightMetric'     => $this->rightMetric,
+            'leftMetric' => $this->leftMetric,
+            'rightMetric' => $this->rightMetric,
             'customStartDate' => $this->customStartDate,
-            'customEndDate'   => $this->customEndDate,
+            'customEndDate' => $this->customEndDate,
         ]);
 
         $this->dispatchChartRefresh();
@@ -238,13 +253,13 @@ class CloroPhChartWidget extends Widget implements HasForms
     private function getPeriodStart(): Carbon
     {
         return match ($this->period) {
-            '12h'    => now()->subHours(12),
-            '6h'     => now()->subHours(6),
-            '24h'    => now()->subHours(24),
-            '7d'     => now()->subDays(7)->startOfDay(),
-            '14d'    => now()->subDays(14)->startOfDay(),
+            '12h' => now()->subHours(12),
+            '6h' => now()->subHours(6),
+            '24h' => now()->subHours(24),
+            '7d' => now()->subDays(7)->startOfDay(),
+            '14d' => now()->subDays(14)->startOfDay(),
             'custom' => $this->customStartDate ? Carbon::parse($this->customStartDate)->startOfDay() : now()->subDays(7)->startOfDay(),
-            default  => now()->subDays(7)->startOfDay(),
+            default => now()->subDays(7)->startOfDay(),
         };
     }
 
@@ -252,7 +267,7 @@ class CloroPhChartWidget extends Widget implements HasForms
     {
         return match ($this->period) {
             'custom' => $this->customEndDate ? Carbon::parse($this->customEndDate)->endOfDay() : now(),
-            default  => now(),
+            default => now(),
         };
     }
 
@@ -288,7 +303,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
             // Exclui leituras artefacto (lavagem/bomba parada): não circula água
             // no sensor e o valor não reflete a qualidade real.
-            $janelas = app(\App\Services\LeituraArtefactoService::class)->janelas($poolId, $start, $end);
+            $janelas = app(LeituraArtefactoService::class)->janelas($poolId, $start, $end);
             $emArtefacto = fn ($lidaEm): bool => collect($janelas)
                 ->contains(fn (array $j) => $lidaEm->gte($j['inicio']) && $lidaEm->lte($j['fim']));
 
@@ -302,7 +317,7 @@ class CloroPhChartWidget extends Widget implements HasForms
         } else {
             $campo = $metricKey;
 
-            $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_' . $campo : null;
+            $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_'.$campo : null;
             $colunas = $nsCampo !== null ? ['registado_em', $campo, $nsCampo] : ['registado_em', $campo];
             $rows = DailyRecord::query()
                 ->select($colunas)
@@ -314,9 +329,9 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->get();
 
             $data = $rows->map(fn ($r) => [
-                    'val' => $r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null),
-                    'r' => $r
-                ])
+                'val' => $r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null),
+                'r' => $r,
+            ])
                 ->filter(fn ($item) => $item['val'] !== null)
                 ->map(fn ($item) => [
                     'x' => $item['r']->registado_em->toIso8601String(),
@@ -324,21 +339,21 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ])->values()->toArray();
 
             $datasets[] = [
-                'label'  => $def['label'],
-                'data'   => $data,
+                'label' => $def['label'],
+                'data' => $data,
                 'dashed' => false,
             ];
         }
 
         return [
-            'key'      => $metricKey,
-            'label'    => $def['label'],
-            'unidade'  => $def['unidade'],
-            'casas'    => $def['casas'],
-            'yMin'     => $def['min'],
-            'yMax'     => $def['max'],
-            'cor'      => $def['cor'],
-            'banda'    => $def['banda'],
+            'key' => $metricKey,
+            'label' => $def['label'],
+            'unidade' => $def['unidade'],
+            'casas' => $def['casas'],
+            'yMin' => $def['min'],
+            'yMax' => $def['max'],
+            'cor' => $def['cor'],
+            'banda' => $def['banda'],
             'datasets' => $datasets,
         ];
     }
@@ -373,8 +388,8 @@ class CloroPhChartWidget extends Widget implements HasForms
         $payload = [
             'titulo' => $titulo,
             'period' => $this->period,
-            'left'   => $this->buildMetricAxis($leftKey),
-            'right'  => $this->buildMetricAxis($rightKey),
+            'left' => $this->buildMetricAxis($leftKey),
+            'right' => $this->buildMetricAxis($rightKey),
         ];
 
         if ($canCache) {
@@ -404,11 +419,11 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->limit(500)
             ->get()
             ->map(fn ($r) => [
-                'data'        => $r->registado_em->format('d/m H:i'),
-                'ph'          => $r->ph_efetivo !== null ? number_format((float) $r->ph_efetivo, 2, ',', '') : '—',
+                'data' => $r->registado_em->format('d/m H:i'),
+                'ph' => $r->ph_efetivo !== null ? number_format((float) $r->ph_efetivo, 2, ',', '') : '—',
                 'cloro_livre' => $r->cloro_livre_efetivo !== null ? number_format((float) $r->cloro_livre_efetivo, 2, ',', '') : '—',
                 'cloro_total' => $r->cloro_total_efetivo !== null ? number_format((float) $r->cloro_total_efetivo, 2, ',', '') : '—',
-                'turbidez'    => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
+                'turbidez' => $r->transparencia !== null ? number_format((float) $r->transparencia, 2, ',', '') : '—',
                 'temperatura' => $r->temperatura_efetivo !== null ? number_format((float) $r->temperatura_efetivo, 1, ',', '') : '—',
             ])->toArray();
 
@@ -422,8 +437,8 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->get()
             ->map(fn ($r) => [
                 'data' => $r->lida_em->format('d/m H:i'),
-                'ph'   => $r->ph !== null ? number_format((float) $r->ph, 2, ',', '') : '—',
-                'orp'  => $r->orp !== null ? number_format((float) $r->orp, 0, ',', '') : '—',
+                'ph' => $r->ph !== null ? number_format((float) $r->ph, 2, ',', '') : '—',
+                'orp' => $r->orp !== null ? number_format((float) $r->orp, 0, ',', '') : '—',
                 'temp' => $r->temperatura_agua !== null ? number_format((float) $r->temperatura_agua, 1, ',', '') : '—',
             ])->toArray();
 

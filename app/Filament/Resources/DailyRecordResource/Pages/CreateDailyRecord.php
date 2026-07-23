@@ -1,21 +1,29 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
+use App\Models\Pool;
+use App\Services\CacheService;
 use App\Services\DailyRecordService;
 use Filament\Actions\Action;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
     public bool $isCreating = false;
-    
-    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+
+    protected function handleRecordCreation(array $data): Model
     {
         /** @var DailyRecordService $service */
         $service = app(DailyRecordService::class);
@@ -29,10 +37,10 @@ class CreateDailyRecord extends CreateRecord
 
         return $record;
     }
-    
+
     protected function afterCreate(): void
     {
-        app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
+        app(CacheService::class)->invalidateAlerts(auth()->id());
     }
 
     public function create(bool $another = false): void
@@ -44,18 +52,18 @@ class CreateDailyRecord extends CreateRecord
         $this->isCreating = true;
         $this->authorizeAccess();
 
-        $lockKey = 'create_record_' . auth()->id();
+        $lockKey = 'create_record_'.auth()->id();
         try {
-            $success = \Illuminate\Support\Facades\Cache::lock($lockKey, 10)->get(function () {
+            $success = Cache::lock($lockKey, 10)->get(function () {
                 $this->beginDatabaseTransaction();
                 $this->callHook('beforeValidate');
                 $data = $this->form->getState();
                 $this->callHook('afterValidate');
                 $data = $this->mutateFormDataBeforeCreate($data);
                 $this->callHook('beforeCreate');
-                
+
                 $this->record = $this->handleRecordCreation($data);
-                
+
                 $this->callHook('afterCreate');
 
                 $this->commitDatabaseTransaction();
@@ -75,6 +83,7 @@ class CreateDailyRecord extends CreateRecord
                     ->title('Submissão duplicada')
                     ->body('O registo já está a ser processado. Por favor aguarde.')
                     ->send();
+
                 return;
             }
         } catch (Halt $exception) {
@@ -122,7 +131,7 @@ class CreateDailyRecord extends CreateRecord
     {
         try {
             $this->form->getState();
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $mensagens = collect($e->errors())->flatten()->unique()->values();
 
             Notification::make()
@@ -138,6 +147,7 @@ class CreateDailyRecord extends CreateRecord
                 ->title('Erro ao validar formulário')
                 ->body('O formulário expirou ou contém dados inválidos. Por favor, recarregue a página.')
                 ->send();
+
             return;
         }
 
@@ -163,8 +173,10 @@ class CreateDailyRecord extends CreateRecord
                     $valores = [];
 
                     foreach ($poolsData as $poolId => $poolData) {
-                        $pool = \App\Models\Pool::find($poolId);
-                        if (!$pool) continue;
+                        $pool = Pool::find($poolId);
+                        if (! $pool) {
+                            continue;
+                        }
 
                         $valores[] = [
                             'piscina' => $pool->name,

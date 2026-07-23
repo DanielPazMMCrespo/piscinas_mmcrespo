@@ -1,9 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Observers;
 
-
+use App\Jobs\InvalidateAlertsJob;
 use App\Models\DailyRecord;
 use App\Services\CacheService;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Observer para DailyRecord: invalida cache quando registos são criados/atualizados.
@@ -42,11 +46,11 @@ class DailyRecordObserver
         $this->cacheService->invalidateGraphCache((int) $record->pool_id);
 
         // Invalida alertas globais em background (para não bloquear o Request HTTP)
-        \App\Jobs\InvalidateAlertsJob::dispatch();
+        InvalidateAlertsJob::dispatch();
 
         // Invalida o cache local temporário do utilizador autenticado
         if (auth()->check()) {
-            \Illuminate\Support\Facades\Cache::forget('alertas_' . auth()->id());
+            Cache::forget('alertas_'.auth()->id());
         }
 
         // Invalida painel de piscinas (valores atualizados).

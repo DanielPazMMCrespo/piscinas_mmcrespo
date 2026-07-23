@@ -1,11 +1,12 @@
-<?php declare(strict_types=1);
-namespace App\Models;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -35,25 +36,16 @@ class Installation extends Model
         });
     }
 
-    /**
-     * @return HasMany
-     */
     public function piscinas(): HasMany
     {
         return $this->hasMany(Pool::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function incidentes(): HasMany
     {
         return $this->hasMany(Incident::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function stockInstallations(): HasMany
     {
         return $this->hasMany(StockInstallation::class);

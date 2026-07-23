@@ -6,11 +6,10 @@ namespace App\Notifications;
 
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\DailyRecord;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Filament\Notifications\Notification as FilamentNotification;
-use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -39,6 +38,7 @@ class NaoConformidadeNotification extends Notification
         if ($notifiable->wantsNotification('nao_conformidade', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -60,7 +60,7 @@ class NaoConformidadeNotification extends Notification
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title('Parâmetros fora dos limites — '.$this->nomePiscina)
             ->body(implode(' · ', $this->violacoes).'.')
             ->icon('/images/icon-192.png')
@@ -72,7 +72,7 @@ class NaoConformidadeNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("🔴 Parâmetros fora dos limites: {$this->nomePiscina}")
             ->greeting('Atenção,')
             ->line("Foram detetados parâmetros fora dos limites legais na **{$this->nomePiscina}**:")

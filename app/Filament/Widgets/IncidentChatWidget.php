@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Widgets;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
 use App\Models\Incident;

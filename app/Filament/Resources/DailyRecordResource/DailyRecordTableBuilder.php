@@ -1,19 +1,30 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\DailyRecordResource;
 
 use App\Constants\UserRole;
+use App\Enums\EstadoConformidade;
 use App\Models\DailyRecord;
-use App\Models\Pool;
 use Closure;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Tabs;
+use Filament\Infolists\Components\Tabs\Tab;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
-use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
 
 class DailyRecordTableBuilder
 {
@@ -33,7 +44,7 @@ class DailyRecordTableBuilder
                         Tables\Columns\TextColumn::make('piscina.name')
                             ->label('Piscina')
                             ->weight('bold')
-                            ->formatStateUsing(function (DailyRecord $record): \Illuminate\Support\HtmlString {
+                            ->formatStateUsing(function (DailyRecord $record): HtmlString {
                                 $nome = e($record->piscina?->name);
                                 if ($record->e_correcao) {
                                     $nome .= ' <span class="mmc-record-tag mmc-record-tag--warning">Correção</span>';
@@ -41,7 +52,7 @@ class DailyRecordTableBuilder
                                     $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Corrigido</span>';
                                 }
 
-                                return new \Illuminate\Support\HtmlString($nome);
+                                return new HtmlString($nome);
                             })
                             ->html()
                             ->description(fn (DailyRecord $record): ?string => $record->piscina?->instalacao?->name)
@@ -59,17 +70,17 @@ class DailyRecordTableBuilder
                             ->icon('heroicon-m-user')
                             ->hiddenFrom('md'),
                     ])->space(1),
-                    
+
                     Tables\Columns\Layout\Stack::make([
                         self::metricColumn('ph_efetivo', 'pH', fn (DailyRecord $record): bool => $record->phConforme()),
                         self::metricColumn('cloro_livre_efetivo', 'Cl. Livre', fn (DailyRecord $record): bool => $record->cloroLivreConforme()),
                     ])->space(1),
-                    
+
                     Tables\Columns\Layout\Stack::make([
                         self::metricColumn('cloro_total_efetivo', 'Cl. Total', null),
                         self::metricColumn('cloro_combinado', 'Cl. Comb.', fn (DailyRecord $record): bool => $record->cloroCombinadoConforme()),
                     ])->space(1),
-                    
+
                     Tables\Columns\Layout\Stack::make([
                         Tables\Columns\TextColumn::make('utilizador.name')
                             ->label('Técnico/NS')
@@ -104,10 +115,10 @@ class DailyRecordTableBuilder
                     ->indicateUsing(function (array $data): array {
                         $ind = [];
                         if ($data['de'] ?? null) {
-                            $ind[] = 'De '.\Illuminate\Support\Carbon::parse($data['de'])->format('d/m/Y');
+                            $ind[] = 'De '.Carbon::parse($data['de'])->format('d/m/Y');
                         }
                         if ($data['ate'] ?? null) {
-                            $ind[] = 'Até '.\Illuminate\Support\Carbon::parse($data['ate'])->format('d/m/Y');
+                            $ind[] = 'Até '.Carbon::parse($data['ate'])->format('d/m/Y');
                         }
 
                         return $ind;
@@ -117,7 +128,7 @@ class DailyRecordTableBuilder
                     ->placeholder('Todos os registos')
                     ->trueLabel('Apenas correções')
                     ->falseLabel('Apenas registos originais'),
-            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
+            ], layout: FiltersLayout::Modal)
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
@@ -223,6 +234,7 @@ class DailyRecordTableBuilder
 
                             if (! $podeCorrigir) {
                                 Notification::make()->danger()->title('Sem permissão')->send();
+
                                 return;
                             }
 
@@ -278,7 +290,7 @@ class DailyRecordTableBuilder
                                 ->body('O registo original foi mantido e a correção ficou associada.')
                                 ->send();
                         }),
-                ])
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -298,37 +310,37 @@ class DailyRecordTableBuilder
             ->label($label)
             ->html()
             ->extraAttributes(['class' => 'tabular-nums text-right'])
-            ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $label, $conforme): \Illuminate\Support\HtmlString {
+            ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $label, $conforme): HtmlString {
                 if ($state === null) {
-                    return new \Illuminate\Support\HtmlString('<span class="text-gray-400">'.$label.':</span> <span class="mmc-metric-na">—</span>');
+                    return new HtmlString('<span class="text-gray-400">'.$label.':</span> <span class="mmc-metric-na">—</span>');
                 }
 
                 $prefix = '<span class="text-gray-400 mr-1">'.$label.':</span>';
                 $valor = e(rtrim(rtrim(number_format((float) $state, 2, ',', ''), '0'), ','));
 
                 if ($conforme === null) {
-                    return new \Illuminate\Support\HtmlString($prefix . ' ' . $valor);
+                    return new HtmlString($prefix.' '.$valor);
                 }
 
                 $campoReal = str_replace('_efetivo', '', $field);
                 $avaliacao = DailyRecord::avaliarConformidade($campoReal, $state, $record->piscina);
                 $estado = $avaliacao['estado'];
 
-                if ($estado === \App\Enums\EstadoConformidade::VERDE) {
+                if ($estado === EstadoConformidade::VERDE) {
                     $mark = '<span class="mmc-metric-mark mmc-metric-mark--ok">✓</span>';
-                } elseif ($estado === \App\Enums\EstadoConformidade::AMARELO) {
+                } elseif ($estado === EstadoConformidade::AMARELO) {
                     $mark = '<span class="mmc-metric-mark mmc-metric-mark--warning">!</span>';
                 } else {
                     $mark = '<span class="mmc-metric-mark mmc-metric-mark--bad">✗</span>';
                 }
 
-                return new \Illuminate\Support\HtmlString($prefix . ' ' . $valor.' '.$mark);
+                return new HtmlString($prefix.' '.$valor.' '.$mark);
             });
     }
 
-    private static function fotoEntry(string $field, string $label): \Filament\Infolists\Components\TextEntry
+    private static function fotoEntry(string $field, string $label): TextEntry
     {
-        return \Filament\Infolists\Components\TextEntry::make($field)
+        return TextEntry::make($field)
             ->label($label)
             ->html()
             ->formatStateUsing(function ($state) {
@@ -340,79 +352,79 @@ class DailyRecordTableBuilder
                         continue;
                     }
                     $html .= "<a href='{$url}' class='glightbox-trigger block overflow-hidden rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-primary-500 hover:shadow-md transition-all duration-200'>"
-                           . "<img src='{$url}' class='object-cover h-40 w-56 cursor-zoom-in' alt='Foto' />"
-                           . '</a>';
+                           ."<img src='{$url}' class='object-cover h-40 w-56 cursor-zoom-in' alt='Foto' />"
+                           .'</a>';
                 }
                 $html .= '</div>';
+
                 return $html;
             })
             ->visible(fn ($record) => filled($record?->{$field}));
     }
 
-    public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
+    public static function infolist(Infolist $infolist): Infolist
     {
-        $isSwimmerRecord = fn (?DailyRecord $record): bool =>
-            $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+        $isSwimmerRecord = fn (?DailyRecord $record): bool => $record?->utilizador?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
         $viewerIsNS = auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
 
         return $infolist
             ->schema([
                 // Swimmer (Nadador-Salvador) Simplified View
-                \Filament\Infolists\Components\Section::make('Registo do Nadador-Salvador')
+                Section::make('Registo do Nadador-Salvador')
                     ->visible(fn (?DailyRecord $record): bool => $viewerIsNS || $isSwimmerRecord($record))
                     ->schema([
-                        \Filament\Infolists\Components\Grid::make(3)
+                        Grid::make(3)
                             ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('pool.name')
+                                TextEntry::make('pool.name')
                                     ->label('Piscina'),
-                                \Filament\Infolists\Components\TextEntry::make('user.name')
+                                TextEntry::make('user.name')
                                     ->label('Operador'),
-                                \Filament\Infolists\Components\TextEntry::make('registado_em')
+                                TextEntry::make('registado_em')
                                     ->label('Data do Registo')
                                     ->dateTime('d/m/Y H:i'),
                             ]),
-                        \Filament\Infolists\Components\Section::make('Análises')
+                        Section::make('Análises')
                             ->schema([
-                                \Filament\Infolists\Components\Grid::make(4)
+                                Grid::make(4)
                                     ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('ns_ph')->label('pH (NS)'),
-                                        \Filament\Infolists\Components\TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
-                                        \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
-                                        \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
+                                        TextEntry::make('ns_ph')->label('pH (NS)'),
+                                        TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
+                                        TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
+                                        TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                     ]),
                                 self::fotoEntry('ns_foto', 'Foto da Análise NS'),
                             ]),
-                        \Filament\Infolists\Components\TextEntry::make('observacoes')
+                        TextEntry::make('observacoes')
                             ->label('Observações')
                             ->visible(fn ($record) => filled($record?->observacoes)),
                     ]),
 
                 // Full Infolist Tabs (for Technician/Admin)
-                \Filament\Infolists\Components\Tabs::make('Registo')
-                    ->visible(fn (?DailyRecord $record): bool => !$viewerIsNS && !$isSwimmerRecord($record))
+                Tabs::make('Registo')
+                    ->visible(fn (?DailyRecord $record): bool => ! $viewerIsNS && ! $isSwimmerRecord($record))
                     ->tabs([
-                        \Filament\Infolists\Components\Tabs\Tab::make('Geral')
+                        Tab::make('Geral')
                             ->schema([
-                                \Filament\Infolists\Components\Grid::make(2)
+                                Grid::make(2)
                                     ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('pool.name')
+                                        TextEntry::make('pool.name')
                                             ->label('Piscina'),
-                                        \Filament\Infolists\Components\TextEntry::make('user.name')
+                                        TextEntry::make('user.name')
                                             ->label('Operador'),
-                                        \Filament\Infolists\Components\TextEntry::make('registado_em')
+                                        TextEntry::make('registado_em')
                                             ->label('Data do Registo')
                                             ->dateTime('d/m/Y H:i'),
-                                        \Filament\Infolists\Components\IconEntry::make('bomba_ferrada')
+                                        IconEntry::make('bomba_ferrada')
                                             ->label('Bomba ferrada')
                                             ->boolean(),
                                     ]),
                                 self::fotoEntry('bomba_foto', 'Foto da Bomba'),
-                                \Filament\Infolists\Components\Grid::make(2)
+                                Grid::make(2)
                                     ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('contador_valor')
+                                        TextEntry::make('contador_valor')
                                             ->label('Leitura do Contador'),
-                                        \Filament\Infolists\Components\TextEntry::make('agua_modo')
+                                        TextEntry::make('agua_modo')
                                             ->label('Entrada de Água')
                                             ->formatStateUsing(fn (?string $state): string => match ($state) {
                                                 'auto_com_agua' => 'Auto com água',
@@ -425,77 +437,76 @@ class DailyRecordTableBuilder
                                     ]),
                                 self::fotoEntry('contador_foto', 'Foto do Contador da Água'),
                                 self::fotoEntry('torneira_foto', 'Foto da Torneira'),
-                                \Filament\Infolists\Components\Grid::make(2)
+                                Grid::make(2)
                                     ->schema([
-                                        \Filament\Infolists\Components\IconEntry::make('tanque_ok')
+                                        IconEntry::make('tanque_ok')
                                             ->label('Tanque OK')
                                             ->boolean(),
-                                        \Filament\Infolists\Components\TextEntry::make('tanque_observacoes')
+                                        TextEntry::make('tanque_observacoes')
                                             ->label('Obs. Tanque'),
                                     ]),
                                 self::fotoEntry('tanque_foto', 'Foto do Tanque'),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Análises')
+                        Tab::make('Análises')
                             ->schema([
-                                \Filament\Infolists\Components\Section::make('Nadador-Salvador')
+                                Section::make('Nadador-Salvador')
                                     ->schema([
-                                        \Filament\Infolists\Components\Grid::make(2)
+                                        Grid::make(2)
                                             ->schema([
-                                                \Filament\Infolists\Components\TextEntry::make('ns_ph')->label('pH (NS)'),
-                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
-                                                \Filament\Infolists\Components\TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
-                                                \Filament\Infolists\Components\TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
+                                                TextEntry::make('ns_ph')->label('pH (NS)'),
+                                                TextEntry::make('ns_cloro_livre')->label('Cloro Livre (NS)'),
+                                                TextEntry::make('ns_cloro_total')->label('Cloro Total (NS)'),
+                                                TextEntry::make('ns_temperatura')->label('Temperatura (NS)'),
                                             ]),
                                         self::fotoEntry('ns_foto', 'Foto da Análise NS'),
                                     ]),
-                                \Filament\Infolists\Components\Section::make('Técnico')
+                                Section::make('Técnico')
                                     ->schema([
-                                        \Filament\Infolists\Components\Grid::make(2)
+                                        Grid::make(2)
                                             ->schema([
-                                                \Filament\Infolists\Components\TextEntry::make('ph')->label('pH (Técnico)'),
-                                                \Filament\Infolists\Components\TextEntry::make('cloro_livre')->label('Cloro Livre (Técnico)'),
-                                                \Filament\Infolists\Components\TextEntry::make('cloro_total')->label('Cloro Total (Técnico)'),
-                                                \Filament\Infolists\Components\TextEntry::make('temperatura')->label('Temperatura (Técnico)'),
-                                                \Filament\Infolists\Components\TextEntry::make('transparencia')->label('Turbidez (FNU)'),
+                                                TextEntry::make('ph')->label('pH (Técnico)'),
+                                                TextEntry::make('cloro_livre')->label('Cloro Livre (Técnico)'),
+                                                TextEntry::make('cloro_total')->label('Cloro Total (Técnico)'),
+                                                TextEntry::make('temperatura')->label('Temperatura (Técnico)'),
+                                                TextEntry::make('transparencia')->label('Turbidez (FNU)'),
                                             ]),
                                         self::fotoEntry('analises_fotos', 'Fotos das Análises'),
                                     ]),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Filtros')
+                        Tab::make('Filtros')
                             ->schema([
-                                \Filament\Infolists\Components\IconEntry::make('filtro_faz_retrolavagem')
+                                IconEntry::make('filtro_faz_retrolavagem')
                                     ->label('Retrolavagem Realizada')
                                     ->boolean(),
-                                \Filament\Infolists\Components\Grid::make(3)
+                                Grid::make(3)
                                     ->schema([
                                         self::fotoEntry('filtro_foto_retrolavagem', 'Posição Retrolavagem'),
                                         self::fotoEntry('filtro_foto_enxaguamento', 'Posição Enxaguamento'),
                                         self::fotoEntry('filtro_foto_posicao_normal', 'Posição Normal'),
                                     ]),
                             ]),
-                        \Filament\Infolists\Components\Tabs\Tab::make('Químicos')
+                        Tab::make('Químicos')
                             ->schema([
-                                \Filament\Infolists\Components\RepeatableEntry::make('adicoes')
+                                RepeatableEntry::make('adicoes')
                                     ->label('Químicos Adicionados')
                                     ->schema([
-                                        \Filament\Infolists\Components\Grid::make(2)
+                                        Grid::make(2)
                                             ->schema([
-                                                \Filament\Infolists\Components\TextEntry::make('product.name')->label('Produto'),
-                                                \Filament\Infolists\Components\TextEntry::make('quantity')->label('Quantidade'),
+                                                TextEntry::make('product.name')->label('Produto'),
+                                                TextEntry::make('quantity')->label('Quantidade'),
                                             ]),
-                                        \Filament\Infolists\Components\TextEntry::make('acao_corretiva')
+                                        TextEntry::make('acao_corretiva')
                                             ->label('Ação corretiva')
                                             ->visible(fn ($state) => filled($state)),
                                     ]),
-                                \Filament\Infolists\Components\TextEntry::make('observacoes')
+                                TextEntry::make('observacoes')
                                     ->label('Observações'),
-                                \Filament\Infolists\Components\TextEntry::make('razao_correcao')
+                                TextEntry::make('razao_correcao')
                                     ->label('Razão da Correção')
-                                    ->visible(fn ($record) => (bool)$record?->e_correcao),
+                                    ->visible(fn ($record) => (bool) $record?->e_correcao),
                             ]),
                     ])
-                    ->columnSpanFull()
+                    ->columnSpanFull(),
             ]);
     }
-
 }

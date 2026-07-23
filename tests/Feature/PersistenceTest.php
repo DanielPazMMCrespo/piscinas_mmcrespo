@@ -1,18 +1,21 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Filament\Pages\Auth\Login;
-use Livewire\Livewire;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
-use Tests\TestCase;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
 
 class PersistenceTest extends TestCase
 {
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -48,7 +51,7 @@ class PersistenceTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertTrue(Auth::check());
-        
+
         // Retrieve the authenticated user's remember token cookie or status
         // In Laravel, acting as remember set will store remember_token on user model
         $user->refresh();

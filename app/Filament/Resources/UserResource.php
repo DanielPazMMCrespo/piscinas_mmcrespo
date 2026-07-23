@@ -1,10 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\UserResource\Pages;
-use App\Models\User;
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
+use App\Filament\Resources\UserResource\Pages;
+use App\Models\User;
+use Filament\Actions\StaticAction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -12,6 +16,9 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
@@ -46,6 +53,7 @@ class UserResource extends Resource
             return $record->hasRole(UserRole::NADADOR_SALVADOR)
                 && ! $record->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]);
         }
+
         return false;
     }
 
@@ -78,7 +86,8 @@ class UserResource extends Resource
         if (empty($roleIds)) {
             return false;
         }
-        return \Spatie\Permission\Models\Role::whereIn('id', $roleIds)
+
+        return Role::whereIn('id', $roleIds)
             ->where('name', UserRole::NADADOR_SALVADOR)
             ->exists();
     }
@@ -126,8 +135,7 @@ class UserResource extends Resource
                     ->required(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
                     ->live()
                     ->visible(fn () => auth()->user()?->hasRole(UserRole::ADMIN))
-                    ->disabled(fn ($record): bool =>
-                        $record !== null && $record->id === auth()->id()
+                    ->disabled(fn ($record): bool => $record !== null && $record->id === auth()->id()
                     )
                     ->dehydrated(fn ($record): bool => $record === null || $record->id !== auth()->id()),
                 Forms\Components\Select::make('piscinas')
@@ -208,7 +216,7 @@ class UserResource extends Resource
                     ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
                     ->modalSubmitActionLabel('Sim, enviar e-mail')
                     ->action(function (User $record): void {
-                        \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $record->email]);
+                        Password::broker()->sendResetLink(['email' => $record->email]);
                         Notification::make()
                             ->title('E-mail enviado')
                             ->body('As instruções para redefinir a palavra-passe foram enviadas.')
@@ -232,14 +240,14 @@ class UserResource extends Resource
                             ->requiredWithout('password'),
                         Forms\Components\Checkbox::make('consciencia')
                             ->label('Tenho consciência que vou alterar as credenciais deste utilizador')
-                            ->required()
+                            ->required(),
                     ])
                     ->action(function (User $record, array $data): void {
-                        if (!empty($data['password'])) {
-                            $record->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+                        if (! empty($data['password'])) {
+                            $record->password = Hash::make($data['password']);
                         }
-                        if (!empty($data['pin'])) {
-                            $record->pin = \Illuminate\Support\Facades\Hash::make($data['pin']);
+                        if (! empty($data['pin'])) {
+                            $record->pin = Hash::make($data['pin']);
                         }
                         $record->save();
                         Notification::make()
@@ -250,7 +258,7 @@ class UserResource extends Resource
                     ->modalHeading('Forçar Alteração Manual')
                     ->modalDescription('Atenção: está prestes a definir manualmente a palavra-passe/PIN de um utilizador. Aguarde 5 segundos para confirmar.')
                     ->modalSubmitActionLabel('Confirmar Alteração')
-                    ->modalSubmitAction(fn (\Filament\Actions\StaticAction $action) => $action->extraAttributes([
+                    ->modalSubmitAction(fn (StaticAction $action) => $action->extraAttributes([
                         'x-data' => '{ seconds: 5, init() { const i = setInterval(() => { if (this.seconds > 0) { this.seconds-- } else { clearInterval(i) } }, 1000) } }',
                         'x-bind:disabled' => 'seconds > 0',
                         'style' => 'transition: all 0.3s;',
@@ -283,14 +291,17 @@ class UserResource extends Resource
                             $records->each(function (User $record) use (&$adminCount, &$skipped): void {
                                 if ($record->id === auth()->id()) {
                                     $skipped[] = $record->full_name;
+
                                     return;
                                 }
                                 if ($record->hasRole(UserRole::ADMIN) && $adminCount <= 1) {
                                     $skipped[] = $record->full_name;
+
                                     return;
                                 }
                                 if (self::temDadosAssociados($record)) {
                                     $skipped[] = $record->full_name;
+
                                     return;
                                 }
                                 if ($record->hasRole(UserRole::ADMIN)) {
@@ -303,7 +314,7 @@ class UserResource extends Resource
                                 Notification::make()
                                     ->danger()
                                     ->title('Alguns utilizadores não foram eliminados')
-                                    ->body('Têm registos diários/incidentes associados, são o único admin, ou é a sua própria conta: ' . implode(', ', $skipped))
+                                    ->body('Têm registos diários/incidentes associados, são o único admin, ou é a sua própria conta: '.implode(', ', $skipped))
                                     ->send();
                             }
                         }),

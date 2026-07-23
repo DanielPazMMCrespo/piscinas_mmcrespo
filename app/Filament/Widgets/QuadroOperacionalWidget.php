@@ -1,12 +1,17 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Widgets;
 
-
+use App\Constants\AlertLevel;
 use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Services\AlertasService;
-use Filament\Widgets\Widget;
 use Filament\Notifications\Notification;
+use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Quadro Kanban operacional (topo do dashboard): os alertas exception-first
@@ -54,12 +59,19 @@ class QuadroOperacionalWidget extends Widget
 
     protected function getViewData(): array
     {
-        $resultado = \Illuminate\Support\Facades\Cache::remember(
-            'alertas_' . auth()->id(),
+        $resultado = Cache::remember(
+            'alertas_'.auth()->id(),
             30,
             fn () => app(AlertasService::class)->calcular(auth()->user())
         );
         $ativos = $resultado['alertas'];
+
+        // Poda: estados com mais de 7 dias já não interessam (corre no máximo 1x por hora).
+        Cache::remember('alert_state_pruning', 3600, function () {
+            AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
+
+            return true;
+        });
 
         $estados = AlertState::query()
             ->where('status', '!=', 'resolvido')
@@ -112,12 +124,12 @@ class QuadroOperacionalWidget extends Widget
                 $listaAtivos[$indiceGrupoSemRegisto] = $semRegisto[0];
             } else {
                 $nomes = array_map(fn ($i) => trim(explode(':', $i['titulo'])[0]), $semRegisto);
-                $temVermelho = collect($semRegisto)->contains(fn ($i) => $i['nivel'] === \App\Constants\AlertLevel::VERMELHO);
+                $temVermelho = collect($semRegisto)->contains(fn ($i) => $i['nivel'] === AlertLevel::VERMELHO);
 
                 $listaAtivos[$indiceGrupoSemRegisto] = [
                     'key' => 'grupo_sem_registo',
                     'grupo' => true,
-                    'nivel' => $temVermelho ? \App\Constants\AlertLevel::VERMELHO : \App\Constants\AlertLevel::AMARELO,
+                    'nivel' => $temVermelho ? AlertLevel::VERMELHO : AlertLevel::AMARELO,
                     'icone' => 'heroicon-o-clipboard-document-list',
                     'titulo' => 'Sem registo diário hoje',
                     'detalhe' => count($semRegisto).' piscinas: '.implode(', ', $nomes),
@@ -129,7 +141,7 @@ class QuadroOperacionalWidget extends Widget
         $listaAtivos = array_values($listaAtivos);
 
         // Estados cuja condição desapareceu: resolvidos automáticos de hoje.
-        \Illuminate\Support\Facades\DB::transaction(function () use ($estados, $ativos) {
+        DB::transaction(function () use ($estados, $ativos) {
             foreach ($estados as $key => $estado) {
                 if (isset($ativos[$key])) {
                     continue;
@@ -152,7 +164,7 @@ class QuadroOperacionalWidget extends Widget
 
             $listaResolvidos[] = ($estado->payload ?? []) + [
                 'key' => $key,
-                'nivel' => $estado->payload['nivel'] ?? \App\Constants\AlertLevel::NEUTRO,
+                'nivel' => $estado->payload['nivel'] ?? AlertLevel::NEUTRO,
                 'icone' => $estado->payload['icone'] ?? 'heroicon-o-check-circle',
                 'titulo' => $estado->payload['titulo'] ?? 'Alerta resolvido',
                 'detalhe' => $estado->payload['detalhe'] ?? 'A condição de alerta foi resolvida.',

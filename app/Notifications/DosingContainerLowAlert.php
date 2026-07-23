@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
@@ -25,6 +27,7 @@ class DosingContainerLowAlert extends Notification
         if ($notifiable->wantsNotification('dosing_low', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -32,7 +35,7 @@ class DosingContainerLowAlert extends Notification
     {
         $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
         $pct = $this->container->percentagem();
-        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '') . '%' : 'nível baixo';
+        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '').'%' : 'nível baixo';
 
         return new DatabaseMessage([
             'title' => "Bidão de {$this->container->tipoLabel()} — {$piscina}: repor",
@@ -47,9 +50,9 @@ class DosingContainerLowAlert extends Notification
     {
         $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
         $pct = $this->container->percentagem();
-        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '') . '%' : 'nível baixo';
+        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '').'%' : 'nível baixo';
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Bidão de {$this->container->tipoLabel()} — {$piscina}: repor")
             ->body("Nível a {$pctTxt}. Reabastecer o bidão de {$this->container->tipoLabel()}.")
             ->data(['url' => '/admin/dosing-containers'])
@@ -60,9 +63,9 @@ class DosingContainerLowAlert extends Notification
     {
         $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
         $pct = $this->container->percentagem();
-        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '') . '%' : 'nível baixo';
+        $pctTxt = $pct !== null ? number_format($pct, 0, ',', '').'%' : 'nível baixo';
 
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("Alerta: Nível Baixo no Bidão de {$this->container->tipoLabel()} — {$piscina}")
             ->greeting("Olá, {$notifiable->name}.")
             ->line("O bidão de doseamento de {$this->container->tipoLabel()} da {$piscina} atingiu o nível crítico de {$pctTxt}.")

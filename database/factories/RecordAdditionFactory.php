@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -18,8 +20,8 @@ class RecordAdditionFactory extends Factory
     {
         return [
             'daily_record_id' => DailyRecord::factory(),
-            'product_id'      => Product::factory(),
-            'quantity'        => fake()->randomFloat(3, 0.1, 10),
+            'product_id' => Product::factory(),
+            'quantity' => fake()->randomFloat(3, 0.1, 10),
         ];
     }
 }

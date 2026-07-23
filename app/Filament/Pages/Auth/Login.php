@@ -1,23 +1,26 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages\Auth;
 
 use App\Models\User;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
+use Filament\Forms\Components\Component;
 use Filament\Http\Responses\Auth\Contracts\LoginResponse;
 use Filament\Pages\Auth\Login as BaseLogin;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
-use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
     public function authenticate(): ?LoginResponse
     {
-        $data     = $this->form->getState();
-        $email    = $data['email'] ?? '';
+        $data = $this->form->getState();
+        $email = $data['email'] ?? '';
         $password = (string) ($data['password'] ?? '');
 
         // Auto-detect PIN: input is 4–6 digits only
@@ -29,7 +32,7 @@ class Login extends BaseLogin
         // HTTPS atrás do proxy da Railway) faz ip() confiar em X-Forwarded-For, que
         // um atacante pode forjar para gerar uma chave de rate-limit diferente a
         // cada pedido e contornar o bloqueio de força bruta ao PIN.
-        $throttleKey = 'login_pin:' . strtolower($email) . '|' . (string) request()->server('REMOTE_ADDR');
+        $throttleKey = 'login_pin:'.strtolower($email).'|'.(string) request()->server('REMOTE_ADDR');
 
         if ($isPinAttempt) {
             if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
@@ -42,11 +45,11 @@ class Login extends BaseLogin
                 ]);
 
                 if (function_exists('\Sentry\captureMessage')) {
-                    \Sentry\captureMessage('PIN login blocked due to rate limiting for email: ' . $email);
+                    \Sentry\captureMessage('PIN login blocked due to rate limiting for email: '.$email);
                 }
 
                 throw ValidationException::withMessages([
-                    'data.password' => 'Demasiadas tentativas de PIN. Por favor tente novamente em ' . $seconds . ' segundos.',
+                    'data.password' => 'Demasiadas tentativas de PIN. Por favor tente novamente em '.$seconds.' segundos.',
                 ]);
             }
         }
@@ -55,7 +58,7 @@ class Login extends BaseLogin
             $this->rateLimit(5);
         } catch (TooManyRequestsException $exception) {
             throw ValidationException::withMessages([
-                'data.email' => 'Demasiadas tentativas de acesso. Por favor, aguarde ' . ceil($exception->secondsUntilAvailable / 60) . ' minutos antes de tentar novamente.',
+                'data.email' => 'Demasiadas tentativas de acesso. Por favor, aguarde '.ceil($exception->secondsUntilAvailable / 60).' minutos antes de tentar novamente.',
             ]);
         }
 
@@ -96,7 +99,7 @@ class Login extends BaseLogin
             ]);
 
             if (function_exists('\Sentry\captureMessage')) {
-                \Sentry\captureMessage('Failed PIN login attempt for email: ' . $email);
+                \Sentry\captureMessage('Failed PIN login attempt for email: '.$email);
             }
         }
 
@@ -107,7 +110,7 @@ class Login extends BaseLogin
         ]);
     }
 
-    protected function getRememberFormComponent(): \Filament\Forms\Components\Component
+    protected function getRememberFormComponent(): Component
     {
         return parent::getRememberFormComponent()
             ->default(false);

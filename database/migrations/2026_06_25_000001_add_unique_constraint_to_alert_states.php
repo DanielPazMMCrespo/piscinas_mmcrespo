@@ -14,7 +14,7 @@ return new class extends Migration
             Schema::table('alert_states', function (Blueprint $table) {
                 $table->unique('alert_key');
             });
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Already exists or not supported on this DB driver
         }
     }
@@ -25,7 +25,7 @@ return new class extends Migration
             Schema::table('alert_states', function (Blueprint $table) {
                 $table->dropUnique(['alert_key']);
             });
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Ignore
         }
     }

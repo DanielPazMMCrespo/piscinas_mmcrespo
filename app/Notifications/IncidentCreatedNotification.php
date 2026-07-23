@@ -1,14 +1,15 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
 use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Filament\Notifications\Notification as FilamentNotification;
-use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -33,6 +34,7 @@ class IncidentCreatedNotification extends Notification
         if ($notifiable->wantsNotification('incident_created', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -60,7 +62,7 @@ class IncidentCreatedNotification extends Notification
         $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
         $reportante = $this->incident->utilizador?->name ?? 'Utilizador';
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Novo incidente — {$instalacao}")
             ->body("{$reportante}: {$this->incident->descricao}")
             ->icon('/images/icon-192.png')
@@ -73,10 +75,10 @@ class IncidentCreatedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
-        
-        return (new MailMessage())
+
+        return (new MailMessage)
             ->subject("Novo Incidente: {$instalacao}")
-            ->greeting("Olá,")
+            ->greeting('Olá,')
             ->line("Foi reportado um novo incidente na instalação **{$instalacao}**.")
             ->line("**Descrição:** {$this->incident->descricao}")
             ->action('Ver Incidente', IncidentResource::getUrl('view', ['record' => $this->incident->id]));

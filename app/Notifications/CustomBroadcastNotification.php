@@ -32,6 +32,7 @@ class CustomBroadcastNotification extends Notification
         if ($notifiable->wantsNotification('custom_broadcast', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -48,7 +49,7 @@ class CustomBroadcastNotification extends Notification
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title($this->titulo)
             ->body($this->corpo)
             ->icon('/images/icon-192.png')
@@ -60,7 +61,7 @@ class CustomBroadcastNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject($this->titulo)
             ->greeting($this->titulo)
             ->line($this->corpo)

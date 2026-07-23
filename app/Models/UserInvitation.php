@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Models;
 
@@ -18,9 +20,9 @@ class UserInvitation extends Model
     ];
 
     protected $casts = [
-        'pool_ids'    => 'array',
+        'pool_ids' => 'array',
         'accepted_at' => 'datetime',
-        'expires_at'  => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     public function invitedBy(): BelongsTo

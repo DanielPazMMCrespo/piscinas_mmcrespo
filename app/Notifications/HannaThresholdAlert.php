@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
@@ -26,6 +28,7 @@ class HannaThresholdAlert extends Notification
         if ($notifiable->wantsNotification('hanna_threshold', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -48,7 +51,7 @@ class HannaThresholdAlert extends Notification
         $poolName = $this->device->piscina?->name ?? $this->device->name;
         $lista = implode('; ', $this->violacoes);
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Sensor Hanna — {$poolName}: fora dos limites")
             ->body($lista)
             ->data(['url' => '/admin'])
@@ -60,7 +63,7 @@ class HannaThresholdAlert extends Notification
         $poolName = $this->device->piscina?->name ?? $this->device->name;
         $lista = implode('; ', $this->violacoes);
 
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("Alerta Sonda: Parâmetros Fora dos Limites — {$poolName}")
             ->greeting("Olá, {$notifiable->name}.")
             ->line("O controlador automático da piscina {$poolName} reportou violações nos parâmetros de qualidade da água:")

@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Widgets;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
@@ -9,8 +11,12 @@ use App\Models\DailyRecord;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\SensorReading;
 use App\Services\CacheService;
+use App\Services\LeituraArtefactoService;
 use Filament\Widgets\Widget;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Primeiro widget do dashboard: o estado atual de todas as piscinas.
@@ -36,10 +42,12 @@ class PainelPiscinasWidget extends Widget
 
     /** Range operacional do controlador BL132 — mínimo comum a todas as piscinas (660 mV). */
     private const ORP_MIN = 660;
+
     private const ORP_MAX = 750;
 
     /** Proxy de cloro conforme via ORP, usado só no cálculo agregado de "conformes" (não no cartão). */
     private const ORP_CLORO_MIN = 680;
+
     private const ORP_CLORO_MAX = 820;
 
     protected function getViewData(): array
@@ -54,7 +62,7 @@ class PainelPiscinasWidget extends Widget
 
         try {
             // Lock de 15 segundos para evitar cache stampede, block up to 5 seconds.
-            $viewData = \Illuminate\Support\Facades\Cache::lock("painel_piscinas_widget_lock_{$scope}", 15)->block(5, function () use ($cacheService, $scope) {
+            $viewData = Cache::lock("painel_piscinas_widget_lock_{$scope}", 15)->block(5, function () use ($cacheService, $scope) {
                 // Verifica novamente após obter o lock
                 $cached = $cacheService->getPoolData($scope);
                 if ($cached !== null) {
@@ -70,12 +78,13 @@ class PainelPiscinasWidget extends Widget
             });
 
             return $this->attachQuickActions($viewData);
-        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+        } catch (LockTimeoutException $e) {
             // Fallback: build without caching, or return the cache data if it got set in the meantime
             $cached = $cacheService->getPoolData($scope);
             if ($cached !== null) {
                 return $this->attachQuickActions($cached);
             }
+
             return $this->attachQuickActions($this->buildPoolData());
         }
     }
@@ -84,7 +93,7 @@ class PainelPiscinasWidget extends Widget
     {
         $viewData['piscinas'] = $viewData['piscinas']->map(function (array $item) {
             $piscinaId = $item['piscina']->id;
-            
+
             $item['acoes_rapidas'] = collect([
                 [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
@@ -92,16 +101,16 @@ class PainelPiscinasWidget extends Widget
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
             ])->filter(fn (array $a) => $a[4])
-            ->map(fn (array $a) => [
-                'url' => $a[0],
-                'label' => $a[1],
-                'icon' => $a[2],
-                'primary' => $a[3],
-            ])->all();
-            
+                ->map(fn (array $a) => [
+                    'url' => $a[0],
+                    'label' => $a[1],
+                    'icon' => $a[2],
+                    'primary' => $a[3],
+                ])->all();
+
             return $item;
         });
-        
+
         return $viewData;
     }
 
@@ -121,10 +130,10 @@ class PainelPiscinasWidget extends Widget
         $utilizador = auth()->user();
 
         if ($utilizador?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return "ns_{$utilizador->id}_v" . self::CACHE_SHAPE_VERSION;
+            return "ns_{$utilizador->id}_v".self::CACHE_SHAPE_VERSION;
         }
 
-        return 'full_v' . self::CACHE_SHAPE_VERSION;
+        return 'full_v'.self::CACHE_SHAPE_VERSION;
     }
 
     private function buildPoolData(): array
@@ -149,7 +158,7 @@ class PainelPiscinasWidget extends Widget
             ->get();
 
         // Otimização: obter as últimas leituras das sondas em batch (evita N+1).
-        $ultimasLeituras = \App\Models\SensorReading::query()
+        $ultimasLeituras = SensorReading::query()
             ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
             ->orderByDesc('lida_em')
             ->get()
@@ -172,7 +181,7 @@ class PainelPiscinasWidget extends Widget
             ->map(fn ($acoes) => $acoes->first());
 
         // Histórico para os gráficos (Sparklines)
-        $historicoSensores = \App\Models\SensorReading::query()
+        $historicoSensores = SensorReading::query()
             ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
             ->where('lida_em', '>=', now()->subHours(24))
             ->orderByDesc('lida_em')
@@ -198,57 +207,61 @@ class PainelPiscinasWidget extends Widget
         foreach ($piscinas as $piscina) {
             $registos = $historicoRegistos->get($piscina->id) ?? collect();
             $acoes = $historicoAcoesParaGrafico->get($piscina->id) ?? collect();
-            
-            $combined = $registos->map(fn($r) => [
+
+            $combined = $registos->map(fn ($r) => [
                 'date' => $r->registado_em,
-                'ph' => $r->ph_efetivo !== null ? (float)$r->ph_efetivo : null,
-                'cloro_livre' => $r->cloro_livre_efetivo !== null ? (float)$r->cloro_livre_efetivo : null,
-                'cloro_combinado' => $r->cloro_combinado !== null ? (float)$r->cloro_combinado : null,
-                'temperatura' => $r->temperatura_efetivo !== null ? (float)$r->temperatura_efetivo : null,
-                'transparencia' => $r->transparencia !== null ? (float)$r->transparencia : null,
-            ])->concat($acoes->map(function($a) {
+                'ph' => $r->ph_efetivo !== null ? (float) $r->ph_efetivo : null,
+                'cloro_livre' => $r->cloro_livre_efetivo !== null ? (float) $r->cloro_livre_efetivo : null,
+                'cloro_combinado' => $r->cloro_combinado !== null ? (float) $r->cloro_combinado : null,
+                'temperatura' => $r->temperatura_efetivo !== null ? (float) $r->temperatura_efetivo : null,
+                'transparencia' => $r->transparencia !== null ? (float) $r->transparencia : null,
+            ])->concat($acoes->map(function ($a) {
                 $cl = $a->dados['cloro_livre'] ?? null;
                 $ct = $a->dados['cloro_total'] ?? null;
+
                 return [
                     'date' => $a->registado_em,
-                    'ph' => isset($a->dados['ph']) ? (float)str_replace(',', '.', (string)$a->dados['ph']) : null,
-                    'cloro_livre' => isset($cl) ? (float)str_replace(',', '.', (string)$cl) : null,
-                    'cloro_combinado' => (isset($cl) && isset($ct)) ? ((float)str_replace(',', '.', (string)$ct) - (float)str_replace(',', '.', (string)$cl)) : null,
-                    'temperatura' => isset($a->dados['temperatura']) ? (float)str_replace(',', '.', (string)$a->dados['temperatura']) : null,
+                    'ph' => isset($a->dados['ph']) ? (float) str_replace(',', '.', (string) $a->dados['ph']) : null,
+                    'cloro_livre' => isset($cl) ? (float) str_replace(',', '.', (string) $cl) : null,
+                    'cloro_combinado' => (isset($cl) && isset($ct)) ? ((float) str_replace(',', '.', (string) $ct) - (float) str_replace(',', '.', (string) $cl)) : null,
+                    'temperatura' => isset($a->dados['temperatura']) ? (float) str_replace(',', '.', (string) $a->dados['temperatura']) : null,
                 ];
             }))->sortByDesc('date')->take(15)->sortBy('date')->values();
-            
+
             $historicoManualArray->put($piscina->id, $combined);
         }
 
         $historicoSensoresArray = collect();
         foreach ($sondas as $sonda) {
             $leituras = $historicoSensores->get($sonda->hanna_device_id) ?? collect();
-            $mapped = $leituras->map(fn($l) => [
+            $mapped = $leituras->map(fn ($l) => [
                 'date' => $l->lida_em,
-                'ph' => $l->ph !== null ? (float)$l->ph : null,
-                'orp' => $l->orp !== null ? (float)$l->orp : null,
-                'temperatura' => $l->temperatura_agua !== null ? (float)$l->temperatura_agua : null,
+                'ph' => $l->ph !== null ? (float) $l->ph : null,
+                'orp' => $l->orp !== null ? (float) $l->orp : null,
+                'temperatura' => $l->temperatura_agua !== null ? (float) $l->temperatura_agua : null,
             ])->sortByDesc('date')->take(30)->sortBy('date')->values();
             $historicoSensoresArray->put($sonda->hanna_device_id, $mapped);
         }
 
         // Unificar o mais recente (registo diário ou ação operacional)
         $registosUnificados = [];
-        
+
         $parseValue = function ($val) {
-            if ($val === null || $val === '') return null;
-            return (float)str_replace(',', '.', (string)$val);
+            if ($val === null || $val === '') {
+                return null;
+            }
+
+            return (float) str_replace(',', '.', (string) $val);
         };
 
         foreach ($piscinas as $piscina) {
             $registoDiario = $ultimosRegistos->get($piscina->id);
             $acao = $ultimasAcoes->get($piscina->id);
 
-            $usarAcao = $acao && (!$registoDiario || $acao->registado_em->isAfter($registoDiario->registado_em));
+            $usarAcao = $acao && (! $registoDiario || $acao->registado_em->isAfter($registoDiario->registado_em));
 
             if ($usarAcao) {
-                $registo = new DailyRecord();
+                $registo = new DailyRecord;
                 $registo->pool_id = $acao->pool_id;
                 $registo->registado_em = $acao->registado_em;
                 $registo->ph = $parseValue($acao->dados['ph'] ?? null);
@@ -269,12 +282,12 @@ class PainelPiscinasWidget extends Widget
                 continue;
             }
 
-            $leituraProxima = \App\Models\SensorReading::query()
+            $leituraProxima = SensorReading::query()
                 ->where('hanna_device_id', $device->hanna_device_id)
                 ->whereNotNull('orp')
                 ->whereBetween('lida_em', [
                     $registo->registado_em->copy()->subMinutes(60),
-                    $registo->registado_em->copy()->addMinutes(60)
+                    $registo->registado_em->copy()->addMinutes(60),
                 ])
                 ->get()
                 ->sortBy(fn ($leitura) => abs($leitura->lida_em->diffInSeconds($registo->registado_em)))
@@ -303,7 +316,7 @@ class PainelPiscinasWidget extends Widget
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
             $artefacto = $leitura !== null
-                ? app(\App\Services\LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
+                ? app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em)
                 : null;
 
             $controladorOnline = $leitura !== null && $idadeMin !== null && $idadeMin <= 60 && $artefacto === null;
@@ -330,7 +343,7 @@ class PainelPiscinasWidget extends Widget
                         $idadeMin < 1 => 'agora',
                         $idadeMin < 60 => "há {$idadeMin}m",
                         default => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    }
+                    },
                 ];
             } elseif ($usarRegistoManual) {
                 $phOk = $registo?->ph_efetivo !== null ? $registo->phConforme() : null;
@@ -340,7 +353,7 @@ class PainelPiscinasWidget extends Widget
                     'valor' => $registo?->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : '—',
                     'ok' => $phOk,
                     'origem' => 'manual',
-                    'idade' => $registo->registado_em->locale('pt')->diffForHumans()
+                    'idade' => $registo->registado_em->locale('pt')->diffForHumans(),
                 ];
             } else {
                 // Tenta controlador offline ou artefacto
@@ -352,7 +365,7 @@ class PainelPiscinasWidget extends Widget
                         'valor' => $ph !== null ? number_format($ph, 2, ',', '') : '—',
                         'ok' => $phOk,
                         'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
-                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans()
+                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans(),
                     ];
                 } else {
                     $metricas4['ph'] = ['label' => 'pH', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
@@ -367,7 +380,7 @@ class PainelPiscinasWidget extends Widget
 
             if ($controladorOnline) {
                 $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
-                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
+                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '').' mV' : null;
                 $cloroOkConformes = $orpOk;
                 $orpOrigem = 'controlador';
                 $orpIdade = match (true) {
@@ -378,7 +391,7 @@ class PainelPiscinasWidget extends Widget
             } elseif ($usarRegistoManual) {
                 $orpNoMomento = $orpsNoMomento[$piscina->id] ?? null;
                 if ($orpNoMomento !== null) {
-                    $valorOrp = number_format($orpNoMomento, 0, ',', '') . ' mV';
+                    $valorOrp = number_format($orpNoMomento, 0, ',', '').' mV';
                     $orpOk = $orpNoMomento >= ($piscina->orp_min ?? self::ORP_MIN) && $orpNoMomento <= ($piscina->orp_max ?? self::ORP_MAX);
                     $orpOrigem = 'manual';
                     $orpIdade = $registo->registado_em->locale('pt')->diffForHumans();
@@ -388,7 +401,7 @@ class PainelPiscinasWidget extends Widget
             } elseif ($leitura !== null) {
                 $orpOk = $artefacto === null && $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
                 $cloroOkConformes = $orpOk;
-                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '') . ' mV' : null;
+                $valorOrp = $orp !== null ? number_format($orp, 0, ',', '').' mV' : null;
                 $orpOrigem = $artefacto !== null ? 'artefacto' : 'controlador_offline';
                 $orpIdade = $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans();
             }
@@ -405,7 +418,7 @@ class PainelPiscinasWidget extends Widget
             $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
             $metricas4['livre'] = [
                 'label' => 'Cl. Livre',
-                'valor' => $registo?->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '') . ' mg/L' : '—',
+                'valor' => $registo?->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '').' mg/L' : '—',
                 'ok' => $livreOk,
                 'origem' => $registo ? 'manual' : 'sem_dados',
                 'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
@@ -418,10 +431,10 @@ class PainelPiscinasWidget extends Widget
             $combOk = $registo?->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null;
             $metricas4['combinado'] = [
                 'label' => 'Cl. Combinado',
-                'valor' => $registo?->cloro_combinado !== null ? number_format((float) $registo->cloro_combinado, 2, ',', '') . ' mg/L' : '—',
+                'valor' => $registo?->cloro_combinado !== null ? number_format((float) $registo->cloro_combinado, 2, ',', '').' mg/L' : '—',
                 'ok' => $combOk,
                 'origem' => $registo ? 'manual' : 'sem_dados',
-                'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : ''
+                'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
             ];
 
             // 5. Temperatura
@@ -432,24 +445,24 @@ class PainelPiscinasWidget extends Widget
                 $tempOkConformes = $tempOk;
                 $metricas4['temp'] = [
                     'label' => 'Temp.',
-                    'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : '—',
+                    'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '').' °C' : '—',
                     'ok' => $tempOk,
                     'origem' => 'controlador',
                     'idade' => match (true) {
                         $idadeMin < 1 => 'agora',
                         $idadeMin < 60 => "há {$idadeMin}m",
                         default => $leitura->lida_em->locale('pt')->diffForHumans(),
-                    }
+                    },
                 ];
             } elseif ($usarRegistoManual) {
                 $tempOk = $registo?->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null;
                 $tempOkConformes = $tempOk;
                 $metricas4['temp'] = [
                     'label' => 'Temp.',
-                    'valor' => $registo?->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '') . ' °C' : '—',
+                    'valor' => $registo?->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '').' °C' : '—',
                     'ok' => $tempOk,
                     'origem' => 'manual',
-                    'idade' => $registo->registado_em->locale('pt')->diffForHumans()
+                    'idade' => $registo->registado_em->locale('pt')->diffForHumans(),
                 ];
             } else {
                 if ($leitura !== null) {
@@ -459,10 +472,10 @@ class PainelPiscinasWidget extends Widget
                     $tempOkConformes = $tempOk;
                     $metricas4['temp'] = [
                         'label' => 'Temp.',
-                        'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '') . ' °C' : '—',
+                        'valor' => $tempAgua !== null ? number_format($tempAgua, 1, ',', '').' °C' : '—',
                         'ok' => $tempOk,
                         'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
-                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans()
+                        'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans(),
                     ];
                 } else {
                     $metricas4['temp'] = ['label' => 'Temp.', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
@@ -475,19 +488,21 @@ class PainelPiscinasWidget extends Widget
                 : null;
             $metricas4['turbidez'] = [
                 'label' => 'Turbidez',
-                'valor' => $registo?->transparencia !== null ? number_format((float) $registo->transparencia, 2, ',', '') . ' FNU' : '—',
+                'valor' => $registo?->transparencia !== null ? number_format((float) $registo->transparencia, 2, ',', '').' FNU' : '—',
                 'ok' => $turbidezOk,
                 'origem' => $registo?->transparencia !== null ? 'manual' : 'sem_dados',
                 'idade' => $registo?->transparencia !== null ? $registo->registado_em->locale('pt')->diffForHumans() : '',
             ];
 
-            $getSparklineData = function(?string $origem, string $key) use ($piscina, $device, $historicoManualArray, $historicoSensoresArray) {
+            $getSparklineData = function (?string $origem, string $key) use ($piscina, $device, $historicoManualArray, $historicoSensoresArray) {
                 if (in_array($origem, ['controlador', 'controlador_offline', 'artefacto'])) {
-                    return array_filter($historicoSensoresArray->get($device?->hanna_device_id)?->pluck($key === 'redox' ? 'orp' : $key)->toArray() ?? [], fn($v) => $v !== null);
+                    return array_filter($historicoSensoresArray->get($device?->hanna_device_id)?->pluck($key === 'redox' ? 'orp' : $key)->toArray() ?? [], fn ($v) => $v !== null);
                 } elseif ($origem === 'manual') {
                     $k = $key === 'redox' ? 'orp' : ($key === 'livre' ? 'cloro_livre' : $key);
-                    return array_filter($historicoManualArray->get($piscina->id)?->pluck($k)->toArray() ?? [], fn($v) => $v !== null);
+
+                    return array_filter($historicoManualArray->get($piscina->id)?->pluck($k)->toArray() ?? [], fn ($v) => $v !== null);
                 }
+
                 return [];
             };
 
@@ -510,7 +525,7 @@ class PainelPiscinasWidget extends Widget
         });
 
         $totalPiscinas = $piscinasMapped->count();
-        $registadasHoje = $piscinasMapped->filter(fn ($p) => !$p['sem_hoje'])->count();
+        $registadasHoje = $piscinasMapped->filter(fn ($p) => ! $p['sem_hoje'])->count();
         $conformes = $piscinasMapped->filter(fn ($p) => $p['tem_dados_conformes'] && collect($p['parametros_conformes'])->every(fn ($ok) => $ok !== false))->count();
 
         $percentagemRegisto = $totalPiscinas > 0 ? (int) (($registadasHoje / $totalPiscinas) * 100) : 0;
@@ -537,11 +552,11 @@ class PainelPiscinasWidget extends Widget
         if (count($values) < 2) {
             return null;
         }
-        
+
         $min = min($values);
         $max = max($values);
         $range = $max - $min;
-        
+
         if ($range == 0) {
             $range = 1;
             $min -= 0.5;
@@ -555,37 +570,37 @@ class PainelPiscinasWidget extends Widget
 
         $width = 100;
         $height = 30;
-        
+
         $points = [];
         $stepX = $width / (count($values) - 1);
-        
+
         foreach ($values as $i => $val) {
             $x = $i * $stepX;
             $y = $height - ((($val - $min) / $range) * $height);
             $points[] = [$x, $y];
         }
 
-        $d = "M " . round($points[0][0], 1) . "," . round($points[0][1], 1);
+        $d = 'M '.round($points[0][0], 1).','.round($points[0][1], 1);
         for ($i = 0; $i < count($points) - 1; $i++) {
             $p0 = $points[max(0, $i - 1)];
             $p1 = $points[$i];
             $p2 = $points[$i + 1];
             $p3 = $points[min(count($points) - 1, $i + 2)];
-            
+
             $cp1x = $p1[0] + ($p2[0] - $p0[0]) * 0.15;
             $cp1y = $p1[1] + ($p2[1] - $p0[1]) * 0.15;
-            
+
             $cp2x = $p2[0] - ($p3[0] - $p1[0]) * 0.15;
             $cp2y = $p2[1] - ($p3[1] - $p1[1]) * 0.15;
-            
-            $d .= " C " . round($cp1x, 1) . "," . round($cp1y, 1) . " " . 
-                          round($cp2x, 1) . "," . round($cp2y, 1) . " " . 
-                          round($p2[0], 1) . "," . round($p2[1], 1);
+
+            $d .= ' C '.round($cp1x, 1).','.round($cp1y, 1).' '.
+                          round($cp2x, 1).','.round($cp2y, 1).' '.
+                          round($p2[0], 1).','.round($p2[1], 1);
         }
-        
+
         return [
-            'fill' => $d . " L {$width},{$height} L 0,{$height} Z",
-            'stroke' => $d
+            'fill' => $d." L {$width},{$height} L 0,{$height} Z",
+            'stroke' => $d,
         ];
     }
 }

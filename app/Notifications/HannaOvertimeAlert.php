@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
@@ -32,6 +34,7 @@ class HannaOvertimeAlert extends Notification
         if ($notifiable->wantsNotification('hanna_overtime', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -56,7 +59,7 @@ class HannaOvertimeAlert extends Notification
         $horas = intdiv($this->dosingSettings['overtimeMinutes'], 60);
         $fmt = fn (float $v): string => number_format($v, 2, ',', '');
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Sensor Hanna — {$poolName}: pH em overtime")
             ->body("pH {$fmt($this->ph)} fora do setpoint {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])} há mais de {$horas}h.")
             ->data(['url' => '/admin'])
@@ -69,7 +72,7 @@ class HannaOvertimeAlert extends Notification
         $horas = intdiv($this->dosingSettings['overtimeMinutes'], 60);
         $fmt = fn (float $v): string => number_format($v, 2, ',', '');
 
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("Alerta Crítico Hanna: pH em Overtime — {$poolName}")
             ->greeting("Olá, {$notifiable->name}.")
             ->line("O controlador automático da piscina {$poolName} está a reportar pH em overtime há mais de {$horas}h.")

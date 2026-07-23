@@ -33,7 +33,7 @@ class ComparacaoSemanalNotification extends Notification implements ShouldQueue
     public function toDatabase(object $notifiable): array
     {
         $weekNumber = now()->weekOfYear;
-        
+
         return FilamentNotification::make()
             ->title("Comparação semanal — semana {$weekNumber}")
             ->body(implode(' · ', $this->linhas))
@@ -44,7 +44,7 @@ class ComparacaoSemanalNotification extends Notification implements ShouldQueue
     public function toWebPush(object $notifiable, object $notification): WebPushMessage
     {
         $weekNumber = now()->weekOfYear;
-        
+
         return (new WebPushMessage)
             ->title("Comparação semanal — semana {$weekNumber}")
             ->body(implode(' · ', $this->linhas))

@@ -22,7 +22,7 @@ class SendWeeklyComparisonCommand extends Command
 
     public function handle(): int
     {
-        if (!now()->isSunday()) {
+        if (! now()->isSunday()) {
             return self::SUCCESS;
         }
 
@@ -37,7 +37,7 @@ class SendWeeklyComparisonCommand extends Command
 
         $thisWeekStart = now()->startOfWeek();
         $thisWeekEnd = now();
-        
+
         $lastWeekStart = now()->subWeek()->startOfWeek();
         $lastWeekEnd = now()->startOfWeek();
 
@@ -49,7 +49,7 @@ class SendWeeklyComparisonCommand extends Command
                 ->whereBetween('registado_em', [$thisWeekStart, $thisWeekEnd])
                 ->whereDoesntHave('correcoes')
                 ->get();
-                
+
             $lastWeekRecords = DailyRecord::where('pool_id', $pool->id)
                 ->whereBetween('registado_em', [$lastWeekStart, $lastWeekEnd])
                 ->whereDoesntHave('correcoes')
@@ -57,12 +57,12 @@ class SendWeeklyComparisonCommand extends Command
 
             $avgPhThis = round((float) $thisWeekRecords->avg('ph_efetivo') ?: 0, 2);
             $avgPhLast = round((float) $lastWeekRecords->avg('ph_efetivo') ?: 0, 2);
-            
+
             $avgClThis = round((float) $thisWeekRecords->avg('cloro_livre_efetivo') ?: 0, 2);
             $avgClLast = round((float) $lastWeekRecords->avg('cloro_livre_efetivo') ?: 0, 2);
 
-            $violationsThis = $thisWeekRecords->filter(fn($r) => !empty($r->listarViolacoes()))->count();
-            $violationsLast = $lastWeekRecords->filter(fn($r) => !empty($r->listarViolacoes()))->count();
+            $violationsThis = $thisWeekRecords->filter(fn ($r) => ! empty($r->listarViolacoes()))->count();
+            $violationsLast = $lastWeekRecords->filter(fn ($r) => ! empty($r->listarViolacoes()))->count();
 
             $phArrow = $avgPhThis === $avgPhLast ? '→' : ($avgPhThis > $avgPhLast ? '↑' : '↓');
             $clArrow = $avgClThis === $avgClLast ? '→' : ($avgClThis > $avgClLast ? '↑' : '↓');
@@ -73,7 +73,7 @@ class SendWeeklyComparisonCommand extends Command
         $stockThisWeek = StockInstallationLog::where('tipo_movimento', 'consumo')
             ->whereBetween('created_at', [$thisWeekStart, $thisWeekEnd])
             ->sum('quantity');
-            
+
         $stockLastWeek = StockInstallationLog::where('tipo_movimento', 'consumo')
             ->whereBetween('created_at', [$lastWeekStart, $lastWeekEnd])
             ->sum('quantity');

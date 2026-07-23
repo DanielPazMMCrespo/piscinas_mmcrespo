@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
-use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\Product;
 use App\Models\StockInstallation;
-use App\Models\StockInstallationLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -27,8 +26,11 @@ class DailyRecordStockInsufficientTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Installation $installation;
+
     private Pool $pool;
+
     private Product $product;
 
     protected function setUp(): void
@@ -61,7 +63,7 @@ class DailyRecordStockInsufficientTest extends TestCase
     }
 
     /**
-     * @param array<int, array<string, mixed>> $adicoes
+     * @param  array<int, array<string, mixed>>  $adicoes
      */
     private function criarRegisto(array $adicoes): void
     {
@@ -85,10 +87,10 @@ class DailyRecordStockInsufficientTest extends TestCase
         $estado = [
             'installation_id' => $this->pool->installation_id,
             'registado_em' => now(),
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
             'pools' => [
                 $this->pool->id => $poolData,
-            ]
+            ],
         ];
 
         Livewire::actingAs($this->user)

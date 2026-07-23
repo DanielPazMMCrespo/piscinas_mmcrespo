@@ -1,17 +1,23 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
 use App\Models\AppSetting;
+use App\Services\CacheService;
 use App\Services\SettingsService;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\HtmlString;
 
 class DefinicoesSistema extends Page
 {
@@ -51,10 +57,10 @@ class DefinicoesSistema extends Page
                     ->schema([
                         Placeholder::make('aviso_legal')
                             ->hiddenLabel()
-                            ->content(new \Illuminate\Support\HtmlString(
-                                '<div class="p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-sm flex gap-3">' .
-                                '<span class="font-semibold text-base">⚠️ Atenção:</span>' .
-                                '<span>Alterar estes limites afeta a conformidade legal exibida no painel e relatórios. Certifique-se de que os valores cumprem a regulamentação em vigor.</span>' .
+                            ->content(new HtmlString(
+                                '<div class="p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-sm flex gap-3">'.
+                                '<span class="font-semibold text-base">⚠️ Atenção:</span>'.
+                                '<span>Alterar estes limites afeta a conformidade legal exibida no painel e relatórios. Certifique-se de que os valores cumprem a regulamentação em vigor.</span>'.
                                 '</div>'
                             ))
                             ->columnSpanFull(),
@@ -155,7 +161,7 @@ class DefinicoesSistema extends Page
                             ->numeric()
                             ->step(0.05)
                             ->helperText('Multiplica a dose calculada para compensar filtros, utilização, etc. (Padrão: 1.25 = +25%)'),
-                        \Filament\Forms\Components\Select::make('resumo_turno_horas')
+                        Select::make('resumo_turno_horas')
                             ->label('Horários do Resumo de Turno')
                             ->options([
                                 '06:00' => '06:00', '07:00' => '07:00', '08:00' => '08:00',
@@ -180,8 +186,6 @@ class DefinicoesSistema extends Page
                             ->helperText('Quantas violações do mesmo parâmetro no mesmo dia/piscina disparam um incidente automático. (Padrão: 3)'),
                     ])->columns(2),
 
-
-
                 Section::make('Templates de Email')
                     ->description('Personalize o assunto e corpo dos emails automáticos enviados pela aplicação.')
                     ->icon('heroicon-o-envelope')
@@ -192,7 +196,7 @@ class DefinicoesSistema extends Page
                             ->placeholder('Convite — Piscinas MMCrespo')
                             ->helperText('Predefinição: Convite — Piscinas MMCrespo')
                             ->columnSpanFull(),
-                        \Filament\Forms\Components\Textarea::make('email_convite_mensagem')
+                        Textarea::make('email_convite_mensagem')
                             ->label('Mensagem do Corpo (Convite)')
                             ->rows(3)
                             ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
@@ -228,16 +232,16 @@ class DefinicoesSistema extends Page
                     'value' => $val,
                     'group' => 'geral',
                     'label' => ucwords(str_replace('_', ' ', $key)),
-                    'type' => 'string'
+                    'type' => 'string',
                 ]);
             }
         }
 
         app(SettingsService::class)->flush();
-        
+
         // Limpar caches do dashboard para as novas configurações entrarem em vigor imediatamente
-        app(\App\Services\CacheService::class)->invalidatePoolData();
-        app(\App\Services\CacheService::class)->invalidateAllAlerts();
+        app(CacheService::class)->invalidatePoolData();
+        app(CacheService::class)->invalidateAllAlerts();
 
         Notification::make()
             ->title('Definições atualizadas')

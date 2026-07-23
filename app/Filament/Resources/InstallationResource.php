@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstallationResource\Pages;
 use App\Models\Installation;

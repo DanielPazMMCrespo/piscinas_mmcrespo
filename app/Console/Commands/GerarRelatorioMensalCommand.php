@@ -86,7 +86,7 @@ class GerarRelatorioMensalCommand extends Command
             );
 
             $nomeFicheiro = sprintf('livro-sanitario_%s_%s.pdf', Str::slug($instalacao->name), $inicio->format('Y-m'));
-            $caminho = 'relatorios-mensais/' . $nomeFicheiro;
+            $caminho = 'relatorios-mensais/'.$nomeFicheiro;
 
             Storage::disk(DailyRecord::getStorageDisk())->put($caminho, (string) $domPdf->output());
 

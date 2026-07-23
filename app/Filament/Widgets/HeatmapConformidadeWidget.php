@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
@@ -48,11 +51,11 @@ class HeatmapConformidadeWidget extends Widget
             ->where('registado_em', '>=', $inicio)
             ->with('piscina')
             ->get()
-            ->groupBy(fn (DailyRecord $r) => $r->pool_id . '_' . $r->registado_em->toDateString());
+            ->groupBy(fn (DailyRecord $r) => $r->pool_id.'_'.$r->registado_em->toDateString());
 
         $linhas = $piscinas->map(function (Pool $piscina) use ($dias, $registos) {
             $celulas = $dias->map(function (Carbon $dia) use ($piscina, $registos) {
-                $chave = $piscina->id . '_' . $dia->toDateString();
+                $chave = $piscina->id.'_'.$dia->toDateString();
                 $registosDoDia = $registos->get($chave);
 
                 if ($registosDoDia === null || $registosDoDia->isEmpty()) {

@@ -6,11 +6,15 @@ namespace Tests\Feature;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\IncidentResource\Pages\CreateIncident;
+use App\Filament\Resources\IncidentResource\Pages\EditIncident;
+use App\Filament\Resources\IncidentResource\Pages\ListIncidents;
+use App\Filament\Widgets\IncidentChatWidget;
 use App\Models\Incident;
 use App\Models\IncidentMessage;
 use App\Models\Installation;
 use App\Models\User;
 use App\Notifications\IncidentCreatedNotification;
+use App\Notifications\IncidentMessageNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -91,7 +95,7 @@ class IncidentChatTest extends TestCase
 
         $this->actingAs($tecnico);
 
-        Livewire::test(\App\Filament\Resources\IncidentResource\Pages\ListIncidents::class)
+        Livewire::test(ListIncidents::class)
             ->callTableAction('resolver', $incidente, data: [
                 'resolucao' => 'Junta do filtro substituída, sem fugas após 30 min de teste.',
             ]);
@@ -104,7 +108,7 @@ class IncidentChatTest extends TestCase
         $this->assertStringContainsString('Resolvido', $mensagem->texto);
         $this->assertStringContainsString('Junta do filtro substituída', $mensagem->texto);
 
-        Notification::assertSentTo($ns, \App\Notifications\IncidentMessageNotification::class);
+        Notification::assertSentTo($ns, IncidentMessageNotification::class);
     }
 
     public function test_reporter_message_notifies_admin_and_tecnico_not_other_ns(): void
@@ -130,14 +134,14 @@ class IncidentChatTest extends TestCase
 
         $this->actingAs($ns);
 
-        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+        Livewire::test(IncidentChatWidget::class, ['record' => $incidente])
             ->set('texto', 'A situação está a agravar-se.')
             ->call('enviarMensagem');
 
         $this->assertSame(1, $incidente->mensagens()->count());
 
-        Notification::assertSentTo($admin, \App\Notifications\IncidentMessageNotification::class);
-        Notification::assertNotSentTo($outroNs, \App\Notifications\IncidentMessageNotification::class);
+        Notification::assertSentTo($admin, IncidentMessageNotification::class);
+        Notification::assertNotSentTo($outroNs, IncidentMessageNotification::class);
     }
 
     public function test_tecnico_message_reopens_resolved_incident(): void
@@ -237,7 +241,7 @@ class IncidentChatTest extends TestCase
 
         $this->actingAs($ns);
 
-        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+        Livewire::test(IncidentChatWidget::class, ['record' => $incidente])
             ->set('texto', '   ')
             ->call('enviarMensagem');
 
@@ -299,10 +303,10 @@ class IncidentChatTest extends TestCase
         $admin->assignRole(UserRole::ADMIN);
         $this->actingAs($admin);
 
-        Livewire::test(\App\Filament\Resources\IncidentResource\Pages\EditIncident::class, [
+        Livewire::test(EditIncident::class, [
             'record' => $incidente->getKey(),
         ])
-        ->callAction('delete');
+            ->callAction('delete');
 
         $this->assertDatabaseMissing('incidents', ['id' => $incidente->id]);
         $this->assertDatabaseMissing('incident_messages', ['incident_id' => $incidente->id]);

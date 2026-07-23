@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
@@ -151,4 +153,3 @@ class PoolResource extends Resource
         ];
     }
 }
-

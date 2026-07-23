@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('password_resets') && !Schema::hasTable('password_reset_tokens')) {
+        if (Schema::hasTable('password_resets') && ! Schema::hasTable('password_reset_tokens')) {
             Schema::rename('password_resets', 'password_reset_tokens');
-        } elseif (!Schema::hasTable('password_reset_tokens')) {
+        } elseif (! Schema::hasTable('password_reset_tokens')) {
             Schema::create('password_reset_tokens', function (Blueprint $table) {
                 $table->string('email')->primary();
                 $table->string('token');

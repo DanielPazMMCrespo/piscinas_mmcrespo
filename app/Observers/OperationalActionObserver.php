@@ -1,9 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Observers;
 
+use App\Models\DosingContainer;
 use App\Models\OperationalAction;
 use App\Models\TapAlert;
 use App\Services\CacheService;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Uma ação operacional é o evento mais recente do seu componente, por isso
@@ -13,9 +18,7 @@ use App\Services\CacheService;
  */
 class OperationalActionObserver
 {
-    public function __construct(private CacheService $cacheService)
-    {
-    }
+    public function __construct(private CacheService $cacheService) {}
 
     public function created(OperationalAction $acao): void
     {
@@ -31,7 +34,7 @@ class OperationalActionObserver
         $this->cacheService->invalidateAllAlerts();
 
         if (auth()->check()) {
-            \Illuminate\Support\Facades\Cache::forget('alertas_' . auth()->id());
+            Cache::forget('alertas_'.auth()->id());
         }
     }
 
@@ -41,7 +44,7 @@ class OperationalActionObserver
         $quantidadeL = isset($acao->dados['quantidade_l']) && filled($acao->dados['quantidade_l']) ? (float) $acao->dados['quantidade_l'] : null;
 
         if ($tipoBidao === 'ambos') {
-            $tipos = [\App\Models\DosingContainer::TIPO_CLORO, \App\Models\DosingContainer::TIPO_PH_MENOS];
+            $tipos = [DosingContainer::TIPO_CLORO, DosingContainer::TIPO_PH_MENOS];
         } else {
             $tipos = [$tipoBidao];
         }
@@ -50,7 +53,7 @@ class OperationalActionObserver
             if (! $tipo) {
                 continue;
             }
-            $container = \App\Models\DosingContainer::firstOrCreate(
+            $container = DosingContainer::firstOrCreate(
                 ['pool_id' => $acao->pool_id, 'tipo' => $tipo],
                 ['capacidade_ml' => 20000, 'restante_ml' => 0.00]
             );

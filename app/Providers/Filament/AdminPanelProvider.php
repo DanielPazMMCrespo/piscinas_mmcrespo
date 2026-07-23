@@ -1,18 +1,22 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Providers\Filament;
 
-
 use App\Filament\AvatarProviders\GenericAvatarProvider;
+use App\Filament\Pages\Auth\Login;
+use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\RequirePasswordChange;
+use Filament\Enums\ThemeMode;
 use Filament\Forms\Components\TextInput;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Enums\ThemeMode;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\MaxWidth;
 use Filament\View\PanelsRenderHook;
@@ -46,7 +50,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->font('Outfit')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->login(Login::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
@@ -77,7 +81,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                \App\Filament\Pages\Dashboard::class,
+                Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->renderHook(
@@ -94,10 +98,10 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">' .
-                    '<meta name="csrf-token" content="' . csrf_token() . '">' .
-                    '<script>window.__userId = ' . (auth()->id() ?? 'null') . ';' .
-                    'window.__vapidPublicKey = ' . json_encode(config('webpush.vapid.public_key')) . ';</script>',
+                fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">'.
+                    '<meta name="csrf-token" content="'.csrf_token().'">'.
+                    '<script>window.__userId = '.(auth()->id() ?? 'null').';'.
+                    'window.__vapidPublicKey = '.json_encode(config('webpush.vapid.public_key')).';</script>',
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
@@ -139,7 +143,7 @@ HTML,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\RequirePasswordChange::class,
+                RequirePasswordChange::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

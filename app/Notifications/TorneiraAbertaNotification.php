@@ -6,11 +6,10 @@ namespace App\Notifications;
 
 use App\Filament\Resources\DailyRecordResource;
 use App\Models\TapAlert;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Filament\Notifications\Notification as FilamentNotification;
-use Filament\Notifications\Actions\Action;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
@@ -36,6 +35,7 @@ class TorneiraAbertaNotification extends Notification
         if ($notifiable->wantsNotification('torneira_aberta', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -57,7 +57,7 @@ class TorneiraAbertaNotification extends Notification
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Torneira aberta há mais de {$this->horasAberta}h — {$this->nomePiscina}")
             ->body('Aberta desde '.$this->tap->opened_at->format('d/m H:i').'.')
             ->icon('/images/icon-192.png')
@@ -70,11 +70,11 @@ class TorneiraAbertaNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("Alerta: Torneira Aberta há mais de {$this->horasAberta}h")
-            ->greeting("Atenção,")
+            ->greeting('Atenção,')
             ->line("Foi detetado que a torneira da piscina **{$this->nomePiscina}** está aberta há mais de {$this->horasAberta} horas.")
-            ->line("Aberta desde: " . $this->tap->opened_at->format('d/m H:i'))
+            ->line('Aberta desde: '.$this->tap->opened_at->format('d/m H:i'))
             ->action('Registar Fecho / Ver Detalhes', DailyRecordResource::getUrl('create'));
     }
 }

@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Pages;
 
-
+use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\OperationalAction;
 use App\Models\Pool;
@@ -10,11 +13,11 @@ use App\Models\User;
 use App\Services\LeituraArtefactoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -22,6 +25,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -34,6 +38,23 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * registo contra os limites legais definidos em DailyRecord (CN 14/DA, DGS 2009).
  * O download é feito por streamDownload a partir desta action Livewire —
  * sem rotas web adicionais.
+ */
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Geração do Livro de Registo Sanitário exigido pela legislação (CN 14/DA).
+ * Formato oficial em PDF que as autoridades e inspetores de saúde exigem.
+ *
+ * IMPLEMENTADO:
+ * - Filtros por instalação, piscina e datas.
+ * - Renderiza `resources/views/pdf/livro-sanitario.blade.php` via `barryvdh/laravel-dompdf`.
+ * - Avalia a conformidade de cada registo para preencher a coluna "Conforme" (✓/✗).
+ * - Regra Estrita de Query: Exclui do relatório oficial os registos que sofreram correção
+ *   (garantindo apenas a versão final via `whereDoesntHave('correcoes')`).
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
  */
 class RelatorioPdf extends Page implements HasForms
 {
@@ -152,8 +173,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         Placeholder::make('aviso_customizacao')
-                            ->hidden(fn (Get $get) => 
-                                $get('registo_modo') === 'todos' &&
+                            ->hidden(fn (Get $get) => $get('registo_modo') === 'todos' &&
                                 count($get('colunas_visiveis') ?? []) === 13 &&
                                 count($get('seccoes_visiveis') ?? []) === 6
                             )
@@ -249,6 +269,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('A data de fim tem de ser igual ou posterior à data de início.')
                 ->danger()
                 ->send();
+
             return null;
         }
 
@@ -258,6 +279,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('As datas não podem estar no futuro.')
                 ->danger()
                 ->send();
+
             return null;
         }
 
@@ -275,9 +297,10 @@ class RelatorioPdf extends Page implements HasForms
 
             Notification::make()
                 ->title('Período ajustado')
-                ->body('O modo "Todos os registos" está limitado a 7 dias. A data fim foi ajustada para ' . $novoFim->format('d/m/Y') . '.')
+                ->body('O modo "Todos os registos" está limitado a 7 dias. A data fim foi ajustada para '.$novoFim->format('d/m/Y').'.')
                 ->warning()
                 ->send();
+
             return null;
         }
 
@@ -351,7 +374,7 @@ class RelatorioPdf extends Page implements HasForms
             ->log("Gerou relatório PDF: {$nomeFicheiro}");
 
         return response()->streamDownload(
-            fn () => print($conteudo),
+            fn () => print ($conteudo),
             $nomeFicheiro,
             ['Content-Type' => 'application/pdf'],
         );
@@ -375,6 +398,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('Verifique as datas de início e fim.')
                 ->danger()
                 ->send();
+
             return null;
         }
 
@@ -392,10 +416,11 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('A instalação selecionada não tem piscinas registadas.')
                 ->warning()
                 ->send();
+
             return null;
         }
 
-        $registos = \App\Models\DailyRecord::query()
+        $registos = DailyRecord::query()
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->whereBetween('registado_em', [$inicio, $fim])
             ->whereDoesntHave('correcoes')
@@ -447,10 +472,10 @@ class RelatorioPdf extends Page implements HasForms
      * de exportar() para ser reutilizado pelo relatório mensal automático
      * (GerarRelatorioMensalCommand) sem depender do estado do Livewire form.
      *
-     * @param  \Illuminate\Support\Collection<int, Pool>  $piscinas
-     * @return array<int, array{piscina: Pool, registos: \Illuminate\Support\Collection, controlador: \Illuminate\Support\Collection, acoes_operacionais: \Illuminate\Support\Collection}>
+     * @param  Collection<int, Pool>  $piscinas
+     * @return array<int, array{piscina: Pool, registos: Collection, controlador: Collection, acoes_operacionais: Collection}>
      */
-    public static function construirSeccoes(\Illuminate\Support\Collection $piscinas, Carbon $inicio, Carbon $fim, string $modo, string $modoControlador): array
+    public static function construirSeccoes(Collection $piscinas, Carbon $inicio, Carbon $fim, string $modo, string $modoControlador): array
     {
         // Ações operacionais no período, agrupadas por piscina — justificam
         // valores anómalos do livro sanitário (ex.: lavagem de filtro).
@@ -514,15 +539,15 @@ class RelatorioPdf extends Page implements HasForms
                             $lavagensFiltro = 1;
                         }
 
-                        $mockRecord = new \App\Models\DailyRecord();
+                        $mockRecord = new DailyRecord;
                         $mockRecord->registado_em = $dia;
-                        $mockRecord->ph = $phAvg !== null ? round((float)$phAvg, 2) : null;
-                        $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float)$cloroLivreAvg, 2) : null;
-                        $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float)$cloroTotalAvg, 2) : null;
-                        $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
-                        $mockRecord->transparencia = $transparenciaAvg !== null ? round((float)$transparenciaAvg, 2) : null;
-                        $mockRecord->contador_valor = $contadorAvg !== null ? round((float)$contadorAvg, 2) : null;
-                        $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float)$pressaoAvg, 2) : null;
+                        $mockRecord->ph = $phAvg !== null ? round((float) $phAvg, 2) : null;
+                        $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float) $cloroLivreAvg, 2) : null;
+                        $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float) $cloroTotalAvg, 2) : null;
+                        $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
+                        $mockRecord->transparencia = $transparenciaAvg !== null ? round((float) $transparenciaAvg, 2) : null;
+                        $mockRecord->contador_valor = $contadorAvg !== null ? round((float) $contadorAvg, 2) : null;
+                        $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float) $pressaoAvg, 2) : null;
                         $mockRecord->bomba_ferrada = $bombaFerrada;
                         $mockRecord->tanque_ok = $tanqueOk;
                         $mockRecord->renovacao_agua = $renovacaoAgua;
@@ -533,7 +558,7 @@ class RelatorioPdf extends Page implements HasForms
                         $mockRecord->e_correcao = false;
 
                         if ($tecnicos !== '') {
-                            $u = new \App\Models\User();
+                            $u = new User;
                             $u->name = $tecnicos;
                             $mockRecord->setRelation('utilizador', $u);
                         }
@@ -564,15 +589,15 @@ class RelatorioPdf extends Page implements HasForms
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
                         $q->where('ph', '<', 6)
-                          ->orWhere('orp', '<', 400)
-                          ->orWhere('orp', '>', 900);
+                            ->orWhere('orp', '<', 400)
+                            ->orWhere('orp', '>', 900);
                     })
                     ->get();
 
                 $diasArtefacto = [];
                 // Se uma anomalia calhar dentro de uma janela, justificamos o dia com esse motivo
                 foreach ($anomalias as $anomalia) {
-                    $lidaEm = \Carbon\Carbon::parse($anomalia->lida_em);
+                    $lidaEm = Carbon::parse($anomalia->lida_em);
                     foreach ($janelas as $janela) {
                         if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
                             $diasArtefacto[$lidaEm->format('Y-m-d')][$janela['motivo']] = true;
@@ -588,16 +613,16 @@ class RelatorioPdf extends Page implements HasForms
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
                         $q->where('ph', '<', 6.0)
-                          ->orWhere('ph', '>', 8.0);
+                            ->orWhere('ph', '>', 8.0);
                     })
                     ->where(function ($q) {
                         $q->where('orp', '<', 600.0)
-                          ->orWhere('orp', '>', 870.0);
+                            ->orWhere('orp', '>', 870.0);
                     })
                     ->get();
 
                 foreach ($leiturasLavagem as $leitura) {
-                    $diaKey = \Carbon\Carbon::parse($leitura->lida_em)->format('Y-m-d');
+                    $diaKey = Carbon::parse($leitura->lida_em)->format('Y-m-d');
                     $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
                 }
 
@@ -619,11 +644,12 @@ class RelatorioPdf extends Page implements HasForms
                 $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
                     $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
                     $linha->sem_leitura_valida = false;
+
                     return $linha;
                 });
                 foreach ($diasArtefacto as $dia => $motivo) {
                     if (! in_array($dia, $diasComLeitura, true)) {
-                        $sintetico = new \stdClass();
+                        $sintetico = new \stdClass;
                         $sintetico->dia = $dia;
                         $sintetico->ph_avg = null;
                         $sintetico->ph_min = null;
@@ -645,7 +671,7 @@ class RelatorioPdf extends Page implements HasForms
 
                 $controlador = collect();
                 foreach ($controladorLeituras as $leitura) {
-                    $sintetico = new \stdClass();
+                    $sintetico = new \stdClass;
                     $sintetico->dia = Carbon::parse($leitura->lida_em)->format('Y-m-d');
                     $sintetico->hora = Carbon::parse($leitura->lida_em)->format('H:i');
                     $sintetico->ph = $leitura->ph;

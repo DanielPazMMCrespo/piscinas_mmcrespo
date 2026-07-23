@@ -14,10 +14,10 @@ return new class extends Migration
         if (Schema::hasTable('daily_records')) {
             Schema::table('daily_records', function (Blueprint $table) {
                 // Índices para queries comuns
-                if (!Schema::hasIndex('daily_records', 'daily_records_pool_id_registado_em_index')) {
+                if (! Schema::hasIndex('daily_records', 'daily_records_pool_id_registado_em_index')) {
                     $table->index(['pool_id', 'registado_em']);
                 }
-                if (!Schema::hasIndex('daily_records', 'daily_records_e_correcao_index')) {
+                if (! Schema::hasIndex('daily_records', 'daily_records_e_correcao_index')) {
                     $table->index('e_correcao');
                 }
             });
@@ -25,7 +25,7 @@ return new class extends Migration
 
         if (Schema::hasTable('tap_alerts')) {
             Schema::table('tap_alerts', function (Blueprint $table) {
-                if (!Schema::hasIndex('tap_alerts', 'tap_alerts_pool_id_resolved_at_index')) {
+                if (! Schema::hasIndex('tap_alerts', 'tap_alerts_pool_id_resolved_at_index')) {
                     $table->index(['pool_id', 'resolved_at']);
                 }
             });
@@ -33,7 +33,7 @@ return new class extends Migration
 
         if (Schema::hasTable('incidents')) {
             Schema::table('incidents', function (Blueprint $table) {
-                if (!Schema::hasIndex('incidents', 'incidents_status_ocorreu_em_index')) {
+                if (! Schema::hasIndex('incidents', 'incidents_status_ocorreu_em_index')) {
                     $table->index(['status', 'ocorreu_em']);
                 }
             });
@@ -41,7 +41,7 @@ return new class extends Migration
 
         if (Schema::hasTable('stock_warehouse_logs')) {
             Schema::table('stock_warehouse_logs', function (Blueprint $table) {
-                if (!Schema::hasIndex('stock_warehouse_logs', 'stock_warehouse_logs_product_id_created_at_index')) {
+                if (! Schema::hasIndex('stock_warehouse_logs', 'stock_warehouse_logs_product_id_created_at_index')) {
                     $table->index(['product_id', 'created_at']);
                 }
             });
@@ -49,7 +49,7 @@ return new class extends Migration
 
         if (Schema::hasTable('stock_installation_logs') && Schema::hasColumn('stock_installation_logs', 'installation_id')) {
             Schema::table('stock_installation_logs', function (Blueprint $table) {
-                if (!Schema::hasIndex('stock_installation_logs', 'stock_installation_logs_installation_id_created_at_index')) {
+                if (! Schema::hasIndex('stock_installation_logs', 'stock_installation_logs_installation_id_created_at_index')) {
                     $table->index(['installation_id', 'created_at']);
                 }
             });

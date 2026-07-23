@@ -19,10 +19,15 @@ class DailyRecordRoleRestrictionTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $tecnico;
+
     private User $nadador;
+
     private Installation $leiria;
+
     private Pool $competicao;
+
     private Pool $lazer;
 
     protected function setUp(): void

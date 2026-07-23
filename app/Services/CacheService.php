@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Services;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -25,10 +27,9 @@ class CacheService
      * Cache dados de gráfico (14 dias de histórico por piscina).
      * Chave: cache_graph_{pool_id}_{metricas_hash}
      *
-     * @param int $poolId ID da piscina
-     * @param array<string, mixed> $data Dados do gráfico (series, labels, etc.)
-     * @param int $ttlMinutos Time-to-live em minutos (padrão 30)
-     * @return void
+     * @param  int  $poolId  ID da piscina
+     * @param  array<string, mixed>  $data  Dados do gráfico (series, labels, etc.)
+     * @param  int  $ttlMinutos  Time-to-live em minutos (padrão 30)
      */
     public function cacheGraphData(int $poolId, array $data, int $ttlMinutos = 30): void
     {
@@ -41,8 +42,8 @@ class CacheService
     /**
      * Obtém dados de gráfico do cache, ou null se expirado/inexistente.
      *
-     * @param int $poolId ID da piscina
-     * @param string $metricsHash Hash das métricas (normalizado em getGraficos)
+     * @param  int  $poolId  ID da piscina
+     * @param  string  $metricsHash  Hash das métricas (normalizado em getGraficos)
      * @return array<string, mixed>|null
      */
     public function getGraphData(int $poolId, string $metricsHash): ?array
@@ -57,10 +58,9 @@ class CacheService
      * Chave: cache_alertas_{scope} — o resultado só varia por role (ns/full),
      * não por utilizador.
      *
-     * @param int|string|null $scope Âmbito do cálculo (ex: 'full', 'ns')
-     * @param array{alertas: array, totalPiscinas: int, conformesHoje: int} $data Resultado de calcular()
-     * @param int $ttlMinutos Time-to-live em minutos (padrão 5 — crítico para dashboard)
-     * @return void
+     * @param  int|string|null  $scope  Âmbito do cálculo (ex: 'full', 'ns')
+     * @param  array{alertas: array, totalPiscinas: int, conformesHoje: int}  $data  Resultado de calcular()
+     * @param  int  $ttlMinutos  Time-to-live em minutos (padrão 5 — crítico para dashboard)
      */
     public function cacheAlerts(int|string|null $scope, array $data, int $ttlMinutos = 5): void
     {
@@ -73,7 +73,7 @@ class CacheService
     /**
      * Obtém alertas do cache.
      *
-     * @param int|string|null $scope Âmbito do cálculo (ex: 'full', 'ns')
+     * @param  int|string|null  $scope  Âmbito do cálculo (ex: 'full', 'ns')
      * @return array{alertas: array, totalPiscinas: int, conformesHoje: int}|null
      */
     public function getAlerts(int|string|null $scope): ?array
@@ -89,10 +89,9 @@ class CacheService
      * Chave: cache_painel_piscinas_{scope} — o Nadador-Salvador só vê as suas
      * piscinas, logo uma chave global cruzaria dados entre roles.
      *
-     * @param string $scope Âmbito da vista (ex: 'full', "ns_{userId}")
-     * @param array<string, mixed> $data Array de piscinas com métricas/sonda
-     * @param int $ttlMinutos Time-to-live em minutos (padrão 10)
-     * @return void
+     * @param  string  $scope  Âmbito da vista (ex: 'full', "ns_{userId}")
+     * @param  array<string, mixed>  $data  Array de piscinas com métricas/sonda
+     * @param  int  $ttlMinutos  Time-to-live em minutos (padrão 10)
      */
     public function cachePoolData(string $scope, array $data, int $ttlMinutos = 10): void
     {
@@ -104,7 +103,7 @@ class CacheService
     /**
      * Obtém dados do painel de piscinas do cache.
      *
-     * @param string $scope Âmbito da vista (ex: 'full', "ns_{userId}")
+     * @param  string  $scope  Âmbito da vista (ex: 'full', "ns_{userId}")
      * @return array<string, mixed>|null
      */
     public function getPoolData(string $scope): ?array
@@ -118,8 +117,7 @@ class CacheService
      * Invalida o cache de gráficos de uma piscina específica.
      * Chamado ao criar novo registo diário.
      *
-     * @param int $poolId ID da piscina
-     * @return void
+     * @param  int  $poolId  ID da piscina
      */
     public function invalidateGraphCache(int $poolId): void
     {
@@ -134,8 +132,7 @@ class CacheService
      * Invalida o cache de alertas de um utilizador.
      * Chamado ao criar novo registo ou resolver incidente.
      *
-     * @param int|string|null $userId ID do utilizador (ou 'guest')
-     * @return void
+     * @param  int|string|null  $userId  ID do utilizador (ou 'guest')
      */
     public function invalidateAlerts(?int $userId): void
     {
@@ -148,13 +145,12 @@ class CacheService
     /**
      * Invalida o cache do painel de piscinas (todos os scopes).
      * Chamado ao criar novo registo ou mudar stock.
-     *
-     * @return void
      */
     public function invalidatePoolData(): void
     {
         if (config('cache.default') === 'file') {
-            \Illuminate\Support\Facades\Cache::flush();
+            Cache::flush();
+
             return;
         }
         $this->invalidateByPattern('cache_painel_piscinas_*');
@@ -162,8 +158,6 @@ class CacheService
 
     /**
      * Invalida o cache de IDs de stock baixo.
-     *
-     * @return void
      */
     public function invalidateLowStockCache(): void
     {
@@ -173,8 +167,6 @@ class CacheService
     /**
      * Invalida todos os alertas (para todos os utilizadores).
      * Útil em operações críticas (resolução de incidente, reset de BD).
-     *
-     * @return void
      */
     public function invalidateAllAlerts(): void
     {
@@ -187,8 +179,6 @@ class CacheService
     /**
      * Invalida todos os gráficos (todas as piscinas).
      * Útil se houver mudança estrutural (ex: piscinas adicionadas/removidas).
-     *
-     * @return void
      */
     public function invalidateAllGraphs(): void
     {
@@ -199,7 +189,7 @@ class CacheService
      * Utilitário: remove chaves matching a um padrão wildcard.
      * Compatível com Redis (KEYS + DEL) e database store.
      *
-     * @param string $pattern Ex: "cache_graph_1_*"
+     * @param  string  $pattern  Ex: "cache_graph_1_*"
      * @return int Número de chaves removidas
      */
     private function invalidateByPattern(string $pattern): int
@@ -223,7 +213,7 @@ class CacheService
     /**
      * Invalida padrão Redis via KEYS + DEL.
      *
-     * @param string $pattern Ex: "cache_*"
+     * @param  string  $pattern  Ex: "cache_*"
      * @return int Número de chaves removidas
      */
     private function invalidateDatabasePattern(string $pattern): int

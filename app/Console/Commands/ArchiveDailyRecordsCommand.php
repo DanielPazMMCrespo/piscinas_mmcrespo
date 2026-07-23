@@ -1,10 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
-
-use App\Models\DailyRecord;
 use Illuminate\Console\Command;
-use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,10 +19,10 @@ class ArchiveDailyRecordsCommand extends Command
     public function handle(): int
     {
         try {
-            $olderThanDays = (int)$this->option('older-than');
+            $olderThanDays = (int) $this->option('older-than');
             $isDryRun = $this->option('dry-run');
 
-            $this->info("Starting daily records archival (dry-run: " . ($isDryRun ? 'yes' : 'no') . ")");
+            $this->info('Starting daily records archival (dry-run: '.($isDryRun ? 'yes' : 'no').')');
             $this->info("Archiving records older than {$olderThanDays} days...");
 
             // Calculate cutoff date
@@ -37,13 +37,15 @@ class ArchiveDailyRecordsCommand extends Command
             $this->info("Found {$recordsToArchive} records to archive");
 
             if ($recordsToArchive === 0) {
-                $this->info("No records to archive. Exiting.");
+                $this->info('No records to archive. Exiting.');
+
                 return 0;
             }
 
             if ($isDryRun) {
                 $this->info("[DRY RUN] Would archive {$recordsToArchive} records");
-                $this->info("[DRY RUN] Not writing to database (use without --dry-run to commit)");
+                $this->info('[DRY RUN] Not writing to database (use without --dry-run to commit)');
+
                 return 0;
             }
 
@@ -72,7 +74,7 @@ class ArchiveDailyRecordsCommand extends Command
                         'ns_cloro_teste_rapido', 'ns_ph_teste_rapido', 'ns_observacoes',
                         'agua_modo', 'torneira_foto',
                         'e_correcao', 'corrige_registo_id', 'razao_correcao',
-                        'created_at', 'updated_at', 'archived_at'
+                        'created_at', 'updated_at', 'archived_at',
                     ],
                     DB::table('daily_records')
                         ->whereIn('id', $ids)
@@ -106,13 +108,13 @@ class ArchiveDailyRecordsCommand extends Command
                             'razao_correcao',
                             'created_at',
                             'updated_at',
-                            DB::raw("'" . now()->toDateTimeString() . "' as archived_at")
+                            DB::raw("'".now()->toDateTimeString()."' as archived_at"),
                         ])
                 );
 
                 if ($insertCount !== count($ids)) {
                     throw new \Exception(
-                        "Archival count mismatch: found " . count($ids) . " daily records but inserted {$insertCount} into archive."
+                        'Archival count mismatch: found '.count($ids)." daily records but inserted {$insertCount} into archive."
                     );
                 }
 
@@ -140,7 +142,7 @@ class ArchiveDailyRecordsCommand extends Command
 
                 if ($deleteCount !== count($ids)) {
                     throw new \Exception(
-                        "Archival delete count mismatch: inserted " . count($ids) . " records but deleted {$deleteCount}. Rolling back."
+                        'Archival delete count mismatch: inserted '.count($ids)." records but deleted {$deleteCount}. Rolling back."
                     );
                 }
 
@@ -153,7 +155,7 @@ class ArchiveDailyRecordsCommand extends Command
             Log::info('Daily records archival completed', [
                 'archived_count' => $archivedCount,
                 'cutoff_date' => $cutoffDate->toDateString(),
-                'older_than_days' => (int)$this->option('older-than'),
+                'older_than_days' => (int) $this->option('older-than'),
                 'executed_at' => now()->toDateTimeString(),
             ]);
 
@@ -164,6 +166,7 @@ class ArchiveDailyRecordsCommand extends Command
                 'error' => $e->getMessage(),
                 'executed_at' => now()->toDateTimeString(),
             ]);
+
             return 1;
         }
     }

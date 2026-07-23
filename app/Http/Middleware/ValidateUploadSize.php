@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -30,6 +33,7 @@ class ValidateUploadSize
     private function isMultipartFormData(Request $request): bool
     {
         $contentType = (string) $request->header('Content-Type');
+
         return str_contains($contentType, 'multipart/form-data');
     }
 }

@@ -21,7 +21,9 @@ class NSDashboardRestrictionTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $nadador;
+
     private Pool $pool;
 
     protected function setUp(): void

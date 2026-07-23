@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Exceptions;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Exceptions;
 
 /**
  * Lançada quando um utilizador tenta aceder a um recurso sem permissão.
@@ -28,7 +30,7 @@ class PermissionException extends \Exception
     /** Mensagem amigável para o UI. */
     public function friendlyMessage(): string
     {
-        return "Não tem permissão para realizar esta ação. "
-            ."Contacte o administrador se achar que isto é um erro.";
+        return 'Não tem permissão para realizar esta ação. '
+            .'Contacte o administrador se achar que isto é um erro.';
     }
 }

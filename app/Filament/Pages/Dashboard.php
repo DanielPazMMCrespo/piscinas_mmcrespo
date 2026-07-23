@@ -1,7 +1,30 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\CloroPhChartWidget;
+use App\Filament\Widgets\PainelPiscinasWidget;
+use App\Filament\Widgets\QuadroOperacionalWidget;
+use App\Filament\Widgets\StockBaixoWidget;
+
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Painel principal da aplicação. Desenhado com a filosofia "Exception-First": o técnico só
+ * deve ver o que precisa de atenção, sem métricas vaidosas (vanity metrics).
+ *
+ * IMPLEMENTADO:
+ * - Apenas contém widgets essenciais: PainelPiscinasWidget, CloroPhChartWidget,
+ *   QuadroOperacionalWidget (Kanban) e StockBaixoWidget.
+ * - QuadroOperacional centraliza as exceções (alertas, incidentes) para resolução imediata.
+ * - Componentes legados foram removidos em prol de utilitarismo operacional puro.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class Dashboard extends \Filament\Pages\Dashboard
 {
     protected static ?string $title = 'Painel de Controlo';
@@ -15,10 +38,10 @@ class Dashboard extends \Filament\Pages\Dashboard
     public function getWidgets(): array
     {
         return [
-            \App\Filament\Widgets\PainelPiscinasWidget::class,
-            \App\Filament\Widgets\CloroPhChartWidget::class,
-            \App\Filament\Widgets\QuadroOperacionalWidget::class,
-            \App\Filament\Widgets\StockBaixoWidget::class,
+            PainelPiscinasWidget::class,
+            CloroPhChartWidget::class,
+            QuadroOperacionalWidget::class,
+            StockBaixoWidget::class,
         ];
     }
 }

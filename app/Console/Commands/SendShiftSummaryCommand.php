@@ -28,7 +28,7 @@ class SendShiftSummaryCommand extends Command
         $horasConfiguradas = $settingsService->getArray('resumo_turno_horas', ['14:00', '20:00']);
         $horaAtual = now()->format('H:i');
 
-        if (!in_array($horaAtual, $horasConfiguradas)) {
+        if (! in_array($horaAtual, $horasConfiguradas)) {
             return self::SUCCESS;
         }
 
@@ -49,13 +49,13 @@ class SendShiftSummaryCommand extends Command
             ->whereDate('registado_em', today())
             ->whereDoesntHave('correcoes')
             ->get();
-            
-        $violacoes = $registosHojeRecords->filter(fn($r) => !empty($r->listarViolacoes()))->count();
+
+        $violacoes = $registosHojeRecords->filter(fn ($r) => ! empty($r->listarViolacoes()))->count();
 
         $stockConsumido = StockInstallationLog::where('tipo_movimento', 'consumo')
             ->whereDate('created_at', today())
             ->sum('quantity');
-            
+
         $incidentesAbertos = Incident::where('status', '!=', IncidentStatus::RESOLVIDO)->count();
         $incidentesResolvidosHoje = Incident::where('status', IncidentStatus::RESOLVIDO)
             ->whereDate('resolvido_em', today())

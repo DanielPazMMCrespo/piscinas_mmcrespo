@@ -1,9 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
 use App\Models\AppSetting;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class SettingsService
 {
@@ -19,12 +23,13 @@ class SettingsService
         self::$settings = Cache::remember('app_settings_all', 900, function () {
             try {
                 return AppSetting::all()->pluck('value', 'key')->toArray();
-            } catch (\Illuminate\Database\QueryException $e) {
+            } catch (QueryException $e) {
                 $msg = $e->getMessage();
                 if (str_contains($msg, 'does not exist') || str_contains($msg, 'no such table')) {
                     return [];
                 }
-                \Illuminate\Support\Facades\Log::error('SettingsService database query failed', ['err' => $msg]);
+                Log::error('SettingsService database query failed', ['err' => $msg]);
+
                 return [];
             }
         });
@@ -35,6 +40,7 @@ class SettingsService
     public function get(string $key, mixed $default = null): mixed
     {
         $settings = $this->all();
+
         return $settings[$key] ?? $default;
     }
 
@@ -56,6 +62,7 @@ class SettingsService
     public function getArray(string $key, array $default = []): array
     {
         $value = $this->get($key, $default);
+
         return is_array($value) ? $value : $default;
     }
 

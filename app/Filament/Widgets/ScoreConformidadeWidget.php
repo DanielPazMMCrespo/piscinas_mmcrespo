@@ -1,9 +1,11 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
 use App\Models\DailyRecord;
-use App\Models\Pool;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -46,8 +48,8 @@ class ScoreConformidadeWidget extends BaseWidget
         $scoreGeral = round(($conformes->count() / $registos->count()) * 100, 1);
 
         return [
-            Stat::make('Conformidade geral (7 dias)', number_format($scoreGeral, 1, ',', '') . '%')
-                ->description($registos->count() . ' registo(s) avaliado(s)')
+            Stat::make('Conformidade geral (7 dias)', number_format($scoreGeral, 1, ',', '').'%')
+                ->description($registos->count().' registo(s) avaliado(s)')
                 ->descriptionIcon('heroicon-m-shield-check')
                 ->color($scoreGeral >= 95 ? 'success' : ($scoreGeral >= 85 ? 'warning' : 'danger')),
         ];

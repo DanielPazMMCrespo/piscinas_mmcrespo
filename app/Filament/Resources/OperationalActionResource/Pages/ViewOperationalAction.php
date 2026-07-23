@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\OperationalActionResource\Pages;
 
 use App\Filament\Resources\OperationalActionResource;

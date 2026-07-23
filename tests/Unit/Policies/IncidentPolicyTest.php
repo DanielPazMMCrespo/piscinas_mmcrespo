@@ -28,7 +28,7 @@ class IncidentPolicyTest extends TestCase
 
     public function test_all_four_roles_can_create_incidents(): void
     {
-        $policy = new IncidentPolicy();
+        $policy = new IncidentPolicy;
 
         foreach (UserRole::all() as $role) {
             $user = User::factory()->create();

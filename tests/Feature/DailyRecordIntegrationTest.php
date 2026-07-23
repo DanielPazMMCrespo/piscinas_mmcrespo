@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
 use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\Product;
 use App\Models\RecordAddition;
-use App\Models\RecordPhoto;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -257,7 +258,7 @@ class DailyRecordIntegrationTest extends TestCase
         ]);
 
         // Simulate stock deduction
-        \Illuminate\Support\Facades\DB::transaction(function () use ($initial_stock, $consumption) {
+        DB::transaction(function () use ($initial_stock, $consumption) {
             $stock = StockInstallation::lockForUpdate()->find($initial_stock->id);
             $stock->quantity -= $consumption;
             $stock->save();
@@ -318,7 +319,7 @@ class DailyRecordIntegrationTest extends TestCase
         ]);
 
         // Attempt to consume more than available - should desconto até zero
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock, $consumption) {
+        DB::transaction(function () use ($stock, $consumption) {
             $fresh = StockInstallation::lockForUpdate()->find($stock->id);
             $actual_consumption = min($consumption, $fresh->quantity);
 
@@ -582,7 +583,7 @@ class DailyRecordIntegrationTest extends TestCase
             'active' => true,
         ]);
 
-        $createPage = new \App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord();
+        $createPage = new CreateDailyRecord;
 
         $data = [
             'installation_id' => $installation->id,
@@ -617,4 +618,3 @@ class DailyRecordIntegrationTest extends TestCase
         $this->assertEquals('bomba/infantil_bomba.jpg', $record3->bomba_foto);
     }
 }
-

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
@@ -45,6 +47,7 @@ class EsquemaPiscina extends Page
 
     /** Mesmos ranges do PainelPiscinasWidget (BL132). */
     private const ORP_MIN = 660;
+
     private const ORP_MAX = 750;
 
     private const AGUA_MODO_LABELS = [
@@ -342,7 +345,7 @@ class EsquemaPiscina extends Page
             'aberta_por' => $tapAberta?->openedBy?->name,
             'agua_modo' => $modo !== null ? (self::AGUA_MODO_LABELS[$modo] ?? $modo) : null,
             'contador' => isset($contadorEfetivo['valor'])
-                ? number_format((float) $contadorEfetivo['valor'], 2, ',', ' ') . ' m³'
+                ? number_format((float) $contadorEfetivo['valor'], 2, ',', ' ').' m³'
                 : null,
             'contador_foto' => $contadorEfetivo['foto'] ?? null,
             'fonte' => $this->fonte($modoEfetivo),
@@ -624,7 +627,7 @@ class EsquemaPiscina extends Page
     {
         return [
             'label' => $label,
-            'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '') . $sufixo : '—',
+            'valor' => $valor !== null ? number_format((float) $valor, $casas, ',', '').$sufixo : '—',
             'ok' => $valor !== null ? $ok : null,
         ];
     }

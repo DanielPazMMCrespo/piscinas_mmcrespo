@@ -1,10 +1,16 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
+use App\Services\HannaCloudService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Bidão de reagente (cloro ou pH-) do controlador de uma piscina.
@@ -14,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 class DosingContainer extends Model
 {
     public const TIPO_CLORO = 'cloro';
+
     public const TIPO_PH_MENOS = 'ph_menos';
 
     public const TIPOS = [
@@ -131,7 +138,7 @@ class DosingContainer extends Model
     }
 
     /** Repõe o nível do bidão (reabastecimento manual) e limpa o alerta. */
-    public function reabastecer(float $ml, ?int $userId = null, ?string $nota = null, ?\Illuminate\Support\Carbon $timestamp = null): void
+    public function reabastecer(float $ml, ?int $userId = null, ?string $nota = null, ?Carbon $timestamp = null): void
     {
         DB::transaction(function () use ($ml, $userId, $nota, $timestamp): void {
             $this->restante_ml = round($ml, 2);
@@ -162,7 +169,7 @@ class DosingContainer extends Model
             return;
         }
 
-        $device = \App\Models\HannaDevice::where('pool_id', $this->pool_id)->first();
+        $device = HannaDevice::where('pool_id', $this->pool_id)->first();
         if (! $device) {
             return;
         }
@@ -173,7 +180,7 @@ class DosingContainer extends Model
         }
 
         try {
-            $hanna = app(\App\Services\HannaCloudService::class);
+            $hanna = app(HannaCloudService::class);
             $email = config('services.hanna.email');
             $password = config('services.hanna.password');
 
@@ -195,7 +202,7 @@ class DosingContainer extends Model
                     continue;
                 }
 
-                $dt = \Illuminate\Support\Carbon::parse($l['dt']);
+                $dt = Carbon::parse($l['dt']);
                 if ($dt->gt($this->reabastecido_em) && $dt->lte($syncTime)) {
                     if ($this->tipo === self::TIPO_CLORO) {
                         $doseMl += (float) ($l['dose_cloro_ml'] ?? 0);
@@ -222,7 +229,7 @@ class DosingContainer extends Model
                 });
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Erro ao recalcular consumo após reabastecimento do bidão {$this->id}: " . $e->getMessage());
+            Log::warning("Erro ao recalcular consumo após reabastecimento do bidão {$this->id}: ".$e->getMessage());
         }
     }
 }

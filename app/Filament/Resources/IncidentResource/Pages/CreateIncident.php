@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources\IncidentResource\Pages;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources\IncidentResource\Pages;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\IncidentResource;

@@ -16,6 +16,7 @@ class OperationalActionTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Pool $pool;
 
     protected function setUp(): void

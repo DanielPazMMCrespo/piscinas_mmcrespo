@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
@@ -6,7 +8,6 @@ use App\Constants\UserRole;
 use App\Mail\UserInvitationMail;
 use App\Models\User;
 use App\Models\UserInvitation;
-use App\Services\SettingsService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ class InvitationService
     ) {}
 
     /**
-     * @param array<int, int|string> $poolIds Piscinas a pré-atribuir (só aplicadas a Nadador Salvador).
+     * @param  array<int, int|string>  $poolIds  Piscinas a pré-atribuir (só aplicadas a Nadador Salvador).
      */
     public function send(string $email, string $role, User $invitedBy, array $poolIds = []): UserInvitation
     {
@@ -40,14 +41,14 @@ class InvitationService
         $validadeHoras = $this->settings->getInt('convite_validade_horas', 48);
 
         $invitation = UserInvitation::create([
-            'email'         => $email,
-            'role'          => $role,
-            'pool_ids'      => $role === UserRole::NADADOR_SALVADOR
+            'email' => $email,
+            'role' => $role,
+            'pool_ids' => $role === UserRole::NADADOR_SALVADOR
                 ? array_values(array_map('intval', $poolIds))
                 : null,
-            'token'         => hash('sha256', $rawToken),
+            'token' => hash('sha256', $rawToken),
             'invited_by_id' => $invitedBy->id,
-            'expires_at'    => now()->addHours($validadeHoras),
+            'expires_at' => now()->addHours($validadeHoras),
         ]);
 
         Mail::to($email)->send(new UserInvitationMail($invitation, $rawToken));
@@ -58,20 +59,20 @@ class InvitationService
     public function accept(UserInvitation $invitation, array $data): User
     {
         $firstName = $data['first_name'];
-        $lastName  = $data['last_name'];
+        $lastName = $data['last_name'];
 
         $password = isset($data['password']) && $data['password'] !== ''
             ? Hash::make($data['password'])
             : Hash::make(Str::random(32));
 
         $user = User::create([
-            'name'       => trim("{$firstName} {$lastName}"),
+            'name' => trim("{$firstName} {$lastName}"),
             'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'email'      => $invitation->email,
-            'phone'      => $data['phone'] ?? null,
-            'password'   => $password,
-            'pin'        => isset($data['pin']) && $data['pin'] !== ''
+            'last_name' => $lastName,
+            'email' => $invitation->email,
+            'phone' => $data['phone'] ?? null,
+            'password' => $password,
+            'pin' => isset($data['pin']) && $data['pin'] !== ''
                 ? $data['pin']
                 : null,
         ]);

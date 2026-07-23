@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Constants\IncidentStatus;
 use App\Constants\IncidentType;
@@ -8,15 +10,34 @@ use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\IncidentResource\Pages;
 use App\Models\Incident;
+use App\Models\IncidentMessage;
+use App\Notifications\IncidentMessageNotification;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Gestão de anomalias/incidentes nas piscinas. Os incidentes podem ser manuais (reportados pelo técnico)
+ * ou gerados automaticamente pelo sistema.
+ *
+ * IMPLEMENTADO:
+ * - Ciclo de Vida: Incidentes têm estado definido (`status`: aberto/resolvido).
+ * - Ação "Resolver": Marca a data, o utilizador que resolveu e o texto de resolução.
+ * - Auto-resolução: Incidentes associados a anomalias auto-resolvem-se no Kanban quando o problema desaparece.
+ * - Regra Estrita: Incidentes NUNCA devem ser apagados pelos utilizadores, apenas resolvidos.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class IncidentResource extends Resource
 {
     protected static ?string $model = Incident::class;
@@ -204,7 +225,7 @@ class IncidentResource extends Resource
                     static::resolverTableAction(),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
-                ])
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

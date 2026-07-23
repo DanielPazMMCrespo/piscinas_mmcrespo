@@ -24,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('daily_records', function (Blueprint $table) {
-            if (!Schema::hasColumn('daily_records', 'acao_corretiva')) {
+            if (! Schema::hasColumn('daily_records', 'acao_corretiva')) {
                 $table->text('acao_corretiva')->nullable()->after('transparencia');
             }
         });

@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Services;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Services;
 
 use App\Constants\AlertLevel;
 use App\Constants\AlertType;
@@ -9,15 +11,18 @@ use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
+use App\Models\AlertState;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\Pool;
-use App\Models\AlertState;
 use App\Models\StockInstallation;
 use App\Models\TapAlert;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -56,8 +61,8 @@ class AlertasService
             return;
         }
 
-        $executed = \Illuminate\Support\Facades\RateLimiter::attempt(
-            'move_alert_' . $user->id,
+        $executed = RateLimiter::attempt(
+            'move_alert_'.$user->id,
             30, // 30 movimentos
             function () use ($user, $key, $status) {
                 // Recupera do cache (garantido pela chamada do widget antes) ou recalcula se necessário
@@ -116,7 +121,7 @@ class AlertasService
         $conformesHoje = 0;
 
         // Torneiras abertas: uma query única fora do loop.
-        $hasTable = \Illuminate\Support\Facades\Cache::remember('schema_has_tap_alerts', 3600, fn() => Schema::hasTable('tap_alerts'));
+        $hasTable = Cache::remember('schema_has_tap_alerts', 3600, fn () => Schema::hasTable('tap_alerts'));
         $taps = $hasTable
             ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
             : collect();
@@ -290,7 +295,7 @@ class AlertasService
      *
      * @return array<string, array<string, mixed>>
      */
-    private function gerarAlertasTorneiras(Pool $piscina, string $nome, \Illuminate\Support\Collection $taps): array
+    private function gerarAlertasTorneiras(Pool $piscina, string $nome, Collection $taps): array
     {
         $alertas = [];
 

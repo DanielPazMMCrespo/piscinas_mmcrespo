@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\StockWarehouseResource\Pages;
 
 use App\Filament\Resources\StockWarehouseResource;
@@ -8,4 +11,3 @@ class CreateStockWarehouse extends CreateRecord
 {
     protected static string $resource = StockWarehouseResource::class;
 }
-

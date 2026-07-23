@@ -1,13 +1,15 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockWarehouseResource\Pages;
 use App\Models\Installation;
-use App\Models\StockInstallation;
-use App\Models\StockInstallationLog;
 use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
+use App\Services\StockService;
+use DomainException;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -15,9 +17,23 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
-use App\Services\StockService;
-use DomainException;
 
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Gestão do stock central (armazém) da MMCrespo. Daqui, os químicos são distribuídos
+ * para as várias instalações.
+ *
+ * IMPLEMENTADO:
+ * - Ação "Transferir p/ Instalação": Única forma de dar saída de stock. Debita do armazém e credita na instalação.
+ * - Regra Estrita de DB: Todas as movimentações de stock OBRIGAM ao uso de `DB::transaction()`
+ *   em conjunto com `lockForUpdate()` para prevenir race conditions em concorrência.
+ * - Rastreabilidade: Criação de logs automáticos (`StockWarehouseLog`) em cada movimentação.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class StockWarehouseResource extends Resource
 {
     protected static ?string $model = StockWarehouse::class;
@@ -104,34 +120,34 @@ class StockWarehouseResource extends Resource
                     ->visible(fn ($record) => auth()->user()->can('updateStock', $record))
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
-                             ->label('Quantidade a adicionar')
-                             ->numeric()
-                             ->minValue(0.001)
-                             ->rules(['gt:0'])
-                             ->required(),
-                         Forms\Components\Textarea::make('observacoes')
-                             ->label('Observações (ex: Nº da Fatura)')
-                             ->maxLength(255),
-                     ])
-                     ->action(function (StockWarehouse $record, array $data): void {
-                         app(StockService::class)->addWarehouseStock(
-                             $record->id,
-                             (float) $data['quantidade'],
-                             auth()->id(),
-                             $data['observacoes'] ?? null
-                         );
-                         
-                         Notification::make()
-                             ->success()
-                             ->title('Entrada registada')
-                             ->send();
-                     }),
-                 Tables\Actions\Action::make('transferir_instalacao')
-                     ->label('Transferir p/ Instalação')
-                     ->icon('heroicon-o-arrow-right-circle')
-                     ->color('primary')
-                     ->authorize(fn ($record) => auth()->user()->can('transferStock', $record))
-                     ->visible(fn ($record) => auth()->user()->can('transferStock', $record))
+                            ->label('Quantidade a adicionar')
+                            ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
+                            ->required(),
+                        Forms\Components\Textarea::make('observacoes')
+                            ->label('Observações (ex: Nº da Fatura)')
+                            ->maxLength(255),
+                    ])
+                    ->action(function (StockWarehouse $record, array $data): void {
+                        app(StockService::class)->addWarehouseStock(
+                            $record->id,
+                            (float) $data['quantidade'],
+                            auth()->id(),
+                            $data['observacoes'] ?? null
+                        );
+
+                        Notification::make()
+                            ->success()
+                            ->title('Entrada registada')
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('transferir_instalacao')
+                    ->label('Transferir p/ Instalação')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('primary')
+                    ->authorize(fn ($record) => auth()->user()->can('transferStock', $record))
+                    ->visible(fn ($record) => auth()->user()->can('transferStock', $record))
                     ->form([
                         Forms\Components\Select::make('installation_id')
                             ->label('Instalação de Destino')

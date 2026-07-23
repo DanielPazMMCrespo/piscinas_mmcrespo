@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+        if (DB::getDriverName() === 'sqlite') {
             return;
         }
 
@@ -19,7 +20,7 @@ return new class extends Migration
             // Tenta remover a chave estrangeira anterior caso exista sem cascade
             try {
                 $table->dropForeign('incident_messages_incident_id_foreign');
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Ignorar se não existir
             }
 
@@ -36,14 +37,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+        if (DB::getDriverName() === 'sqlite') {
             return;
         }
 
         Schema::table('incident_messages', function (Blueprint $table) {
             try {
                 $table->dropForeign(['incident_id']);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Ignorar
             }
 

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
@@ -29,6 +31,7 @@ class TimerFinishedNotification extends Notification
         if ($notifiable->wantsNotification('timer_finished', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -39,7 +42,7 @@ class TimerFinishedNotification extends Notification
             ? "{$faseLabel} terminada — {$this->piscina}"
             : "{$faseLabel} terminada";
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title($titulo)
             ->body('O tempo definido terminou. Pode passar à fase seguinte.')
             ->icon('/images/icon-192.png')
@@ -58,7 +61,7 @@ class TimerFinishedNotification extends Notification
             ? "{$faseLabel} terminada — {$this->piscina}"
             : "{$faseLabel} terminada";
 
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject($titulo)
             ->greeting($titulo)
             ->line('O tempo definido terminou. Pode passar à fase seguinte.')

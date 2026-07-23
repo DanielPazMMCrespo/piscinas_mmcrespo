@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Services;
 
-
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -33,9 +36,10 @@ class HannaCloudService
      */
     public function authenticate(string $email, string $password): void
     {
-        $cachedToken = \Illuminate\Support\Facades\Cache::get('hanna_cloud_access_token');
+        $cachedToken = Cache::get('hanna_cloud_access_token');
         if ($cachedToken) {
             $this->accessToken = $cachedToken;
+
             return;
         }
 
@@ -68,7 +72,7 @@ class HannaCloudService
             if (($token['tokenType'] ?? '') === 'accessToken') {
                 $this->accessToken = $token['token'];
                 // Cachear por 1 hora (3600 segundos)
-                \Illuminate\Support\Facades\Cache::put('hanna_cloud_access_token', $this->accessToken, 3600);
+                Cache::put('hanna_cloud_access_token', $this->accessToken, 3600);
 
                 return;
             }
@@ -153,7 +157,6 @@ class HannaCloudService
             'status' => $messages['status'] ?? [],
         ];
     }
-
 
     /**
      * Definições completas de um dispositivo (inclui reportedSettings.DS —
@@ -244,8 +247,8 @@ class HannaCloudService
             'orp' => $rd[1] ?? null,
             'temperatura_agua' => $rd[2] ?? null,
             'temperatura_ar' => $rd[3] ?? null,
-            'dose_ph_ml' => $dv[0] ?? null,
-            'dose_cloro_ml' => $dv[1] ?? null,
+            'dose_ph_ml' => $dv[1] ?? null,
+            'dose_cloro_ml' => $dv[0] ?? null,
             'no_flow' => (bool) ($entry['noFlow'] ?? false),
         ];
     }
@@ -375,8 +378,8 @@ class HannaCloudService
         } catch (\RuntimeException $e) {
             if (str_contains($e->getMessage(), '403')) {
                 // Invalidar o token em cache se recebermos 403
-                \Illuminate\Support\Facades\Cache::forget('hanna_cloud_access_token');
-                
+                Cache::forget('hanna_cloud_access_token');
+
                 // Re-autentica com as credenciais da config.
                 $this->authenticate(
                     config('services.hanna.email'),

@@ -1,10 +1,14 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
+use App\Services\StockService;
+use DomainException;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -15,9 +19,23 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
-use App\Services\StockService;
-use DomainException;
 
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Gestão do stock local de cada instalação. Os técnicos gastam este stock ao registarem
+ * adições de químicos nos Registos Diários.
+ *
+ * IMPLEMENTADO:
+ * - Validação de Quantidade: Ao registar um consumo (no Registo Diário ou manualmente),
+ *   o sistema garante que a instalação tem quantidade disponível suficiente.
+ * - Regra Estrita de DB: Tal como no armazém, movimentações obrigam a `DB::transaction()` e `lockForUpdate()`.
+ * - Rastreabilidade: Criação de `StockInstallationLog` automático para entradas e consumos.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class StockInstallationResource extends Resource
 {
     protected static ?string $model = StockInstallation::class;
@@ -122,7 +140,7 @@ class StockInstallationResource extends Resource
                                 (float) $data['quantidade'],
                                 auth()->id()
                             );
-                            
+
                             Notification::make()
                                 ->success()
                                 ->title('Consumo registado')

@@ -1,12 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use Filament\Actions\Action;
-use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Pages\Page;
 
 /**

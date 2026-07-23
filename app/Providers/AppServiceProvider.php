@@ -1,7 +1,11 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Providers;
 
-
+use App\Http\Responses\LoginResponse;
+use App\Listeners\LogUserAuthentication;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\OperationalAction;
@@ -10,13 +14,13 @@ use App\Observers\DailyRecordObserver;
 use App\Observers\IncidentObserver;
 use App\Observers\OperationalActionObserver;
 use App\Observers\StockInstallationObserver;
-use Illuminate\Support\Facades\Vite;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
-use App\Listeners\LogUserAuthentication;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\ServiceProvider;
 use NotificationChannels\WebPush\Events\NotificationFailed;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(
             \Filament\Http\Responses\Auth\Contracts\LoginResponse::class,
-            \App\Http\Responses\LoginResponse::class,
+            LoginResponse::class,
         );
     }
 
@@ -38,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if (config('app.env') !== 'local') {
-            \Illuminate\Support\Facades\URL::forceScheme('https');
+            URL::forceScheme('https');
         }
 
         // Gera um nonce CSP por-pedido; o @vite injeta-o nos <script>/<link> automaticamente.

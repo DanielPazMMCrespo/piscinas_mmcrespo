@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Pool;
 use App\Models\User;
-use App\Constants\UserRole;
 use App\Notifications\TendenciaAlertaNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -89,7 +89,7 @@ class CheckParameterTrendsCommand extends Command
         $consistentlyDecreasing = $exceptionsDec <= 1;
         $consistentlyIncreasing = $exceptionsInc <= 1;
 
-        if (!$consistentlyDecreasing && !$consistentlyIncreasing) {
+        if (! $consistentlyDecreasing && ! $consistentlyIncreasing) {
             return;
         }
 
@@ -124,7 +124,7 @@ class CheckParameterTrendsCommand extends Command
             $today = now()->format('Y-m-d');
             $cacheKey = "tendencia_{$pool->id}_{$parameter}_{$today}";
 
-            if (!Cache::has($cacheKey)) {
+            if (! Cache::has($cacheKey)) {
                 NotificationFacade::send(
                     $users,
                     new TendenciaAlertaNotification(

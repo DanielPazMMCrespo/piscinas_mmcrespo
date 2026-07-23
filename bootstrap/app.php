@@ -1,8 +1,16 @@
 <?php
 
+use App\Http\Middleware\EnsureHannaReadingsAreFresh;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\ValidateUploadSize;
+use App\Jobs\SendErrorEmailJob;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,11 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sem isto, o Laravel gera URLs http:// e o browser bloqueia como mixed content.
         $middleware->trustProxies(at: '*');
         // Valida o tamanho dos uploads (máx 5MB) server-side.
-        $middleware->append(\App\Http\Middleware\ValidateUploadSize::class);
+        $middleware->append(ValidateUploadSize::class);
         // Cabecalhos de seguranca globais aplicados a todas as respostas.
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(SecurityHeaders::class);
         // Auto-sincroniza sensores Hanna se leitura > 30 min stale.
-        $middleware->append(\App\Http\Middleware\EnsureHannaReadingsAreFresh::class);
+        $middleware->append(EnsureHannaReadingsAreFresh::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->report(function (Throwable $e): void {
@@ -28,22 +36,22 @@ return Application::configure(basePath: dirname(__DIR__))
                 return;
             }
             // Ignora erros esperados (404, 403, validação, auth)
-            if ($e instanceof \Illuminate\Validation\ValidationException
-                || $e instanceof \Illuminate\Auth\AuthenticationException
-                || $e instanceof \Symfony\Component\HttpKernel\Exception\HttpException
+            if ($e instanceof ValidationException
+                || $e instanceof AuthenticationException
+                || $e instanceof HttpException
             ) {
                 return;
             }
             // Rate limit: 1 email por erro único a cada 10 minutos
             $key = 'alert_err_'.md5(get_class($e).$e->getFile().$e->getLine());
-            if (\Illuminate\Support\Facades\Cache::has($key)) {
+            if (Cache::has($key)) {
                 return;
             }
-            \Illuminate\Support\Facades\Cache::put($key, true, now()->addMinutes(10));
+            Cache::put($key, true, now()->addMinutes(10));
 
-            $to      = (string) env('LOG_ALERT_EMAIL', 'daniel.paz@mmcrespo.pt');
+            $to = (string) env('LOG_ALERT_EMAIL', 'daniel.paz@mmcrespo.pt');
             $subject = '[MMCrespo] Erro crítico: '.class_basename($e);
-            $body    = implode("\n", [
+            $body = implode("\n", [
                 'Ambiente: '.app()->environment(),
                 'URL: '.request()->fullUrl(),
                 'Erro: '.get_class($e),
@@ -55,8 +63,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
 
             try {
-                \App\Jobs\SendErrorEmailJob::dispatch($to, $subject, $body);
-            } catch (\Throwable) {
+                SendErrorEmailJob::dispatch($to, $subject, $body);
+            } catch (Throwable) {
                 // Não propaga falha ao despachar
             }
         });

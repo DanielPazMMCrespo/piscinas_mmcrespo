@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\RecordAddition;
 use App\Models\StockInstallation;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -91,7 +92,7 @@ test('stock insuficiente na instalação não impede a criação do registo nem 
         ->test(CreateDailyRecord::class)
         ->fillForm([
             'installation_id' => $this->pool->installation_id,
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
             'pools' => [
                 $this->pool->id => [
                     'ns_ph' => 7.2,
@@ -101,7 +102,7 @@ test('stock insuficiente na instalação não impede a criação do registo nem 
                     'adicoes' => [
                         ['product_id' => $this->product->id, 'quantity' => 10.000],
                     ],
-                ]
+                ],
             ],
         ])
         ->call('create')

@@ -29,7 +29,7 @@ class StockTest extends TestCase
         ]);
 
         // Simula transação com lock (verificar que não exceção ao usar lockForUpdate)
-        DB::transaction(function () use ($stock, $product) {
+        DB::transaction(function () use ($stock) {
             $locked = StockInstallation::where('id', $stock->id)->lockForUpdate()->first();
             $this->assertNotNull($locked);
             $this->assertEquals(100.0, $locked->quantity);

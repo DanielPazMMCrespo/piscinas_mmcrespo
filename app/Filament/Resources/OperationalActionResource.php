@@ -1,9 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources;
 
-use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\OperationalActionResource\Pages;
+use App\Models\DailyRecord;
+use App\Models\DosingContainer;
 use App\Models\OperationalAction;
 use App\Models\Pool;
 use Filament\Forms;
@@ -147,8 +151,8 @@ class OperationalActionResource extends Resource
             Forms\Components\Select::make('dados.bidao_tipo')
                 ->label('Tipo de bidão')
                 ->options([
-                    \App\Models\DosingContainer::TIPO_CLORO => 'Cloro',
-                    \App\Models\DosingContainer::TIPO_PH_MENOS => 'pH-',
+                    DosingContainer::TIPO_CLORO => 'Cloro',
+                    DosingContainer::TIPO_PH_MENOS => 'pH-',
                     'ambos' => 'Ambos (Cloro e pH-)',
                 ])
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
@@ -166,13 +170,14 @@ class OperationalActionResource extends Resource
                     $poolId = $get('pool_id');
                     $tipo = $get('dados.bidao_tipo');
                     if ($poolId && $tipo && $tipo !== 'ambos') {
-                        $container = \App\Models\DosingContainer::where('pool_id', $poolId)
+                        $container = DosingContainer::where('pool_id', $poolId)
                             ->where('tipo', $tipo)
                             ->first();
                         if ($container && $container->capacidade_ml) {
                             return $container->capacidade_ml / 1000;
                         }
                     }
+
                     return null;
                 })
                 ->helperText(fn (Get $get) => $get('dados.bidao_tipo') === 'ambos'
@@ -215,7 +220,7 @@ class OperationalActionResource extends Resource
 
             Forms\Components\FileUpload::make('foto')
                 ->label('Foto (opcional)')
-                ->disk(\App\Models\DailyRecord::getStorageDisk())->visibility('public')
+                ->disk(DailyRecord::getStorageDisk())->visibility('public')
                 ->directory('operational-actions')
                 ->image()
                 ->imageEditor()
@@ -247,7 +252,7 @@ class OperationalActionResource extends Resource
                 ->columnSpanFull(),
             Infolists\Components\ImageEntry::make('foto')
                 ->label('Foto')
-                ->disk(\App\Models\DailyRecord::getStorageDisk())
+                ->disk(DailyRecord::getStorageDisk())
                 ->visible(fn ($record) => filled($record->foto))
                 ->columnSpanFull(),
         ])->columns(2);

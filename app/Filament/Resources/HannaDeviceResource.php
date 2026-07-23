@@ -1,12 +1,16 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\HannaDeviceResource\Pages;
 use App\Models\HannaDevice;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
@@ -102,14 +106,14 @@ class HannaDeviceResource extends Resource
                         $output = preg_replace('/\x1B\[[0-9;]*[mGKHF]/u', '', trim(Artisan::output()));
 
                         if ($exitCode === 0) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Sync concluído')
                                 ->body($output ?: 'Leituras actualizadas.')
                                 ->send();
                             $action->redirect(filament()->getUrl());
                         } else {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->danger()
                                 ->title('Falha na sincronização')
                                 ->body($output ?: 'Verifica HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.')
@@ -126,13 +130,13 @@ class HannaDeviceResource extends Resource
                         $output = preg_replace('/\x1B\[[0-9;]*[mGKHF]/u', '', trim(Artisan::output()));
 
                         if ($exitCode === 0) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Dispositivos actualizados')
                                 ->body($output ?: 'Verifica a lista abaixo.')
                                 ->send();
                         } else {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->danger()
                                 ->title('Falha ao descobrir dispositivos')
                                 ->body($output ?: 'Verifica as credenciais no .env.')
@@ -146,6 +150,15 @@ class HannaDeviceResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('ver_detalhes')
+                    ->label('Detalhes')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->modalHeading(fn (HannaDevice $record): string => $record->name)
+                    ->modalContent(fn (HannaDevice $record): View => view('filament.hanna-device-modal', ['device' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
+                    ->modalWidth(MaxWidth::ThreeExtraLarge),
 
                 Tables\Actions\Action::make('hanna_settings')
                     ->label('Configurar (site Hanna)')

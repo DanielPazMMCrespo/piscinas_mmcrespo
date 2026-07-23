@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Constants\IncidentStatus;
+use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\User;
 use App\Constants\IncidentStatus;
 use App\Constants\IncidentType;
 use App\Constants\UserRole;
+use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Filament\Notifications\Notification as FilamentNotification;
 
 class ExecuteBusinessRulesCommand extends Command
 {
@@ -50,7 +52,7 @@ class ExecuteBusinessRulesCommand extends Command
     private function rule1_autoCreateIncidents(): void
     {
         $today = today();
-        
+
         // Get today's DailyRecord entries grouped by pool_id (exclude corrections)
         $records = DailyRecord::with('piscina.instalacao')
             ->whereDate('registado_em', $today)
@@ -61,8 +63,8 @@ class ExecuteBusinessRulesCommand extends Command
         foreach ($records as $poolId => $poolRecords) {
             $violationsCount = [];
             $pool = $poolRecords->first()->piscina;
-            
-            if (!$pool) {
+
+            if (! $pool) {
                 continue;
             }
 
@@ -71,7 +73,7 @@ class ExecuteBusinessRulesCommand extends Command
                     $violations = $record->listarViolacoes();
                     foreach ($violations as $violation) {
                         $param = $violation['parametro'];
-                        if (!isset($violationsCount[$param])) {
+                        if (! isset($violationsCount[$param])) {
                             $violationsCount[$param] = 0;
                         }
                         $violationsCount[$param]++;
@@ -82,18 +84,18 @@ class ExecuteBusinessRulesCommand extends Command
             foreach ($violationsCount as $param => $count) {
                 if ($count >= 3) {
                     $cacheKey = "auto_incidente_{$poolId}_{$param}_{$today->toDateString()}";
-                    
-                    if (!Cache::has($cacheKey)) {
+
+                    if (! Cache::has($cacheKey)) {
                         $instalacaoId = $pool->instalacao?->id;
                         $nomePiscina = $pool->nome_completo;
-                        
+
                         Incident::create([
                             'installation_id' => $instalacaoId,
                             'pool_id' => $poolId,
                             'ocorreu_em' => now(),
                             'type' => IncidentType::QUALIDADE_AGUA,
                             'status' => IncidentStatus::ABERTO,
-                            'descricao' => "Não-conformidade recorrente: {$param} violado em {$count} registos consecutivos na piscina {$nomePiscina}"
+                            'descricao' => "Não-conformidade recorrente: {$param} violado em {$count} registos consecutivos na piscina {$nomePiscina}",
                         ]);
 
                         Cache::put($cacheKey, true, now()->endOfDay());
@@ -115,12 +117,12 @@ class ExecuteBusinessRulesCommand extends Command
                 ->where('created_at', '>=', now()->subHours(24))
                 ->exists();
 
-            if (!$hasRecentMessages) {
-                $cacheKey = "escalacao_{$incident->id}_" . today()->toDateString();
-                
-                if (!Cache::has($cacheKey)) {
+            if (! $hasRecentMessages) {
+                $cacheKey = "escalacao_{$incident->id}_".today()->toDateString();
+
+                if (! Cache::has($cacheKey)) {
                     $adminsAndGestores = User::role([UserRole::ADMIN, UserRole::GESTOR])->get();
-                    
+
                     foreach ($adminsAndGestores as $user) {
                         FilamentNotification::make()
                             ->title('Incidente sem resposta há 24h')
@@ -128,7 +130,7 @@ class ExecuteBusinessRulesCommand extends Command
                             ->warning()
                             ->sendToDatabase($user);
                     }
-                    
+
                     Cache::put($cacheKey, true, now()->endOfDay());
                     $this->info("Incidente #{$incident->id} escalado para admins/gestores.");
                 }
@@ -138,7 +140,7 @@ class ExecuteBusinessRulesCommand extends Command
 
     private function rule3_autoCloseStockIncidents(): void
     {
-        // Simpler approach: just check for incidents with descricao containing 'stock' that can be auto-resolved. 
+        // Simpler approach: just check for incidents with descricao containing 'stock' that can be auto-resolved.
         // Skip this if too complex — log a comment instead.
         $this->info('Regra 3 (Stock) ignorada por complexidade - apenas registo no log.');
         Log::info('Rule 3 (Stock incidents auto-close) skipped.');

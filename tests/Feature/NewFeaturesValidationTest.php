@@ -1,8 +1,16 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\EsquemaPiscina;
+use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
+use App\Filament\Resources\OperationalActionResource;
+use App\Filament\Resources\OperationalActionResource\Pages\CreateOperationalAction;
 use App\Models\DailyRecord;
+use App\Models\DosingContainer;
+use App\Models\HannaDevice;
 use App\Models\Installation;
 use App\Models\OperationalAction;
 use App\Models\Pool;
@@ -11,6 +19,7 @@ use App\Models\TapAlert;
 use App\Models\User;
 use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -75,14 +84,15 @@ class NewFeaturesValidationTest extends TestCase
 
         // Access the Esquema page via Livewire to inspect view data.
         // A vista agrupa por instalação; cada piscina traz os seus atalhos rápidos.
-        Livewire::test(\App\Filament\Pages\EsquemaPiscina::class)
+        Livewire::test(EsquemaPiscina::class)
             ->assertSet('installationId', $installation->id)
             ->assertViewHas('estados', function (array $estados) use ($pool) {
                 $estado = collect($estados)->first(fn (array $e) => $e['piscina']->id === $pool->id);
                 $this->assertNotNull($estado);
                 $this->assertArrayHasKey('url_acoes_rapidas', $estado);
                 $this->assertStringContainsString('tipo=torneira', $estado['url_acoes_rapidas']['torneira']);
-                $this->assertStringContainsString('pool=' . $pool->id, $estado['url_acoes_rapidas']['torneira']);
+                $this->assertStringContainsString('pool='.$pool->id, $estado['url_acoes_rapidas']['torneira']);
+
                 return true;
             });
     }
@@ -96,14 +106,14 @@ class NewFeaturesValidationTest extends TestCase
         $this->actingAs($admin);
 
         // Access page with query parameters
-        $url = \App\Filament\Resources\OperationalActionResource::getUrl('create', [
+        $url = OperationalActionResource::getUrl('create', [
             'pool' => $pool->id,
             'tipo' => OperationalAction::TIPO_TORNEIRA,
         ]);
 
         // Simulating the request to test Filament Form defaults via Livewire
         Livewire::withQueryParams(['pool' => $pool->id, 'tipo' => OperationalAction::TIPO_TORNEIRA])
-            ->test(\App\Filament\Resources\OperationalActionResource\Pages\CreateOperationalAction::class)
+            ->test(CreateOperationalAction::class)
             ->assertFormSet([
                 'pool_id' => $pool->id,
                 'tipo' => OperationalAction::TIPO_TORNEIRA,
@@ -148,7 +158,7 @@ class NewFeaturesValidationTest extends TestCase
         $pool = $env['pool'];
         $product = $env['product'];
 
-        $createPage = new \App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord();
+        $createPage = new CreateDailyRecord;
 
         $data = [
             'installation_id' => $env['installation']->id,
@@ -165,9 +175,9 @@ class NewFeaturesValidationTest extends TestCase
                             'product_id' => $product->id,
                             'quantity' => 1.5,
                             'acao_corretiva' => 'Ajuste pH e Cloro manual',
-                        ]
+                        ],
                     ],
-                ]
+                ],
             ],
         ];
 
@@ -190,9 +200,9 @@ class NewFeaturesValidationTest extends TestCase
         $admin = $env['admin'];
         $pool = $env['pool'];
 
-        $container = \App\Models\DosingContainer::create([
+        $container = DosingContainer::create([
             'pool_id' => $pool->id,
-            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'tipo' => DosingContainer::TIPO_CLORO,
             'capacidade_ml' => 20000,
             'restante_ml' => 5000,
             'alerta_percent' => 20,
@@ -207,7 +217,7 @@ class NewFeaturesValidationTest extends TestCase
             'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
             'registado_em' => now(),
             'dados' => [
-                'bidao_tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+                'bidao_tipo' => DosingContainer::TIPO_CLORO,
                 'quantidade_l' => 15.0,
             ],
             'observacoes' => 'Reabastecido com 15L de cloro',
@@ -257,22 +267,22 @@ class NewFeaturesValidationTest extends TestCase
         $pool = $env['pool'];
 
         // Create Hanna device
-        $device = \App\Models\HannaDevice::create([
+        $device = HannaDevice::create([
             'hanna_device_id' => 'DID-SYNC-TEST',
             'name' => 'Controlador Teste',
             'active' => true,
             'pool_id' => $pool->id,
-            'dose_sincronizada_ate' => \Illuminate\Support\Carbon::parse('2026-07-21 09:50:00'),
+            'dose_sincronizada_ate' => Carbon::parse('2026-07-21 09:50:00'),
         ]);
 
         // Create dosing container refilled at 10:00
-        $container = \App\Models\DosingContainer::create([
+        $container = DosingContainer::create([
             'pool_id' => $pool->id,
-            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'tipo' => DosingContainer::TIPO_CLORO,
             'capacidade_ml' => 20000,
             'restante_ml' => 20000,
             'alerta_percent' => 20,
-            'reabastecido_em' => \Illuminate\Support\Carbon::parse('2026-07-21 10:00:00'),
+            'reabastecido_em' => Carbon::parse('2026-07-21 10:00:00'),
         ]);
 
         // Run sync command
@@ -292,17 +302,17 @@ class NewFeaturesValidationTest extends TestCase
         $admin = $env['admin'];
         $pool = $env['pool'];
 
-        $containerCloro = \App\Models\DosingContainer::create([
+        $containerCloro = DosingContainer::create([
             'pool_id' => $pool->id,
-            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'tipo' => DosingContainer::TIPO_CLORO,
             'capacidade_ml' => 20000,
             'restante_ml' => 5000,
             'alerta_percent' => 20,
         ]);
 
-        $containerPh = \App\Models\DosingContainer::create([
+        $containerPh = DosingContainer::create([
             'pool_id' => $pool->id,
-            'tipo' => \App\Models\DosingContainer::TIPO_PH_MENOS,
+            'tipo' => DosingContainer::TIPO_PH_MENOS,
             'capacidade_ml' => 10000,
             'restante_ml' => 2000,
             'alerta_percent' => 20,
@@ -356,18 +366,18 @@ class NewFeaturesValidationTest extends TestCase
         $admin = $env['admin'];
 
         // Create Hanna device with sync time at 10:35
-        $device = \App\Models\HannaDevice::create([
+        $device = HannaDevice::create([
             'hanna_device_id' => 'DID-RETRO-TEST',
             'name' => 'Controlador Teste',
             'active' => true,
             'pool_id' => $pool->id,
-            'dose_sincronizada_ate' => \Illuminate\Support\Carbon::parse('2026-07-21 10:35:00'),
+            'dose_sincronizada_ate' => Carbon::parse('2026-07-21 10:35:00'),
         ]);
 
         // Create dosing container currently at 5,000 mL
-        $container = \App\Models\DosingContainer::create([
+        $container = DosingContainer::create([
             'pool_id' => $pool->id,
-            'tipo' => \App\Models\DosingContainer::TIPO_CLORO,
+            'tipo' => DosingContainer::TIPO_CLORO,
             'capacidade_ml' => 20000,
             'restante_ml' => 5000,
             'alerta_percent' => 20,
@@ -377,7 +387,7 @@ class NewFeaturesValidationTest extends TestCase
         $mock = $this->mock(HannaCloudService::class);
         $mock->shouldReceive('authenticate')->once();
         $mock->shouldReceive('getHistoryReadings')
-            ->with('DID-RETRO-TEST', \Mockery::on(fn($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 09:00:00'), \Mockery::on(fn($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 10:35:00'))
+            ->with('DID-RETRO-TEST', \Mockery::on(fn ($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 09:00:00'), \Mockery::on(fn ($date) => $date->format('Y-m-d H:i:s') === '2026-07-21 10:35:00'))
             ->once()
             ->andReturn([
                 ['dt' => '2026-07-21 09:15:00', 'dose_cloro_ml' => 100.0, 'dose_ph_ml' => 0.0],
@@ -386,7 +396,7 @@ class NewFeaturesValidationTest extends TestCase
             ]);
 
         // Run retroactive refill yesterday at 09:00 (which is before syncTime 10:35)
-        $container->reabastecer(20000, $admin->id, 'Retroactive Refill', \Illuminate\Support\Carbon::parse('2026-07-21 09:00:00'));
+        $container->reabastecer(20000, $admin->id, 'Retroactive Refill', Carbon::parse('2026-07-21 09:00:00'));
 
         // Refresh container level
         $container->refresh();

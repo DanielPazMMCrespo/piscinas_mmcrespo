@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Constants;
 
 /**
@@ -8,7 +11,9 @@ namespace App\Constants;
 final class NSPermission
 {
     public const REGISTO_DIARIO = 'registo_diario';
+
     public const INCIDENTES = 'incidentes';
+
     public const ANALISE_PARAMETROS = 'analise_parametros';
 
     private function __construct()

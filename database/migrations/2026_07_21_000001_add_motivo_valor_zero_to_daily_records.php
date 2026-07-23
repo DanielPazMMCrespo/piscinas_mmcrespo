@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -12,13 +14,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('daily_records', function (Blueprint $table) {
-            if (!Schema::hasColumn('daily_records', 'motivo_valor_zero')) {
+            if (! Schema::hasColumn('daily_records', 'motivo_valor_zero')) {
                 $table->text('motivo_valor_zero')->nullable()->after('ns_temperatura');
             }
         });
 
         Schema::table('daily_records_archive', function (Blueprint $table) {
-            if (!Schema::hasColumn('daily_records_archive', 'motivo_valor_zero')) {
+            if (! Schema::hasColumn('daily_records_archive', 'motivo_valor_zero')) {
                 $table->text('motivo_valor_zero')->nullable()->after('ns_temperatura');
             }
         });

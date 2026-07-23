@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
-use Filament\Notifications\Notification as FilamentNotification;
 
 class TendenciaAlertaNotification extends Notification
 {
@@ -25,22 +25,23 @@ class TendenciaAlertaNotification extends Notification
         if ($notifiable->wantsNotification('tendencia_alerta', 'push')) {
             $channels[] = WebPushChannel::class;
         }
+
         return $channels;
     }
 
     public function toDatabase(object $notifiable): array
     {
-        $label = match($this->parametro) {
+        $label = match ($this->parametro) {
             'ph' => 'pH',
             'cloro_livre' => 'Cloro livre',
             default => $this->parametro,
         };
-        
-        $valoresStr = implode(' → ', array_map(fn($v) => number_format($v, 2, ',', ''), $this->valores));
-        
+
+        $valoresStr = implode(' → ', array_map(fn ($v) => number_format($v, 2, ',', ''), $this->valores));
+
         return FilamentNotification::make()
             ->title("Tendência degradante — {$this->nomePiscina} — {$label}")
-            ->body("Últimos registos: {$valoresStr}. Previsão: " . number_format($this->previsao, 2, ',', '') . " (limite: " . number_format($this->limite, 2, ',', '') . ")")
+            ->body("Últimos registos: {$valoresStr}. Previsão: ".number_format($this->previsao, 2, ',', '').' (limite: '.number_format($this->limite, 2, ',', '').')')
             ->icon('heroicon-o-arrow-trending-down')
             ->color('warning')
             ->getDatabaseMessage();
@@ -49,19 +50,19 @@ class TendenciaAlertaNotification extends Notification
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
         // same data as toDatabase but in WebPush format
-        $label = match($this->parametro) { 
-            'ph' => 'pH', 
-            'cloro_livre' => 'Cloro livre', 
-            default => $this->parametro 
+        $label = match ($this->parametro) {
+            'ph' => 'pH',
+            'cloro_livre' => 'Cloro livre',
+            default => $this->parametro
         };
-        $valoresStr = implode(' → ', array_map(fn($v) => number_format($v, 2, ',', ''), $this->valores));
-        
-        return (new WebPushMessage())
+        $valoresStr = implode(' → ', array_map(fn ($v) => number_format($v, 2, ',', ''), $this->valores));
+
+        return (new WebPushMessage)
             ->title("Tendência degradante — {$this->nomePiscina}")
-            ->body("{$label}: {$valoresStr}. Previsão: " . number_format($this->previsao, 2, ',', ''))
+            ->body("{$label}: {$valoresStr}. Previsão: ".number_format($this->previsao, 2, ',', ''))
             ->icon('/images/icon-192.png')
             ->badge('/images/icon-192.png')
-            ->tag('tendencia-' . md5($this->nomePiscina . $this->parametro))
+            ->tag('tendencia-'.md5($this->nomePiscina.$this->parametro))
             ->vibrate([200, 100, 200])
             ->data(['url' => '/admin']);
     }

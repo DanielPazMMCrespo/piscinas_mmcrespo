@@ -23,7 +23,9 @@ class RelatorioPdfInvalidDateTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Installation $installation;
+
     private Pool $pool;
 
     protected function setUp(): void

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
@@ -21,7 +23,7 @@ class OfflineSyncController extends Controller
         }
 
         $recordsPayload = $request->input('records', []);
-        if (!is_array($recordsPayload) || empty($recordsPayload)) {
+        if (! is_array($recordsPayload) || empty($recordsPayload)) {
             return response()->json(['success' => true, 'synced_count' => 0, 'synced_ids' => []]);
         }
 
@@ -32,10 +34,11 @@ class OfflineSyncController extends Controller
             $offlineId = $item['offline_id'] ?? null;
             $data = $item['data'] ?? [];
 
-            if (!is_array($data) || empty($data)) {
+            if (! is_array($data) || empty($data)) {
                 if ($offlineId !== null) {
                     $syncedIds[] = $offlineId;
                 }
+
                 continue;
             }
 
@@ -44,7 +47,7 @@ class OfflineSyncController extends Controller
                 $poolCount = count($poolsData);
 
                 $dailyRecordService->createRecords($user, $data);
-                
+
                 $syncedCount += $poolCount;
 
                 if ($offlineId !== null) {

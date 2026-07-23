@@ -1,9 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
 use App\Models\CustomBroadcast;
+use App\Models\User;
+use App\Notifications\CustomBroadcastNotification;
+use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -14,6 +19,8 @@ use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Ativação de notificações push neste dispositivo, zona de testes e envio de
@@ -37,11 +44,15 @@ class Notificacoes extends Page implements HasForms, HasTable
     protected static string $view = 'filament.pages.notificacoes';
 
     public string $destinoTipo = 'cargo';
+
     public string $destinoCargo = 'admin';
+
     public ?int $destinoUtilizador = null;
+
     public string $manualTitulo = '';
+
     public string $manualCorpo = '';
-    
+
     public ?array $preferencesData = [];
 
     public static function canAccess(): bool
@@ -91,7 +102,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
-                        ]))
+                        ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
@@ -131,7 +142,7 @@ class Notificacoes extends Page implements HasForms, HasTable
     {
         $data = $this->preferencesForm->getState();
         $user = auth()->user();
-        
+
         $currentPrefs = $user->notification_preferences ?? [];
         $newPrefs = array_replace_recursive($currentPrefs, $data['notification_preferences'] ?? []);
 
@@ -140,7 +151,7 @@ class Notificacoes extends Page implements HasForms, HasTable
         ]);
 
         if ($this->podeGerir() && isset($data['digest_conformidade_horas'])) {
-            $settings = app(\App\Services\SettingsService::class);
+            $settings = app(SettingsService::class);
             $settings->set('digest_conformidade_horas', $data['digest_conformidade_horas']);
         }
 
@@ -153,7 +164,7 @@ class Notificacoes extends Page implements HasForms, HasTable
     public function mount(): void
     {
         $this->destinoCargo = UserRole::ADMIN;
-        $settings = app(\App\Services\SettingsService::class);
+        $settings = app(SettingsService::class);
         $digestHoras = $settings->getArray('digest_conformidade_horas', ['08:00', '13:00', '18:00']);
 
         $this->preferencesForm->fill([
@@ -167,9 +178,9 @@ class Notificacoes extends Page implements HasForms, HasTable
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
-    public function getUsuariosNotificacoes(): \Illuminate\Support\Collection
+    public function getUsuariosNotificacoes(): Collection
     {
-        return \App\Models\User::query()
+        return User::query()
             ->with('roles')
             ->withCount('pushSubscriptions')
             ->orderBy('name')
@@ -178,7 +189,7 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     public function getUsuariosLista(): array
     {
-        return \App\Models\User::query()
+        return User::query()
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
@@ -202,9 +213,9 @@ class Notificacoes extends Page implements HasForms, HasTable
             $destinatarios = collect();
 
             if ($this->destinoTipo === 'cargo') {
-                $destinatarios = \App\Models\User::role($this->destinoCargo)->get();
+                $destinatarios = User::role($this->destinoCargo)->get();
             } else {
-                $u = \App\Models\User::find($this->destinoUtilizador);
+                $u = User::find($this->destinoUtilizador);
                 if ($u) {
                     $destinatarios->push($u);
                 }
@@ -216,20 +227,21 @@ class Notificacoes extends Page implements HasForms, HasTable
                     ->body('Não foram encontrados utilizadores para os critérios selecionados.')
                     ->warning()
                     ->send();
+
                 return;
             }
 
-            $notificacao = new \App\Notifications\CustomBroadcastNotification(
+            $notificacao = new CustomBroadcastNotification(
                 $this->manualTitulo,
                 $this->manualCorpo,
-                'manual-send-' . time()
+                'manual-send-'.time()
             );
 
             \Illuminate\Support\Facades\Notification::send($destinatarios, $notificacao);
 
             Notification::make()
                 ->title('Notificação enviada!')
-                ->body('Enviada com sucesso para ' . $destinatarios->count() . ' utilizador(es).')
+                ->body('Enviada com sucesso para '.$destinatarios->count().' utilizador(es).')
                 ->success()
                 ->send();
 
@@ -271,6 +283,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                     ->form($this->getAvisoFormSchema())
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['created_by'] = auth()->id();
+
                         return $data;
                     })
                     ->visible(fn (): bool => $this->podeGerir()),
@@ -284,6 +297,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                     ->formatStateUsing(function ($state): string {
                         $cargosArray = is_string($state) ? json_decode($state, true) : $state;
                         $cargosArray = is_array($cargosArray) ? $cargosArray : [];
+
                         return collect($cargosArray)
                             ->map(fn (string $cargo) => self::rotulosCargos()[$cargo] ?? $cargo)
                             ->join(', ');
@@ -294,7 +308,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('quando')
                     ->label('Quando')
                     ->state(fn (CustomBroadcast $record): string => $record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO
-                        ? 'Todos os dias às ' . \Illuminate\Support\Carbon::parse($record->hora_diaria)->format('H:i')
+                        ? 'Todos os dias às '.Carbon::parse($record->hora_diaria)->format('H:i')
                         : ($record->enviar_em?->format('d/m/Y H:i') ?? '—')),
                 Tables\Columns\TextColumn::make('estado')
                     ->label('Estado')
@@ -302,6 +316,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                         if ($record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO) {
                             return $record->ativo ? 'Ativo' : 'Pausado';
                         }
+
                         return $record->enviado_em ? 'Enviado' : 'Agendado';
                     })
                     ->badge()
@@ -309,6 +324,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                         if ($record->tipo_agendamento === CustomBroadcast::TIPO_DIARIO) {
                             return $record->ativo ? 'success' : 'gray';
                         }
+
                         return $record->enviado_em ? 'success' : 'warning';
                     }),
                 Tables\Columns\TextColumn::make('created_at')

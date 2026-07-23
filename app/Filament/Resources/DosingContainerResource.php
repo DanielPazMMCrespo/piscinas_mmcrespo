@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources;
 
 use App\Constants\UserRole;
@@ -6,6 +9,7 @@ use App\Filament\Resources\DosingContainerResource\Pages;
 use App\Models\DosingContainer;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -93,7 +97,7 @@ class DosingContainerResource extends Resource
                     ->label('Nível')
                     ->badge()
                     ->state(fn (DosingContainer $r) => $r->percentagem() !== null
-                        ? number_format($r->percentagem(), 0, ',', '') . '%'
+                        ? number_format($r->percentagem(), 0, ',', '').'%'
                         : '—')
                     ->color(fn (DosingContainer $r) => match ($r->nivel()) {
                         'critico' => 'danger',
@@ -103,11 +107,11 @@ class DosingContainerResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('restante_ml')
                     ->label('Restante')
-                    ->formatStateUsing(fn (DosingContainer $r) => number_format((float) $r->restante_ml / 1000, 2, ',', ' ') . ' L'),
+                    ->formatStateUsing(fn (DosingContainer $r) => number_format((float) $r->restante_ml / 1000, 2, ',', ' ').' L'),
                 Tables\Columns\TextColumn::make('capacidade_ml')
                     ->label('Capacidade')
                     ->formatStateUsing(fn (DosingContainer $r) => $r->capacidade_ml !== null
-                        ? number_format($r->capacidade_ml / 1000, 2, ',', ' ') . ' L'
+                        ? number_format($r->capacidade_ml / 1000, 2, ',', ' ').' L'
                         : '—'),
                 Tables\Columns\TextColumn::make('reabastecido_em')
                     ->label('Último reabastecimento')
@@ -141,7 +145,7 @@ class DosingContainerResource extends Resource
                             $data['nota'] ?? null,
                         );
 
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->success()
                             ->title('Bidão reabastecido')
                             ->body("{$record->tipoLabel()} — {$record->piscina?->name}")
@@ -182,7 +186,7 @@ class DosingContainerResource extends Resource
                             'registado_em' => now(),
                         ]);
 
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->success()
                             ->title('Nível ajustado')
                             ->send();

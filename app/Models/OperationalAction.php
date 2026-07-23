@@ -1,10 +1,12 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
 /**
  * Ação operacional pontual numa piscina (lavagem de filtro, torneira, contador,
  * análise rápida, etc.). Ao contrário do DailyRecord — o registo completo e
@@ -20,13 +22,21 @@ class OperationalAction extends Model
     use HasFactory, LogsActivity;
 
     public const TIPO_LAVAGEM_FILTRO = 'lavagem_filtro';
+
     public const TIPO_ENXAGUAMENTO_FILTRO = 'enxaguamento_filtro';
+
     public const TIPO_TORNEIRA = 'torneira';
+
     public const TIPO_BOMBA = 'bomba';
+
     public const TIPO_CONTADOR = 'contador';
+
     public const TIPO_TANQUE = 'tanque';
+
     public const TIPO_ANALISE_PONTUAL = 'analise_pontual';
+
     public const TIPO_REABASTECIMENTO_BIDAO = 'reabastecimento_bidao';
+
     public const TIPO_OUTRO = 'outro';
 
     public const TIPOS = [
@@ -121,16 +131,16 @@ class OperationalAction extends Model
 
             case self::TIPO_ANALISE_PONTUAL:
                 if (isset($this->dados['ph']) && filled($this->dados['ph'])) {
-                    $partes[] = 'pH: ' . number_format((float) $this->dados['ph'], 2, ',', '');
+                    $partes[] = 'pH: '.number_format((float) $this->dados['ph'], 2, ',', '');
                 }
                 if (isset($this->dados['cloro_livre']) && filled($this->dados['cloro_livre'])) {
-                    $partes[] = 'Cl livre: ' . number_format((float) $this->dados['cloro_livre'], 2, ',', '') . ' mg/L';
+                    $partes[] = 'Cl livre: '.number_format((float) $this->dados['cloro_livre'], 2, ',', '').' mg/L';
                 }
                 if (isset($this->dados['cloro_total']) && filled($this->dados['cloro_total'])) {
-                    $partes[] = 'Cl total: ' . number_format((float) $this->dados['cloro_total'], 2, ',', '') . ' mg/L';
+                    $partes[] = 'Cl total: '.number_format((float) $this->dados['cloro_total'], 2, ',', '').' mg/L';
                 }
                 if (isset($this->dados['temperatura']) && filled($this->dados['temperatura'])) {
-                    $partes[] = 'Temp: ' . number_format((float) $this->dados['temperatura'], 1, ',', '') . ' °C';
+                    $partes[] = 'Temp: '.number_format((float) $this->dados['temperatura'], 1, ',', '').' °C';
                 }
                 break;
 
@@ -148,7 +158,7 @@ class OperationalAction extends Model
                     $quantidade = number_format((float) $this->dados['quantidade_l'], 2, ',', ' ');
                     $partes[] = "Quantidade: {$quantidade} L";
                 } elseif (isset($this->dados['bidao_tipo']) && $this->dados['bidao_tipo'] === 'ambos') {
-                    $partes[] = "Quantidade: Capacidade total";
+                    $partes[] = 'Quantidade: Capacidade total';
                 }
                 break;
 

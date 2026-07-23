@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
@@ -17,7 +19,7 @@ class DailyRecordService
     public function createRecords(?User $user, array $data): ?DailyRecord
     {
         $userId = $user?->id ?? (isset($data['user_id']) ? (int) $data['user_id'] : null);
-        
+
         if ($userId === null) {
             throw new InvalidArgumentException('Utilizador não autenticado ou ID de utilizador ausente.');
         }
@@ -50,7 +52,7 @@ class DailyRecordService
                 foreach ($photoFields as $pf) {
                     if (isset($poolData[$pf])) {
                         if (is_array($poolData[$pf])) {
-                            $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
+                            $poolData[$pf] = ! empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
                         } elseif ($poolData[$pf] === '') {
                             $poolData[$pf] = null;
                         }
@@ -62,7 +64,7 @@ class DailyRecordService
                 $recordData = array_merge($commonData, $poolData, ['pool_id' => (int) $poolId]);
                 $lastRecord = DailyRecord::create($recordData);
 
-                if (!empty($adicoes) && is_array($adicoes)) {
+                if (! empty($adicoes) && is_array($adicoes)) {
                     $lastRecord->adicoes()->createMany($adicoes);
                 }
 

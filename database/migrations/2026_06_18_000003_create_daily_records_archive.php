@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         // Create archive table with same schema as daily_records
-        if (!Schema::hasTable('daily_records_archive')) {
+        if (! Schema::hasTable('daily_records_archive')) {
             Schema::create('daily_records_archive', function (Blueprint $table) {
                 // Original fields from daily_records
                 $table->id();

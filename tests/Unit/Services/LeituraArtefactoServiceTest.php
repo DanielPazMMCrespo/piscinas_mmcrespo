@@ -19,12 +19,13 @@ class LeituraArtefactoServiceTest extends TestCase
     use RefreshDatabase;
 
     private Pool $pool;
+
     private LeituraArtefactoService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $installation = Installation::factory()->create();
         $this->pool = Pool::factory()->create(['installation_id' => $installation->id]);
         $this->service = app(LeituraArtefactoService::class);
@@ -190,7 +191,7 @@ class LeituraArtefactoServiceTest extends TestCase
     public function test_motivo_em_returns_correct_motive(): void
     {
         $actionTime = Carbon::parse('2026-07-19 11:00:00');
-        
+
         $user = User::factory()->create();
 
         OperationalAction::create([

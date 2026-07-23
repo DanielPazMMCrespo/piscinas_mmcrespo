@@ -13,6 +13,7 @@ use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -101,7 +102,7 @@ class StockIntegrationTest extends TestCase
         $transfer_qty = 25.000;
 
         // Simulate the transfer action
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $transfer_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $transfer_qty, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $transfer_qty;
             $freshWarehouse->save();
@@ -179,7 +180,7 @@ class StockIntegrationTest extends TestCase
         $insufficient_qty = $stock_warehouse->quantity + 50.000;
 
         // Attempt transfer
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $insufficient_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $insufficient_qty) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
 
             if ($freshWarehouse->quantity < $insufficient_qty) {
@@ -213,7 +214,7 @@ class StockIntegrationTest extends TestCase
         $second_transfer = 15.000;
 
         // First transfer
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $first_transfer, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $first_transfer, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $first_transfer;
             $freshWarehouse->save();
@@ -243,7 +244,7 @@ class StockIntegrationTest extends TestCase
         });
 
         // Second transfer to same installation
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $second_transfer, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $second_transfer, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $second_transfer;
             $freshWarehouse->save();
@@ -296,7 +297,7 @@ class StockIntegrationTest extends TestCase
         $initial_qty = $stock_warehouse->quantity;
         $entry_qty = 50.000;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $entry_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $entry_qty, $chlorine) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += $entry_qty;
             $fresh->save();
@@ -330,7 +331,7 @@ class StockIntegrationTest extends TestCase
 
         $test_time = now();
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $chlorine, $technician, $test_time) {
+        DB::transaction(function () use ($stock_warehouse, $chlorine, $technician) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += 10.000;
             $fresh->save();
@@ -387,7 +388,7 @@ class StockIntegrationTest extends TestCase
         $total_transferred = 0;
 
         foreach ($quantities as $qty) {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $qty, $chlorine, &$total_transferred) {
+            DB::transaction(function () use ($stock_warehouse, $installation, $qty, $chlorine, &$total_transferred) {
                 $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
 
                 if ($freshWarehouse->quantity >= $qty) {

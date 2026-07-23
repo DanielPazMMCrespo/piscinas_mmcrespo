@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Console\Commands;
 
@@ -33,12 +35,12 @@ class SendComplianceDigestCommand extends Command
         $horarios = $settings->getArray('digest_conformidade_horas', ['08:00', '13:00', '18:00']);
         $agora = now()->format('H:i');
 
-        if (!in_array($agora, $horarios, true)) {
+        if (! in_array($agora, $horarios, true)) {
             return self::SUCCESS;
         }
 
         $chave = 'digest_conformidade_enviado_'.now()->toDateString().'_'.$agora;
-        if (!Cache::add($chave, true, now()->endOfDay())) {
+        if (! Cache::add($chave, true, now()->endOfDay())) {
             return self::SUCCESS;
         }
 

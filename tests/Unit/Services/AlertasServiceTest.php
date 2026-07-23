@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Models\DailyRecord;
-use App\Models\Incident;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use App\Services\AlertasService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -32,7 +32,7 @@ class AlertasServiceTest extends TestCase
 
         AlertasService::resetMemo();
 
-        $this->service = new AlertasService();
+        $this->service = new AlertasService;
     }
 
     private function criarPiscina(string $nome = 'Teste', float $tempMin = 26.0, float $tempMax = 27.0): Pool
@@ -199,8 +199,8 @@ class AlertasServiceTest extends TestCase
         // invalidação por padrão é no-op, por isso limpamos explicitamente (memo + cache)
         // para simular fielmente o cache miss e forçar o recálculo nesta nova "request".
         AlertasService::resetMemo();
-        \Illuminate\Support\Facades\Cache::flush();
-        $novoServico = new AlertasService();
+        Cache::flush();
+        $novoServico = new AlertasService;
         $resultado2 = $novoServico->calcular($user);
         $conformesDepois = $resultado2['conformesHoje'];
 

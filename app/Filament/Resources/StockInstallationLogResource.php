@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockInstallationLogResource\Pages;
 use App\Models\StockInstallationLog;
@@ -57,8 +59,7 @@ class StockInstallationLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade')
-                    ->formatStateUsing(fn ($state, $record): string =>
-                        number_format((float) $state, 3, '.', '') . ' ' . ($record->stockInstalacao?->produto?->unidade ?? ''))
+                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, '.', '').' '.($record->stockInstalacao?->produto?->unidade ?? ''))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Utilizador')

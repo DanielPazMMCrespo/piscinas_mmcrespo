@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Jobs;
 
@@ -32,7 +34,7 @@ class SendErrorEmailJob implements ShouldQueue
                 $msg->to($this->to)->subject($this->subject);
             });
         } catch (\Throwable $e) {
-            logger()->error('Falha ao enviar email de erro crítico: ' . $e->getMessage());
+            logger()->error('Falha ao enviar email de erro crítico: '.$e->getMessage());
         }
     }
 }

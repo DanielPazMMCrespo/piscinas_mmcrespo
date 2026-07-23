@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Models;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,5 +20,4 @@ class AlertState extends Model
         'payload' => 'array',
         'moved_at' => 'datetime',
     ];
-
 }

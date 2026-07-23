@@ -9,6 +9,7 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -330,7 +331,7 @@ class SecurityOWASPTest extends TestCase
 
         // DailyRecord usa LogsActivity trait
         // Verificar que foi logado
-        $activities = \Spatie\Activitylog\Models\Activity::where('subject_id', $registo->id)->get();
+        $activities = Activity::where('subject_id', $registo->id)->get();
 
         // Pode haver ou não, dependendo da configuração
         $this->assertTrue(true);

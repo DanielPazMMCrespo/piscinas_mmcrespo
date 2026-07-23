@@ -1,19 +1,20 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
+use Illuminate\Support\Facades\Cache;
 
 class AppSetting extends Model
 {
     protected $table = 'app_settings';
-    
+
     protected $primaryKey = 'key';
-    
+
     public $incrementing = false;
-    
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -31,7 +32,7 @@ class AppSetting extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('app_settings_all'));
+        static::saved(fn () => Cache::forget('app_settings_all'));
+        static::deleted(fn () => Cache::forget('app_settings_all'));
     }
 }

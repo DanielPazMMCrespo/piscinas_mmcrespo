@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
@@ -12,6 +14,24 @@ use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Formulário principal de registo diário para técnicos e nadadores salvadores (operações de piscina).
+ * Serve para inserir os parâmetros da água (pH, Cloro, etc), contadores, estado dos filtros,
+ * e registar a adição de químicos que serão debitados do stock da instalação.
+ *
+ * IMPLEMENTADO:
+ * - Validação em tempo real (semáforo verde/amarelo/vermelho) contra limites legais (CN 14/DA).
+ * - Adições de químicos debitam automaticamente o stock da Instalação (via transações na BD).
+ * - Arquitetura "Append-Only": Registos não devem ser editados in-place nem apagados. Se houver erro,
+ *   cria-se um novo registo de correção (`e_correcao = true`) apontando para o original.
+ * - UX Reativa: Campos dependem do papel do utilizador e dos limites violados.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class DailyRecordResource extends Resource
 {
     protected static ?string $model = DailyRecord::class;
@@ -57,6 +77,7 @@ class DailyRecordResource extends Resource
         if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
             return $user->podeVer(NSPermission::REGISTO_DIARIO) && $user->piscinas()->exists();
         }
+
         return false;
     }
 

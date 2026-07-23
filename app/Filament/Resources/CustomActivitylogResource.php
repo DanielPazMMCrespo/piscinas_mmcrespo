@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use Carbon\Carbon;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -31,6 +34,7 @@ class CustomActivitylogResource extends ActivitylogResource
                         if ($desc === 'created' || $desc === 'updated' || $desc === 'deleted') {
                             return '-';
                         }
+
                         return $desc;
                     })
                     ->searchable()
@@ -57,10 +61,10 @@ class CustomActivitylogResource extends ActivitylogResource
         return TextColumn::make('log_name')
             ->label('Categoria')
             ->formatStateUsing(function ($state) {
-                if (!$state || $state === 'default') {
+                if (! $state || $state === 'default') {
                     return 'Geral';
                 }
-                
+
                 $translations = [
                     'auth' => 'Autenticação',
                     'analise' => 'Análises',
@@ -84,18 +88,19 @@ class CustomActivitylogResource extends ActivitylogResource
                     'updated' => 'Atualizou',
                     'deleted' => 'Apagou',
                     'restored' => 'Restaurou',
-                    'draft' => 'Rascunho'
+                    'draft' => 'Rascunho',
                 ];
+
                 return $state ? ($translations[$state] ?? ucwords($state)) : '-';
             })
             ->badge()
             ->color(fn (?string $state): string => match ($state) {
-                'draft'    => 'gray',
-                'updated'  => 'warning',
-                'created'  => 'success',
-                'deleted'  => 'danger',
+                'draft' => 'gray',
+                'updated' => 'warning',
+                'created' => 'success',
+                'deleted' => 'danger',
                 'restored' => 'info',
-                default    => 'primary',
+                default => 'primary',
             })
             ->searchable()
             ->sortable();
@@ -134,7 +139,7 @@ class CustomActivitylogResource extends ActivitylogResource
 
                 $subject = $record->subject;
                 $identifier = $record->subject_id;
-                
+
                 if (isset($subject->name)) {
                     $identifier = $subject->name;
                 } elseif (isset($subject->label)) {
@@ -144,9 +149,9 @@ class CustomActivitylogResource extends ActivitylogResource
                 } elseif (isset($subject->product) && isset($subject->product->name)) {
                     $identifier = $subject->product->name;
                 } elseif ($modelBase === 'DailyRecord' && isset($subject->registado_em)) {
-                    $identifier = \Carbon\Carbon::parse($subject->registado_em)->format('d/m/Y H:i');
+                    $identifier = Carbon::parse($subject->registado_em)->format('d/m/Y H:i');
                 } elseif (in_array($modelBase, ['Incident', 'OperationalAction']) && isset($subject->type)) {
-                    $identifier = "#{$subject->id} (" . str_replace('_', ' ', $subject->type) . ")";
+                    $identifier = "#{$subject->id} (".str_replace('_', ' ', $subject->type).')';
                 }
 
                 $subjectInfo = "{$modelTranslated}: {$identifier}";

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Notifications;
 
@@ -33,6 +35,7 @@ class IncidentMessageNotification extends Notification
         if ($notifiable->wantsNotification('incident_message', 'mail')) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -53,7 +56,7 @@ class IncidentMessageNotification extends Notification
     {
         $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
 
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title("Incidente — {$instalacao}: {$this->autor->name}")
             ->body($this->texto)
             ->icon('/images/icon-192.png')
@@ -67,7 +70,7 @@ class IncidentMessageNotification extends Notification
     {
         $instalacao = $this->incident->instalacao?->name ?? 'Instalação';
 
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject("Incidente — {$instalacao}: {$this->autor->name}")
             ->greeting('Nova mensagem no incidente:')
             ->line($this->texto)

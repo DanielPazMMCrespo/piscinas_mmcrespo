@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Feature;
 
@@ -17,9 +19,9 @@ class IncidentWebPushTest extends TestCase
 
     public function test_incident_notification_uses_webpush_channel(): void
     {
-        $notification = new IncidentCreatedNotification(new Incident());
+        $notification = new IncidentCreatedNotification(new Incident);
 
-        $this->assertContains(WebPushChannel::class, $notification->via(new User()));
+        $this->assertContains(WebPushChannel::class, $notification->via(new User));
     }
 
     public function test_incident_webpush_payload_has_title_body_and_url(): void
@@ -33,7 +35,7 @@ class IncidentWebPushTest extends TestCase
         ]);
 
         $notification = new IncidentCreatedNotification($incident);
-        $payload = $notification->toWebPush(new User(), $notification)->toArray();
+        $payload = $notification->toWebPush(new User, $notification)->toArray();
 
         $this->assertSame('Novo incidente — Leiria', $payload['title']);
         $this->assertStringContainsString('Fuga junto ao filtro', $payload['body']);
@@ -44,9 +46,9 @@ class IncidentWebPushTest extends TestCase
 
     public function test_incident_message_notification_uses_webpush_channel(): void
     {
-        $notification = new IncidentMessageNotification(new Incident(), new User(), 'texto');
+        $notification = new IncidentMessageNotification(new Incident, new User, 'texto');
 
-        $this->assertContains(WebPushChannel::class, $notification->via(new User()));
+        $this->assertContains(WebPushChannel::class, $notification->via(new User));
     }
 
     public function test_incident_message_webpush_payload_has_own_tag_distinct_from_creation(): void
@@ -61,7 +63,7 @@ class IncidentWebPushTest extends TestCase
         ]);
 
         $notification = new IncidentMessageNotification($incident, $autor, 'A caminho.');
-        $payload = $notification->toWebPush(new User(), $notification)->toArray();
+        $payload = $notification->toWebPush(new User, $notification)->toArray();
 
         $this->assertStringContainsString('Bruno', $payload['title']);
         $this->assertSame('A caminho.', $payload['body']);

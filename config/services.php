@@ -28,8 +28,6 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-
-
     'hanna' => [
         'email' => env('HANNA_CLOUD_EMAIL'),
         'password' => env('HANNA_CLOUD_PASSWORD'),
