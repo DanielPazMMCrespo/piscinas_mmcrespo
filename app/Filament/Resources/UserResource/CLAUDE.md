@@ -26,7 +26,10 @@ Gestão de contas + convites. Acesso Admin e Gestor. Gestor só edita/convida NS
 ## Coisas resolvidas
 - ✓ **Validação de "não pode eliminar" consolidada**: extraído `temDadosAssociados()` method privado; reutilizado em `canDelete()`, ação singular, e ação bulk — um ponto único de verificação.
 
+## Coisas resolvidas (cont.)
+- ✓ **Reenvio e listagem de convites**: novo `UserInvitationResource` (grupo Sistema, admin/gestor) lista convites com estado (Pendente/Expirado/Aceite) e ações "Reenviar" (`InvitationService::resend()` — regenera token, estende validade, reenvia email; invalida o link antigo) e "Revogar" (apaga convite não aceite). Fecha o gap de um convite expirado só poder ser recriado.
+
 ## Coisas a rever
-- Não existe ação "Reenviar convite" nem listagem de convites pendentes/expirados na UI — se um convite expira, o único caminho é criar um novo.
+- ~~Sem ação "Reenviar convite" nem listagem de pendentes~~ — **resolvido** (ver acima, `UserInvitationResource`).
 - ~~Mensagem de sucesso do convite tinha "Válido 48 horas." hardcoded~~ — **corrigido**: agora usa `$invitation->expires_at->diffForHumans()`, refletindo a validade real configurada em Definições do Sistema.
-- `canAccess()`/`canCreate()` usam `?->` (null-safe); `PoolResource`/`InstallationResource` não usam — inconsistência de estilo.
+- `canAccess()`/`canCreate()` usam `?->` (null-safe); `PoolResource`/`InstallationResource` não usam — inconsistência de estilo. (Menor; `UserRole::LABELS` novo pode servir para dedupe futuro dos mapas de labels de cargo duplicados em `UserResource`/`ListUsers`.)

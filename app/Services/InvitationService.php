@@ -56,6 +56,29 @@ class InvitationService
         return $invitation;
     }
 
+    /**
+     * Regenera o token (invalida o link antigo), estende a validade e reenvia o
+     * email. Serve tanto para convites pendentes como já expirados.
+     */
+    public function resend(UserInvitation $invitation): UserInvitation
+    {
+        if ($invitation->isAccepted()) {
+            throw new RuntimeException("O convite para {$invitation->email} já foi aceite.");
+        }
+
+        $rawToken = Str::random(64);
+        $validadeHoras = $this->settings->getInt('convite_validade_horas', 48);
+
+        $invitation->update([
+            'token' => hash('sha256', $rawToken),
+            'expires_at' => now()->addHours($validadeHoras),
+        ]);
+
+        Mail::to($invitation->email)->send(new UserInvitationMail($invitation, $rawToken));
+
+        return $invitation;
+    }
+
     public function accept(UserInvitation $invitation, array $data): User
     {
         $firstName = $data['first_name'];

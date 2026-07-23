@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Pages\Auth\Login;
+use App\Filament\Resources\UserInvitationResource\Pages\ListUserInvitations;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Mail\UserInvitationMail;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
@@ -247,5 +249,69 @@ class InvitationFlowTest extends TestCase
         ]);
 
         $this->assertNull(UserInvitation::findValid('expiredtoken'));
+    }
+
+    public function test_resend_regenerates_token_and_extends_expiry(): void
+    {
+        Mail::fake();
+
+        $invitation = UserInvitation::create([
+            'email' => 'reenvio@test.pt',
+            'role' => 'tecnico',
+            'token' => hash('sha256', 'tokenantigo'),
+            'invited_by_id' => User::factory()->create()->id,
+            'expires_at' => now()->subHour(), // expirado
+        ]);
+        $tokenAntigo = $invitation->token;
+
+        app(InvitationService::class)->resend($invitation);
+
+        $fresh = $invitation->fresh();
+        $this->assertNotSame($tokenAntigo, $fresh->token);
+        $this->assertTrue($fresh->expires_at->isFuture());
+        $this->assertNull(UserInvitation::findValid('tokenantigo'));
+        Mail::assertQueued(UserInvitationMail::class);
+    }
+
+    public function test_resend_throws_if_already_accepted(): void
+    {
+        Mail::fake();
+
+        $invitation = UserInvitation::create([
+            'email' => 'aceite@test.pt',
+            'role' => 'tecnico',
+            'token' => hash('sha256', 'x'),
+            'invited_by_id' => User::factory()->create()->id,
+            'expires_at' => now()->addDay(),
+            'accepted_at' => now(),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(InvitationService::class)->resend($invitation);
+    }
+
+    public function test_admin_can_render_invitations_list_and_resend_action(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $invitation = UserInvitation::create([
+            'email' => 'pendente@test.pt',
+            'role' => 'nadador_salvador',
+            'token' => hash('sha256', 'tok'),
+            'invited_by_id' => $admin->id,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListUserInvitations::class)
+            ->assertOk()
+            ->assertCanSeeTableRecords([$invitation])
+            ->callTableAction('reenviar', $invitation);
+
+        Mail::assertQueued(UserInvitationMail::class);
     }
 }
