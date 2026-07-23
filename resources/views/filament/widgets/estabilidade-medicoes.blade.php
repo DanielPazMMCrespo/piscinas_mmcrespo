@@ -1,11 +1,13 @@
 <x-filament-widgets::widget>
     @php($dados = $this->getDados())
 
-    <x-filament::section
-        heading="Estabilidade das medições — últimos {{ $dados['dias'] }} dias"
-        description="Compara a variação das análises manuais com a da sonda Hanna. Se o σ manual for muito maior que o da sonda, a oscilação vem da rotina de amostragem (hora/ponto), não da água."
-        icon="heroicon-o-scale"
-    >
+    <x-filament::section icon="heroicon-o-scale">
+        <x-slot name="heading">
+            Estabilidade das medições — últimos {{ $dados['dias'] }} dias
+        </x-slot>
+        <x-slot name="description">
+            Compara a variação das análises manuais com a da sonda Hanna. Se o σ manual for muito maior que o da sonda, a oscilação vem da rotina de amostragem (hora/ponto), não da água.
+        </x-slot>
         @php
             $fmt = fn (?float $v, int $casas = 2): string => $v !== null ? number_format($v, $casas, ',', '') : '—';
         @endphp

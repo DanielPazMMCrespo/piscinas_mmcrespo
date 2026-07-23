@@ -8,6 +8,7 @@ use App\Filament\Widgets\CloroPhChartWidget;
 use App\Filament\Widgets\PainelPiscinasWidget;
 use App\Filament\Widgets\QuadroOperacionalWidget;
 use App\Filament\Widgets\StockBaixoWidget;
+use App\Filament\Widgets\EstabilidadeMedicoesWidget;
 
 /**
  * [AI_CONTEXT]
@@ -42,6 +43,7 @@ class Dashboard extends \Filament\Pages\Dashboard
             CloroPhChartWidget::class,
             QuadroOperacionalWidget::class,
             StockBaixoWidget::class,
+            EstabilidadeMedicoesWidget::class,
         ];
     }
 }
