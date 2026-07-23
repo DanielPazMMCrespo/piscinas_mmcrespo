@@ -734,7 +734,34 @@
                  bomba, tanque, análise rápida) que podem justificar valores fora
                  dos limites legais no período.
                  ================================================================ --}}
-            @if ($acoesOperacionais->isNotEmpty() && in_array('mostrar_acoes_operacionais', $seccoesVisiveis))
+            @php
+                $todasAcoes = collect();
+                if ($acoesOperacionais->isNotEmpty()) {
+                    foreach ($acoesOperacionais as $a) {
+                        $todasAcoes->push((object)[
+                            'ts' => $a->registado_em,
+                            'tipo' => $a->tipoLabel(),
+                            'user' => $a->utilizador?->name ?? '—',
+                            'dados' => $a->dadosFormatados(),
+                            'obs' => $a->observacoes
+                        ]);
+                    }
+                }
+                if (isset($seccao['filter_checks']) && $seccao['filter_checks']->isNotEmpty()) {
+                    foreach ($seccao['filter_checks'] as $fc) {
+                        $todasAcoes->push((object)[
+                            'ts' => $fc->verificado_em,
+                            'tipo' => $fc->tipo_operacao === 'enxaguamento' ? 'Enxaguamento de filtro (Painel)' : 'Lavagem de filtro (Painel)',
+                            'user' => $fc->utilizador?->name ?? '—',
+                            'dados' => 'Pelo esquema interativo',
+                            'obs' => $fc->observacoes
+                        ]);
+                    }
+                }
+                $todasAcoes = $todasAcoes->sortBy('ts');
+            @endphp
+
+            @if ($todasAcoes->isNotEmpty() && in_array('mostrar_acoes_operacionais', $seccoesVisiveis))
                 <p class="controlador-titulo">
                     Ações Operacionais
                     <span class="controlador-subtitulo">(eventos pontuais registados fora do registo diário completo)</span>
@@ -751,14 +778,99 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($acoesOperacionais as $acao)
+                        @foreach ($todasAcoes as $acao)
                             <tr>
-                                <td>{{ $acao->registado_em->format('d/m/Y') }}</td>
-                                <td>{{ $acao->registado_em->format('H:i') }}</td>
-                                <td class="texto">{{ $acao->tipoLabel() }}</td>
-                                <td class="texto">{{ $acao->utilizador?->name ?? '—' }}</td>
-                                <td class="texto">{{ $acao->dadosFormatados() }}</td>
-                                <td class="texto">{{ filled($acao->observacoes) ? \Illuminate\Support\Str::limit((string) $acao->observacoes, 80) : '—' }}</td>
+                                <td>{{ \Carbon\Carbon::parse($acao->ts)->format('d/m/Y') }}</td>
+                                <td>{{ \Carbon\Carbon::parse($acao->ts)->format('H:i') }}</td>
+                                <td class="texto">{{ $acao->tipo }}</td>
+                                <td class="texto">{{ $acao->user }}</td>
+                                <td class="texto">{{ $acao->dados }}</td>
+                                <td class="texto">{{ filled($acao->obs) ? \Illuminate\Support\Str::limit((string) $acao->obs, 80) : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            @endif
+
+            {{-- ================================================================
+                 Ocorrências e Incidentes — reportes e problemas na instalação
+                 ================================================================ --}}
+            @if (isset($seccao['incidentes']) && $seccao['incidentes']->isNotEmpty() && in_array('mostrar_incidentes', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Ocorrências e Incidentes
+                    <span class="controlador-subtitulo">(problemas reportados que podem afetar o funcionamento normal)</span>
+                </p>
+                <table class="registos">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Data</th>
+                            <th style="width: 15%;">Tipo</th>
+                            <th style="width: 15%;">Reportado por</th>
+                            <th style="width: 25%;">Descrição</th>
+                            <th style="width: 13%;">Estado</th>
+                            <th style="width: 20%;">Resolução</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($seccao['incidentes'] as $inc)
+                            <tr>
+                                <td>{{ $inc->ocorreu_em->format('d/m/Y H:i') }}</td>
+                                <td class="texto">{{ ucfirst($inc->type ?? 'Geral') }}</td>
+                                <td class="texto">{{ $inc->utilizador?->name ?? '—' }}</td>
+                                <td class="texto">{{ \Illuminate\Support\Str::limit((string) $inc->descricao, 100) }}</td>
+                                <td>
+                                    @if ($inc->estaResolvido())
+                                        Resolvido
+                                    @else
+                                        <span class="nao-conforme">Em aberto</span>
+                                    @endif
+                                </td>
+                                <td class="texto">
+                                    @if ($inc->estaResolvido())
+                                        {{ $inc->resolvido_em?->format('d/m/Y') }} por {{ $inc->resolvidoPor?->name ?? '—' }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            {{-- ================================================================
+                 Reposições e Consumos Químicos (Bidões)
+                 ================================================================ --}}
+            @if (isset($seccao['consumos_quimicos']) && $seccao['consumos_quimicos']->isNotEmpty() && in_array('mostrar_consumos_quimicos', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Reposições e Consumos Químicos
+                    <span class="controlador-subtitulo">(registos de bidões e níveis de químicos)</span>
+                </p>
+                <table class="registos">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Data</th>
+                            <th style="width: 10%;">Ação</th>
+                            <th style="width: 15%;">Químico</th>
+                            <th style="width: 15%;">Quantidade</th>
+                            <th style="width: 15%;">Responsável</th>
+                            <th style="width: 33%;">Nota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($seccao['consumos_quimicos'] as $log)
+                            <tr>
+                                <td>{{ $log->registado_em->format('d/m/Y H:i') }}</td>
+                                <td class="texto">{{ ucfirst($log->tipo_movimento) }}</td>
+                                <td class="texto">{{ $log->container?->tipoLabel() ?? '—' }}</td>
+                                <td>
+                                    {{ $log->quantidade_ml > 0 ? '+' : '' }}{{ number_format((float) $log->quantidade_ml / 1000, 2) }} L
+                                    <br><span style="font-size: 6px;">(Ficou: {{ number_format((float) $log->restante_apos_ml / 1000, 2) }} L)</span>
+                                </td>
+                                <td class="texto">{{ $log->utilizador?->name ?? ($log->origem === 'sonda' ? 'Sistema Automático' : '—') }}</td>
+                                <td class="texto">{{ filled($log->nota) ? \Illuminate\Support\Str::limit((string) $log->nota, 80) : '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>

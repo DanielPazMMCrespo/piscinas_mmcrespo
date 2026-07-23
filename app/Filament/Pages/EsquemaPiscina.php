@@ -208,6 +208,11 @@ class EsquemaPiscina extends Page
     {
         return DosingContainer::query()
             ->where('pool_id', $piscina->id)
+            ->with(['logs' => function ($query) {
+                $query->where('tipo_movimento', 'like', 'consumo%')
+                      ->latest('registado_em')
+                      ->limit(5);
+            }])
             ->orderByRaw("CASE tipo WHEN 'cloro' THEN 0 ELSE 1 END")
             ->get()
             ->map(fn (DosingContainer $c) => [
@@ -220,6 +225,11 @@ class EsquemaPiscina extends Page
                     ? number_format($c->capacidade_ml / 1000, 0, ',', ' ')
                     : null,
                 'reabastecido' => $c->reabastecido_em?->locale('pt')->diffForHumans(),
+                'ultimos_consumos' => $c->logs->map(fn ($log) => [
+                    'quantidade_ml' => $log->quantidade_ml,
+                    'registado_em' => $log->registado_em->format('d/m/Y H:i'),
+                    'origem' => $log->origem,
+                ])->all(),
             ])
             ->all();
     }

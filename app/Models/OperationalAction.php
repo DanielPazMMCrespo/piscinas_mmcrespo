@@ -37,6 +37,14 @@ class OperationalAction extends Model
 
     public const TIPO_REABASTECIMENTO_BIDAO = 'reabastecimento_bidao';
 
+    public const TIPO_LIMPEZA_PRAIAS = 'limpeza_praias';
+
+    public const TIPO_ASPIRACAO_FUNDO = 'aspiracao_fundo';
+
+    public const TIPO_TRATAMENTO_CHOQUE = 'tratamento_choque';
+
+    public const TIPO_MANUTENCAO_EQUIPAMENTO = 'manutencao_equipamento';
+
     public const TIPO_OUTRO = 'outro';
 
     public const TIPOS = [
@@ -45,9 +53,13 @@ class OperationalAction extends Model
         self::TIPO_TORNEIRA => 'Torneira / entrada de água',
         self::TIPO_BOMBA => 'Bomba',
         self::TIPO_CONTADOR => 'Contador (m³)',
-        self::TIPO_TANQUE => 'Tanque',
+        self::TIPO_TANQUE => 'Tanque de compensação',
         self::TIPO_ANALISE_PONTUAL => 'Análise rápida',
         self::TIPO_REABASTECIMENTO_BIDAO => 'Reabastecimento de bidão',
+        self::TIPO_LIMPEZA_PRAIAS => 'Limpeza de praias / grelhas',
+        self::TIPO_ASPIRACAO_FUNDO => 'Aspiração de fundo / robô',
+        self::TIPO_TRATAMENTO_CHOQUE => 'Tratamento de choque / hipercloração',
+        self::TIPO_MANUTENCAO_EQUIPAMENTO => 'Manutenção / calibração',
         self::TIPO_OUTRO => 'Outro',
     ];
 
@@ -89,8 +101,17 @@ class OperationalAction extends Model
         switch ($this->tipo) {
             case self::TIPO_LAVAGEM_FILTRO:
             case self::TIPO_ENXAGUAMENTO_FILTRO:
+                if (isset($this->dados['filtro_nome']) && filled($this->dados['filtro_nome'])) {
+                    $partes[] = "Filtro: {$this->dados['filtro_nome']}";
+                }
                 if (isset($this->dados['duracao_min']) && filled($this->dados['duracao_min'])) {
                     $partes[] = "Duração: {$this->dados['duracao_min']} min";
+                }
+                if (isset($this->dados['pressao_antes_bar']) && filled($this->dados['pressao_antes_bar'])) {
+                    $partes[] = "Pressão inicial: {$this->dados['pressao_antes_bar']} bar";
+                }
+                if (isset($this->dados['pressao_depois_bar']) && filled($this->dados['pressao_depois_bar'])) {
+                    $partes[] = "Pressão final: {$this->dados['pressao_depois_bar']} bar";
                 }
                 break;
 
@@ -109,6 +130,18 @@ class OperationalAction extends Model
                 break;
 
             case self::TIPO_BOMBA:
+                if (isset($this->dados['bomba_nome']) && filled($this->dados['bomba_nome'])) {
+                    $partes[] = "Bomba: {$this->dados['bomba_nome']}";
+                }
+                if (isset($this->dados['bomba_acao']) && filled($this->dados['bomba_acao'])) {
+                    $acoes = [
+                        'ferragem' => 'Ferragem',
+                        'limpeza_pre_filtro' => 'Limpeza de pré-filtro',
+                        'paragem_arranque' => 'Paragem / Arranque',
+                        'manutencao' => 'Manutenção',
+                    ];
+                    $partes[] = 'Ação: '.($acoes[$this->dados['bomba_acao']] ?? $this->dados['bomba_acao']);
+                }
                 if (isset($this->dados['bomba_ferrada']) && $this->dados['bomba_ferrada'] !== '') {
                     $ferrada = filter_var($this->dados['bomba_ferrada'], FILTER_VALIDATE_BOOLEAN);
                     $partes[] = $ferrada ? 'Bomba ferrada' : 'Bomba desferrada';
@@ -123,6 +156,12 @@ class OperationalAction extends Model
                 break;
 
             case self::TIPO_TANQUE:
+                if (isset($this->dados['tanque_nome']) && filled($this->dados['tanque_nome'])) {
+                    $partes[] = "Tanque: {$this->dados['tanque_nome']}";
+                }
+                if (isset($this->dados['tanque_nivel_pct']) && filled($this->dados['tanque_nivel_pct'])) {
+                    $partes[] = "Nível: {$this->dados['tanque_nivel_pct']}%";
+                }
                 if (isset($this->dados['tanque_ok']) && $this->dados['tanque_ok'] !== '') {
                     $ok = filter_var($this->dados['tanque_ok'], FILTER_VALIDATE_BOOLEAN);
                     $partes[] = $ok ? 'Tanque OK' : 'Problema no tanque';
@@ -139,6 +178,13 @@ class OperationalAction extends Model
                 if (isset($this->dados['cloro_total']) && filled($this->dados['cloro_total'])) {
                     $partes[] = 'Cl total: '.number_format((float) $this->dados['cloro_total'], 2, ',', '').' mg/L';
                 }
+                if (isset($this->dados['cloro_livre'], $this->dados['cloro_total']) && filled($this->dados['cloro_livre']) && filled($this->dados['cloro_total'])) {
+                    $comb = max(0, (float) $this->dados['cloro_total'] - (float) $this->dados['cloro_livre']);
+                    $partes[] = 'Cl comb: '.number_format($comb, 2, ',', '').' mg/L';
+                }
+                if (isset($this->dados['orp']) && filled($this->dados['orp'])) {
+                    $partes[] = 'ORP: '.number_format((float) $this->dados['orp'], 0, ',', '').' mV';
+                }
                 if (isset($this->dados['temperatura']) && filled($this->dados['temperatura'])) {
                     $partes[] = 'Temp: '.number_format((float) $this->dados['temperatura'], 1, ',', '').' °C';
                 }
@@ -149,6 +195,9 @@ class OperationalAction extends Model
                     $labels = [
                         DosingContainer::TIPO_CLORO => 'Cloro',
                         DosingContainer::TIPO_PH_MENOS => 'pH-',
+                        'coagulante' => 'Coagulante / Floculante',
+                        'ph_mais' => 'pH+',
+                        'anti_algas' => 'Anti-algas',
                         'ambos' => 'Ambos (Cloro e pH-)',
                     ];
                     $tipoLabel = $labels[$this->dados['bidao_tipo']] ?? $this->dados['bidao_tipo'];
@@ -162,9 +211,20 @@ class OperationalAction extends Model
                 }
                 break;
 
+            case self::TIPO_TRATAMENTO_CHOQUE:
+                if (isset($this->dados['produto']) && filled($this->dados['produto'])) {
+                    $partes[] = "Produto: {$this->dados['produto']}";
+                }
+                if (isset($this->dados['quantidade']) && filled($this->dados['quantidade'])) {
+                    $partes[] = "Quantidade: {$this->dados['quantidade']}";
+                }
+                break;
+
             default:
                 foreach ($this->dados as $k => $v) {
-                    $partes[] = "{$k}: {$v}";
+                    if (filled($v)) {
+                        $partes[] = "{$k}: {$v}";
+                    }
                 }
                 break;
         }

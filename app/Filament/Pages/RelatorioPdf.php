@@ -104,6 +104,7 @@ class RelatorioPdf extends Page implements HasForms
             'seccoes_visiveis' => [
                 'mostrar_resumo', 'mostrar_controlador_grafico',
                 'mostrar_controlador_tabela', 'mostrar_acoes_operacionais',
+                'mostrar_incidentes', 'mostrar_consumos_quimicos',
                 'mostrar_assinaturas', 'mostrar_nota_legal',
             ],
         ]);
@@ -238,6 +239,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_controlador_grafico' => 'Gráfico do controlador Hanna BL132',
                                 'mostrar_controlador_tabela' => 'Tabela do controlador Hanna BL132',
                                 'mostrar_acoes_operacionais' => 'Ações operacionais (torneira, filtro, contador, etc.)',
+                                'mostrar_incidentes' => 'Ocorrências e Incidentes',
+                                'mostrar_consumos_quimicos' => 'Reposições e Consumos Químicos',
                                 'mostrar_assinaturas' => 'Área de assinaturas',
                                 'mostrar_nota_legal' => 'Nota legal de rodapé',
                             ])
@@ -380,11 +383,6 @@ class RelatorioPdf extends Page implements HasForms
         );
     }
 
-    /**
-     * Exporta os registos filtrados (mesmos parâmetros do formulário) em CSV
-     * plano — um registo por linha, sem agregação diária — para análise em
-     * Excel/BI externo. Não aplica limite de 7 dias (não gera gráficos).
-     */
     public function exportarCsv(): ?StreamedResponse
     {
         $estado = $this->form->getState();
@@ -420,13 +418,9 @@ class RelatorioPdf extends Page implements HasForms
             return null;
         }
 
-        $registos = DailyRecord::query()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->whereBetween('registado_em', [$inicio, $fim])
-            ->whereDoesntHave('correcoes')
-            ->with(['piscina', 'utilizador'])
-            ->orderBy('registado_em')
-            ->get();
+        $modo = $estado['registo_modo'] ?? 'todos';
+        $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
+        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $modo, $modoControlador);
 
         $nomeFicheiro = sprintf(
             'registos_%s_%s_%s_%s.csv',
@@ -440,26 +434,92 @@ class RelatorioPdf extends Page implements HasForms
             ->causedBy(auth()->user())
             ->log("Exportou registos CSV: {$nomeFicheiro}");
 
-        return response()->streamDownload(function () use ($registos) {
+        return response()->streamDownload(function () use ($seccoes, $modo) {
             $saida = fopen('php://output', 'w');
             // BOM UTF-8: Excel no Windows abre acentos corretamente sem isto ficarem ilegíveis.
             fwrite($saida, "\xEF\xBB\xBF");
-            fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Conforme'], ';');
+            
+            $header = [
+                'Piscina', 'Data', 'Hora', 'Técnico', 'pH', 'Cloro livre (mg/L)', 'Cloro total (mg/L)', 
+                'Cloro combinado (mg/L)', 'Temperatura (°C)', 'Turbidez', 'Contador (m³)', 'Bomba / Tanque', 
+                'Renovação Água', 'Limpeza Caleira', 'Pressão Filtro (bar)', 'Lavagens do Filtro', 
+                'Ação corretiva', 'Observações', 'Conforme'
+            ];
+            
+            // Adicionar colunas do controlador ao final se for um modo todos com dados
+            fputcsv($saida, $header, ';');
 
-            foreach ($registos as $registo) {
-                fputcsv($saida, [
-                    $registo->piscina?->name,
-                    $registo->registado_em->format('d/m/Y H:i'),
-                    $registo->utilizador?->name,
-                    $registo->ph_efetivo,
-                    $registo->cloro_livre_efetivo,
-                    $registo->cloro_total_efetivo,
-                    $registo->cloro_combinado,
-                    $registo->temperatura_efetivo,
-                    $registo->transparencia,
-                    $registo->contador_valor,
-                    empty($registo->listarViolacoes()) ? 'Sim' : 'Não',
-                ], ';');
+            foreach ($seccoes as $seccao) {
+                $piscina = $seccao['piscina'];
+                $registos = $seccao['registos'];
+
+                foreach ($registos as $registo) {
+                    $conforme = $registo->phConforme()
+                        && $registo->cloroLivreConforme()
+                        && $registo->cloroCombinadoConforme()
+                        && $registo->temperaturaConforme();
+
+                    $acaoCorretiva = $registo->acao_corretiva
+                        ?? ($registo->relationLoaded('adicoes')
+                            ? ($registo->adicoes->pluck('acao_corretiva')->filter()->unique()->implode('; ') ?: null)
+                            : null);
+
+                    $lavouFiltro = $registo->filtro_faz_retrolavagem || ($registo->numero_lavagens_filtro !== null && $registo->numero_lavagens_filtro > 0);
+                    $fezRenovacao = $registo->renovacao_agua || $registo->agua_modo === 'on_com_agua' || ($registo->agua_modo === 'auto_com_agua' && $lavouFiltro);
+
+                    $bombaTanque = '—';
+                    if (in_array($piscina->name, ['Lazer', 'Competição', 'Infantil'])) {
+                        $bombaTanque = 'Conforme';
+                    } else {
+                        $b = $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? 'Sim' : 'Não');
+                        $t = $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? 'Sim' : 'Não');
+                        if ($b !== '—' || $t !== '—') {
+                            $bombaTanque = "$b / $t";
+                        }
+                    }
+
+                    $lavagensFiltro = '—';
+                    if ($registo->numero_lavagens_filtro !== null && $registo->numero_lavagens_filtro > 0) {
+                        $lavagensFiltro = $registo->numero_lavagens_filtro;
+                    } elseif ($registo->filtro_faz_retrolavagem) {
+                        $lavagensFiltro = 'Sim';
+                    }
+
+                    $renovacaoAguaFormat = $fezRenovacao ? 'Sim' : ($registo->renovacao_agua === false ? 'Não' : '—');
+                    $caleiraFeita = $registo->caleira_feita === null ? '—' : ($registo->caleira_feita ? 'Sim' : 'Não');
+
+                    $hora = '—';
+                    if ($modo === 'todos') {
+                        $hora = $registo->registado_em?->format('H:i') ?? '—';
+                        if ($registo->e_correcao) {
+                            $hora .= ' (correção)';
+                        }
+                    }
+
+                    $linha = [
+                        $piscina->name,
+                        $registo->registado_em?->format('d/m/Y') ?? '—',
+                        $hora,
+                        $registo->utilizador?->name ?? '—',
+                        $registo->ph_efetivo ?? '—',
+                        $registo->cloro_livre_efetivo ?? '—',
+                        $registo->cloro_total_efetivo ?? '—',
+                        $registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null ? number_format((float)$registo->cloro_combinado, 2, '.', '') : '—',
+                        $registo->temperatura_efetivo ?? '—',
+                        in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']) ? 'Conforme' : ($registo->transparencia ?? '—'),
+                        $registo->contador_valor ?? '—',
+                        $bombaTanque,
+                        $renovacaoAguaFormat,
+                        $caleiraFeita,
+                        $registo->pressao_filtro ?? '—',
+                        $lavagensFiltro,
+                        $acaoCorretiva ?? '—',
+                        $registo->observacoes ?? '—',
+                        $conforme ? 'Sim' : 'Não',
+                    ];
+
+                    fputcsv($saida, $linha, ';');
+                }
             }
 
             fclose($saida);
@@ -486,6 +546,31 @@ class RelatorioPdf extends Page implements HasForms
             ->orderBy('registado_em')
             ->get()
             ->groupBy('pool_id');
+
+        $filterChecks = \App\Models\FilterCheck::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('verificado_em', [$inicio, $fim])
+            ->with('utilizador')
+            ->orderBy('verificado_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $incidentes = \App\Models\Incident::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('ocorreu_em', [$inicio, $fim])
+            ->with(['utilizador', 'resolvidoPor'])
+            ->orderBy('ocorreu_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $consumosQuimicos = \App\Models\DosingContainerLog::query()
+            ->whereHas('container', fn($q) => $q->whereIn('pool_id', $piscinas->pluck('id')))
+            ->whereIn('tipo_movimento', ['reabastecimento', 'consumo']) // Or all, but maybe just reabastecimento?
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->with(['utilizador', 'container'])
+            ->orderBy('registado_em')
+            ->get()
+            ->groupBy('container.pool_id');
 
         $artefactoService = app(LeituraArtefactoService::class);
 
@@ -612,12 +697,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->where('pool_id', $piscina->id)
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
-                        $q->where('ph', '<', 6.0)
-                            ->orWhere('ph', '>', 8.0);
-                    })
-                    ->where(function ($q) {
-                        $q->where('orp', '<', 600.0)
-                            ->orWhere('orp', '>', 870.0);
+                        self::applyHeuristicaLavagemFiltro($q);
                     })
                     ->get();
 
@@ -692,9 +772,7 @@ class RelatorioPdf extends Page implements HasForms
                     // Se não tiver motivo da janela, mas cumprir a regra da lavagem de filtro:
                     // (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
                     if ($motivo === null) {
-                        $phVal = $leitura->ph !== null ? (float) $leitura->ph : null;
-                        $orpVal = $leitura->orp !== null ? (float) $leitura->orp : null;
-                        if ($phVal !== null && $orpVal !== null && ($phVal < 6.0 || $phVal > 8.0) && ($orpVal < 600.0 || $orpVal > 870.0)) {
+                        if (self::isLeituraLavagemFiltro($leitura->ph, $leitura->orp)) {
                             $motivo = 'Lavagem de filtro';
                         }
                     }
@@ -711,7 +789,38 @@ class RelatorioPdf extends Page implements HasForms
                 'registos' => $registos,
                 'controlador' => $controlador,
                 'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
+                'filter_checks' => $filterChecks->get($piscina->id) ?? collect(),
+                'incidentes' => $incidentes->get($piscina->id) ?? collect(),
+                'consumos_quimicos' => $consumosQuimicos->get($piscina->id) ?? collect(),
             ];
         })->all();
+    }
+
+    /**
+     * Define a heurística de base de dados para lavagem do filtro
+     * usando limites hardcoded isolados neste método.
+     */
+    public static function applyHeuristicaLavagemFiltro(\Illuminate\Database\Eloquent\Builder $query): void
+    {
+        $query->where(function ($q) {
+            $q->where('ph', '<', 6.0)->orWhere('ph', '>', 8.0);
+        })->where(function ($q) {
+            $q->where('orp', '<', 600.0)->orWhere('orp', '>', 870.0);
+        });
+    }
+
+    /**
+     * Aplica a mesma heurística de base de dados, mas sobre valores em runtime.
+     */
+    public static function isLeituraLavagemFiltro(mixed $ph, mixed $orp): bool
+    {
+        $phVal = $ph !== null ? (float) $ph : null;
+        $orpVal = $orp !== null ? (float) $orp : null;
+
+        if ($phVal !== null && $orpVal !== null) {
+            return ($phVal < 6.0 || $phVal > 8.0) && ($orpVal < 600.0 || $orpVal > 870.0);
+        }
+
+        return false;
     }
 }
