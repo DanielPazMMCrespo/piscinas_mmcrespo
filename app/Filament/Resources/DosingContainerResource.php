@@ -166,9 +166,13 @@ class DosingContainerResource extends Resource
                     ])
                     ->action(function (DosingContainer $record, array $data): void {
                         $novo = round((float) $data['restante_l'] * 1000, 2);
-                        $delta = $novo - (float) $record->restante_ml;
-                        $record->update(['restante_ml' => $novo]);
-                        $record->logs()->create([
+
+                        // Lock para evitar race condition se dois utilizadores ajustarem ao mesmo tempo
+                        $fresco = DosingContainer::lockForUpdate()->findOrFail($record->id);
+                        $delta = $novo - (float) $fresco->restante_ml;
+
+                        $fresco->update(['restante_ml' => $novo]);
+                        $fresco->logs()->create([
                             'tipo_movimento' => 'ajuste',
                             'quantidade_ml' => $delta,
                             'restante_apos_ml' => $novo,

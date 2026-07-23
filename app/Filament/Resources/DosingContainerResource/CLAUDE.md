@@ -19,8 +19,10 @@ Gestão dos bidões físicos de reagente (cloro/pH-) ligados a cada piscina. O n
 ## Ações
 - "Reabastecer" (pede nível em L após reabastecer, chama `$record->reabastecer()`), "Ajustar nível" (pede nível real medido, calcula delta e faz update+log **diretamente na página**, não no Model), Editar (config, sem log).
 
+## Coisas resolvidas
+- ✓ **Race condition em "Ajustar nível" corrigida**: ação agora usa `lockForUpdate()` antes de ler e atualizar `restante_ml`.
+
 ## Coisas a rever
-- Ação "Ajustar nível" não passa por um método do Model como `consumir`/`reabastecer` — sem `lockForUpdate` antes de ler o valor atual, possível condição de corrida se dois utilizadores ajustarem ao mesmo tempo.
 - Editar `capacidade_ml`/`alerta_percent` não fica auditado (só reabastecer/ajustar/consumir geram log).
 - Se o nível descer só por "Ajustar" manual para um valor baixo, **não é disparada notificação** — só o próximo ciclo do `HannaCloudSync` dispara, e se a sonda estiver desligada isso nunca acontece.
 - Não existe `DosingContainerService` equivalente ao `StockService` — quebra a simetria do padrão adotado para Warehouse/Installation.
