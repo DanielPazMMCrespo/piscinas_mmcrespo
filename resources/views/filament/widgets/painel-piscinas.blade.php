@@ -1,45 +1,85 @@
 <x-filament-widgets::widget>
-    <!-- Main Header -->
-    <div class="text-center mb-6">
-        <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
-        <p class="text-sm text-slate-500 mt-1">Visão global das piscinas.</p>
+
+    {{-- ================================================================
+         CABEÇALHO DO PAINEL
+    ================================================================ --}}
+    <div class="mmc-dash-header">
+        <div class="mmc-dash-header__left">
+            <div class="mmc-dash-header__eyebrow">Painel de Controlo</div>
+            <h1 class="mmc-dash-header__title">Estado das Piscinas</h1>
+        </div>
+        <div class="mmc-dash-header__timestamp">
+            <span class="mmc-dash-ts-dot"></span>
+            <span>Atualizado agora</span>
+        </div>
     </div>
 
     @if ($totalPiscinas > 0)
-        <!-- Top KPIs -->
-        <div class="neo-top-kpis">
-            @unless ($isNS)
-                <div class="neo-kpi-card">
-                    <div>
-                        <div class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">Registos Hoje</div>
-                        <div class="text-3xl font-bold text-slate-800">{{ $registadasHoje }}<span class="text-lg text-slate-400 font-normal">/{{ $totalPiscinas }}</span></div>
-                    </div>
-                    <!-- Placeholder Donut / Progress -->
-                    <div style="width: 50px; height: 50px; position: relative;">
-                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
-                            <path class="text-slate-100" stroke-width="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="text-blue-500" stroke-width="4" stroke-dasharray="{{ $percentagemRegisto }}, 100" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
-                </div>
-            @endunless
-            <div class="neo-kpi-card">
-                <div>
-                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">Piscinas Conformes</div>
-                    <div class="text-3xl font-bold text-slate-800">{{ $conformes }}<span class="text-lg text-slate-400 font-normal">/{{ $totalPiscinas }}</span></div>
-                </div>
-                <div style="width: 50px; height: 50px; position: relative;">
-                    <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
-                        <path class="text-slate-100" stroke-width="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="text-emerald-500" stroke-width="4" stroke-dasharray="{{ $percentagemConforme }}, 100" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+    {{-- ================================================================
+         KPI STRIP
+    ================================================================ --}}
+    <div class="mmc-kpi-strip">
+        @unless ($isNS)
+        <div class="mmc-kpi-block">
+            <div class="mmc-kpi-block__label">Registos Hoje</div>
+            <div class="mmc-kpi-block__row">
+                <span class="mmc-kpi-block__val">{{ $registadasHoje }}</span>
+                <span class="mmc-kpi-block__total">/ {{ $totalPiscinas }}</span>
+                <div class="mmc-kpi-ring" title="{{ $percentagemRegisto }}%">
+                    <svg viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__bg" />
+                        <circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__arc mmc-kpi-ring__arc--blue"
+                                stroke-dasharray="{{ $percentagemRegisto }}, 100"
+                                stroke-dashoffset="25" />
                     </svg>
                 </div>
             </div>
+            <div class="mmc-kpi-block__bar">
+                <div class="mmc-kpi-block__bar-fill mmc-kpi-block__bar-fill--blue" style="width: {{ $percentagemRegisto }}%"></div>
+            </div>
         </div>
+        @endunless
+
+        <div class="mmc-kpi-block">
+            <div class="mmc-kpi-block__label">Piscinas Conformes</div>
+            <div class="mmc-kpi-block__row">
+                <span class="mmc-kpi-block__val {{ $conformes === $totalPiscinas ? 'mmc-kpi-block__val--green' : ($conformes === 0 ? 'mmc-kpi-block__val--red' : '') }}">{{ $conformes }}</span>
+                <span class="mmc-kpi-block__total">/ {{ $totalPiscinas }}</span>
+                <div class="mmc-kpi-ring" title="{{ $percentagemConforme }}%">
+                    <svg viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__bg" />
+                        <circle cx="18" cy="18" r="15.9155" class="mmc-kpi-ring__arc {{ $conformes === $totalPiscinas ? 'mmc-kpi-ring__arc--green' : ($conformes === 0 ? 'mmc-kpi-ring__arc--red' : 'mmc-kpi-ring__arc--amber') }}"
+                                stroke-dasharray="{{ $percentagemConforme }}, 100"
+                                stroke-dashoffset="25" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mmc-kpi-block__bar">
+                <div class="mmc-kpi-block__bar-fill {{ $conformes === $totalPiscinas ? 'mmc-kpi-block__bar-fill--green' : ($conformes === 0 ? 'mmc-kpi-block__bar-fill--red' : 'mmc-kpi-block__bar-fill--amber') }}" style="width: {{ $percentagemConforme }}%"></div>
+            </div>
+        </div>
+
+        {{-- Alertas ativos --}}
+        @php
+            $totalAlertas = collect($piscinas)->sum(fn($item) => count(array_filter($item['parametros_conformes'] ?? [], fn($ok) => $ok === false)));
+        @endphp
+        <div class="mmc-kpi-block mmc-kpi-block--wide">
+            <div class="mmc-kpi-block__label">Parâmetros Fora de Limite</div>
+            <div class="mmc-kpi-block__row">
+                <span class="mmc-kpi-block__val {{ $totalAlertas > 0 ? 'mmc-kpi-block__val--red' : 'mmc-kpi-block__val--green' }}">{{ $totalAlertas }}</span>
+                <span class="mmc-kpi-block__total mmc-kpi-block__total--label">{{ $totalAlertas === 1 ? 'alerta ativo' : 'alertas ativos' }}</span>
+            </div>
+            <div class="mmc-kpi-block__status-pill {{ $totalAlertas > 0 ? 'mmc-kpi-block__status-pill--red' : 'mmc-kpi-block__status-pill--green' }}">
+                {{ $totalAlertas > 0 ? 'Requer atenção' : 'Tudo conforme' }}
+            </div>
+        </div>
+    </div>
     @endif
 
-    <!-- Pools Grid -->
-    <div class="neo-pool-grid"
+    {{-- ================================================================
+         GRID DE PISCINAS
+    ================================================================ --}}
+    <div class="mmc-pool-grid"
          x-data="{
              allOpen: true,
              toggleAll() {
@@ -47,151 +87,143 @@
                  this.$dispatch('mmc-toggle-all-pools', { open: this.allOpen });
              }
          }">
-         
-         <div class="col-span-full flex justify-end mb-[-0.5rem]">
-             <button type="button" @click="toggleAll()" class="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors" x-text="allOpen ? 'Recolher todas' : 'Expandir todas'"></button>
-         </div>
+
+        <div class="mmc-pool-grid__controls">
+            <div class="mmc-pool-grid__count">{{ $totalPiscinas }} piscina{{ $totalPiscinas !== 1 ? 's' : '' }}</div>
+            <button type="button" @click="toggleAll()"
+                    class="mmc-toggle-all-btn"
+                    x-text="allOpen ? 'Recolher todas' : 'Expandir todas'"></button>
+        </div>
 
         @forelse ($piscinas as $item)
             @php
-                $piscina = $item['piscina'];
-                $conformes = $item['parametros_conformes'];
-                $numFora = count(array_filter($conformes, fn ($ok) => $ok === false));
-                $temDados = $item['tem_dados_conformes'];
-                $estadoGeral = ! $temDados ? 'neutro' : ($numFora > 0 ? 'bad' : 'ok');
+                $piscina     = $item['piscina'];
+                $conformeMap = $item['parametros_conformes'];
+                $numFora     = count(array_filter($conformeMap, fn ($ok) => $ok === false));
+                $temDados    = $item['tem_dados_conformes'];
+                $estado      = ! $temDados ? 'neutro' : ($numFora > 0 ? 'bad' : 'ok');
             @endphp
-            <div class="neo-pool-card" 
+
+            <div class="mmc-pool-card mmc-pool-card--{{ $estado }}"
                  wire:key="pool-card-{{ $piscina->id }}"
                  x-data="{
                      open: true,
                      init() {
                          try {
-                             const saved = localStorage.getItem('neo_pool_open_' + {{ $piscina->id }});
-                             if (saved !== null) {
-                                 this.open = saved === 'true';
-                             }
+                             const s = localStorage.getItem('neo_pool_open_{{ $piscina->id }}');
+                             if (s !== null) this.open = s === 'true';
                          } catch (e) {}
                      },
                      toggle() {
                          this.open = !this.open;
-                         try {
-                             localStorage.setItem('neo_pool_open_' + {{ $piscina->id }}, this.open);
-                         } catch (e) {}
+                         try { localStorage.setItem('neo_pool_open_{{ $piscina->id }}', this.open); } catch (e) {}
                      }
                  }"
                  @mmc-toggle-all-pools.window="
                      open = $event.detail.open;
-                     try { localStorage.setItem('neo_pool_open_' + {{ $piscina->id }}, open); } catch(e) {}
-                 "
-                 :class="open ? '' : 'pb-2'">
-                
-                <!-- Card Header -->
-                @php
-                    $bgClass = 'bg-slate-50 dark:bg-slate-800';
-                    $textClass = 'text-slate-400 dark:text-slate-500';
-                    $statusLabel = 'Sem Dados';
-                    $statusColor = 'text-slate-500';
+                     try { localStorage.setItem('neo_pool_open_{{ $piscina->id }}', open); } catch(e) {}
+                 ">
 
-                    if ($estadoGeral === 'ok') {
-                        $bgClass = 'bg-emerald-50 dark:bg-emerald-900/30';
-                        $textClass = 'text-emerald-600 dark:text-emerald-400';
-                        $statusLabel = 'Conforme';
-                        $statusColor = 'text-emerald-600';
-                    } elseif ($estadoGeral === 'bad') {
-                        $bgClass = 'bg-rose-50 dark:bg-rose-900/30';
-                        $textClass = 'text-rose-600 dark:text-rose-400';
-                        $statusLabel = $numFora . ' Alerta' . ($numFora > 1 ? 's' : '');
-                        $statusColor = 'text-rose-600 font-bold';
-                    }
-                @endphp
-                <div class="neo-pool-header cursor-pointer select-none" @click="toggle()">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full {{ $bgClass }} flex items-center justify-center {{ $textClass }}">
-                            <x-filament::icon icon="heroicon-o-swatch" class="w-6 h-6" />
+                {{-- Barra lateral de estado --}}
+                <div class="mmc-pool-card__accent"></div>
+
+                <div class="mmc-pool-card__inner">
+                    {{-- Header --}}
+                    <div class="mmc-pool-header" @click="toggle()" role="button" aria-expanded="open">
+                        <div class="mmc-pool-header__info">
+                            <div class="mmc-pool-header__icon-wrap mmc-pool-header__icon-wrap--{{ $estado }}">
+                                <x-filament::icon icon="heroicon-o-swatch" class="mmc-pool-header__icon" />
+                            </div>
+                            <div>
+                                <div class="mmc-pool-header__name">{{ $piscina->name }}</div>
+                                <div class="mmc-pool-header__install">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="neo-pool-title">{{ $piscina->name }}</h3>
-                            <div class="text-xs text-slate-500 mt-0.5">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
+                        <div class="mmc-pool-header__right">
+                            @if ($estado === 'ok')
+                                <span class="mmc-status-badge mmc-status-badge--ok">Conforme</span>
+                            @elseif ($estado === 'bad')
+                                <span class="mmc-status-badge mmc-status-badge--bad">{{ $numFora }} alerta{{ $numFora > 1 ? 's' : '' }}</span>
+                            @else
+                                <span class="mmc-status-badge mmc-status-badge--neutral">Sem dados</span>
+                            @endif
+                            <button type="button" class="mmc-pool-header__chev" :class="open ? 'mmc-pool-header__chev--open' : ''">
+                                <x-filament::icon icon="heroicon-m-chevron-down" class="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs uppercase tracking-wide {{ $statusColor }}" x-show="!open" x-cloak>{{ $statusLabel }}</span>
-                        <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
-                            <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Collapsible Content -->
-                <div x-show="open" x-collapse x-cloak class="flex flex-col gap-4 mt-2">
-                    <!-- Metrics Grid 2x2 -->
-                    <div class="neo-metrics-grid">
-                        @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
-                            @php($metrica = $item['metricas4'][$key])
-                            <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="neo-metric-label">
-                                        <span>{{ $metrica['label'] }}</span>
-                                    </div>
-                                    <div class="neo-metric-value text-right">
-                                        <span>{{ $metrica['valor'] }}</span>
-                                    </div>
-                                </div>
-                                <!-- Sparkline -->
-                                @if(isset($metrica['sparkline']) && $metrica['sparkline'])
-                                    <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                        <path d="{{ $metrica['sparkline']['fill'] }}" fill="{{ $metrica['ok'] === false ? '#ffe4e6' : '#eff6ff' }}" opacity="0.6"/>
-                                        <path d="{{ $metrica['sparkline']['stroke'] }}" fill="none" stroke="{{ $metrica['ok'] === false ? '#f43f5e' : '#3b82f6' }}" stroke-width="1.5"/>
-                                    </svg>
-                                @else
-                                    <div class="neo-metric-sparkline"></div>
-                                @endif
+                    {{-- Collapsible body --}}
+                    <div x-show="open" x-collapse x-cloak class="mmc-pool-body">
 
-                                <div class="flex items-center justify-between mt-auto">
-                                    <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
-                                        @if($metrica['ok'] !== null)
-                                            <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @else bg-emerald-500 @endif"></div>
-                                            {{ $metrica['ok'] === false ? 'Alerta' : 'OK' }}
+                        {{-- Métricas --}}
+                        <div class="mmc-metrics-grid">
+                            @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
+                                @php($m = $item['metricas4'][$key])
+                                <div class="mmc-metric {{ $m['ok'] === false ? 'mmc-metric--alert' : ($m['ok'] === true ? 'mmc-metric--ok' : '') }}">
+                                    <div class="mmc-metric__top">
+                                        <span class="mmc-metric__label">{{ $m['label'] }}</span>
+                                        <span class="mmc-metric__dot
+                                            {{ $m['ok'] === false ? 'mmc-metric__dot--bad' : ($m['ok'] === true ? 'mmc-metric__dot--ok' : 'mmc-metric__dot--na') }}"></span>
+                                    </div>
+                                    <div class="mmc-metric__value {{ $m['ok'] === false ? 'mmc-metric__value--bad' : '' }}">{{ $m['valor'] }}</div>
+
+                                    @if(isset($m['sparkline']) && $m['sparkline'])
+                                        <svg class="mmc-metric__sparkline" viewBox="0 0 100 28" preserveAspectRatio="none">
+                                            <path d="{{ $m['sparkline']['fill'] }}" fill="{{ $m['ok'] === false ? 'rgba(255,61,107,0.12)' : 'rgba(0,242,254,0.08)' }}"/>
+                                            <path d="{{ $m['sparkline']['stroke'] }}" fill="none"
+                                                  stroke="{{ $m['ok'] === false ? '#FF3D6B' : '#00F2FE' }}"
+                                                  stroke-width="1.5" stroke-linecap="round"/>
+                                        </svg>
+                                    @else
+                                        <div class="mmc-metric__sparkline mmc-metric__sparkline--empty"></div>
+                                    @endif
+
+                                    <div class="mmc-metric__footer">
+                                        @if($m['ok'] === false)
+                                            <span class="mmc-metric__badge mmc-metric__badge--bad">Alerta</span>
+                                        @elseif($m['ok'] === true)
+                                            <span class="mmc-metric__badge mmc-metric__badge--ok">OK</span>
                                         @else
-                                            <div class="w-2 h-2 rounded-full bg-slate-300"></div>
-                                            N/A
+                                            <span class="mmc-metric__badge mmc-metric__badge--na">N/A</span>
+                                        @endif
+                                        @if($m['origem'] !== 'sem_dados')
+                                            <span class="mmc-metric__origin">
+                                                @if($m['origem'] === 'controlador') Sonda
+                                                @elseif($m['origem'] === 'manual') Manual
+                                                @elseif($m['origem'] === 'artefacto') Lavagem
+                                                @else Inativa
+                                                @endif
+                                                &middot; {{ $m['idade'] }}
+                                            </span>
                                         @endif
                                     </div>
-                                    @if($metrica['origem'] !== 'sem_dados')
-                                        <div class="text-[0.65rem] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                                            @if($metrica['origem'] === 'controlador')
-                                                Sonda • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'manual')
-                                                Manual • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'artefacto')
-                                                Lavagem • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'controlador_offline')
-                                                Inativa • {{ $metrica['idade'] }}
-                                            @endif
-                                        </div>
-                                    @endif
                                 </div>
-                            </div>
-                        @endforeach
-                    </div>
+                            @endforeach
+                        </div>
 
-                <!-- Actions Footer -->
-                @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
-                    <div class="neo-pool-actions">
-                        @foreach ($item['acoes_rapidas'] as $acao)
-                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline @endif">
-                                <x-filament::icon :icon="$acao['icon']" class="neo-icon-sm" />
-                                {{ $acao['label'] }}
-                            </a>
-                        @endforeach
-                    </div>
-                @endif
-                </div> <!-- End Collapsible Content -->
+                        {{-- Ações --}}
+                        @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
+                            <div class="mmc-pool-actions">
+                                @foreach ($item['acoes_rapidas'] as $acao)
+                                    <a href="{{ $acao['url'] }}"
+                                       class="mmc-action {{ !empty($acao['primary']) ? 'mmc-action--primary' : 'mmc-action--ghost' }}">
+                                        <x-filament::icon :icon="$acao['icon']" class="w-3.5 h-3.5" />
+                                        {{ $acao['label'] }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        @endif
+
+                    </div>{{-- /mmc-pool-body --}}
+                </div>{{-- /mmc-pool-card__inner --}}
             </div>
         @empty
-            <div class="col-span-full py-12 text-center bg-white rounded-2xl border border-gray-100 text-slate-500">
-                Nenhuma piscina ativa configurada no momento.
+            <div class="mmc-pool-empty">
+                <x-filament::icon icon="heroicon-o-no-symbol" class="w-10 h-10 opacity-30 mx-auto mb-3" />
+                <p>Nenhuma piscina ativa configurada.</p>
             </div>
         @endforelse
     </div>
+
 </x-filament-widgets::widget>
