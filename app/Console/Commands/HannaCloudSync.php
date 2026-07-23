@@ -461,17 +461,42 @@ class HannaCloudSync extends Command
         );
 
         foreach ($devices as $device) {
-            HannaDevice::updateOrCreate(
-                ['hanna_device_id' => $device['DID']],
-                [
+            $existente = HannaDevice::where('hanna_device_id', $device['DID'])->first();
+
+            if ($existente) {
+                // Não forçar active=true: um admin pode ter desligado o sensor de
+                // propósito; o discover atualiza metadados mas respeita esse estado.
+                $existente->update([
+                    'name' => $device['name'] ?? $device['DID'],
+                    'raw_info' => $device,
+                ]);
+            } else {
+                HannaDevice::create([
+                    'hanna_device_id' => $device['DID'],
                     'name' => $device['name'] ?? $device['DID'],
                     'active' => true,
                     'raw_info' => $device,
-                ]
-            );
+                ]);
+            }
         }
 
         $this->info(count($devices).' dispositivo(s) actualizados em hanna_devices.');
+
+        // Dispositivos ativos que já não aparecem na conta: só avisa (não desativa
+        // automaticamente — um discover parcial por glitch da API não deve desligar
+        // sensores bons; a decisão de desativar fica com o admin).
+        $didsDaConta = collect($devices)->pluck('DID')->all();
+        $desaparecidos = HannaDevice::where('active', true)
+            ->whereNotIn('hanna_device_id', $didsDaConta)
+            ->get();
+
+        if ($desaparecidos->isNotEmpty()) {
+            $this->warn('Dispositivos ativos que já não constam na conta Hanna Cloud (verifica em Admin → Sensores Hanna):');
+            foreach ($desaparecidos as $d) {
+                $this->warn("  - {$d->name} ({$d->hanna_device_id})");
+            }
+        }
+
         $this->info('Mapeia cada dispositivo a uma piscina em Admin → Sensores Hanna.');
 
         return self::SUCCESS;

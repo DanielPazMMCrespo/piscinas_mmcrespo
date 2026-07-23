@@ -154,4 +154,36 @@ class HannaSyncTest extends TestCase
 
         $this->artisan('hanna:sync')->assertFailed();
     }
+
+    public function test_discover_preserves_manually_disabled_device(): void
+    {
+        $device = $this->createDevice(['active' => false]);
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getDevices')->once()->andReturn([
+            ['DID' => 'DEV-001', 'name' => 'Sensor Competição', 'DM' => 'BL132'],
+        ]);
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync --discover')->assertSuccessful();
+
+        $this->assertFalse((bool) $device->fresh()->active);
+    }
+
+    public function test_discover_creates_new_device_as_active(): void
+    {
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getDevices')->once()->andReturn([
+            ['DID' => 'DEV-999', 'name' => 'Novo Sensor', 'DM' => 'BL132'],
+        ]);
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync --discover')->assertSuccessful();
+
+        $this->assertDatabaseHas('hanna_devices', ['hanna_device_id' => 'DEV-999', 'active' => true]);
+    }
 }

@@ -18,7 +18,7 @@ Máquina de estados global (não por dispositivo), guardada em Cache:
 - Durante "aberto", `HannaCloudSync` salta o dispositivo nesse ciclo (o "fallback" é `null`, não devolve a última leitura ativamente — a leitura anterior só continua acessível porque já está na BD).
 
 ## `hanna:sync --discover`
-Lista dispositivos da conta Hanna Cloud e faz `updateOrCreate` por `hanna_device_id` — **cria automaticamente** dispositivos novos sem piscina associada (`pool_id=null`) e **reativa** (`active=true`) qualquer dispositivo que um admin tivesse desativado manualmente. Não apaga dispositivos que desapareceram da conta.
+Lista dispositivos da conta Hanna Cloud — **cria** dispositivos novos sem piscina associada (`pool_id=null`, `active=true`) e **atualiza** metadados (`name`/`raw_info`) dos existentes **preservando o `active`** (respeita um disable manual). Não apaga dispositivos que desapareceram da conta, mas **avisa** na saída quais os dispositivos ativos que já não constam da conta (o admin decide se desativa).
 
 ## Sync normal
 Por dispositivo ativo: atualiza `raw_info`, lê última leitura (protegida pelo circuit breaker), grava em `sensor_readings` (upsert idempotente por `hanna_device_id`+`lida_em`), dispara `notificarThresholds()` (pH fora dos limites) e `atualizarPhOvertime()` (máquina de estados própria, histerese de 2 leituras para fechar episódio). Ignora leituras dentro de janelas de "artefacto" (`LeituraArtefactoService`). Também desconta dosagem dos bidões (`sincronizarDosagem()`, janela de recuperação máx. 24h).
@@ -28,7 +28,8 @@ Por dispositivo ativo: atualiza `raw_info`, lê última leitura (protegida pelo 
 
 ## Coisas resolvidas
 - ✓ **Página `ViewHannaDevice` adicionada**: consistente com Pool/Installation/User; substituiu modal "Detalhes" por ViewAction navegável.
+- ✓ **`--discover` já não reativa disable manual**: só cria novos como `active=true`; existentes mantêm o `active` atual.
+- ✓ **Dispositivos desaparecidos da conta**: `--discover` avisa quais os ativos que já não constam (não desativa automaticamente — evita desligar sensores bons num discover parcial por glitch da API).
 
 ## Coisas a rever
-- `--discover` reativa dispositivos desativados manualmente — pode reintroduzir sync indesejado num sensor que um admin desligou de propósito.
-- Sem tratamento de dispositivos removidos da conta Hanna Cloud (nunca ficam `active=false` sozinhos).
+- `leituras()` liga por `hanna_device_id` (string), não por FK — frágil se o DID mudar/duplicar (ver Estrutura de dados). Não resolvido; mudança de schema com risco, deixado deliberadamente.
