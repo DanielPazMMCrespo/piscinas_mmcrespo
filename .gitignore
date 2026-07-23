@@ -48,3 +48,7 @@ format('Y-m-d'))
 # Temporary test images
 public/images/WhatsApp Image*
 DEPLOYMENT_SECRETS*
+
+# Python bytecode cache (gerado por scripts de skills)
+__pycache__/
+*.pyc
