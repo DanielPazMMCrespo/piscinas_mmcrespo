@@ -19,6 +19,8 @@ Três funções na mesma página:
 - Diários: compara `hora_diaria` com a hora atual **exata** (sem janela de tolerância) — se o scheduler atrasar/falhar nesse minuto exato, o disparo desse dia perde-se silenciosamente. Protegido de duplo-envio no mesmo dia por `ultima_data_enviada`.
 - Destinatários via `User::role($broadcast->cargos)` — se vazio, não faz nada (sem log/aviso).
 
+## Coisas resolvidas
+- ✓ **Campo "Horários do Resumo de Conformidade" removido**: fonte de verdade agora só em DefinicoesSistema.php (página apropriada para settings globais, não para preferências pessoais).
+
 ## Coisas a rever
-- Campo "Horários do Resumo de Conformidade" duplicado entre esta página e Definições do Sistema — considerar remover de um dos dois sítios ou deixar claro qual é a fonte de verdade.
 - Disparo diário sem janela de tolerância — se o scheduler tiver uma falha pontual nesse minuto, o resumo desse dia simplesmente não sai (sem aviso).

@@ -86,36 +86,9 @@ class Notificacoes extends Page implements HasForms, HasTable
                     // 3. Conformidade & Sensores
                     Forms\Components\Section::make('Segurança, Conformidade & Sensores')
                         ->icon('heroicon-o-shield-check')
-                        ->schema(array_filter([
+                        ->schema([
                             $this->getSingleNotificationItemSchema('Análise Fora dos Limites', 'nao_conformidade', 'Alerta imediato quando um registo diário viola os parâmetros legais.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
-                            $this->podeGerir() ? Forms\Components\Select::make('digest_conformidade_horas')
-                                ->label('Horários do Resumo de Conformidade (Máx. 4)')
-                                ->options([
-                                    '06:00' => '06:00',
-                                    '07:00' => '07:00',
-                                    '08:00' => '08:00',
-                                    '09:00' => '09:00',
-                                    '10:00' => '10:00',
-                                    '11:00' => '11:00',
-                                    '12:00' => '12:00',
-                                    '13:00' => '13:00',
-                                    '14:00' => '14:00',
-                                    '15:00' => '15:00',
-                                    '16:00' => '16:00',
-                                    '17:00' => '17:00',
-                                    '18:00' => '18:00',
-                                    '19:00' => '19:00',
-                                    '20:00' => '20:00',
-                                    '21:00' => '21:00',
-                                    '22:00' => '22:00',
-                                    '23:00' => '23:00',
-                                ])
-                                ->multiple()
-                                ->maxItems(4)
-                                ->searchable()
-                                ->helperText('Escolha na combobox até 4 horários do dia em que a aplicação envia o resumo de conformidade.')
-                                ->columnSpanFull() : null,
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
                         ]))
