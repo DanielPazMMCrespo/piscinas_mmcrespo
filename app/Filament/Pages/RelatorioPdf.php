@@ -683,6 +683,8 @@ class RelatorioPdf extends Page implements HasForms
                     $sintetico->temp_agua = $leitura->temperatura_agua;
                     $sintetico->leituras = 1;
 
+                    $lidaEm = Carbon::parse($leitura->lida_em);
+
                     // Procura o registo manual mais próximo (± 15 min)
                     $closestRegisto = $registos->first(function ($r) use ($lidaEm) {
                         return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
@@ -691,7 +693,6 @@ class RelatorioPdf extends Page implements HasForms
 
                     // Verificar se cai em alguma janela
                     $motivo = null;
-                    $lidaEm = Carbon::parse($leitura->lida_em);
                     foreach ($janelas as $janela) {
                         if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
                             $motivo = $janela['motivo'];
