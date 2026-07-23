@@ -157,6 +157,63 @@ class OperationalActionResourceTest extends TestCase
         $this->assertEquals(20000, $container->fresh()->restante_ml);
     }
 
+    public function test_editing_reabastecimento_bidao_resyncs_dosing_container(): void
+    {
+        $this->actingAs($this->admin);
+
+        $container = DosingContainer::create([
+            'pool_id' => $this->pool->id,
+            'tipo' => DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 25000,
+            'restante_ml' => 0,
+        ]);
+
+        $acao = OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+            'registado_em' => now(),
+            'dados' => ['bidao_tipo' => DosingContainer::TIPO_CLORO, 'quantidade_l' => 20],
+        ]);
+
+        $this->assertEquals(20000, $container->fresh()->restante_ml);
+
+        Livewire::test(OperationalActionResource\Pages\EditOperationalAction::class, ['record' => $acao->getKey()])
+            ->fillForm(['dados.quantidade_l' => 10])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertEquals(10000, $container->fresh()->restante_ml);
+    }
+
+    public function test_editing_torneira_action_resyncs_tap_alert(): void
+    {
+        $this->actingAs($this->admin);
+
+        $acao = OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_TORNEIRA,
+            'registado_em' => now(),
+            'dados' => ['agua_modo' => 'on_com_agua'],
+        ]);
+
+        $this->assertDatabaseHas('tap_alerts', [
+            'pool_id' => $this->pool->id,
+            'resolved_at' => null,
+        ]);
+
+        Livewire::test(OperationalActionResource\Pages\EditOperationalAction::class, ['record' => $acao->getKey()])
+            ->fillForm(['dados.agua_modo' => 'off'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseMissing('tap_alerts', [
+            'pool_id' => $this->pool->id,
+            'resolved_at' => null,
+        ]);
+    }
+
     public function test_analise_pontual_requires_at_least_one_measured_value(): void
     {
         $this->actingAs($this->admin);

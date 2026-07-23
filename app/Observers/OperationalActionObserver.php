@@ -24,6 +24,22 @@ class OperationalActionObserver
 
     public function created(OperationalAction $acao): void
     {
+        $this->sincronizarEfeitos($acao);
+    }
+
+    /**
+     * Editar uma ação altera o estado que ela representa, por isso os efeitos
+     * têm de ser re-sincronizados. `reabastecer()` faz SET do nível (não soma) e
+     * `gerirTorneira()` reconcilia contra o alerta aberto atual — ambos são
+     * seguros de re-correr com os novos `dados`.
+     */
+    public function updated(OperationalAction $acao): void
+    {
+        $this->sincronizarEfeitos($acao);
+    }
+
+    private function sincronizarEfeitos(OperationalAction $acao): void
+    {
         if ($acao->tipo === OperationalAction::TIPO_TORNEIRA) {
             $this->comEfeitoResiliente('alerta de torneira', fn () => $this->gerirTorneira($acao));
         }
