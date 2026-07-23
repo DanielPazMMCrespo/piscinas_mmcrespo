@@ -585,9 +585,10 @@
                             <tr>
                                 <th style="width: 9%;">Data</th>
                                 <th style="width: 7%;">Leituras/dia</th>
-                                <th style="width: 9%;">pH Médio</th>
-                                <th style="width: 9%;">pH Mínimo</th>
-                                <th style="width: 9%;">pH Máximo</th>
+                                <th style="width: 9%;">Cl. Livre Manual</th>
+                                <th style="width: 8%;">pH Médio</th>
+                                <th style="width: 8%;">pH Mínimo</th>
+                                <th style="width: 8%;">pH Máximo</th>
                                 <th style="width: 10%;">ORP Médio (mV)</th>
                                 <th style="width: 11%;">Temp. Água Média (°C)</th>
                                 <th style="width: 7%;">pH Conforme</th>
@@ -602,13 +603,19 @@
                                     $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
                                     $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
                                     $phConforme = $phMed !== null && !$phMedFora;
+                                    $clManual = $leitura->manual_cloro_livre ?? null;
                                 @endphp
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     @if ($semLeitura)
-                                        <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                        <td colspan="8" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
                                     @else
                                         <td>{{ $leitura->leituras }}</td>
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
+                                            @else — @endif
+                                        </td>
                                         <td>
                                             @if ($phMed !== null)
                                                 <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
@@ -651,12 +658,13 @@
                     <table class="registos controlador">
                         <thead>
                             <tr>
-                                <th style="width: 12%;">Data</th>
-                                <th style="width: 10%;">Hora</th>
-                                <th style="width: 15%;">pH</th>
-                                <th style="width: 15%;">ORP (mV)</th>
-                                <th style="width: 15%;">Temp. Água (°C)</th>
-                                <th style="width: 10%;">pH Conforme</th>
+                                <th style="width: 10%;">Data</th>
+                                <th style="width: 8%;">Hora</th>
+                                <th style="width: 15%;">Cl. Livre Manual</th>
+                                <th style="width: 11%;">pH</th>
+                                <th style="width: 12%;">ORP (mV)</th>
+                                <th style="width: 12%;">Temp. Água (°C)</th>
+                                <th style="width: 9%;">pH Conforme</th>
                                 <th style="width: 23%;">Excluído (motivo)</th>
                             </tr>
                         </thead>
@@ -668,13 +676,19 @@
                                     $ph = $leitura->ph !== null ? round((float) $leitura->ph, 2) : null;
                                     $phFora = $ph !== null && ($ph < $phMin || $ph > $phMax);
                                     $phConforme = $ph !== null && !$phFora;
+                                    $clManual = $leitura->manual_cloro_livre ?? null;
                                 @endphp
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     <td>{{ $leitura->hora ?? '—' }}</td>
                                     @if ($semLeitura && $ph === null)
-                                        <td colspan="4" class="texto" style="font-style: italic;">Sem leitura válida</td>
+                                        <td colspan="5" class="texto" style="font-style: italic;">Sem leitura válida</td>
                                     @else
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
+                                            @else — @endif
+                                        </td>
                                         <td>
                                             @if ($ph !== null)
                                                 <span @class(['fora-gama' => $phFora])>{{ number_format($ph, 2, ',', '') }}</span>

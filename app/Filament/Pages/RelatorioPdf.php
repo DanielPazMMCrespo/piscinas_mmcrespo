@@ -608,17 +608,31 @@ class RelatorioPdf extends Page implements HasForms
                 }
 
                 // Regra automática de lavagem de filtro para o controlador
-                // Aplicar a lógica de verificação a todas as leituras do período
-                $todasAsLeituras = SensorReading::query()
+                // Aplicar a lógica de verificação usando base de dados para evitar carregar dezenas de milhares de modelos na memória
+                $phMin = WaterQualityThresholds::FILTER_WASH_PH_MIN;
+                $phMax = WaterQualityThresholds::FILTER_WASH_PH_MAX;
+                $orpMin = WaterQualityThresholds::FILTER_WASH_ORP_MIN;
+                $orpMax = WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+
+                $diasLavagem = SensorReading::query()
                     ->where('pool_id', $piscina->id)
                     ->whereBetween('lida_em', [$inicio, $fim])
-                    ->get();
+                    ->whereNotNull('ph')
+                    ->whereNotNull('orp')
+                    ->where(function ($q) use ($phMin, $phMax) {
+                        $q->where('ph', '<', $phMin)
+                          ->orWhere('ph', '>', $phMax);
+                    })
+                    ->where(function ($q) use ($orpMin, $orpMax) {
+                        $q->where('orp', '<', $orpMin)
+                          ->orWhere('orp', '>', $orpMax);
+                    })
+                    ->selectRaw('DATE(lida_em) as dia')
+                    ->groupByRaw('DATE(lida_em)')
+                    ->pluck('dia');
 
-                foreach ($todasAsLeituras as $leitura) {
-                    if ($this->cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
-                        $diaKey = Carbon::parse($leitura->lida_em)->format('Y-m-d');
-                        $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
-                    }
+                foreach ($diasLavagem as $diaKey) {
+                    $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
                 }
 
                 // 2. Para motivos de "Bomba parada", justificamos sempre o dia (causa falta de leituras)
@@ -636,9 +650,18 @@ class RelatorioPdf extends Page implements HasForms
                 $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
 
                 $diasComLeitura = $controlador->pluck('dia')->all();
-                $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
+                $controlador = $controlador->map(function ($linha) use ($diasArtefacto, $registos) {
                     $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
                     $linha->sem_leitura_valida = false;
+
+                    $diaCarbon = Carbon::parse($linha->dia);
+                    $cloroManualAvg = $registos
+                        ->filter(fn($r) => $r->registado_em->isSameDay($diaCarbon))
+                        ->map(fn($r) => $r->cloro_livre_efetivo)
+                        ->filter(fn($v) => $v !== null)
+                        ->average();
+
+                    $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;
 
                     return $linha;
                 });
@@ -674,9 +697,16 @@ class RelatorioPdf extends Page implements HasForms
                     $sintetico->temp_agua = $leitura->temperatura_agua;
                     $sintetico->leituras = 1;
 
+                    $lidaEm = Carbon::parse($leitura->lida_em);
+
+                    // Procura o registo manual mais próximo (± 15 min)
+                    $closestRegisto = $registos->first(function ($r) use ($lidaEm) {
+                        return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
+                    });
+                    $sintetico->manual_cloro_livre = $closestRegisto ? $closestRegisto->cloro_livre_efetivo : null;
+
                     // Verificar se cai em alguma janela
                     $motivo = null;
-                    $lidaEm = Carbon::parse($leitura->lida_em);
                     foreach ($janelas as $janela) {
                         if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
                             $motivo = $janela['motivo'];
@@ -684,7 +714,7 @@ class RelatorioPdf extends Page implements HasForms
                         }
                     }
 
-                    if ($motivo === null && $this->cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
+                    if ($motivo === null && self::cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
                         $motivo = 'Lavagem de filtro';
                     }
 
@@ -704,14 +734,17 @@ class RelatorioPdf extends Page implements HasForms
         })->all();
     }
 
-    private function cumpresRegraLavagemFiltro(?float $ph, ?float $orp): bool
+    private static function cumpresRegraLavagemFiltro(mixed $ph, mixed $orp): bool
     {
-        if ($ph === null || $orp === null) {
+        if ($ph === null || $orp === null || $ph === '' || $orp === '') {
             return false;
         }
 
-        $phForaLimites = $ph < WaterQualityThresholds::FILTER_WASH_PH_MIN || $ph > WaterQualityThresholds::FILTER_WASH_PH_MAX;
-        $orpForaLimites = $orp < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orp > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+        $phFloat = (float) $ph;
+        $orpFloat = (float) $orp;
+
+        $phForaLimites = $phFloat < WaterQualityThresholds::FILTER_WASH_PH_MIN || $phFloat > WaterQualityThresholds::FILTER_WASH_PH_MAX;
+        $orpForaLimites = $orpFloat < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orpFloat > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
 
         return $phForaLimites && $orpForaLimites;
     }
