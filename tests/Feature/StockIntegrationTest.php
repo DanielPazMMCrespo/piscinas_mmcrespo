@@ -107,7 +107,7 @@ class StockIntegrationTest extends TestCase
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $transfer_qty,
@@ -156,7 +156,7 @@ class StockIntegrationTest extends TestCase
         $this->assertEquals($transfer_qty, $stockInstallation->quantity);
 
         // Verify logs were created
-        $warehouse_log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $warehouse_log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('tipo_movimento', 'saida')
             ->first();
         $this->assertNotNull($warehouse_log);
@@ -219,7 +219,7 @@ class StockIntegrationTest extends TestCase
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $first_transfer,
@@ -249,7 +249,7 @@ class StockIntegrationTest extends TestCase
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $second_transfer,
@@ -302,7 +302,7 @@ class StockIntegrationTest extends TestCase
             $fresh->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'entrada',
                 'quantity' => $entry_qty,
@@ -313,7 +313,7 @@ class StockIntegrationTest extends TestCase
         $stock_warehouse->refresh();
         $this->assertEquals($initial_qty + $entry_qty, $stock_warehouse->quantity);
 
-        $log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('tipo_movimento', 'entrada')
             ->first();
         $this->assertNotNull($log);
@@ -336,7 +336,7 @@ class StockIntegrationTest extends TestCase
             $fresh->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => $technician->id,
                 'tipo_movimento' => 'entrada',
                 'quantity' => 10.000,
@@ -344,7 +344,7 @@ class StockIntegrationTest extends TestCase
             ]);
         });
 
-        $log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('user_id', $technician->id)
             ->first();
 
@@ -396,7 +396,7 @@ class StockIntegrationTest extends TestCase
                     $total_transferred += $qty;
 
                     StockWarehouseLog::create([
-                        'product_id' => $chlorine->id,
+                        'stock_warehouse_id' => $stock_warehouse->id,
                         'user_id' => 1,
                         'tipo_movimento' => 'saida',
                         'quantity' => $qty,

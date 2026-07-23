@@ -582,7 +582,7 @@ class DailyRecordFormBuilder
                                                                     $armazem->save();
 
                                                                     \App\Models\StockWarehouseLog::create([
-                                                                        'product_id' => $productId,
+                                                                        'stock_warehouse_id' => $armazem->id,
                                                                         'user_id' => auth()->id(),
                                                                         'tipo_movimento' => 'saida',
                                                                         'quantity' => $pedido,
