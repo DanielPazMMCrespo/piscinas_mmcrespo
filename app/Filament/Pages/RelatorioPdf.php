@@ -99,7 +99,7 @@ class RelatorioPdf extends Page implements HasForms
             'colunas_visiveis' => [
                 'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
                 'cloro_combinado', 'temperatura', 'transparencia',
-                'contador_valor', 'bomba_tanque',
+                'contador_valor', 'bomba_tanque', 'banhistas',
                 'acao_corretiva', 'observacoes', 'conforme',
             ],
             'seccoes_visiveis' => [
@@ -175,7 +175,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->schema([
                         Placeholder::make('aviso_customizacao')
                             ->hidden(fn (Get $get) => $get('registo_modo') === 'todos' &&
-                                count($get('colunas_visiveis') ?? []) === 13 &&
+                                count($get('colunas_visiveis') ?? []) === 14 &&
                                 count($get('seccoes_visiveis') ?? []) === 6
                             )
                             ->columnSpanFull()
@@ -225,6 +225,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'caleira_feita' => 'Limpeza Caleira',
                                 'pressao_filtro' => 'Pressão Filtro (bar)',
                                 'lavagens_filtro' => 'Lavagens do Filtro',
+                                'banhistas' => 'Banhistas',
                                 'acao_corretiva' => 'Ações corretivas',
                                 'observacoes' => 'Observações',
                                 'conforme' => 'Conformidade',
@@ -445,7 +446,7 @@ class RelatorioPdf extends Page implements HasForms
             $saida = fopen('php://output', 'w');
             // BOM UTF-8: Excel no Windows abre acentos corretamente sem isto ficarem ilegíveis.
             fwrite($saida, "\xEF\xBB\xBF");
-            fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Conforme'], ';');
+            fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Banhistas', 'Conforme'], ';');
 
             foreach ($registos as $registo) {
                 fputcsv($saida, [
@@ -459,6 +460,7 @@ class RelatorioPdf extends Page implements HasForms
                     $registo->temperatura_efetivo,
                     $registo->transparencia,
                     $registo->contador_valor,
+                    $registo->banhistas,
                     empty($registo->listarViolacoes()) ? 'Sim' : 'Não',
                 ], ';');
             }
@@ -526,6 +528,12 @@ class RelatorioPdf extends Page implements HasForms
                             $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
                         }
 
+                        // Banhistas é contagem por registo ("desde o último registo") — o
+                        // agregado diário correto é a soma, não a média.
+                        $banhistasDia = $grupo->whereNotNull('banhistas')->isNotEmpty()
+                            ? (int) $grupo->sum('banhistas')
+                            : null;
+
                         $lavagensFiltro = $grupo->sum('numero_lavagens_filtro');
                         $lavouFiltroGrp = $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty() || $lavagensFiltro > 0;
 
@@ -554,6 +562,7 @@ class RelatorioPdf extends Page implements HasForms
                         $mockRecord->renovacao_agua = $renovacaoAgua;
                         $mockRecord->caleira_feita = $caleiraFeita;
                         $mockRecord->numero_lavagens_filtro = $lavagensFiltro > 0 ? $lavagensFiltro : null;
+                        $mockRecord->banhistas = $banhistasDia;
                         $mockRecord->acao_corretiva = $acoes ?: null;
                         $mockRecord->observacoes = $observacoes ?: null;
                         $mockRecord->e_correcao = false;

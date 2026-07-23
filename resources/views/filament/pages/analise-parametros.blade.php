@@ -8,6 +8,7 @@
         <div class="grid grid-cols-1 gap-6 mt-6">
             @livewire(\App\Filament\Widgets\ScoreConformidadeWidget::class)
             @livewire(\App\Filament\Widgets\HeatmapConformidadeWidget::class)
+            @livewire(\App\Filament\Widgets\EstabilidadeMedicoesWidget::class)
             @livewire(\App\Filament\Widgets\ConsumoQuimicosWidget::class)
         </div>
     @endunless

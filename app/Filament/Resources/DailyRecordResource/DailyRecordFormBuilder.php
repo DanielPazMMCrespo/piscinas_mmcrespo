@@ -10,11 +10,13 @@ use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\Product;
+use App\Models\SensorReading;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
 use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use App\Services\DosageCalculatorService;
+use App\Services\SourceSelectionService;
 use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -28,6 +30,92 @@ use Illuminate\Support\HtmlString;
 
 class DailyRecordFormBuilder
 {
+    /**
+     * Divergência manual↔sonda a partir da qual o hint avisa para confirmar
+     * a medição (o HI97104 e a sonda calibrada não justificam desvios maiores).
+     */
+    private const DELTA_PH_AVISO = 0.2;
+
+    private const DELTA_TEMP_AVISO = 1.0;
+
+    /** @var array<int, ?SensorReading> */
+    private static array $sondaMemo = [];
+
+    /**
+     * Última leitura fresca da sonda Hanna (≤60 min, sem artefacto) para
+     * comparação em tempo real com a análise manual. Memoizada por pedido —
+     * os hints live() reavaliam várias vezes por render.
+     */
+    private static function sondaFresca(Pool $pool): ?SensorReading
+    {
+        if (! array_key_exists($pool->id, self::$sondaMemo)) {
+            $selecao = app(SourceSelectionService::class)->selectSource($pool);
+            self::$sondaMemo[$pool->id] = $selecao['source'] === 'hanna_online' ? $selecao['reading'] : null;
+        }
+
+        return self::$sondaMemo[$pool->id];
+    }
+
+    /**
+     * Cruza o valor manual com a leitura fresca da sonda: delta numérico para
+     * pH/temperatura, contexto ORP para cloro livre (a sonda não mede cloro).
+     * 'aviso' = true quando a divergência sugere erro de medição/amostragem.
+     *
+     * @return array{mensagem: string, aviso: bool}|null
+     */
+    private static function infoSonda(string $metrica, mixed $valor, Pool $pool): ?array
+    {
+        if (! filled($valor) || ! is_numeric($valor)) {
+            return null;
+        }
+
+        $sonda = self::sondaFresca($pool);
+        if ($sonda === null) {
+            return null;
+        }
+
+        $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
+        $campo = str_starts_with($metrica, 'ns_') ? substr($metrica, 3) : $metrica;
+
+        if ($campo === 'ph' && $sonda->ph !== null) {
+            $delta = (float) $valor - (float) $sonda->ph;
+            $aviso = abs($delta) >= self::DELTA_PH_AVISO;
+
+            return [
+                'mensagem' => 'Sonda: pH '.$fmt((float) $sonda->ph).' (Δ '.($delta >= 0 ? '+' : '−').$fmt(abs($delta)).')'
+                    .($aviso ? ' — diverge da sonda, confirme a medição' : ''),
+                'aviso' => $aviso,
+            ];
+        }
+
+        if ($campo === 'temperatura' && $sonda->temperatura_agua !== null) {
+            $delta = (float) $valor - (float) $sonda->temperatura_agua;
+            $aviso = abs($delta) >= self::DELTA_TEMP_AVISO;
+
+            return [
+                'mensagem' => 'Sonda: '.$fmt((float) $sonda->temperatura_agua, 1).' °C (Δ '.($delta >= 0 ? '+' : '−').$fmt(abs($delta), 1).')'
+                    .($aviso ? ' — diverge da sonda, confirme a medição' : ''),
+                'aviso' => $aviso,
+            ];
+        }
+
+        if ($campo === 'cloro_livre' && $sonda->orp !== null) {
+            $orp = (float) $sonda->orp;
+            $orpNaGama = $pool->orp_min !== null && $pool->orp_max !== null
+                && $orp >= (float) $pool->orp_min && $orp <= (float) $pool->orp_max;
+            $estado = DailyRecord::avaliarConformidade($metrica, $valor, $pool)['estado'];
+            $aviso = $orpNaGama && $estado === EstadoConformidade::VERMELHO;
+
+            return [
+                'mensagem' => 'Sonda: ORP '.$fmt($orp, 0).' mV'
+                    .($aviso ? ' — desinfeção na gama da piscina; confirme a medição antes de corrigir' : ''),
+                'aviso' => $aviso,
+            ];
+        }
+
+        return null;
+    }
+
     private static function isNS(): bool
     {
         return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
@@ -80,6 +168,7 @@ class DailyRecordFormBuilder
             'ns_cloro_livre' => null,
             'ns_cloro_total' => null,
             'ns_temperatura' => null,
+            'banhistas' => null,
             'adicoes' => [],
             'observacoes' => null,
         ];
@@ -188,13 +277,31 @@ class DailyRecordFormBuilder
                     }
                 }
 
+                $sonda = self::infoSonda($metrica, $val, $pool);
+                if ($sonda !== null) {
+                    $msg = ($msg ? $msg.' | ' : '').$sonda['mensagem'];
+                }
+
                 return $msg;
             })
-            ->hintColor(fn (Get $get): ?string => match (DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado']) {
-                EstadoConformidade::VERDE => 'success',
-                EstadoConformidade::AMARELO => 'warning',
-                EstadoConformidade::VERMELHO => 'danger',
-                EstadoConformidade::NEUTRO => null,
+            ->hintColor(function (Get $get) use ($campo, $metrica, $pool): ?string {
+                $val = $get($campo->getName());
+                $cor = match (DailyRecord::avaliarConformidade($metrica, $val, $pool)['estado']) {
+                    EstadoConformidade::VERDE => 'success',
+                    EstadoConformidade::AMARELO => 'warning',
+                    EstadoConformidade::VERMELHO => 'danger',
+                    EstadoConformidade::NEUTRO => null,
+                };
+
+                // Conforme mas a divergir da sonda: sinaliza possível erro de medição.
+                if ($cor === 'success' || $cor === null) {
+                    $sonda = self::infoSonda($metrica, $val, $pool);
+                    if ($sonda !== null && $sonda['aviso']) {
+                        return 'warning';
+                    }
+                }
+
+                return $cor;
             })
             ->extraAttributes(function (Get $get) use ($metrica, $pool, $campo) {
                 $classes = [];
@@ -449,6 +556,39 @@ class DailyRecordFormBuilder
                             ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
                                 ->schema([
+                                    Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
+                                        ->hiddenLabel()
+                                        ->columnSpanFull()
+                                        ->visible(fn (): bool => self::sondaFresca($pool) !== null)
+                                        ->content(function () use ($pool): ?HtmlString {
+                                            $sonda = self::sondaFresca($pool);
+                                            if ($sonda === null) {
+                                                return null;
+                                            }
+
+                                            $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
+                                            $partes = [];
+                                            if ($sonda->ph !== null) {
+                                                $partes[] = 'pH <strong>'.$fmt((float) $sonda->ph).'</strong>';
+                                            }
+                                            if ($sonda->orp !== null) {
+                                                $partes[] = 'ORP <strong>'.$fmt((float) $sonda->orp, 0).' mV</strong>';
+                                            }
+                                            if ($sonda->temperatura_agua !== null) {
+                                                $partes[] = '<strong>'.$fmt((float) $sonda->temperatura_agua, 1).' °C</strong>';
+                                            }
+                                            if ($partes === []) {
+                                                return null;
+                                            }
+
+                                            $idade = (int) $sonda->lida_em->diffInMinutes(now());
+
+                                            return new HtmlString(
+                                                '<div class="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-900 dark:text-sky-200 text-sm">'
+                                                .'📡 Sonda agora: '.implode(' · ', $partes)." — há {$idade} min. Compare a sua análise com estes valores."
+                                                .'</div>'
+                                            );
+                                        }),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->required(), 'ns_ph', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->required(), 'ns_cloro_livre', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
@@ -458,6 +598,14 @@ class DailyRecordFormBuilder
                                         ->step(0.01)
                                         ->required(), 'ns_cloro_total', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
+                                    Forms\Components\TextInput::make('banhistas')
+                                        ->id("banhistas_{$pool->id}")
+                                        ->label('Banhistas')
+                                        ->numeric()
+                                        ->integer()
+                                        ->minValue(0)
+                                        ->extraInputAttributes(['inputmode' => 'numeric'])
+                                        ->helperText('Nº de banhistas desde o último registo.'),
                                     Forms\Components\Textarea::make('observacoes')
                                         ->id("observacoes_zero_{$pool->id}")
                                         ->label('Motivo do valor 0')

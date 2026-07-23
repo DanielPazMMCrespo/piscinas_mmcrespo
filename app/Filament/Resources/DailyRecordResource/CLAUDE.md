@@ -11,12 +11,13 @@ Livro de registo sanitário legal (CN 14/DA) — página núcleo, uso diário. A
 ## Estrutura de dados
 - Wizard dinâmico por instalação, passos condicionais: `Bombas e contadores → Tanques (se instalação tem `tanques_verificaveis`) → Lavagem filtros → Enxaguamento → Posição normal → Nadadores-salvadores → Observações`. NS só vê `[stepNS]`. Modo rápido (`?quick=1&pool=X`) só `[stepNS, stepObservacoes]`.
 - Estado por piscina em array aninhado `data.pools.{pool_id}.*`, pré-semeado em `estadoInicialPiscinas()` (necessário porque `@entangle` falha se a chave não existir antes do campo dinâmico montar).
-- Campos por piscina: `bomba_ferrada`, `contador_valor`, `agua_modo` (5 estados), fotos várias, `tanque_ok`, `pressao_filtro`, timers de retrolavagem, `ns_ph`/`ns_cloro_livre`/`ns_cloro_total`/`ns_temperatura`, `adicoes` (repeater de químicos com `acao_corretiva`), `observacoes`.
+- Campos por piscina: `bomba_ferrada`, `contador_valor`, `agua_modo` (5 estados), fotos várias, `tanque_ok`, `pressao_filtro`, timers de retrolavagem, `ns_ph`/`ns_cloro_livre`/`ns_cloro_total`/`ns_temperatura`, `banhistas` (nº desde o último registo; agregado diário = soma, não média), `adicoes` (repeater de químicos com `acao_corretiva`), `observacoes`.
 - Relações: `piscina`, `utilizador`, `adicoes` (RecordAddition), `fotos` (RecordPhoto), `correcoes`/`registoOriginal` (self, append-only).
 
 ## Lógica de negócio não óbvia
 - **Criação assíncrona**: `CreateDailyRecord` → `DailyRecordService::createRecords()` cria um `DailyRecord` por piscina numa transação, e despacha `ProcessDailyRecordAfterCreate` (queue `daily-records`) por registo. O job faz, fora da transação HTTP: gravar fotos de análises, descontar stock da instalação (nunca fica negativo, notifica admins se insuficiente), detetar não-conformidade (`listarViolacoes()`, notifica admins), e gerir `TapAlert` (abre/fecha consoante `agua_modo`).
 - **Semáforo em tempo real**: `DailyRecord::avaliarConformidade()` é a fonte única para hint/cor/borda; sugere dose via `DosageCalculatorService`.
+- **Referência da sonda no passo NS**: se a sonda Hanna da piscina está online (`SourceSelectionService`, ≤60 min sem artefacto), o fieldset mostra "📡 Sonda agora: pH · ORP · °C" e os hints cruzam o valor manual com a sonda (`infoSonda()`): Δ pH ≥0.2 ou Δ temp ≥1.0 °C → aviso "diverge da sonda, confirme a medição" (hint amarelo mesmo se conforme); cloro livre fora dos limites com ORP dentro da gama da piscina (`Pool::orp_min/max`) → "confirme a medição antes de corrigir". Leitura da sonda memoizada por pedido (`$sondaMemo`).
 - **Valor zero suspeito**: um `0`/`0.00` num parâmetro NS obriga a preencher `observacoes` (pode ser sonda avariada, falta de reagente).
 - **Contador só avança**: valida contra a última leitura não corrigida da mesma piscina.
 - **Cloro total ≥ cloro livre**: validado em três sítios distintos (form, ação corrigir, ambas variantes NS/técnico) — duplicado, não extraído.

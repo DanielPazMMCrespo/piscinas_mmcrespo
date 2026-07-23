@@ -100,6 +100,7 @@ class DailyRecord extends Model
         'corrige_registo_id', 'razao_correcao',
         // Leituras do Nadador-Salvador
         'ns_foto', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura',
+        'banhistas',
         // Filtros
         'filtro_faz_retrolavagem', 'numero_lavagens_filtro',
         'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
@@ -129,6 +130,7 @@ class DailyRecord extends Model
         'tanque_ok' => 'boolean',
         'filtro_faz_retrolavagem' => 'boolean',
         'numero_lavagens_filtro' => 'integer',
+        'banhistas' => 'integer',
         'e_correcao' => 'boolean',
         'analises_fotos' => 'array',
     ];

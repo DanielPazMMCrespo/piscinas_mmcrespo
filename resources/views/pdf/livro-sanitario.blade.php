@@ -16,7 +16,7 @@
         'cloro_combinado', 'temperatura', 'transparencia',
         'contador_valor', 'bomba_tanque', 'renovacao_agua',
         'caleira_feita', 'pressao_filtro', 'lavagens_filtro',
-        'acao_corretiva', 'observacoes', 'conforme'
+        'banhistas', 'acao_corretiva', 'observacoes', 'conforme'
     ];
     $seccoesVisiveis = $seccoesVisiveis ?? [
         'mostrar_resumo', 'mostrar_controlador_grafico',
@@ -274,6 +274,7 @@
                             @if (in_array('caleira_feita', $colunasVisiveis)) <th>Caleira</th> @endif
                             @if (in_array('pressao_filtro', $colunasVisiveis)) <th>Pressão (bar)</th> @endif
                             @if (in_array('lavagens_filtro', $colunasVisiveis)) <th>Lavagens</th> @endif
+                            @if (in_array('banhistas', $colunasVisiveis)) <th>Banhistas</th> @endif
                             @if (in_array('acao_corretiva', $colunasVisiveis)) <th>Ação corretiva</th> @endif
                             @if (in_array('observacoes', $colunasVisiveis)) <th>Observações</th> @endif
                             @if (in_array('conforme', $colunasVisiveis)) <th>Conforme</th> @endif
@@ -379,6 +380,9 @@
                                             —
                                         @endif
                                     </td>
+                                @endif
+                                @if (in_array('banhistas', $colunasVisiveis))
+                                    <td>{{ $registo->banhistas ?? '—' }}</td>
                                 @endif
                                 @if (in_array('acao_corretiva', $colunasVisiveis))
                                     <td class="texto">{{ $acaoCorretiva !== null && $acaoCorretiva !== '' ? \Illuminate\Support\Str::limit((string) $acaoCorretiva, 70) : '—' }}</td>
