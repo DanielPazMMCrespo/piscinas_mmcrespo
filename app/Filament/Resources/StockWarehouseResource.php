@@ -96,6 +96,7 @@ class StockWarehouseResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->columns([
                 Tables\Columns\TextColumn::make('produto.name')
                     ->label('Produto')

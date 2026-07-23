@@ -33,6 +33,7 @@ class StockWarehouseLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('produto', 'utilizador')->orderByDesc('created_at'))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')

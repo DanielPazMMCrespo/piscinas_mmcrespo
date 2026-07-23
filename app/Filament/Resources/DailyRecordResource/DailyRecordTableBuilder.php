@@ -31,6 +31,7 @@ class DailyRecordTableBuilder
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->with(['piscina.instalacao', 'utilizador', 'adicoes.produto', 'fotos'])
                 ->withCount('correcoes')

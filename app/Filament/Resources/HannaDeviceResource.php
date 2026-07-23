@@ -69,6 +69,7 @@ class HannaDeviceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->recordAction('ver_detalhes')
             ->columns([
                 Tables\Columns\TextColumn::make('hanna_device_id')
