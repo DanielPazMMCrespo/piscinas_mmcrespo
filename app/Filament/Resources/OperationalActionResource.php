@@ -57,6 +57,11 @@ class OperationalActionResource extends Resource
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
     }
 
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole(UserRole::ADMIN);
+    }
+
     public static function canDelete($record): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
@@ -394,6 +399,7 @@ class OperationalActionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ]);
     }
@@ -404,6 +410,7 @@ class OperationalActionResource extends Resource
             'index' => Pages\ListOperationalActions::route('/'),
             'create' => Pages\CreateOperationalAction::route('/create'),
             'view' => Pages\ViewOperationalAction::route('/{record}'),
+            'edit' => Pages\EditOperationalAction::route('/{record}/edit'),
         ];
     }
 }

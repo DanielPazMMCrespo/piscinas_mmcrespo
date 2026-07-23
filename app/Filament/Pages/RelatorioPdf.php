@@ -636,9 +636,18 @@ class RelatorioPdf extends Page implements HasForms
                 $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
 
                 $diasComLeitura = $controlador->pluck('dia')->all();
-                $controlador = $controlador->map(function ($linha) use ($diasArtefacto) {
+                $controlador = $controlador->map(function ($linha) use ($diasArtefacto, $registos) {
                     $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
                     $linha->sem_leitura_valida = false;
+
+                    $diaCarbon = Carbon::parse($linha->dia);
+                    $cloroManualAvg = $registos
+                        ->filter(fn($r) => $r->registado_em->isSameDay($diaCarbon))
+                        ->map(fn($r) => $r->cloro_livre_efetivo)
+                        ->filter(fn($v) => $v !== null)
+                        ->average();
+
+                    $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;
 
                     return $linha;
                 });
@@ -673,6 +682,12 @@ class RelatorioPdf extends Page implements HasForms
                     $sintetico->orp = $leitura->orp;
                     $sintetico->temp_agua = $leitura->temperatura_agua;
                     $sintetico->leituras = 1;
+
+                    // Procura o registo manual mais próximo (± 15 min)
+                    $closestRegisto = $registos->first(function ($r) use ($lidaEm) {
+                        return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
+                    });
+                    $sintetico->manual_cloro_livre = $closestRegisto ? $closestRegisto->cloro_livre_efetivo : null;
 
                     // Verificar se cai em alguma janela
                     $motivo = null;
