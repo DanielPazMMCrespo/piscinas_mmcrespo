@@ -96,6 +96,7 @@ class StockInstallationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'produto']))
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')

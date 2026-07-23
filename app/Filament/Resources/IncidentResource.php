@@ -176,6 +176,7 @@ class IncidentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'piscina', 'utilizador']))
             ->columns([
                 Tables\Columns\Layout\Split::make([

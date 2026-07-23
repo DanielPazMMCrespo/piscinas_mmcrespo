@@ -38,6 +38,7 @@ class StockBaixoWidget extends BaseWidget
         });
 
         return $table
+            ->poll('30s')
             ->query(
                 StockInstallation::query()
                     ->whereIn('id', $ids)

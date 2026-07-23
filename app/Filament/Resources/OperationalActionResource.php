@@ -348,6 +348,7 @@ class OperationalActionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->defaultSort('registado_em', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('registado_em')
