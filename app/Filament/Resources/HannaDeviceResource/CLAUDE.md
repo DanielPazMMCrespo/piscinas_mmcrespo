@@ -26,7 +26,9 @@ Por dispositivo ativo: atualiza `raw_info`, lê última leitura (protegida pelo 
 ## Ações
 "Sincronizar agora", "Descobrir dispositivos" (com confirmação), "Detalhes" (modal), "Configurar" (link externo para hannacloud.com), Editar, Eliminar.
 
+## Coisas resolvidas
+- ✓ **Página `ViewHannaDevice` adicionada**: consistente com Pool/Installation/User; substituiu modal "Detalhes" por ViewAction navegável.
+
 ## Coisas a rever
-- Sem página `ViewHannaDevice` — inconsistente com Pool/Installation/User, que têm páginas `View*` dedicadas.
 - `--discover` reativa dispositivos desativados manualmente — pode reintroduzir sync indesejado num sensor que um admin desligou de propósito.
 - Sem tratamento de dispositivos removidos da conta Hanna Cloud (nunca ficam `active=false` sozinhos).

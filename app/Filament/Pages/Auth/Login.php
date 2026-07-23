@@ -67,7 +67,7 @@ class Login extends BaseLogin
                     RateLimiter::clear($throttleKey);
                 }
                 $this->clearRateLimiter();
-                Auth::login($user, $data['remember'] ?? true);
+                Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
             }
@@ -78,7 +78,7 @@ class Login extends BaseLogin
                     RateLimiter::clear($throttleKey);
                 }
                 $this->clearRateLimiter();
-                Auth::login($user, $data['remember'] ?? true);
+                Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
             }
@@ -110,6 +110,6 @@ class Login extends BaseLogin
     protected function getRememberFormComponent(): \Filament\Forms\Components\Component
     {
         return parent::getRememberFormComponent()
-            ->default(true);
+            ->default(false);
     }
 }

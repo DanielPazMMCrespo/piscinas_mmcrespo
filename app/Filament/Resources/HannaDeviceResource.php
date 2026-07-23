@@ -145,15 +145,7 @@ class HannaDeviceResource extends Resource
                     ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.'),
             ])
             ->actions([
-                Tables\Actions\Action::make('ver_detalhes')
-                    ->label('Detalhes')
-                    ->icon('heroicon-o-eye')
-                    ->color('gray')
-                    ->modalHeading(fn (HannaDevice $record): string => $record->name)
-                    ->modalContent(fn (HannaDevice $record): View => view('filament.hanna-device-modal', ['device' => $record]))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Fechar')
-                    ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge),
+                Tables\Actions\ViewAction::make(),
 
                 Tables\Actions\Action::make('hanna_settings')
                     ->label('Configurar (site Hanna)')
@@ -172,6 +164,7 @@ class HannaDeviceResource extends Resource
         return [
             'index' => Pages\ListHannaDevices::route('/'),
             'create' => Pages\CreateHannaDevice::route('/create'),
+            'view' => Pages\ViewHannaDevice::route('/{record}'),
             'edit' => Pages\EditHannaDevice::route('/{record}/edit'),
         ];
     }
