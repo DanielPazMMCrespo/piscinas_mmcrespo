@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Models;
 
+use App\Constants\UserRole;
 use App\Models\DosingContainer;
 use App\Models\Installation;
 use App\Models\Pool;
+use App\Models\User;
+use App\Notifications\DosingContainerLowAlert;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class DosingContainerTest extends TestCase
@@ -81,6 +87,36 @@ class DosingContainerTest extends TestCase
 
         $this->assertSame(100.0, $descontado);
         $this->assertSame(0.0, (float) $c->fresh()->restante_ml);
+    }
+
+    public function test_notificar_se_baixo_alerts_once_per_episode(): void
+    {
+        Notification::fake();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        Role::firstOrCreate(['name' => UserRole::ADMIN, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => UserRole::TECNICO, 'guard_name' => 'web']);
+        User::factory()->create()->assignRole(UserRole::ADMIN);
+
+        $c = $this->container(['restante_ml' => 1000]); // 5% < 20% -> baixo
+
+        $c->notificarSeBaixo();
+        Notification::assertSentTimes(DosingContainerLowAlert::class, 1);
+        $this->assertNotNull($c->fresh()->alerta_notificado_em);
+
+        // Mesmo episódio: não volta a notificar.
+        $c->notificarSeBaixo();
+        Notification::assertSentTimes(DosingContainerLowAlert::class, 1);
+    }
+
+    public function test_notificar_se_baixo_silent_when_level_ok(): void
+    {
+        Notification::fake();
+
+        $c = $this->container(['restante_ml' => 20000]); // 100%
+
+        $c->notificarSeBaixo();
+        Notification::assertNothingSent();
+        $this->assertNull($c->fresh()->alerta_notificado_em);
     }
 
     public function test_reabastecer_resets_level_and_alert(): void

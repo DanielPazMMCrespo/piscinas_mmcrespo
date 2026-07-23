@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Constants\UserRole;
+use App\Notifications\DosingContainerLowAlert;
 use App\Services\HannaCloudService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Bidão de reagente (cloro ou pH-) do controlador de uma piscina.
@@ -96,6 +99,23 @@ class DosingContainer extends Model
         $pct = $this->percentagem();
 
         return $pct !== null && $pct < $this->alerta_percent;
+    }
+
+    /**
+     * Notifica Admin/Técnico uma vez por episódio de nível baixo. Fonte única
+     * chamada tanto pelo sync do controlador como pelo ajuste manual, para a
+     * regra de "está baixo" não divergir entre os dois caminhos. O episódio
+     * reinicia quando `reabastecer()` limpa `alerta_notificado_em`.
+     */
+    public function notificarSeBaixo(): void
+    {
+        if (! $this->estaBaixo() || $this->alerta_notificado_em !== null) {
+            return;
+        }
+
+        $this->update(['alerta_notificado_em' => now()]);
+        $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+        Notification::send($destinatarios, new DosingContainerLowAlert($this));
     }
 
     /**

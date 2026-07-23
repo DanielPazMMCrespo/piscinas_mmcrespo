@@ -13,6 +13,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Gestão dos bidões de reagente (cloro / pH-) de cada piscina. O nível desce
@@ -171,20 +172,27 @@ class DosingContainerResource extends Resource
                     ->action(function (DosingContainer $record, array $data): void {
                         $novo = round((float) $data['restante_l'] * 1000, 2);
 
-                        // Lock para evitar race condition se dois utilizadores ajustarem ao mesmo tempo
-                        $fresco = DosingContainer::lockForUpdate()->findOrFail($record->id);
-                        $delta = $novo - (float) $fresco->restante_ml;
+                        $fresco = DB::transaction(function () use ($record, $novo, $data): DosingContainer {
+                            // Lock só é efetivo dentro da transação; evita race se dois ajustarem em simultâneo.
+                            $fresco = DosingContainer::lockForUpdate()->findOrFail($record->id);
+                            $delta = $novo - (float) $fresco->restante_ml;
 
-                        $fresco->update(['restante_ml' => $novo]);
-                        $fresco->logs()->create([
-                            'tipo_movimento' => 'ajuste',
-                            'quantidade_ml' => $delta,
-                            'restante_apos_ml' => $novo,
-                            'origem' => 'manual',
-                            'user_id' => auth()->id(),
-                            'nota' => $data['nota'] ?? null,
-                            'registado_em' => now(),
-                        ]);
+                            $fresco->update(['restante_ml' => $novo]);
+                            $fresco->logs()->create([
+                                'tipo_movimento' => 'ajuste',
+                                'quantidade_ml' => $delta,
+                                'restante_apos_ml' => $novo,
+                                'origem' => 'manual',
+                                'user_id' => auth()->id(),
+                                'nota' => $data['nota'] ?? null,
+                                'registado_em' => now(),
+                            ]);
+
+                            return $fresco;
+                        });
+
+                        // Um ajuste manual para nível baixo passa a alertar como o sync do controlador.
+                        $fresco->notificarSeBaixo();
 
                         Notification::make()
                             ->success()
