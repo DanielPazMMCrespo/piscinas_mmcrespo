@@ -9,6 +9,7 @@ use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
@@ -23,10 +24,21 @@ class CustomBroadcastCommandTest extends TestCase
     {
         parent::setUp();
 
+        // Hora fixa a meio do dia para os testes de agendamento diário serem
+        // determinísticos (evita wrap à meia-noite na aritmética de horas).
+        Carbon::setTestNow(Carbon::parse('2026-07-23 10:00:00'));
+
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         foreach (UserRole::all() as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     private function correr(): void
@@ -144,12 +156,35 @@ class CustomBroadcastCommandTest extends TestCase
         CustomBroadcast::create([
             'titulo' => 'Bom dia', 'corpo' => 'Lembrete diário', 'cargos' => [UserRole::ADMIN],
             'tipo_agendamento' => CustomBroadcast::TIPO_DIARIO,
-            'hora_diaria' => now()->addHours(3)->format('H:i'),
+            'hora_diaria' => now()->addHours(3)->format('H:i'), // 13:00 > 10:00 (frozen)
             'ativo' => true,
         ]);
 
         $this->correr();
 
         Notification::assertNothingSent();
+    }
+
+    public function test_diario_dispara_apos_hora_agendada_se_minuto_exato_falhou(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        // Hora agendada já passou hoje (o minuto exato foi "perdido" pelo scheduler),
+        // mas ainda não foi enviado. A janela de tolerância deve recuperar o envio.
+        CustomBroadcast::create([
+            'titulo' => 'Bom dia', 'corpo' => 'Lembrete diário', 'cargos' => [UserRole::ADMIN],
+            'tipo_agendamento' => CustomBroadcast::TIPO_DIARIO,
+            'hora_diaria' => now()->subMinutes(10)->format('H:i'), // 09:50 <= 10:00
+            'ativo' => true,
+        ]);
+
+        $this->correr();
+        Notification::assertSentToTimes($admin, CustomBroadcastNotification::class, 1);
+
+        // Não duplica no mesmo dia.
+        $this->correr();
+        Notification::assertSentToTimes($admin, CustomBroadcastNotification::class, 1);
     }
 }

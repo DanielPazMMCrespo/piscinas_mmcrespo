@@ -59,7 +59,11 @@ class FireDueCustomBroadcastsCommand extends Command
                     return false;
                 }
 
-                return Carbon::parse($broadcast->hora_diaria)->format('H:i') === $agora->format('H:i');
+                // Janela de tolerância: dispara em qualquer corrida do dia a partir
+                // da hora agendada (não só no minuto exato). O dedup por
+                // ultima_data_enviada garante um único envio; assim uma falha
+                // pontual do scheduler nesse minuto já não perde o envio do dia.
+                return Carbon::parse($broadcast->hora_diaria)->format('H:i') <= $agora->format('H:i');
             })
             ->each(function (CustomBroadcast $broadcast) use ($hoje): void {
                 $this->enviar($broadcast, "custom-{$broadcast->id}-{$hoje}");

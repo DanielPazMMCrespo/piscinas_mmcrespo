@@ -16,6 +16,14 @@ final class UserRole
 
     public const INATIVO = 'inativo';
 
+    public const LABELS = [
+        self::ADMIN => 'Administrador',
+        self::GESTOR => 'Gestor',
+        self::TECNICO => 'Técnico',
+        self::NADADOR_SALVADOR => 'Nadador-Salvador',
+        self::INATIVO => 'Inativo',
+    ];
+
     private function __construct()
     {
         // This class cannot be instantiated

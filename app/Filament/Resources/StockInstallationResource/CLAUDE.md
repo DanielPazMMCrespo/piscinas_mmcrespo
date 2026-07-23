@@ -19,6 +19,8 @@ Stock por instalação/produto, com `limite_minimo` configurável para alertas d
 ## Coisas resolvidas
 - ✓ **Logging automático em edições**: `EditStockInstallation` agora tem `handleRecordUpdate` + `afterSave` (igual a `EditStockWarehouse`), gerando logs automáticos de entrada/saída na edição.
 
+## Coisas resolvidas
+- ✓ **Ação "Entrada Direta"**: `StockService::addInstallationStock()` (transação+lock+log `entrada`, guard `quantity>0`) — dá entrada de stock recebido diretamente na instalação, fora do fluxo armazém→instalação. Substitui a edição manual não auditada do campo `quantity`. (Nota: `stock_installation_logs.tipo_movimento` é enum `['entrada','consumo']` sem coluna de nota/fornecedor, por isso a entrada direta e a transferência partilham o tipo `entrada`.)
+
 ## Coisas a rever
-- **Não existe ação "Reabastecer"/"Entrada" direta aqui** — a única forma de aumentar `quantity` é via transferência no armazém, ou edição manual do campo.
-- Autorização da ação de consumo usa `can('update', $record)` genérico, diferente do padrão de policies dedicadas (`updateStock`/`transferStock`) usado no StockWarehouse.
+- Autorização das ações de entrada/consumo usa `can('update', $record)` genérico, diferente do padrão de policies dedicadas (`updateStock`/`transferStock`) do StockWarehouse. Funcional; deixado por não valer o risco de mexer em autorização só por consistência de estilo.

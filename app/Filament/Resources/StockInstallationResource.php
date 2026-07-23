@@ -120,6 +120,40 @@ class StockInstallationResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('entrada_stock')
+                    ->label('Entrada Direta')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->visible(fn ($record) => auth()->user()->can('update', $record))
+                    ->form([
+                        Forms\Components\TextInput::make('quantidade')
+                            ->label('Quantidade recebida')
+                            ->helperText('Entrega direta na instalação (fora do fluxo do armazém central).')
+                            ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
+                            ->required(),
+                    ])
+                    ->action(function (StockInstallation $record, array $data): void {
+                        try {
+                            app(StockService::class)->addInstallationStock(
+                                $record->id,
+                                (float) $data['quantidade'],
+                                auth()->id()
+                            );
+
+                            Notification::make()
+                                ->success()
+                                ->title('Entrada registada')
+                                ->send();
+                        } catch (DomainException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Não foi possível registar a entrada')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
                 Tables\Actions\Action::make('consumo_stock')
                     ->label('Consumo Manual')
                     ->icon('heroicon-o-beaker')
