@@ -30,8 +30,8 @@ Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do d
 
 ## Ações
 - Criar (com modal de confirmação), Ver, Editar, Eliminar (bulk, admin only).
-- **Editar re-sincroniza os efeitos colaterais**: ao guardar, o `OperationalActionObserver::updated()` re-corre a gestão de torneira/reabastecimento de bidão com os novos `dados`, para o `TapAlert`/`DosingContainer` não ficarem dessincronizados do registo. Seguro porque `reabastecer()` faz SET do nível (não soma) e `gerirTorneira()` reconcilia contra o alerta aberto atual.
-  - Limitação conhecida: a reconciliação de torneira assume que a ação editada é a mais recente; editar uma ação antiga pode mexer num alerta aberto por uma ação posterior. Mudar `bidao_tipo` na edição não reverte o nível do tipo anterior.
+- **Editar re-sincroniza os efeitos colaterais, sob dois guards** (`OperationalActionObserver::updated()`): só re-corre torneira/bidão se (1) `dados` mudou — editar só `observacoes`/foto não replica efeitos — **e** (2) a ação é a mais recente do seu tipo para a piscina (`ehAcaoMaisRecente()`) — editar uma ação já substituída não reescreve o estado atual. Sem estes guards, editar a nota de uma ação de torneira antiga reabria um `TapAlert` já resolvido, e editar a nota de um reabastecimento repunha o nível + criava log duplicado + chamava a API Hanna (apanhado em code-review).
+  - Limitação remanescente: mudar `bidao_tipo` ao editar não reverte o nível do tipo anterior (raro; deixado por decidir).
 - Atalhos com querystring (`?pool=X&tipo=Y`) usados a partir de `PainelPiscinasWidget` e `EsquemaPiscina`.
 
 ## Coisas resolvidas

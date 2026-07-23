@@ -24,21 +24,31 @@ class OperationalActionObserver
 
     public function created(OperationalAction $acao): void
     {
-        $this->sincronizarEfeitos($acao);
+        $this->aplicarEfeitos($acao);
+        $this->invalidarCaches();
     }
 
     /**
-     * Editar uma ação altera o estado que ela representa, por isso os efeitos
-     * têm de ser re-sincronizados. `reabastecer()` faz SET do nível (não soma) e
-     * `gerirTorneira()` reconcilia contra o alerta aberto atual — ambos são
-     * seguros de re-correr com os novos `dados`.
+     * Editar uma ação re-sincroniza os efeitos colaterais, mas só quando faz
+     * sentido:
+     * - `dados` tem de ter mudado — editar só observacoes/foto não pode reabrir
+     *   um TapAlert resolvido nem re-executar o reabastecimento do bidão;
+     * - a ação tem de ser a mais recente do seu tipo para a piscina — editar uma
+     *   ação já substituída por outra posterior não deve reescrever o estado
+     *   atual (que reflete a ação mais recente, não esta).
+     * `reabastecer()` faz SET do nível (não soma) e `gerirTorneira()` reconcilia
+     * contra o alerta aberto — seguros de re-correr sob estas condições.
      */
     public function updated(OperationalAction $acao): void
     {
-        $this->sincronizarEfeitos($acao);
+        if ($acao->wasChanged('dados') && $this->ehAcaoMaisRecente($acao)) {
+            $this->aplicarEfeitos($acao);
+        }
+
+        $this->invalidarCaches();
     }
 
-    private function sincronizarEfeitos(OperationalAction $acao): void
+    private function aplicarEfeitos(OperationalAction $acao): void
     {
         if ($acao->tipo === OperationalAction::TIPO_TORNEIRA) {
             $this->comEfeitoResiliente('alerta de torneira', fn () => $this->gerirTorneira($acao));
@@ -47,13 +57,36 @@ class OperationalActionObserver
         if ($acao->tipo === OperationalAction::TIPO_REABASTECIMENTO_BIDAO) {
             $this->comEfeitoResiliente('reabastecimento do bidão', fn () => $this->reabastecerBidao($acao));
         }
+    }
 
+    private function invalidarCaches(): void
+    {
         $this->cacheService->invalidatePoolData();
         $this->cacheService->invalidateAllAlerts();
 
         if (auth()->check()) {
             Cache::forget('alertas_'.auth()->id());
         }
+    }
+
+    /**
+     * Verdadeiro se não existe outra ação do mesmo tipo/piscina mais recente
+     * (por `registado_em`, com o `id` a desempatar).
+     */
+    private function ehAcaoMaisRecente(OperationalAction $acao): bool
+    {
+        return ! OperationalAction::query()
+            ->where('pool_id', $acao->pool_id)
+            ->where('tipo', $acao->tipo)
+            ->where('id', '!=', $acao->id)
+            ->where(function ($q) use ($acao) {
+                $q->where('registado_em', '>', $acao->registado_em)
+                    ->orWhere(function ($q2) use ($acao) {
+                        $q2->where('registado_em', $acao->registado_em)
+                            ->where('id', '>', $acao->id);
+                    });
+            })
+            ->exists();
     }
 
     /**

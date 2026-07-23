@@ -214,6 +214,102 @@ class OperationalActionResourceTest extends TestCase
         ]);
     }
 
+    public function test_editing_only_note_of_bidao_does_not_replay_refill(): void
+    {
+        $this->actingAs($this->admin);
+
+        $container = DosingContainer::create([
+            'pool_id' => $this->pool->id,
+            'tipo' => DosingContainer::TIPO_CLORO,
+            'capacidade_ml' => 25000,
+            'restante_ml' => 0,
+        ]);
+
+        $acao = OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+            'registado_em' => now(),
+            'dados' => ['bidao_tipo' => DosingContainer::TIPO_CLORO, 'quantidade_l' => 20],
+            'observacoes' => 'nota original',
+        ]);
+
+        // created() encheu para 20000; simular consumo posterior pela sonda.
+        $container->update(['restante_ml' => 8000]);
+        $logsAntes = $container->logs()->where('tipo_movimento', 'reabastecimento')->count();
+
+        Livewire::test(OperationalActionResource\Pages\EditOperationalAction::class, ['record' => $acao->getKey()])
+            ->fillForm(['observacoes' => 'nota corrigida'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        // dados inalterado -> não repõe o nível nem cria log duplicado.
+        $this->assertEquals(8000, $container->fresh()->restante_ml);
+        $this->assertSame($logsAntes, $container->logs()->where('tipo_movimento', 'reabastecimento')->count());
+    }
+
+    public function test_editing_note_of_torneira_does_not_reopen_resolved_alert(): void
+    {
+        $this->actingAs($this->admin);
+
+        $antiga = OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_TORNEIRA,
+            'registado_em' => now()->subHours(2),
+            'dados' => ['agua_modo' => 'on_com_agua'],
+            'observacoes' => 'abertura',
+        ]);
+        OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_TORNEIRA,
+            'registado_em' => now()->subHour(),
+            'dados' => ['agua_modo' => 'off'],
+        ]);
+
+        $this->assertDatabaseMissing('tap_alerts', ['pool_id' => $this->pool->id, 'resolved_at' => null]);
+
+        Livewire::test(OperationalActionResource\Pages\EditOperationalAction::class, ['record' => $antiga->getKey()])
+            ->fillForm(['observacoes' => 'abertura (corrigida)'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        // Editar só a nota (dados inalterado) não reabre o alerta já resolvido.
+        $this->assertDatabaseMissing('tap_alerts', ['pool_id' => $this->pool->id, 'resolved_at' => null]);
+    }
+
+    public function test_editing_superseded_torneira_action_does_not_reopen_alert(): void
+    {
+        $this->actingAs($this->admin);
+
+        $antiga = OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_TORNEIRA,
+            'registado_em' => now()->subHours(2),
+            'dados' => ['agua_modo' => 'off'],
+        ]);
+        OperationalAction::create([
+            'user_id' => $this->admin->id,
+            'pool_id' => $this->pool->id,
+            'tipo' => OperationalAction::TIPO_TORNEIRA,
+            'registado_em' => now()->subHour(),
+            'dados' => ['agua_modo' => 'off'],
+        ]);
+
+        $this->assertDatabaseMissing('tap_alerts', ['pool_id' => $this->pool->id, 'resolved_at' => null]);
+
+        // Mudar os dados de uma ação já substituída (não a mais recente) não deve
+        // reescrever o estado atual, mesmo mudando para o modo que abriria alerta.
+        Livewire::test(OperationalActionResource\Pages\EditOperationalAction::class, ['record' => $antiga->getKey()])
+            ->fillForm(['dados.agua_modo' => 'on_com_agua'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseMissing('tap_alerts', ['pool_id' => $this->pool->id, 'resolved_at' => null]);
+    }
+
     public function test_analise_pontual_requires_at_least_one_measured_value(): void
     {
         $this->actingAs($this->admin);
