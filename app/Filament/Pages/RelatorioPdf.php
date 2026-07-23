@@ -608,17 +608,31 @@ class RelatorioPdf extends Page implements HasForms
                 }
 
                 // Regra automática de lavagem de filtro para o controlador
-                // Aplicar a lógica de verificação a todas as leituras do período
-                $todasAsLeituras = SensorReading::query()
+                // Aplicar a lógica de verificação usando base de dados para evitar carregar dezenas de milhares de modelos na memória
+                $phMin = WaterQualityThresholds::FILTER_WASH_PH_MIN;
+                $phMax = WaterQualityThresholds::FILTER_WASH_PH_MAX;
+                $orpMin = WaterQualityThresholds::FILTER_WASH_ORP_MIN;
+                $orpMax = WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+
+                $diasLavagem = SensorReading::query()
                     ->where('pool_id', $piscina->id)
                     ->whereBetween('lida_em', [$inicio, $fim])
-                    ->get();
+                    ->whereNotNull('ph')
+                    ->whereNotNull('orp')
+                    ->where(function ($q) use ($phMin, $phMax) {
+                        $q->where('ph', '<', $phMin)
+                          ->orWhere('ph', '>', $phMax);
+                    })
+                    ->where(function ($q) use ($orpMin, $orpMax) {
+                        $q->where('orp', '<', $orpMin)
+                          ->orWhere('orp', '>', $orpMax);
+                    })
+                    ->selectRaw('DATE(lida_em) as dia')
+                    ->groupByRaw('DATE(lida_em)')
+                    ->pluck('dia');
 
-                foreach ($todasAsLeituras as $leitura) {
-                    if (self::cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
-                        $diaKey = Carbon::parse($leitura->lida_em)->format('Y-m-d');
-                        $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
-                    }
+                foreach ($diasLavagem as $diaKey) {
+                    $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
                 }
 
                 // 2. Para motivos de "Bomba parada", justificamos sempre o dia (causa falta de leituras)
