@@ -14,15 +14,15 @@ Gestão dos bidões físicos de reagente (cloro/pH-) ligados a cada piscina. O n
 - `percentagem()`/`nivel()`: `'critico'` se `% < alerta_percent`, `'aviso'` se `% < alerta_percent*2`, senão `'ok'`.
 - `consumir()`: transação+lock, nunca vai a negativo, cria log `consumo` com quantidade negativa.
 - `reabastecer()`: define o nível **absoluto** (não soma), limpa `alerta_notificado_em` (permite nova notificação no próximo episódio de nível baixo), cria log `reabastecimento`. Depois, **fora da transação** (deliberado, para não bloquear a BD), chama `recalcularConsumoAposReabastecimento()` — refaz retroativamente o consumo que ocorreu entre o reabastecimento e a última sincronização Hanna, subtraindo do nível recém-reposto; falha silenciosamente (log warning) se faltarem credenciais Hanna.
-- Notificação de nível baixo (`DosingContainerLowAlert`) só é disparada por `HannaCloudSync::descontarBidao()` quando `estaBaixo() && alerta_notificado_em === null` (dedupe por episódio, até haver reabastecimento).
+- Notificação de nível baixo (`DosingContainerLowAlert`): fonte única `DosingContainer::notificarSeBaixo()` — dispara quando `estaBaixo() && alerta_notificado_em === null` (dedupe por episódio, até haver reabastecimento). Chamada tanto pelo `HannaCloudSync::descontarBidao()` como pela ação "Ajustar nível".
 
 ## Ações
 - "Reabastecer" (pede nível em L após reabastecer, chama `$record->reabastecer()`), "Ajustar nível" (pede nível real medido, calcula delta e faz update+log **diretamente na página**, não no Model), Editar (config, sem log).
 
 ## Coisas resolvidas
-- ✓ **Race condition em "Ajustar nível" corrigida**: ação agora usa `lockForUpdate()` antes de ler e atualizar `restante_ml`.
+- ✓ **Race condition em "Ajustar nível" corrigida a sério**: o `lockForUpdate()` estava fora de transação (lock libertado de imediato, inútil). Agora o read+update+log correm dentro de `DB::transaction()`.
+- ✓ **Notificação em ajuste manual**: descer o nível abaixo do limiar via "Ajustar" passa a alertar como o sync do controlador (`notificarSeBaixo()`) — já não depende da sonda estar ligada.
 
 ## Coisas a rever
-- Editar `capacidade_ml`/`alerta_percent` não fica auditado (só reabastecer/ajustar/consumir geram log).
-- Se o nível descer só por "Ajustar" manual para um valor baixo, **não é disparada notificação** — só o próximo ciclo do `HannaCloudSync` dispara, e se a sonda estiver desligada isso nunca acontece.
-- Não existe `DosingContainerService` equivalente ao `StockService` — quebra a simetria do padrão adotado para Warehouse/Installation.
+- Editar `capacidade_ml`/`alerta_percent` não fica auditado (só reabastecer/ajustar/consumir geram log). Aceite: é escape-hatch de admin, uso raro.
+- **`DosingContainerService` recusado deliberadamente** (não é dívida): a lógica transacional já está encapsulada nos métodos do Model (`consumir`/`reabastecer`/`notificarSeBaixo`), que é onde pertence. Um serviço só "por simetria" com o `StockService` seria abstração prematura sem ganho.

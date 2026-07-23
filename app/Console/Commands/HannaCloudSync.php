@@ -11,7 +11,6 @@ use App\Models\DosingContainer;
 use App\Models\HannaDevice;
 use App\Models\SensorReading;
 use App\Models\User;
-use App\Notifications\DosingContainerLowAlert;
 use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCircuitBreaker;
@@ -256,12 +255,7 @@ class HannaCloudSync extends Command
             $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
         }
 
-        // Notifica uma vez por episódio de nível baixo.
-        if ($container->estaBaixo() && $container->alerta_notificado_em === null) {
-            $container->update(['alerta_notificado_em' => now()]);
-            $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-            Notification::send($destinatarios, new DosingContainerLowAlert($container));
-        }
+        $container->notificarSeBaixo();
     }
 
     /**
