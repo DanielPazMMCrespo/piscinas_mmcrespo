@@ -25,4 +25,4 @@ Gera o Livro de Registo Sanitário oficial em PDF (`barryvdh/laravel-dompdf`) + 
 Export "flat" sem agregação diária, sem o limite de 7 dias (mais leve, sem gráficos). Escreve BOM UTF-8 explícito para o Excel Windows não corromper acentos.
 
 ## Coisas a rever
-- Dois conjuntos de limiares hardcoded diferentes para pH/ORP dentro do mesmo ficheiro (deteção de anomalia vs. heurística de "lavagem de filtro") — a regra de "lavagem de filtro" está ainda duplicada em dois sítios do próprio ficheiro. Candidato a extrair para constantes nomeadas ou um método único, para não divergirem com o tempo.
+- ~~Limiares pH/ORP hardcoded e regra de "lavagem de filtro" duplicada~~ — **resolvido**: todos os limiares vivem em `WaterQualityThresholds` (`ANOMALY_*` para deteção de anomalia, `FILTER_WASH_*` para a heurística de lavagem — dois conjuntos legítimos, não duplicação). A regra de lavagem é agora o método único `cumpresRegraLavagemFiltro($ph, $orp)`. O `where` de ORP no query builder é só um pré-filtro SQL grosseiro que usa as mesmas constantes, sem risco de divergência.
