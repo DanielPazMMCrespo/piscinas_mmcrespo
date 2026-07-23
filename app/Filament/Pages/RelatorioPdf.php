@@ -615,7 +615,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->get();
 
                 foreach ($todasAsLeituras as $leitura) {
-                    if ($this->cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
+                    if (self::cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
                         $diaKey = Carbon::parse($leitura->lida_em)->format('Y-m-d');
                         $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
                     }
@@ -699,7 +699,7 @@ class RelatorioPdf extends Page implements HasForms
                         }
                     }
 
-                    if ($motivo === null && $this->cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
+                    if ($motivo === null && self::cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
                         $motivo = 'Lavagem de filtro';
                     }
 
@@ -719,7 +719,7 @@ class RelatorioPdf extends Page implements HasForms
         })->all();
     }
 
-    private function cumpresRegraLavagemFiltro(?float $ph, ?float $orp): bool
+    private static function cumpresRegraLavagemFiltro(?float $ph, ?float $orp): bool
     {
         if ($ph === null || $orp === null) {
             return false;
