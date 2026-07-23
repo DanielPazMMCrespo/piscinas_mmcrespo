@@ -12,6 +12,11 @@ use Spatie\Activitylog\Models\Activity;
 
 class CustomActivitylogResource extends ActivitylogResource
 {
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
