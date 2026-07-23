@@ -18,15 +18,7 @@ class OperacaoHub extends Page implements HasActions
 {
     use InteractsWithActions;
 
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-
-    protected static ?string $navigationGroup = 'Operação';
-
-    protected static ?string $navigationLabel = 'Registo Diário';
-
     protected static ?string $title = 'Registo Diário';
-
-    protected static ?int $navigationSort = 1;
 
     protected static string $view = 'filament.pages.operacao-hub';
 

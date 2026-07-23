@@ -61,12 +61,6 @@ class QuadroOperacionalWidget extends Widget
         );
         $ativos = $resultado['alertas'];
 
-        // Poda: estados com mais de 7 dias já não interessam (corre no máximo 1x por hora).
-        \Illuminate\Support\Facades\Cache::remember('alert_state_pruning', 3600, function () {
-            AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
-            return true;
-        });
-
         $estados = AlertState::query()
             ->where('status', '!=', 'resolvido')
             ->where('status', '!=', 'resolvido_auto')
@@ -83,9 +77,8 @@ class QuadroOperacionalWidget extends Widget
         $indiceGrupoSemRegisto = null;
 
         // Alertas ativos: qualquer status guardado que não seja resolvido/resolvido_auto
-        // conta como ativo — inclui o legado 'em_curso' de antes desta simplificação.
-        // Alertas "sem_registo" são agrupados num único cartão quando há 2+ (evita
-        // encher o quadro com uma linha por piscina em falta).
+        // conta como ativo. Alertas "sem_registo" são agrupados num único cartão quando
+        // há 2+ (evita encher o quadro com uma linha por piscina em falta).
         foreach ($ativos as $key => $alerta) {
             $estado = $estados->get($key);
             $resolvido = $estado && in_array($estado->status, ['resolvido', 'resolvido_auto'], true);

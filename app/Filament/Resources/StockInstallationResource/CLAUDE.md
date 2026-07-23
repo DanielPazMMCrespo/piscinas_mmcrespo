@@ -16,6 +16,9 @@ Stock por instalação/produto, com `limite_minimo` configurável para alertas d
 ## Ações
 - Editar (sem restrição extra além da policy padrão `update`), "Consumo Manual" (`StockService::consumeInstallationStock`, captura `DomainException`).
 
+## Coisas resolvidas
+- ✓ **Logging automático em edições**: `EditStockInstallation` agora tem `handleRecordUpdate` + `afterSave` (igual a `EditStockWarehouse`), gerando logs automáticos de entrada/saída na edição.
+
 ## Coisas a rever
-- **Não existe ação "Reabastecer"/"Entrada" direta aqui** — a única forma de aumentar `quantity` é via transferência no armazém, ou edição manual do campo. E, ao contrário do StockWarehouse, **editar a quantidade diretamente aqui não gera log nenhum** (`EditStockInstallation` não tem `afterSave` equivalente) — inconsistência clara e potencial buraco de auditoria.
+- **Não existe ação "Reabastecer"/"Entrada" direta aqui** — a única forma de aumentar `quantity` é via transferência no armazém, ou edição manual do campo.
 - Autorização da ação de consumo usa `can('update', $record)` genérico, diferente do padrão de policies dedicadas (`updateStock`/`transferStock`) usado no StockWarehouse.

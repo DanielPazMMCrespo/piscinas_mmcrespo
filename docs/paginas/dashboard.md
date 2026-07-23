@@ -33,6 +33,6 @@ Kanban de alertas (Para tratar / Em tratamento / Resolvido hoje). Escondido do N
 ### `StockBaixoWidget` (sort -10)
 Tabela de produtos com `quantity <= limite_minimo`, filtrada por instalações do NS. Cache 5min só dos IDs (query final volta à BD). Sem `canView()` — visível a todos. Sem ações, só leitura.
 
-## Coisas a rever
-- `QuadroOperacionalWidget` tem side-effects de escrita (poda, auto-resolução) dentro de um método de leitura de dados do widget — funciona, mas é um padrão que pode surpreender quem espera `getViewData()` idempotente.
-- `em_curso` como status legado ainda suportado — confirmar se ainda existe algum `AlertState` nesse estado em produção ou se pode ser removido.
+## Coisas resolvidas
+- ✓ Poda de `AlertState` >7 dias movida para `alerts:housekeeping` command (agendado a cada hora) — `getViewData()` já não tem side-effects de DELETE.
+- ✓ `em_curso` como status legado documentado — ainda suportado para leitura (retrocompatibilidade com registos antigos), mas não pode ser criado novo (validação em `AlertasService::moverAlerta()`).

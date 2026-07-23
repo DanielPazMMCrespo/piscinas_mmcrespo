@@ -87,3 +87,8 @@ Schedule::command('notificacoes:comparacao-semanal')
 Schedule::command('relatorio:mensal-automatico')
     ->monthlyOn(1, '06:00')
     ->withoutOverlapping();
+
+// Housekeeping de alert states: poda de >7 dias a cada hora.
+Schedule::command('alerts:housekeeping')
+    ->hourly()
+    ->withoutOverlapping();
