@@ -64,16 +64,18 @@ class ListUsers extends ListRecords
                     $role = $isAdmin ? $data['role'] : UserRole::NADADOR_SALVADOR;
 
                     try {
-                        app(InvitationService::class)->send(
+                        $invitation = app(InvitationService::class)->send(
                             $data['email'],
                             $role,
                             auth()->user(),
                             $data['pool_ids'] ?? [],
                         );
 
+                        $validoAte = $invitation->expires_at->locale('pt')->diffForHumans();
+
                         Notification::make()
                             ->title('Convite enviado')
-                            ->body("Email enviado para {$data['email']}. Válido 48 horas.")
+                            ->body("Email enviado para {$data['email']}. Válido até {$validoAte}.")
                             ->success()
                             ->send();
                     } catch (\RuntimeException $e) {

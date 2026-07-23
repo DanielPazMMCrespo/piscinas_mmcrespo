@@ -25,6 +25,6 @@ Gestão de contas + convites. Acesso Admin e Gestor. Gestor só edita/convida NS
 
 ## Coisas a rever
 - Não existe ação "Reenviar convite" nem listagem de convites pendentes/expirados na UI — se um convite expira, o único caminho é criar um novo.
-- Mensagem de sucesso do convite tem **"Válido 48 horas." hardcoded**, dessincronizada da configuração real em Definições do Sistema.
+- ~~Mensagem de sucesso do convite tinha "Válido 48 horas." hardcoded~~ — **corrigido**: agora usa `$invitation->expires_at->diffForHumans()`, refletindo a validade real configurada em Definições do Sistema.
 - A regra "não pode eliminar" (auto/último-admin/tem-dados) está triplicada (ação singular, bulk, e implicitamente devia estar em `canDelete`) — risco de desalinhamento se mudar num sítio só.
 - `canAccess()`/`canCreate()` usam `?->` (null-safe); `PoolResource`/`InstallationResource` não usam — inconsistência de estilo.

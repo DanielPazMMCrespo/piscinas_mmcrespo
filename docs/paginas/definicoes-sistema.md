@@ -19,6 +19,5 @@ Configuração global do sistema, guardada em `AppSetting` (key/value). 4 secç�
 - `AppSetting::booted()` invalida `app_settings_all` em `saved`/`deleted` — dupla garantia com o `flush()` manual da página.
 
 ## Coisas a rever
-- **Bug confirmado (linha 121)**: `Forms\Components\Select::make('digest_conformidade_horas')` — não há `use Filament\Forms;` no ficheiro (confirmado, só imports específicos por componente), e a classe `Forms\Components\Select` **não está importada nem qualificada**. Isto resolve para `App\Filament\Pages\Forms\Components\Select`, que não existe → deve dar `Class not found` ao renderizar a secção "Tempos e Prazos". Compara com a linha 160, que usa o caminho totalmente qualificado (`\Filament\Forms\Components\Select::make`) e funciona. Corrigir para `\Filament\Forms\Components\Select::make(...)` ou adicionar `use Filament\Forms\Components\Select;`.
-- Imports de `KeyValue` e `TagsInput` (confirmado, sem uso de `KeyValue::make`/`TagsInput::make` no ficheiro) — provavelmente resíduo de uma versão anterior do formulário.
+- ~~Bug confirmado (linha 121): `Forms\Components\Select::make(...)` sem import~~ — **corrigido**: agora usa `\Filament\Forms\Components\Select::make(...)` (caminho totalmente qualificado, igual à linha 160). Imports não usados de `KeyValue`/`TagsInput` também removidos.
 - `tanques_verificaveis` da Installation e `ordem_bombas`/`ordem_filtros` da Pool não são configuráveis aqui nem noutro sítio óbvio da UI (ver `InstallationResource/CLAUDE.md` e `PoolResource/CLAUDE.md`).
