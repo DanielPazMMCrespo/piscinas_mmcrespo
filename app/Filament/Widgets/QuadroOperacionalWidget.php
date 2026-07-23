@@ -66,13 +66,9 @@ class QuadroOperacionalWidget extends Widget
         );
         $ativos = $resultado['alertas'];
 
-        // Poda: estados com mais de 7 dias já não interessam (corre no máximo 1x por hora).
-        Cache::remember('alert_state_pruning', 3600, function () {
-            AlertState::query()->where('moved_at', '<', now()->subDays(7))->delete();
-
-            return true;
-        });
-
+        // Poda de estados >7 dias é feita pelo comando agendado `alerts:housekeeping`
+        // (routes/console.php), não aqui — um caminho de leitura de widget não deve
+        // ter side-effects de escrita.
         $estados = AlertState::query()
             ->where('status', '!=', 'resolvido')
             ->where('status', '!=', 'resolvido_auto')

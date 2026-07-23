@@ -34,5 +34,8 @@ Kanban de alertas (Para tratar / Em tratamento / Resolvido hoje). Escondido do N
 Tabela de produtos com `quantity <= limite_minimo`, filtrada por instalações do NS. Cache 5min só dos IDs (query final volta à BD). Sem `canView()` — visível a todos. Sem ações, só leitura.
 
 ## Coisas resolvidas
-- ✓ Poda de `AlertState` >7 dias movida para `alerts:housekeeping` command (agendado a cada hora) — `getViewData()` já não tem side-effects de DELETE.
+- ✓ Poda de `AlertState` >7 dias movida para `alerts:housekeeping` command (agendado a cada hora) — `getViewData()` já não tem side-effects de DELETE. (O bloco de poda tinha ficado esquecido no widget mesmo depois de o command existir; removido de facto agora, com teste ao command em `AlertHousekeepingTest`.)
 - ✓ `em_curso` como status legado documentado — ainda suportado para leitura (retrocompatibilidade com registos antigos), mas não pode ser criado novo (validação em `AlertasService::moverAlerta()`).
+
+## Coisas a rever
+- `CACHE_SHAPE_VERSION` continua a ser um mecanismo manual (fonte de um 500 em produção quando esquecido). Não é bug atual; só um risco conhecido a lembrar ao mudar a forma do payload do `PainelPiscinasWidget`.
