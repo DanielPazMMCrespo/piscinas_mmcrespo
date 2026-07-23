@@ -62,7 +62,7 @@ class DailyRecordResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return auth()->user()->hasRole(UserRole::ADMIN);
+        return false;
     }
 
     public static function canDelete($record): bool
@@ -100,7 +100,6 @@ class DailyRecordResource extends Resource
         return [
             'index' => Pages\ListDailyRecords::route('/'),
             'create' => Pages\CreateDailyRecord::route('/create'),
-            'edit' => Pages\EditDailyRecord::route('/{record}/edit'),
         ];
     }
 }
