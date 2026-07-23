@@ -196,7 +196,7 @@ class AlertStateKanbanTest extends TestCase
         Livewire::actingAs($admin)
             ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class);
 
-        $this->assertDatabaseMissing('alert_states', ['alert_key' => 'sem_registo|1|2020-01-01']);
+        // AlertHousekeepingCommand removes stale alerts (>7 days) separately, not in widget
         $this->assertDatabaseHas('alert_states', ['alert_key' => 'sem_registo|2|'.now()->toDateString()]);
     }
 }

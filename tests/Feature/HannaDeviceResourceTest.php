@@ -188,7 +188,7 @@ class HannaDeviceResourceTest extends TestCase
         ]);
 
         Livewire::test(HannaDeviceResource\Pages\ListHannaDevices::class)
-            ->callTableAction('ver_detalhes', $device)
+            ->callTableAction('view', $device)
             ->assertHasNoTableActionErrors();
     }
 

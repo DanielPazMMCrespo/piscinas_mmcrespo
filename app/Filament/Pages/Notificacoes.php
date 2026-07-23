@@ -91,7 +91,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
-                        ]))
+                        ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 

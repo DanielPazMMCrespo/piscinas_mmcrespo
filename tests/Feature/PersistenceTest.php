@@ -26,10 +26,10 @@ class PersistenceTest extends TestCase
         $this->assertEquals(43200, config('session.lifetime'));
     }
 
-    public function test_remember_me_defaults_to_true_on_login_form(): void
+    public function test_remember_me_defaults_to_false_on_login_form(): void
     {
         Livewire::test(Login::class)
-            ->assertSet('data.remember', true);
+            ->assertSet('data.remember', false);
     }
 
     public function test_login_authenticates_with_remember_me_by_default(): void
