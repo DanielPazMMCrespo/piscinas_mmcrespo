@@ -131,7 +131,8 @@ class PoolResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->modalDescription('Eliminar uma piscina apaga em cascata os seus registos diários, verificações de filtro, ações operacionais, leituras de sensores e bidões de dosagem. Esta ação é irreversível.'),
                 ]),
             ]);
     }

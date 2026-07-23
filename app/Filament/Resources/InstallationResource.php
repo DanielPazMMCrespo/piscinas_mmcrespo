@@ -80,7 +80,8 @@ class InstallationResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->modalDescription('Eliminar uma instalação apaga em cascata todas as piscinas, registos diários, verificações de filtro, incidentes, ações operacionais, bidões e histórico de stock associados. Esta ação é irreversível.'),
                 ]),
             ]);
     }

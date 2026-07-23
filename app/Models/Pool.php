@@ -45,6 +45,9 @@ class Pool extends Model
         parent::boot();
 
         static::deleting(function (Pool $pool): void {
+            // filter_checks.pool_id é RESTRICT (sem cascade na BD) — tem de ser
+            // apagado à mão, senão o delete rebenta com FK violation em PostgreSQL.
+            $pool->verificacoesFiltro()->delete();
             DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
             DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
             $pool->bidoesDosagem()->delete();
