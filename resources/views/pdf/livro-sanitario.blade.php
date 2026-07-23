@@ -585,11 +585,11 @@
                             <tr>
                                 <th style="width: 9%;">Data</th>
                                 <th style="width: 7%;">Leituras/dia</th>
-                                <th style="width: 9%;">Cl. Livre Manual</th>
                                 <th style="width: 8%;">pH Médio</th>
                                 <th style="width: 8%;">pH Mínimo</th>
                                 <th style="width: 8%;">pH Máximo</th>
                                 <th style="width: 10%;">ORP Médio (mV)</th>
+                                <th style="width: 9%;">Cl. Livre Manual</th>
                                 <th style="width: 11%;">Temp. Água Média (°C)</th>
                                 <th style="width: 7%;">pH Conforme</th>
                                 <th style="width: 14%;">Excluído (motivo)</th>
@@ -612,11 +612,6 @@
                                     @else
                                         <td>{{ $leitura->leituras }}</td>
                                         <td>
-                                            @if ($clManual !== null)
-                                                {{ number_format($clManual, 2, ',', '') }}
-                                            @else — @endif
-                                        </td>
-                                        <td>
                                             @if ($phMed !== null)
                                                 <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
                                             @else — @endif
@@ -636,6 +631,11 @@
                                         <td>
                                             @if ($leitura->orp_avg !== null)
                                                 {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
                                             @else — @endif
                                         </td>
                                         <td>
@@ -660,9 +660,9 @@
                             <tr>
                                 <th style="width: 10%;">Data</th>
                                 <th style="width: 8%;">Hora</th>
-                                <th style="width: 15%;">Cl. Livre Manual</th>
                                 <th style="width: 11%;">pH</th>
                                 <th style="width: 12%;">ORP (mV)</th>
+                                <th style="width: 15%;">Cl. Livre Manual</th>
                                 <th style="width: 12%;">Temp. Água (°C)</th>
                                 <th style="width: 9%;">pH Conforme</th>
                                 <th style="width: 23%;">Excluído (motivo)</th>
@@ -685,11 +685,6 @@
                                         <td colspan="5" class="texto" style="font-style: italic;">Sem leitura válida</td>
                                     @else
                                         <td>
-                                            @if ($clManual !== null)
-                                                {{ number_format($clManual, 2, ',', '') }}
-                                            @else — @endif
-                                        </td>
-                                        <td>
                                             @if ($ph !== null)
                                                 <span @class(['fora-gama' => $phFora])>{{ number_format($ph, 2, ',', '') }}</span>
                                             @else — @endif
@@ -697,6 +692,11 @@
                                         <td>
                                             @if ($leitura->orp !== null)
                                                 {{ number_format(round((float) $leitura->orp, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
                                             @else — @endif
                                         </td>
                                         <td>
