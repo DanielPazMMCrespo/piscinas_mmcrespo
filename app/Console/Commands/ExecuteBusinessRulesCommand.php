@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Constants\IncidentStatus;
+use App\Constants\IncidentType;
 use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\User;
-use App\Constants\IncidentStatus;
-use App\Constants\IncidentType;
-use App\Constants\UserRole;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
