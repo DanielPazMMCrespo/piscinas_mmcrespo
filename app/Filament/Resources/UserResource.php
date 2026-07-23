@@ -55,7 +55,7 @@ class UserResource extends Resource
             return false;
         }
 
-        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+        if (self::temDadosAssociados($record)) {
             return false;
         }
 
@@ -65,6 +65,11 @@ class UserResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+    }
+
+    private static function temDadosAssociados(User $record): bool
+    {
+        return $record->daily_records()->exists() || $record->incidents()->exists();
     }
 
     private static function rolesIncluemNS(Forms\Get $get): bool
@@ -260,7 +265,7 @@ class UserResource extends Resource
                             Notification::make()->danger()->title('Não é possível eliminar o único administrador.')->send();
                             $action->halt();
                         }
-                        if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                        if (self::temDadosAssociados($record)) {
                             Notification::make()->danger()->title('Não é possível eliminar este utilizador.')
                                 ->body('Existem registos diários ou incidentes associados. Contacte o administrador.')
                                 ->send();
@@ -284,7 +289,7 @@ class UserResource extends Resource
                                     $skipped[] = $record->full_name;
                                     return;
                                 }
-                                if ($record->daily_records()->exists() || $record->incidents()->exists()) {
+                                if (self::temDadosAssociados($record)) {
                                     $skipped[] = $record->full_name;
                                     return;
                                 }
