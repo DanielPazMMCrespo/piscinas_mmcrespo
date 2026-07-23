@@ -89,6 +89,33 @@ class StockService
     }
 
     /**
+     * Dá entrada direta de stock numa instalação (ex.: fornecedor entrega no
+     * local, fora do fluxo armazém→instalação). Regista log de entrada.
+     *
+     * @throws DomainException Se a quantidade não for positiva.
+     */
+    public function addInstallationStock(int|string $stockInstallationId, float $quantity, int|string $userId): void
+    {
+        if ($quantity <= 0) {
+            throw new DomainException('A quantidade de entrada tem de ser positiva.');
+        }
+
+        DB::transaction(function () use ($stockInstallationId, $quantity, $userId) {
+            $fresh = StockInstallation::lockForUpdate()->findOrFail($stockInstallationId);
+            $fresh->quantity += $quantity;
+            $fresh->save();
+
+            StockInstallationLog::create([
+                'stock_installation_id' => $fresh->id,
+                'user_id' => $userId,
+                'tipo_movimento' => 'entrada',
+                'quantity' => $quantity,
+                'created_at' => now(),
+            ]);
+        });
+    }
+
+    /**
      * Consome (reduz) stock manualmente de uma instalação.
      *
      * @throws DomainException Se o stock na instalação for insuficiente.
