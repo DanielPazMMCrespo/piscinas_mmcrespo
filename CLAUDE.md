@@ -60,6 +60,13 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 
 # Páginas do Painel `/admin`
 
+Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local mais detalhado (propósito, lógica não óbvia, ações, e uma lista de coisas a rever encontradas no código — carrega automaticamente ao trabalhar nessa pasta). As páginas standalone (sem pasta própria) têm o equivalente em `docs/paginas/*.md`:
+
+- `app/Filament/Resources/DailyRecordResource/CLAUDE.md`, `IncidentResource/CLAUDE.md`, `OperationalActionResource/CLAUDE.md`
+- `app/Filament/Resources/StockWarehouseResource/CLAUDE.md` (+ StockService), `StockInstallationResource/CLAUDE.md`, `ProductResource/CLAUDE.md`, `DosingContainerResource/CLAUDE.md`, `StockWarehouseLogResource/CLAUDE.md`, `StockInstallationLogResource/CLAUDE.md`
+- `app/Filament/Resources/UserResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
+- `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `esquema-piscina.md`, `notificacoes.md`, `operacao-hub.md`, `relatorio-pdf.md`, `auth-login.md`
+
 ## Operação
 - **Registo Diário** (`OperacaoHub` → `DailyRecordResource`): página núcleo, uso diário. Hub de entrada que esconde da sidebar a escolha entre Registos Diários e Incidentes (`shouldRegisterNavigation() = false` nos dois, só o hub aparece). Semáforo de conformidade em tempo real por campo, smart defaults (última piscina/bomba/água/tanque), adições de químicos descontam stock da instalação.
 - **Incidentes** (`IncidentResource`): quase sempre criados manualmente pela equipa (auto-incidente por 3x violação/dia/piscina existe mas é raro na prática). Ciclo de vida aberto/resolvido; `IncidentChatWidget` na vista dá timeline de mensagens + mudanças de estado automáticas. Escalação automática (sem resposta >24h) é uma notificação Filament (sino), disparada pelo `ExecuteBusinessRulesCommand`.
