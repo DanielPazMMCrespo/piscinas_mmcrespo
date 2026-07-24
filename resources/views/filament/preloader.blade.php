@@ -1,10 +1,10 @@
-<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.4s ease-in-out; pointer-events: auto;">
+<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.25s ease-in-out; pointer-events: auto;">
     <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
         <!-- Glowing Ambient Backdrop Aura -->
         <div style="position: absolute; width: 220px; height: 220px; background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(2, 26, 47, 0) 70%); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;"></div>
         
         <!-- Logo MMCrespo Branco com sombra e escala cinemática -->
-        <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.9) translateY(15px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.4));">
+        <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.9) translateY(15px); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.4));">
     </div>
 </div>
 
@@ -52,8 +52,8 @@
             setTimeout(() => {
                 loader.style.display = 'none';
                 loader.style.pointerEvents = 'none';
-            }, 400);
-        }, 180);
+            }, 250);
+        }, 80);
     }
 
     // 1. Revelação no Carregamento Inicial
@@ -63,7 +63,7 @@
             logo.style.opacity = '1';
             logo.style.transform = 'scale(1) translateY(0)';
         }
-        setTimeout(hidePreloader, 500);
+        setTimeout(hidePreloader, 350);
     });
 
     // 2. Transições SPA do Livewire (Troca de páginas)
@@ -72,7 +72,7 @@
     });
 
     document.addEventListener('livewire:navigated', () => {
-        setTimeout(hidePreloader, 200);
+        setTimeout(hidePreloader, 80);
     });
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida
