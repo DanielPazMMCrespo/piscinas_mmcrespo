@@ -27,16 +27,18 @@
         <!-- Right Side: The Form -->
         <div class="right-panel" id="form-panel">
             
-            <div style="max-width: 400px; width: 100%; margin: 0 auto; padding-top: 1rem;">
-                <div class="form-element" style="margin-bottom: 2rem;">
-                    <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Logo" style="height: 48px; width: auto; margin-bottom: 1.25rem; display: block;" class="mobile-logo">
-                    <span style="display: inline-block; width: 40px; height: 4px; background: #004c8c; margin-bottom: 1rem; border-radius: 999px;"></span>
-                    <h1 class="font-logo-match font-bold" style="font-size: 2rem; margin: 0 0 0.25rem 0; color: #111;">Bem-vindo.</h1>
-                    <p class="text-gray-500 font-sans" style="font-size: 0.85rem; margin: 0;">Inicie a sessão no painel administrativo.</p>
+            <!-- Vertically Centered Form Container -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 400px; width: 100%; margin: 0 auto;">
+                
+                <div class="form-element" style="margin-bottom: 2.5rem;">
+                    <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Logo" style="height: 52px; width: auto; margin-bottom: 1.5rem; display: block;" class="mobile-logo">
+                    <span style="display: inline-block; width: 44px; height: 4px; background: #004c8c; margin-bottom: 1.25rem; border-radius: 999px;"></span>
+                    <h1 class="font-logo-match font-bold" style="font-size: 2.25rem; margin: 0 0 0.5rem 0; color: #111;">Bem-vindo.</h1>
+                    <p class="text-gray-500 font-sans" style="font-size: 0.9rem; margin: 0;">Inicie a sessão no painel administrativo.</p>
                 </div>
 
                 <form wire:submit="authenticate">
-                    <div class="input-group form-element" style="margin-bottom: 1.5rem;">
+                    <div class="input-group form-element" style="margin-bottom: 2rem;">
                         <input type="email" id="email" wire:model.defer="data.email" class="premium-input font-sans" placeholder=" " required autofocus autocomplete="email">
                         <label for="email" class="premium-label font-sans">Endereço de Email</label>
                         @error('data.email')
@@ -44,7 +46,7 @@
                         @enderror
                     </div>
                     
-                    <div class="input-group form-element" style="margin-bottom: 1.5rem;">
+                    <div class="input-group form-element" style="margin-bottom: 2rem;">
                         <input type="password" id="password" wire:model.defer="data.password" class="premium-input font-sans" placeholder=" " required autocomplete="current-password">
                         <label for="password" class="premium-label font-sans">Palavra-passe ou PIN</label>
                         @error('data.password')
@@ -52,7 +54,7 @@
                         @enderror
                     </div>
 
-                    <div class="flex items-center justify-between form-element" style="margin-bottom: 2rem;">
+                    <div class="flex items-center justify-between form-element" style="margin-bottom: 2.5rem;">
                         <label class="flex items-center" style="cursor: pointer; gap: 0.5rem;">
                             <input type="checkbox" wire:model="data.remember" style="accent-color: #004c8c; width: 16px; height: 16px;">
                             <span class="text-gray-500 font-sans font-bold uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">Manter Sessão</span>
@@ -64,10 +66,11 @@
                         <span wire:loading>A Validar...</span>
                     </button>
                 </form>
+
             </div>
             
-            <!-- Mobile Footer -->
-            <div class="form-element" style="margin-top: 2rem; text-align: center;">
+            <!-- Mobile Footer pinned cleanly at the bottom -->
+            <div class="form-element" style="text-align: center; padding-top: 1rem;">
                 <p class="text-gray-400 font-sans font-bold uppercase" style="font-size: 10px; letter-spacing: 0.2em; margin: 0;">Desenvolvido por M.Marques Crespo&reg;</p>
             </div>
         </div>
@@ -90,7 +93,7 @@
                   // 3. O loader sobe
                   .to("#loader", { height: 0, duration: 0.6, ease: "expo.inOut" })
                   
-                  // 4. Animação dos elementos da página com limpeza de propriedades GSAP
+                  // 4. Animação dos elementos da página
                   .from("#visual-panel", { opacity: 0, duration: 0.8, ease: "expo.out", clearProps: "all" }, "-=0.2")
                   .from(".logo-container", { y: 20, opacity: 0, duration: 0.8, ease: "power3.out", clearProps: "all" }, "-=0.5")
                   .from(".form-element", {

@@ -197,16 +197,20 @@
             background: #fff;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            padding: 3rem 5rem;
+            justify-content: space-between;
+            padding: 3rem 4rem 2rem 4rem;
             box-sizing: border-box;
             position: relative;
-            overflow-y: auto;
         }
 
         @media (max-width: 1024px) {
             .left-panel { display: none; }
-            .right-panel { width: 100%; padding: 2rem 1.5rem 5rem 1.5rem; justify-content: flex-start; }
+            .right-panel {
+                width: 100%;
+                min-height: 100vh;
+                padding: 2.5rem 1.75rem 1.5rem 1.75rem;
+                justify-content: space-between;
+            }
         }
     </style>
 </head>
