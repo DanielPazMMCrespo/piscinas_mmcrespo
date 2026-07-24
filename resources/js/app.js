@@ -615,8 +615,7 @@ document.addEventListener('alpine:init', () => {
 
         refresh() {
             const ativos = [];
-            const agora = Date.now();
-            const LIMITE_EXPIRACAO_MS = 30 * 60 * 1000; // 30 minutos
+            const keysParaRemover = [];
 
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -637,16 +636,18 @@ document.addEventListener('alpine:init', () => {
                 const remainingSeconds = Math.round((data.endTime - Date.now()) / 1000);
                 const tempoExcedido = remainingSeconds < 0 ? Math.abs(remainingSeconds) : 0;
 
-                // Se ultrapassou 30 min e ainda não foi notificado
-                if (tempoExcedido > 1800 && !this.notificadosTimers.has(key)) {
-                    this.notificadosTimers.set(key, true);
-                    this.enviarNotificacao(
-                        (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
-                        fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
-                        tempoExcedido
-                    );
-                    localStorage.removeItem(key); // Remove do localStorage
-                    continue; // Não adiciona aos ativos (fechou a notificação)
+                // Se ultrapassou 30 min, remove automaticamente e envia notificação uma única vez
+                if (tempoExcedido > 1800) {
+                    if (!this.notificadosTimers.has(key)) {
+                        this.notificadosTimers.set(key, true);
+                        this.enviarNotificacao(
+                            (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
+                            fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
+                            tempoExcedido
+                        );
+                    }
+                    keysParaRemover.push(key);
+                    continue;
                 }
 
                 ativos.push({
@@ -659,6 +660,10 @@ document.addEventListener('alpine:init', () => {
                     isExceeded: remainingSeconds < 0,
                 });
             }
+
+            // Remove timers expirados após iteração (evita problemas com índices)
+            keysParaRemover.forEach(key => localStorage.removeItem(key));
+
             ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
             this.timers = ativos;
         },
