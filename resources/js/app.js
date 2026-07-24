@@ -1,6 +1,35 @@
 import './bootstrap';
 import './push';
 
+// Listener para notificações de timers expirados
+if (typeof Livewire !== 'undefined') {
+    Livewire.on('timerExpirou', (event) => {
+        const { poolNome, fase, tempoExcedido } = event;
+
+        // Encontra a janela ou elemento de notificação do Filament
+        const notificacao = document.querySelector('[data-notification-container]') ||
+                          document.querySelector('[role="alert"]');
+
+        if (notificacao && notificacao.parentElement) {
+            // Cria elemento de notificação (fallback simples)
+            const div = document.createElement('div');
+            div.className = 'fi-notification fi-danger p-4 rounded text-sm bg-red-50 border border-red-200 text-red-700 mb-3';
+            div.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">⏱️</span>
+                    <div>
+                        <strong>${poolNome} - ${fase}</strong><br>
+                        Timer expirou há <strong>${tempoExcedido}</strong>
+                    </div>
+                </div>
+            `;
+            notificacao.parentElement.insertBefore(div, notificacao);
+
+            // Remove após 8 segundos
+            setTimeout(() => div.remove(), 8000);
+        }
+    });
+}
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -576,6 +605,7 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data('mmcTimerBar', () => ({
         timers: [],
         poll: null,
+        notificadosTimers: new Map(), // Rastreia timers já notificados
 
         init() {
             this.refresh();
@@ -584,6 +614,9 @@ document.addEventListener('alpine:init', () => {
 
         refresh() {
             const ativos = [];
+            const agora = Date.now();
+            const LIMITE_EXPIRACAO_MS = 30 * 60 * 1000; // 30 minutos
+
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (!key || !key.startsWith('mmc_timer_')) continue;
@@ -601,6 +634,19 @@ document.addEventListener('alpine:init', () => {
                 const poolId = match ? parseInt(match[1], 10) : null;
                 const fase = match ? match[2] : (statePath.match(/timer_(lavagem|enxaguamento)/) || [])[1];
                 const remainingSeconds = Math.round((data.endTime - Date.now()) / 1000);
+                const tempoExcedido = remainingSeconds < 0 ? Math.abs(remainingSeconds) : 0;
+
+                // Se ultrapassou 30 min e ainda não foi notificado
+                if (tempoExcedido > 1800 && !this.notificadosTimers.has(key)) {
+                    this.notificadosTimers.set(key, true);
+                    this.enviarNotificacao(
+                        (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
+                        fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
+                        tempoExcedido
+                    );
+                    localStorage.removeItem(key); // Remove do localStorage
+                    continue; // Não adiciona aos ativos (fechou a notificação)
+                }
 
                 ativos.push({
                     key,
@@ -614,6 +660,33 @@ document.addEventListener('alpine:init', () => {
             }
             ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
             this.timers = ativos;
+        },
+
+        enviarNotificacao(poolNome, fase, tempoExcedidoSegundos) {
+            // Formata tempo excedido em mm:ss
+            const minutos = Math.floor(tempoExcedidoSegundos / 60);
+            const segundos = tempoExcedidoSegundos % 60;
+            const tempoFormatado = `${minutos}m ${segundos}s`;
+
+            // Envia notificação Filament via Livewire (se disponível)
+            if (typeof Livewire !== 'undefined') {
+                Livewire.emit('timerExpirou', {
+                    poolNome,
+                    fase,
+                    tempoExcedido: tempoFormatado,
+                });
+            }
+
+            // Notificação browser (fallback)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(`Timer Expirado - ${poolNome}`, {
+                    body: `${fase} expirou há ${tempoFormatado}`,
+                    icon: (window.__poolNomes && Object.keys(window.__poolNomes).length > 0)
+                        ? '/images/logo-mmcrespo.png'
+                        : undefined,
+                    tag: `timer-${poolNome}-${fase}`,
+                });
+            }
         },
 
         formatar(segundos) {
