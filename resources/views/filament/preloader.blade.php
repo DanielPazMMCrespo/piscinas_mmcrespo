@@ -1,5 +1,5 @@
-<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 200ms ease-in-out; pointer-events: auto;">
-    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.95) translateY(10px); transition: opacity 100ms ease-out, transform 100ms ease-out;">
+<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 250ms ease-in-out; pointer-events: auto;">
+    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.95) translateY(10px); transition: opacity 50ms ease-out, transform 50ms ease-out;">
 </div>
 
 <script>
@@ -47,7 +47,7 @@
         setTimeout(() => {
             loader.style.display = 'none';
             loader.style.pointerEvents = 'none';
-        }, 200);
+        }, 250);
     }
 
     // 1. Revelação no Carregamento Inicial (Mantido a 500ms)
@@ -62,13 +62,13 @@
         setTimeout(hidePreloader, 500);
     });
 
-    // 2. Transições SPA do Livewire (Aparecer: 100ms | Destaque: 200ms | Fade-out: 200ms)
+    // 2. Transições SPA do Livewire (Aparecer: 50ms | Destaque: 250ms | Fade-out: 250ms)
     document.addEventListener('livewire:navigating', () => {
         showPreloader();
     });
 
     document.addEventListener('livewire:navigated', () => {
-        setTimeout(hidePreloader, 200);
+        setTimeout(hidePreloader, 250);
     });
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida
