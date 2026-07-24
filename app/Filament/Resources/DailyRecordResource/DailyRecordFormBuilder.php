@@ -38,8 +38,17 @@ class DailyRecordFormBuilder
 
     private const DELTA_TEMP_AVISO = 1.0;
 
+    /**
+     * Janela (min) à volta da hora da colheita dentro da qual uma leitura da
+     * sonda é aceite como contemporânea da amostra. Fora dela não se cruza.
+     */
+    private const TOLERANCIA_SONDA_MIN = 60;
+
     /** @var array<int, ?SensorReading> */
     private static array $sondaMemo = [];
+
+    /** @var array<string, ?SensorReading> */
+    private static array $sondaMomentoMemo = [];
 
     /**
      * Última leitura fresca da sonda Hanna (≤60 min, sem artefacto) para
@@ -57,19 +66,65 @@ class DailyRecordFormBuilder
     }
 
     /**
+     * Momento da colheita: data de hoje + hora escolhida (a data está fixa a
+     * hoje no formulário). Sem hora escolhida, é "agora".
+     */
+    private static function momentoColheita(?string $horaColheita): \Illuminate\Support\Carbon
+    {
+        if (filled($horaColheita)) {
+            $hora = \Illuminate\Support\Carbon::parse($horaColheita);
+
+            return now()->setTime($hora->hour, $hora->minute, 0);
+        }
+
+        return now();
+    }
+
+    /**
+     * Leitura da sonda a cruzar com a amostra, tendo em conta a hora da colheita
+     * (suporta colheitas retroativas dentro do dia). Se o momento é praticamente
+     * "agora" usa o caminho ao vivo (`sondaFresca`, ciente de artefacto/online);
+     * caso contrário procura a leitura mais próxima dentro de ±TOLERANCIA_SONDA_MIN,
+     * devolvendo null se não houver nenhuma nessa janela. Memoizada por pedido.
+     */
+    private static function sondaParaMomento(Pool $pool, ?string $horaColheita): ?SensorReading
+    {
+        $momento = self::momentoColheita($horaColheita);
+        $chave = $pool->id.'|'.$momento->format('H:i');
+
+        if (! array_key_exists($chave, self::$sondaMomentoMemo)) {
+            if (abs($momento->diffInMinutes(now())) <= self::TOLERANCIA_SONDA_MIN) {
+                self::$sondaMomentoMemo[$chave] = self::sondaFresca($pool);
+            } else {
+                self::$sondaMomentoMemo[$chave] = SensorReading::query()
+                    ->where('pool_id', $pool->id)
+                    ->whereBetween('lida_em', [
+                        $momento->copy()->subMinutes(self::TOLERANCIA_SONDA_MIN),
+                        $momento->copy()->addMinutes(self::TOLERANCIA_SONDA_MIN),
+                    ])
+                    ->get()
+                    ->sortBy(fn (SensorReading $r): int => abs((int) $r->lida_em->diffInSeconds($momento)))
+                    ->first();
+            }
+        }
+
+        return self::$sondaMomentoMemo[$chave];
+    }
+
+    /**
      * Cruza o valor manual com a leitura fresca da sonda: delta numérico para
      * pH/temperatura, contexto ORP para cloro livre (a sonda não mede cloro).
      * 'aviso' = true quando a divergência sugere erro de medição/amostragem.
      *
      * @return array{mensagem: string, aviso: bool}|null
      */
-    private static function infoSonda(string $metrica, mixed $valor, Pool $pool): ?array
+    private static function infoSonda(string $metrica, mixed $valor, Pool $pool, ?string $horaColheita = null): ?array
     {
         if (! filled($valor) || ! is_numeric($valor)) {
             return null;
         }
 
-        $sonda = self::sondaFresca($pool);
+        $sonda = self::sondaParaMomento($pool, $horaColheita);
         if ($sonda === null) {
             return null;
         }
@@ -280,7 +335,7 @@ class DailyRecordFormBuilder
         return $campo
             ->live()
             ->extraInputAttributes(['inputmode' => 'decimal'])
-            ->hint(function (Get $get) use ($campo, $metrica, $pool): ?string {
+            ->hint(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?string {
                 $val = $get($campo->getName());
                 if (! filled($val)) {
                     return null;
@@ -306,14 +361,14 @@ class DailyRecordFormBuilder
                     }
                 }
 
-                $sonda = self::infoSonda($metrica, $val, $pool);
+                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
                 if ($sonda !== null) {
                     $msg = ($msg ? $msg.' | ' : '').$sonda['mensagem'];
                 }
 
                 return $msg;
             })
-            ->hintColor(function (Get $get) use ($campo, $metrica, $pool): ?string {
+            ->hintColor(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?string {
                 $val = $get($campo->getName());
                 $cor = match (DailyRecord::avaliarConformidade($metrica, $val, $pool)['estado']) {
                     EstadoConformidade::VERDE => 'success',
@@ -324,7 +379,7 @@ class DailyRecordFormBuilder
 
                 // Conforme mas a divergir da sonda: sinaliza possível erro de medição.
                 if ($cor === 'success' || $cor === null) {
-                    $sonda = self::infoSonda($metrica, $val, $pool);
+                    $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
                     if ($sonda !== null && $sonda['aviso']) {
                         return 'warning';
                     }
@@ -583,8 +638,10 @@ class DailyRecordFormBuilder
                         ->schema([
                             Forms\Components\TimePicker::make('hora_colheita')
                                 ->label('Hora da colheita')
+                                ->helperText('Hora oficial do registo. Recue-a se a colheita foi mais cedo — a comparação com a sonda usa a leitura mais próxima desta hora.')
                                 ->seconds(false)
-                                ->default(now()),
+                                ->default(now())
+                                ->live(onBlur: true),
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
@@ -592,8 +649,9 @@ class DailyRecordFormBuilder
                                     Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
                                         ->hiddenLabel()
                                         ->columnSpanFull()
-                                        ->content(function () use ($pool): ?HtmlString {
-                                            $sonda = self::sondaFresca($pool);
+                                        ->content(function ($livewire) use ($pool): ?HtmlString {
+                                            $horaColheita = $livewire->data['hora_colheita'] ?? null;
+                                            $sonda = self::sondaParaMomento($pool, $horaColheita);
                                             if ($sonda !== null) {
                                                 if ($sonda->ph === null && $sonda->orp === null && $sonda->temperatura_agua === null) {
                                                     return null;
@@ -616,10 +674,15 @@ class DailyRecordFormBuilder
                                                 );
                                             }
 
-                                            // Fallback: mostrar feedback quando sonda não está disponível
+                                            // Sem leitura próxima do momento: fallback neutro. A mensagem
+                                            // distingue "hora retroativa sem leitura" de "sonda indisponível".
+                                            $mensagem = filled($horaColheita)
+                                                ? 'ℹ️ Sem leitura da sonda próxima da hora da colheita. Introduza a sua própria análise.'
+                                                : 'ℹ️ Sonda Hanna não disponível. Introduza a sua própria análise.';
+
                                             return new HtmlString(
                                                 '<div class="p-2 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">'
-                                                .'ℹ️ Sonda Hanna não disponível. Introduza a sua própria análise.'
+                                                .$mensagem
                                                 .'</div>'
                                             );
                                         }),
