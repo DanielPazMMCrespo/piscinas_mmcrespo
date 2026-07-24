@@ -625,31 +625,57 @@ document.addEventListener('alpine:init', () => {
         },
 
         navegar(statePath, poolId) {
-            // Encontra o fieldset correspondente na página
-            const fieldsetSelector = `[data-pools-fieldset="${poolId}"]`;
-            const fieldset = document.querySelector(fieldsetSelector);
+            // Estratégia 1: tenta data-pools-fieldset
+            let fieldset = document.querySelector(`[data-pools-fieldset="${poolId}"]`);
+
+            // Estratégia 2: se não encontrou, procura todos os fieldsets e compara o statePath
+            if (!fieldset) {
+                const allFieldsets = document.querySelectorAll('fieldset');
+                for (const fs of allFieldsets) {
+                    // Procura inputs dentro do fieldset que pertencem ao statePath
+                    const inputs = fs.querySelectorAll(`[name*="pools.${poolId}"]`);
+                    if (inputs.length > 0) {
+                        fieldset = fs;
+                        break;
+                    }
+                }
+            }
+
+            // Estratégia 3: procura por Fieldset do Filament (tem classes específicas)
+            if (!fieldset) {
+                const fieldsets = Array.from(document.querySelectorAll('fieldset'));
+                fieldset = fieldsets.find(fs => {
+                    const label = fs.textContent;
+                    const poolName = window.__poolNomes?.[poolId];
+                    return poolName && label.includes(poolName);
+                });
+            }
 
             if (!fieldset) {
-                console.warn(`Fieldset não encontrado: ${fieldsetSelector}`);
+                console.warn(`Fieldset não encontrado para pool ${poolId}`);
                 return;
             }
 
             // Scroll até ao fieldset
-            fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+                fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
 
-            // Se o fieldset está colapsado (legendário <legend> ou botão de collapse),
-            // tenta expandir via Livewire ou Alpine se o collapse for visível
+            // Encontra o toggle/collapse (Filament usa um button ou x-data collapse)
             const legend = fieldset.querySelector('legend');
-            const button = fieldset.querySelector('[x-data*="legend"]') || legend?.closest('button');
-            if (button) {
-                button.click();
+            const toggleButton = legend?.querySelector('button') ||
+                                legend?.closest('[x-data*="collapsible"]')?.querySelector('button') ||
+                                fieldset.previousElementSibling?.querySelector('button');
+
+            // Se está colapsado, expande
+            if (fieldset.classList.contains('hidden') || fieldset.style.display === 'none') {
+                toggleButton?.click();
             }
 
-            // Focus no fieldset para evidenciar
-            fieldset.focus({ preventScroll: true });
-            fieldset.classList.add('ring-2', 'ring-blue-500');
+            // Destaca o fieldset
+            fieldset.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
             setTimeout(() => {
-                fieldset.classList.remove('ring-2', 'ring-blue-500');
+                fieldset.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
             }, 2000);
         },
 
