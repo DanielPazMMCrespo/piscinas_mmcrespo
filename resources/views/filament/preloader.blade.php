@@ -1,5 +1,5 @@
-<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.35s ease-in-out; pointer-events: auto;">
-    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.9) translateY(15px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
+<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.25s ease-in-out; pointer-events: auto;">
+    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.9) translateY(15px); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
 </div>
 
 <script>
@@ -40,14 +40,12 @@
 
         logo.style.opacity = '0';
         logo.style.transform = 'scale(0.95) translateY(-10px)';
+        loader.style.opacity = '0';
 
         setTimeout(() => {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.style.display = 'none';
-                loader.style.pointerEvents = 'none';
-            }, 350);
-        }, 130);
+            loader.style.display = 'none';
+            loader.style.pointerEvents = 'none';
+        }, 250);
     }
 
     // 1. Revelação no Carregamento Inicial (Mantido a 500ms)
@@ -60,13 +58,13 @@
         setTimeout(hidePreloader, 500);
     });
 
-    // 2. Transições SPA do Livewire (Troca de páginas - Ponto equilibrado ~0.45s)
+    // 2. Transições SPA do Livewire (Destaque: 150ms | Fade-out: 250ms)
     document.addEventListener('livewire:navigating', () => {
         showPreloader();
     });
 
     document.addEventListener('livewire:navigated', () => {
-        setTimeout(hidePreloader, 130);
+        setTimeout(hidePreloader, 150);
     });
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida
