@@ -4,7 +4,8 @@
         <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="loader-logo" alt="Logo">
     </div>
 
-    <div class="flex w-full h-screen relative" id="main-content">
+    <!-- Main Content (Initially hidden via visibility to prevent iOS Safari/FaceID from triggering prematurely during preloader) -->
+    <div class="flex w-full h-screen relative" id="main-content" style="visibility: hidden;">
         
         <!-- Left Side: Visuals -->
         <div class="left-panel" id="visual-panel">
@@ -39,7 +40,7 @@
 
                 <form wire:submit="authenticate">
                     <div class="input-group form-element" style="margin-bottom: 2rem;">
-                        <input type="email" id="email" wire:model.defer="data.email" class="premium-input font-sans" placeholder=" " required autofocus autocomplete="email">
+                        <input type="email" id="email" wire:model.defer="data.email" class="premium-input font-sans" placeholder=" " required autocomplete="email">
                         <label for="email" class="premium-label font-sans">Endereço de Email</label>
                         @error('data.email')
                             <p class="text-red-500 font-sans" style="font-size: 0.75rem; margin-top: 0.25rem;">{{ $message }}</p>
@@ -90,7 +91,8 @@
                   // 2. Pausa curta e desaparece
                   .to("#loader-logo", { opacity: 0, y: -20, duration: 0.4, delay: 0.4, ease: "power2.in" })
                   
-                  // 3. O loader sobe
+                  // 3. Revela o conteúdo da página exatamente quando o loader começa a subir (evita que o iOS/FaceID detete os inputs antes do tempo)
+                  .set("#main-content", { visibility: "visible" })
                   .to("#loader", { height: 0, duration: 0.6, ease: "expo.inOut" })
                   
                   // 4. Animação dos elementos da página
@@ -104,6 +106,11 @@
                       ease: "power3.out",
                       clearProps: "all"
                   }, "-=0.6");
+            } else {
+                // Fallback de segurança se o GSAP não estiver disponível
+                document.getElementById('main-content').style.visibility = 'visible';
+                const loader = document.getElementById('loader');
+                if (loader) loader.style.display = 'none';
             }
         }, 50);
     </script>
