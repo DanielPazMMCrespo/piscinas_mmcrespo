@@ -1037,6 +1037,16 @@ const getDraftFromDB = async (key) => {
     }
 };
 
+const deleteDraftFromDB = async (key) => {
+    try {
+        const db = await getDB();
+        const tx = db.transaction('form_drafts', 'readwrite');
+        tx.objectStore('form_drafts').delete(key);
+    } catch (e) {
+        console.error('Error deleting draft from IndexedDB:', e);
+    }
+};
+
 const savePhotoToDB = async (key, fileBlob) => {
     try {
         const db = await getDB();
@@ -1329,14 +1339,8 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
         formEl.insertBefore(banner, formEl.firstChild);
     }
 
-    document.getElementById('discard-draft-banner-btn')?.addEventListener('click', () => {
-        localStorage.removeItem(formKey);
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('mmc_timer_')) {
-                localStorage.removeItem(key);
-            }
-        });
-        clearAllPhotosFromDB();
+    document.getElementById('discard-draft-banner-btn')?.addEventListener('click', async () => {
+        await clearDraftState(formKey);
         banner.remove();
         window.location.reload();
     });
@@ -1398,13 +1402,7 @@ const askUserToRestoreDraft = (formKey, component, stored) => {
     });
 
     document.getElementById('mmc-draft-modal-discard-btn').addEventListener('click', async () => {
-        localStorage.removeItem(formKey);
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('mmc_timer_')) {
-                localStorage.removeItem(key);
-            }
-        });
-        await clearAllPhotosFromDB();
+        await clearDraftState(formKey);
         modal.remove();
         window.location.reload();
     });
@@ -1452,8 +1450,33 @@ const setupDirtyStateWarning = () => {
 // Auto-save form draft in localStorage & IndexedDB for Daily Record creation
 const DRAFT_TTL_MS = 45 * 60 * 1000;
 
+// Single source of truth for wiping a draft: localStorage, IndexedDB draft entry,
+// IndexedDB photos and timers all have to go together, or a stale copy in one
+// store resurrects the "recuperar rascunho?" prompt after "descartar".
+const clearDraftState = async (formKey) => {
+    localStorage.removeItem(formKey);
+    localStorage.removeItem('mmc_restore_draft_on_load');
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('mmc_timer_')) {
+            localStorage.removeItem(key);
+        }
+    });
+    await deleteDraftFromDB(formKey);
+    await clearAllPhotosFromDB();
+};
+
+// Tracks the listeners/interval from the previous setupFormDraft() call so
+// re-entering this page via Livewire SPA navigation (each wizard step) doesn't
+// stack duplicate document-level listeners and save intervals forever.
+let formDraftCleanup = null;
+
 const setupFormDraft = () => {
     if (!window.location.pathname.includes('/daily-records/create')) return;
+
+    if (formDraftCleanup) {
+        formDraftCleanup();
+        formDraftCleanup = null;
+    }
 
     const findAndRestore = async () => {
         // Find the main Livewire component container that actually contains the form
@@ -1494,6 +1517,7 @@ const setupFormDraft = () => {
 
             if (expired) {
                 localStorage.removeItem(formKey);
+                await deleteDraftFromDB(formKey);
             } else if (draftData && Object.keys(draftData).length > 0 && !window.__mmcDraftRestored) {
                 if (forceRestore) {
                     localStorage.removeItem('mmc_restore_draft_on_load');
@@ -1530,7 +1554,16 @@ const setupFormDraft = () => {
         document.addEventListener('click', triggerSave);
 
         // 3. Fallback periodic save every 2 seconds
-        setInterval(saveDraft, 2000);
+        const intervalId = setInterval(saveDraft, 2000);
+
+        formDraftCleanup = () => {
+            clearTimeout(debounceTimeout);
+            clearInterval(intervalId);
+            document.removeEventListener('input', triggerSave);
+            document.removeEventListener('change', triggerSave);
+            document.removeEventListener('blur', triggerSave, true);
+            document.removeEventListener('click', triggerSave);
+        };
     };
 
     findAndRestore();
@@ -1694,16 +1727,10 @@ document.addEventListener('livewire:init', () => {
     });
 
     // Clear draft and all active timers when dailyRecordSaved event is emitted
-    Livewire.on('dailyRecordSaved', () => {
+    Livewire.on('dailyRecordSaved', async () => {
         window.mmcFormDirty = false;
         const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
-        localStorage.removeItem(formKey);
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('mmc_timer_')) {
-                localStorage.removeItem(key);
-            }
-        });
-        clearAllPhotosFromDB();
+        await clearDraftState(formKey);
         window.mmcPush?.cancelarTodosTimers();
     });
 });
