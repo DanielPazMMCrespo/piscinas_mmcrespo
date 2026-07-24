@@ -144,27 +144,27 @@
       @csrf
       <input type="hidden" name="token" value="{{ $token }}">
 
-      <label>Primeiro nome *</label>
-      <input type="text" name="first_name" value="{{ old('first_name') }}" required autocomplete="given-name" placeholder="Ex: João">
+      <label for="first_name">Primeiro nome *</label>
+      <input type="text" id="first_name" name="first_name" value="{{ old('first_name') }}" required autocomplete="given-name" placeholder="Ex: João">
 
-      <label>Último nome *</label>
-      <input type="text" name="last_name" value="{{ old('last_name') }}" required autocomplete="family-name" placeholder="Ex: Silva">
+      <label for="last_name">Último nome *</label>
+      <input type="text" id="last_name" name="last_name" value="{{ old('last_name') }}" required autocomplete="family-name" placeholder="Ex: Silva">
 
-      <label>Telemóvel</label>
-      <input type="tel" name="phone" value="{{ old('phone') }}" autocomplete="tel" placeholder="+351 9XX XXX XXX">
+      <label for="phone">Telemóvel</label>
+      <input type="tel" id="phone" name="phone" value="{{ old('phone') }}" autocomplete="tel" placeholder="+351 9XX XXX XXX">
       <p class="hint">Opcional — usado para contacto em caso de urgência operacional.</p>
 
       <div class="section-title">Credenciais de acesso</div>
       <p class="section-hint">Defina uma palavra-passe, um PIN, ou ambos.</p>
 
-      <label>Palavra-passe</label>
-      <input type="password" name="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+      <label for="password">Palavra-passe</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
 
-      <label>Confirmar palavra-passe</label>
-      <input type="password" name="password_confirmation" autocomplete="new-password">
+      <label for="password_confirmation">Confirmar palavra-passe</label>
+      <input type="password" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
 
-      <label>PIN numérico <span style="font-weight:400; color:#94a3b8">(4–6 dígitos)</span></label>
-      <input type="number" name="pin" inputmode="numeric" placeholder="Ex: 1234" min="0" max="999999">
+      <label for="pin">PIN numérico <span style="font-weight:400; color:#94a3b8">(4–6 dígitos)</span></label>
+      <input type="number" id="pin" name="pin" inputmode="numeric" placeholder="Ex: 1234" min="0" max="999999">
       <p class="hint">Para acesso rápido em tablet ou telemóvel no campo. Pode ter os dois.</p>
 
       <button class="btn" type="submit">Criar conta e entrar</button>

@@ -125,14 +125,14 @@
 
                     <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
                         <div>
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Destinatários</label>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Destinatários</span>
                             <div class="mt-2 flex gap-6">
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
-                                    <input type="radio" wire:model.live="destinoTipo" value="cargo" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
+                                <label for="destinoTipo_cargo" class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
+                                    <input type="radio" id="destinoTipo_cargo" name="destinoTipo" wire:model.live="destinoTipo" value="cargo" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
                                     Por Cargo
                                 </label>
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
-                                    <input type="radio" wire:model.live="destinoTipo" value="utilizador" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
+                                <label for="destinoTipo_utilizador" class="inline-flex items-center gap-2 text-sm text-gray-950 dark:text-white cursor-pointer">
+                                    <input type="radio" id="destinoTipo_utilizador" name="destinoTipo" wire:model.live="destinoTipo" value="utilizador" class="text-primary-600 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700" />
                                     Por Utilizador Específico
                                 </label>
                             </div>
@@ -140,8 +140,10 @@
 
                         @if($destinoTipo === 'cargo')
                             <div>
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Cargo</label>
+                                <label for="destinoCargo" class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Cargo</label>
                                 <select
+                                    id="destinoCargo"
+                                    name="destinoCargo"
                                     wire:model="destinoCargo"
                                     class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
                                 >
@@ -152,8 +154,10 @@
                             </div>
                         @else
                             <div>
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Utilizador</label>
+                                <label for="destinoUtilizador" class="text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Utilizador</label>
                                 <select
+                                    id="destinoUtilizador"
+                                    name="destinoUtilizador"
                                     wire:model="destinoUtilizador"
                                     class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
                                 >
@@ -166,9 +170,11 @@
                         @endif
 
                         <div>
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Título</label>
+                            <label for="manualTitulo" class="text-sm font-medium text-gray-700 dark:text-gray-300">Título</label>
                             <input
                                 type="text"
+                                id="manualTitulo"
+                                name="manualTitulo"
                                 wire:model="manualTitulo"
                                 class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
                                 placeholder="Título da notificação..."
@@ -176,8 +182,10 @@
                         </div>
 
                         <div>
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
+                            <label for="manualCorpo" class="text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
                             <textarea
+                                id="manualCorpo"
+                                name="manualCorpo"
                                 wire:model="manualCorpo"
                                 rows="3"
                                 class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm text-gray-950 dark:text-white focus:border-primary-500 focus:ring-primary-500"
