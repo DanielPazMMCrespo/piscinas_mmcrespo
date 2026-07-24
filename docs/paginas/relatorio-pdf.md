@@ -7,7 +7,7 @@ Gera o Livro de Registo Sanitário oficial em PDF (`barryvdh/laravel-dompdf`) + 
 
 ## Form
 - Instalação → Piscina (dependente, com "Todas"). Data início/fim (fim não pode ser futura, fim ≥ início).
-- Personalização: aviso quando as opções desviam do modelo regulamentar "completo" (13 colunas + 6 secções). `registo_modo`/`controlador_modo` separados (todos/média diária) para manual vs. controlador. CheckboxList de 17 colunas e 6 secções visíveis.
+- Personalização: aviso quando as opções desviam do modelo regulamentar "completo" (14 colunas de 18 + 6 secções de 8 selecionadas por defeito). `registo_modo`/`controlador_modo` separados (todos/média diária) para manual vs. controlador. CheckboxList de 18 colunas e 8 secções visíveis — duas das secções (Ocorrências/Incidentes, Reposições e Consumos Químicos) ficam desmarcadas por defeito para preservar o modelo regulamentar original de 6 secções; marcá-las dispara o aviso de personalização (o `aviso_customizacao` compara contra a contagem fixa de 6).
 
 ## Lógica não óbvia (`exportar()`)
 - `ini_set('memory_limit','1024M')` + `set_time_limit(240)` — gerar o PDF é pesado.
@@ -26,3 +26,4 @@ Export "flat" sem agregação diária, sem o limite de 7 dias (mais leve, sem gr
 
 ## Coisas a rever
 - ~~Limiares pH/ORP hardcoded e regra de "lavagem de filtro" duplicada~~ — **resolvido**: todos os limiares vivem em `WaterQualityThresholds` (`ANOMALY_*` para deteção de anomalia, `FILTER_WASH_*` para a heurística de lavagem — dois conjuntos legítimos, não duplicação). A regra de lavagem é agora o método único `cumpresRegraLavagemFiltro($ph, $orp)`. O `where` de ORP no query builder é só um pré-filtro SQL grosseiro que usa as mesmas constantes, sem risco de divergência.
+- ~~Secções mortas na view (`$seccao['incidentes']`, `$seccao['filter_checks']`, `$seccao['consumos_quimicos']`)~~ — **resolvido**: a blade já tinha os blocos "Ocorrências e Incidentes" e "Reposições e Consumos Químicos" prontos há sessões, mas `construirSeccoes()` nunca populava essas chaves nem havia checkbox para as ativar — o HTML nunca renderizava. Agora `construirSeccoes()` também carrega, por piscina: `Incident` (batch por `pool_id`/`ocorreu_em`, com `utilizador`+`resolvidoPor`), `FilterCheck` via `$piscina->verificacoesFiltro()` (`verificado_em`, com `utilizador`) e `DosingContainerLog` (batch via `bidoesDosagem()->pluck('id')` → `dosing_container_id`, com `container`+`utilizador`). Adicionadas as opções `mostrar_incidentes`/`mostrar_consumos_quimicos` ao CheckboxList `seccoes_visiveis` (desligadas por defeito). `GerarRelatorioMensalCommand` não foi alterado — continua a gerar só as 6 secções regulamentares originais.
