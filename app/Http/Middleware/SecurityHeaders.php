@@ -47,8 +47,8 @@ class SecurityHeaders
 
         $cspReportOnly = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",
-            "style-src 'self' 'nonce-{$nonce}' https://fonts.bunny.net https://fonts.googleapis.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-{$nonce}' 'strict-dynamic' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' 'nonce-{$nonce}' https://cdn.jsdelivr.net https://fonts.bunny.net https://fonts.googleapis.com",
             "img-src {$allowedImageDomains}",
             "font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com",
             "connect-src 'self' https://*.r2.dev",

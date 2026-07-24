@@ -40,7 +40,7 @@
 
                 <form wire:submit="authenticate">
                     <div class="input-group" style="margin-bottom: 2rem;">
-                        <input type="email" id="email" wire:model.defer="data.email" class="premium-input font-sans" placeholder=" " required autocomplete="email">
+                        <input type="email" id="email" name="email" wire:model.defer="data.email" class="premium-input font-sans" placeholder=" " required autocomplete="email">
                         <label for="email" class="premium-label font-sans">Endereço de Email</label>
                         @error('data.email')
                             <p class="text-red-500 font-sans" style="font-size: 0.75rem; margin-top: 0.25rem;">{{ $message }}</p>
@@ -48,7 +48,7 @@
                     </div>
                     
                     <div class="input-group" style="margin-bottom: 2rem;">
-                        <input type="password" id="password" wire:model.defer="data.password" class="premium-input font-sans" placeholder=" " required autocomplete="current-password">
+                        <input type="password" id="password" name="password" wire:model.defer="data.password" class="premium-input font-sans" placeholder=" " required autocomplete="current-password">
                         <label for="password" class="premium-label font-sans">Palavra-passe ou PIN</label>
                         @error('data.password')
                             <p class="text-red-500 font-sans" style="font-size: 0.75rem; margin-top: 0.25rem;">{{ $message }}</p>
@@ -56,8 +56,8 @@
                     </div>
 
                     <div class="flex items-center justify-between" style="margin-bottom: 2.5rem;">
-                        <label class="flex items-center" style="cursor: pointer; gap: 0.5rem;">
-                            <input type="checkbox" wire:model="data.remember" style="accent-color: #004c8c; width: 16px; height: 16px;">
+                        <label for="remember" class="flex items-center" style="cursor: pointer; gap: 0.5rem;">
+                            <input type="checkbox" id="remember" name="remember" wire:model="data.remember" style="accent-color: #004c8c; width: 16px; height: 16px;">
                             <span class="text-gray-500 font-sans font-bold uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">Manter Sessão</span>
                         </label>
                     </div>
