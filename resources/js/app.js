@@ -571,6 +571,7 @@ document.addEventListener('alpine:init', () => {
      * countdownTimer usa para persistir estado). Existe para que um timer
      * continue visível mesmo ao mudar de passo do wizard ou de piscina —
      * sem isto só se via o timer voltando ao passo/fieldset onde foi criado.
+     * Clicável para navegar automaticamente ao fieldset onde o timer está.
      */
     window.Alpine.data('mmcTimerBar', () => ({
         timers: [],
@@ -603,6 +604,8 @@ document.addEventListener('alpine:init', () => {
 
                 ativos.push({
                     key,
+                    statePath,
+                    poolId,
                     poolNome: (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
                     fase: fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
                     remainingSeconds,
@@ -619,6 +622,35 @@ document.addEventListener('alpine:init', () => {
             const m = Math.floor(abs / 60).toString().padStart(2, '0');
             const s = (abs % 60).toString().padStart(2, '0');
             return `${isNeg ? '-' : ''}${m}:${s}`;
+        },
+
+        navegar(statePath, poolId) {
+            // Encontra o fieldset correspondente na página
+            const fieldsetSelector = `[data-pools-fieldset="${poolId}"]`;
+            const fieldset = document.querySelector(fieldsetSelector);
+
+            if (!fieldset) {
+                console.warn(`Fieldset não encontrado: ${fieldsetSelector}`);
+                return;
+            }
+
+            // Scroll até ao fieldset
+            fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Se o fieldset está colapsado (legendário <legend> ou botão de collapse),
+            // tenta expandir via Livewire ou Alpine se o collapse for visível
+            const legend = fieldset.querySelector('legend');
+            const button = fieldset.querySelector('[x-data*="legend"]') || legend?.closest('button');
+            if (button) {
+                button.click();
+            }
+
+            // Focus no fieldset para evidenciar
+            fieldset.focus({ preventScroll: true });
+            fieldset.classList.add('ring-2', 'ring-blue-500');
+            setTimeout(() => {
+                fieldset.classList.remove('ring-2', 'ring-blue-500');
+            }, 2000);
         },
 
         destroy() {

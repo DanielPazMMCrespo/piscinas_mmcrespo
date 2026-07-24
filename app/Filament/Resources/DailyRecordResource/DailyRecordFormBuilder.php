@@ -475,6 +475,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->schema([
                                     Forms\Components\Toggle::make('bomba_ferrada')
                                         ->id("bomba_ferrada_{$pool->id}")
@@ -523,6 +524,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->schema([
                                     Forms\Components\Toggle::make('tanque_ok')
                                         ->id("tanque_ok_{$pool->id}")
@@ -542,6 +544,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->schema([
                                     Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
                                         ->label('Histórico de Retrolavagens')
@@ -608,6 +611,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
                                 ->schema([
                                     Forms\Components\ViewField::make('timer_enxaguamento')
@@ -626,6 +630,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
                                 ->schema([
                                     ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
@@ -645,6 +650,7 @@ class DailyRecordFormBuilder
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->schema([
                                     Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
                                         ->hiddenLabel()
@@ -719,6 +725,7 @@ class DailyRecordFormBuilder
                         ->schema(
                             $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
+                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
                                 ->schema([
                                     Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
                                         ->hiddenLabel()
