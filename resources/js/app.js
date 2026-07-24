@@ -1,5 +1,6 @@
 import './bootstrap';
 import './push';
+import './gsap-transitions';
 
 // Listener para notificações de timers expirados
 if (typeof Livewire !== 'undefined') {

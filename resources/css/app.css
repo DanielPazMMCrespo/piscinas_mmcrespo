@@ -42,38 +42,6 @@ body {
     background-color: #031225 !important; /* Deep Ocean Background */
 }
 
-/* Ambient Fluid Glassmorphic Background Orbs */
-.mmc-fluid-orb {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(100px);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.45;
-    transition: all 0.8s ease;
-}
-.mmc-fluid-orb-1 {
-    width: 450px;
-    height: 450px;
-    top: -100px;
-    right: -100px;
-    background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(79, 172, 254, 0.15) 70%, transparent 100%);
-    animation: mmc-float-orb 14s ease-in-out infinite alternate;
-}
-.mmc-fluid-orb-2 {
-    width: 550px;
-    height: 550px;
-    bottom: -150px;
-    left: -150px;
-    background: radial-gradient(circle, rgba(3, 18, 37, 0.6) 0%, rgba(0, 242, 254, 0.2) 60%, transparent 100%);
-    animation: mmc-float-orb 18s ease-in-out infinite alternate-reverse;
-}
-@keyframes mmc-float-orb {
-    0% { transform: translate(0, 0) scale(1); }
-    50% { transform: translate(40px, -50px) scale(1.1); }
-    100% { transform: translate(-30px, 30px) scale(0.95); }
-}
-
 
 /* Tabs: wrap instead of overflow on narrow screens */
 .fi-tabs-list {
@@ -172,66 +140,124 @@ body {
 }
 
 /* =====================================================================
- * Global Luxury Deep Water / Glassmorphic Filament Theme Override
+ * Premium Minimalist Filament Theme (Mobile-First iOS Style)
  * ===================================================================== */
 
-/* Dark Mode Global Glassmorphism Overrides */
+/* Global Structure Enhancements */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base Light Mode - Ultra Clean */
+.fi-topbar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.fi-sidebar {
+    background: #ffffff !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Cards & Sections - Native feel */
+.fi-section,
+.fi-ta-ctn,
+.fi-card,
+.fi-dropdown-panel {
+    background-color: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.04) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+    border-radius: 16px !important;
+}
+
+.fi-section-header,
+.fi-ta-header,
+.fi-ta-table th {
+    background: #fafafa !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Form Inputs - Soft & Accessible */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+select,
+textarea,
+.fi-input-wrp {
+    background-color: #f9fafb !important;
+    border: 1px solid transparent !important;
+    border-radius: 12px !important;
+    transition: all 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.fi-input-wrp:focus-within {
+    background-color: #ffffff !important;
+    border-color: rgba(2, 132, 199, 0.4) !important;
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1) !important;
+}
+
+/* ================== DARK MODE ================== */
 .dark .fi-topbar {
-    background: rgba(3, 18, 37, 0.85) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border-bottom: 1px solid rgba(0, 242, 254, 0.15) !important;
+    background: rgba(15, 23, 42, 0.85) !important; /* Slate 900 */
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 .dark .fi-sidebar {
-    background: rgba(3, 18, 37, 0.9) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border-right: 1px solid rgba(0, 242, 254, 0.15) !important;
+    background: #0f172a !important; /* Slate 900 */
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 .dark .fi-sidebar-item-active > a,
 .dark .fi-sidebar-item-active > button {
-    background: linear-gradient(90deg, rgba(0, 242, 254, 0.18) 0%, rgba(79, 172, 254, 0.08) 100%) !important;
-    border-left: 3px solid #00F2FE !important;
-    color: #00F2FE !important;
-    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2) !important;
+    background: rgba(14, 165, 233, 0.1) !important; /* Sky 500 at 10% */
+    border-left: 3px solid #0ea5e9 !important;
+    color: #0ea5e9 !important;
+    border-radius: 0 8px 8px 0 !important;
 }
 
 .dark .fi-sidebar-item-active svg {
-    color: #00F2FE !important;
+    color: #0ea5e9 !important;
 }
 
-/* Filament Cards, Sections, Tables & Modals */
+/* Dark Cards & Sections */
 .dark .fi-section,
 .dark .fi-ta-ctn,
 .dark .fi-card,
 .dark .fi-fo-field-wrp,
 .dark .fi-modal-window,
 .dark .fi-dropdown-panel {
-    background-color: rgba(7, 26, 51, 0.75) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    border: 1px solid rgba(0, 242, 254, 0.15) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+    background-color: #1e293b !important; /* Slate 800 */
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
+    border-radius: 16px !important;
 }
 
 .dark .fi-section-header,
 .dark .fi-ta-header,
 .dark .fi-ta-table th {
-    background: rgba(3, 18, 37, 0.5) !important;
-    border-bottom: 1px solid rgba(0, 242, 254, 0.12) !important;
-}
-
-.dark .fi-ta-table td {
+    background: rgba(15, 23, 42, 0.5) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-.dark .fi-ta-row:hover {
-    background-color: rgba(0, 242, 254, 0.06) !important;
+.dark .fi-ta-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
 }
 
-/* Form Inputs & Selects */
+.dark .fi-ta-row:hover {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Dark Form Inputs */
 .dark input[type="text"],
 .dark input[type="number"],
 .dark input[type="email"],
@@ -240,38 +266,17 @@ body {
 .dark select,
 .dark textarea,
 .dark .fi-input-wrp {
-    background-color: rgba(3, 18, 37, 0.6) !important;
-    border: 1px solid rgba(0, 242, 254, 0.2) !important;
+    background-color: #0f172a !important; /* Slate 900 */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #f8fafc !important;
-    backdrop-filter: blur(10px) !important;
 }
 
 .dark input:focus,
 .dark select:focus,
 .dark textarea:focus,
 .dark .fi-input-wrp:focus-within {
-    border-color: #00F2FE !important;
-    box-shadow: 0 0 12px rgba(0, 242, 254, 0.3) !important;
-}
-
-/* Light Mode Soft Glass Enhancements */
-.fi-topbar {
-    background: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-}
-.fi-sidebar {
-    background: rgba(240, 247, 255, 0.9) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-}
-.fi-section,
-.fi-ta-ctn,
-.fi-card {
-    background-color: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(2, 132, 199, 0.15) !important;
-    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.06) !important;
+    background-color: #1e293b !important;
+    border-color: #0ea5e9 !important; /* Sky 500 */
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15) !important;
 }
 

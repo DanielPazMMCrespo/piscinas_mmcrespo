@@ -39,6 +39,10 @@ class DailyRecordTableBuilder
             ->defaultSort('registado_em', 'desc')
             ->recordUrl(null)
             ->recordAction('view')
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
@@ -132,7 +136,7 @@ class DailyRecordTableBuilder
             ], layout: FiltersLayout::Modal)
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\ViewAction::make()->slideOver(),
                     Tables\Actions\Action::make('corrigir')
                         ->label('Corrigir')
                         ->icon('heroicon-o-pencil-square')
@@ -149,6 +153,7 @@ class DailyRecordTableBuilder
 
                             return $user->hasRole(UserRole::NADADOR_SALVADOR) && $record->user_id === $user->id;
                         })
+                        ->slideOver()
                         ->modalHeading('Corrigir registo')
                         ->modalDescription('Cria um novo registo de correção ligado ao original. O original mantém-se inalterado, como exige o livro sanitário.')
                         ->modalSubmitActionLabel('Registar correção')

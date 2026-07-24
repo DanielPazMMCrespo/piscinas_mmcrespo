@@ -126,10 +126,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => auth()->check() ? view('filament.notification-prompt')->render() : '',
             )
 
-            ->renderHook(
-                PanelsRenderHook::BODY_START,
-                fn (): string => '<div class="mmc-fluid-orb mmc-fluid-orb-1"></div><div class="mmc-fluid-orb mmc-fluid-orb-2"></div>',
-            )
+
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'HTML'

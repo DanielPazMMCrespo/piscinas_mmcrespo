@@ -178,6 +178,12 @@ class IncidentResource extends Resource
         return $table
             ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'piscina', 'utilizador']))
+            ->recordUrl(null)
+            ->recordAction('view')
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
                 Tables\Columns\Layout\Split::make([
                     Tables\Columns\Layout\Stack::make([
@@ -224,8 +230,8 @@ class IncidentResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     static::resolverTableAction(),
-                    Tables\Actions\ViewAction::make(),
-                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\ViewAction::make()->slideOver(),
+                    Tables\Actions\EditAction::make()->slideOver(),
                 ]),
             ])
             ->bulkActions([
@@ -261,6 +267,7 @@ class IncidentResource extends Resource
             ->label('Resolver')
             ->icon('heroicon-o-check-circle')
             ->color('success')
+            ->slideOver()
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
             ->modalHeading('Resolver incidente')
             ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
@@ -278,6 +285,7 @@ class IncidentResource extends Resource
             ->label('Resolver')
             ->icon('heroicon-o-check-circle')
             ->color('success')
+            ->slideOver()
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
             ->modalHeading('Resolver incidente')
             ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
