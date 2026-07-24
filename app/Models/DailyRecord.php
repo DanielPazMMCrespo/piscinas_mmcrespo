@@ -91,7 +91,7 @@ class DailyRecord extends Model
     }
 
     protected $fillable = [
-        'pool_id', 'user_id', 'registado_em',
+        'pool_id', 'user_id', 'registado_em', 'hora_colheita',
         'cloro_livre', 'cloro_total',
         'ph', 'temperatura', 'transparencia',
         'caleira_feita', 'renovacao_agua',
@@ -113,6 +113,7 @@ class DailyRecord extends Model
 
     protected $casts = [
         'registado_em' => 'datetime',
+        'hora_colheita' => 'datetime:H:i',
         'cloro_livre' => 'decimal:2',
         'cloro_total' => 'decimal:2',
         'ph' => 'decimal:2',

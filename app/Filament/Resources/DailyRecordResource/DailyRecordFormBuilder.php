@@ -116,6 +116,35 @@ class DailyRecordFormBuilder
         return null;
     }
 
+    /**
+     * Confronta a leitura fresca da sonda com os limites CN 14/DA da piscina
+     * (pH via avaliarConformidade, ORP via Pool::orp_min/max, temperatura via
+     * avaliarConformidade). Devolve os rótulos dos parâmetros fora da gama.
+     *
+     * @return array<int, string>
+     */
+    private static function sondaViolacoes(SensorReading $sonda, Pool $pool): array
+    {
+        $violacoes = [];
+
+        if ($sonda->ph !== null && DailyRecord::avaliarConformidade('ph', $sonda->ph, $pool)['estado'] === EstadoConformidade::VERMELHO) {
+            $violacoes[] = 'pH';
+        }
+
+        if ($sonda->orp !== null && $pool->orp_min !== null && $pool->orp_max !== null) {
+            $orp = (float) $sonda->orp;
+            if ($orp < (float) $pool->orp_min || $orp > (float) $pool->orp_max) {
+                $violacoes[] = 'ORP';
+            }
+        }
+
+        if ($sonda->temperatura_agua !== null && DailyRecord::avaliarConformidade('temperatura', $sonda->temperatura_agua, $pool)['estado'] === EstadoConformidade::VERMELHO) {
+            $violacoes[] = 'Temperatura';
+        }
+
+        return $violacoes;
+    }
+
     private static function isNS(): bool
     {
         return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
@@ -361,11 +390,11 @@ class DailyRecordFormBuilder
                         ->required()
                         ->disabled()
                         ->dehydrated(),
-                    Forms\Components\DateTimePicker::make('registado_em')
-                        ->label('Data e Hora do Registo')
+                    Forms\Components\DatePicker::make('registado_em')
+                        ->label('Data do Registo')
                         ->default(now())
                         ->required()
-                        ->disabled(fn (): bool => self::isNS())
+                        ->disabled()
                         ->dehydrated(),
                 ])->columns(3),
 
@@ -552,6 +581,10 @@ class DailyRecordFormBuilder
                     $stepNS = Forms\Components\Wizard\Step::make($modoRapido ? 'Registo Rápido' : 'Nadadores-salvadores')
                         ->icon($modoRapido ? 'heroicon-o-bolt' : 'heroicon-o-users')
                         ->schema([
+                            Forms\Components\TimePicker::make('hora_colheita')
+                                ->label('Hora da colheita')
+                                ->seconds(false)
+                                ->default(now()),
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
                             ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
@@ -562,26 +595,23 @@ class DailyRecordFormBuilder
                                         ->content(function () use ($pool): ?HtmlString {
                                             $sonda = self::sondaFresca($pool);
                                             if ($sonda !== null) {
-                                                $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
-                                                $partes = [];
-                                                if ($sonda->ph !== null) {
-                                                    $partes[] = 'pH <strong>'.$fmt((float) $sonda->ph).'</strong>';
-                                                }
-                                                if ($sonda->orp !== null) {
-                                                    $partes[] = 'ORP <strong>'.$fmt((float) $sonda->orp, 0).' mV</strong>';
-                                                }
-                                                if ($sonda->temperatura_agua !== null) {
-                                                    $partes[] = '<strong>'.$fmt((float) $sonda->temperatura_agua, 1).' °C</strong>';
-                                                }
-                                                if ($partes === []) {
+                                                if ($sonda->ph === null && $sonda->orp === null && $sonda->temperatura_agua === null) {
                                                     return null;
                                                 }
 
-                                                $idade = (int) $sonda->lida_em->diffInMinutes(now());
+                                                $violacoes = self::sondaViolacoes($sonda, $pool);
+
+                                                if ($violacoes === []) {
+                                                    return new HtmlString(
+                                                        '<div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-sm">'
+                                                        .'📡 Sonda: ✓ Conforme'
+                                                        .'</div>'
+                                                    );
+                                                }
 
                                                 return new HtmlString(
-                                                    '<div class="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-900 dark:text-sky-200 text-sm">'
-                                                    .'📡 Sonda agora: '.implode(' · ', $partes)." — há {$idade} min. Compare a sua análise com estes valores."
+                                                    '<div class="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-200 text-sm">'
+                                                    .'📡 Sonda: Não conforme - Valor '.implode(' e ', $violacoes).', por favor considera refazer a medição.'
                                                     .'</div>'
                                                 );
                                             }

@@ -101,7 +101,14 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">'.
                     '<meta name="csrf-token" content="'.csrf_token().'">'.
                     '<script>window.__userId = '.(auth()->id() ?? 'null').';'.
-                    'window.__vapidPublicKey = '.json_encode(config('webpush.vapid.public_key')).';</script>',
+                    'window.__vapidPublicKey = '.json_encode(config('webpush.vapid.public_key')).';'.
+                    'window.__poolNomes = '.json_encode(\App\Models\Pool::pluck('name', 'id')).';</script>',
+            )
+            // Barra global fixa com os timers de retrolavagem/enxaguamento ativos
+            // (visível em qualquer página/passo do wizard, não só no fieldset de origem)
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): string => auth()->check() ? view('filament.timer-bar')->render() : '',
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(

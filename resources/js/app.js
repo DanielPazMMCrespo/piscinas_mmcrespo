@@ -566,6 +566,67 @@ document.addEventListener('alpine:init', () => {
     }));
 
     /**
+     * Barra global fixa no topo com os timers de retrolavagem/enxaguamento
+     * ativos, lidos diretamente do localStorage (mesma fonte que o
+     * countdownTimer usa para persistir estado). Existe para que um timer
+     * continue visível mesmo ao mudar de passo do wizard ou de piscina —
+     * sem isto só se via o timer voltando ao passo/fieldset onde foi criado.
+     */
+    window.Alpine.data('mmcTimerBar', () => ({
+        timers: [],
+        poll: null,
+
+        init() {
+            this.refresh();
+            this.poll = setInterval(() => this.refresh(), 1000);
+        },
+
+        refresh() {
+            const ativos = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key || !key.startsWith('mmc_timer_')) continue;
+
+                let data;
+                try {
+                    data = JSON.parse(localStorage.getItem(key));
+                } catch (e) {
+                    continue;
+                }
+                if (!data || !data.isRunning || !data.endTime) continue;
+
+                const statePath = key.replace('mmc_timer_', '');
+                const match = statePath.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
+                const poolId = match ? parseInt(match[1], 10) : null;
+                const fase = match ? match[2] : (statePath.match(/timer_(lavagem|enxaguamento)/) || [])[1];
+                const remainingSeconds = Math.round((data.endTime - Date.now()) / 1000);
+
+                ativos.push({
+                    key,
+                    poolNome: (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
+                    fase: fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
+                    remainingSeconds,
+                    isExceeded: remainingSeconds < 0,
+                });
+            }
+            ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
+            this.timers = ativos;
+        },
+
+        formatar(segundos) {
+            const isNeg = segundos < 0;
+            const abs = Math.abs(segundos);
+            const m = Math.floor(abs / 60).toString().padStart(2, '0');
+            const s = (abs % 60).toString().padStart(2, '0');
+            return `${isNeg ? '-' : ''}${m}:${s}`;
+        },
+
+        destroy() {
+            if (this.poll) clearInterval(this.poll);
+        },
+    }));
+
+    /**
      * Gráfico de barras empilhadas (Consumo de Químicos por piscina/mês).
      * Reutiliza a mesma classe Chart.js já carregada por mmcChart quando
      * disponível, registando adicionalmente os controllers de barras.

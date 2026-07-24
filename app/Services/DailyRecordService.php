@@ -27,6 +27,7 @@ class DailyRecordService
         $commonData = [
             'user_id' => $userId,
             'registado_em' => $data['registado_em'] ?? now(),
+            'hora_colheita' => $data['hora_colheita'] ?? null,
         ];
 
         if (isset($data['ns_foto'])) {
