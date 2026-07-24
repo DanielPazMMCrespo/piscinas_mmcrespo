@@ -5,7 +5,7 @@
 // - Navegações HTML (/admin/*): Network-First com fallback para cache local, permitindo ao técnico abrir o formulário de registo e o dashboard mesmo no terreno sem rede.
 // - Notificações Push: VAPID nativo para alertas e timers.
 
-const VERSAO = 'mmcrespo-v13';
+const VERSAO = 'mmcrespo-v14';
 const CORE_ASSETS = [
     '/manifest.json',
     '/images/icon-192.png',
