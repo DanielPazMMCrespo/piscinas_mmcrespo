@@ -167,6 +167,13 @@
             justify-content: center;
             align-items: center;
         }
+
+        #loader-logo {
+            opacity: 0;
+            height: 120px;
+            width: auto;
+            object-fit: contain;
+        }
     </style>
 </head>
 <body class="font-sans antialiased text-gray-900">

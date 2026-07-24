@@ -93,31 +93,36 @@
     </div>
 
     <!-- Initialization Scripts for GSAP Animations -->
+    @script
     <script>
-        document.addEventListener("DOMContentLoaded", (event) => {
-            const tl = gsap.timeline();
+        // Use setTimeout to ensure DOM is fully ready and Tailwind is applied
+        setTimeout(() => {
+            if (typeof gsap !== 'undefined') {
+                const tl = gsap.timeline();
 
-            // 1. Aparece o Logo isolado no centro
-            tl.to("#loader-logo", { opacity: 1, y: -10, duration: 1, ease: "power2.out" })
-              
-              // 2. Fica um pequeno momento em pausa para brilhar, depois some
-              .to("#loader-logo", { opacity: 0, y: -20, duration: 0.6, delay: 0.8, ease: "power2.in" })
-              
-              // 3. O fundo do loader sobe (slide up)
-              .to("#loader", { height: 0, duration: 1, ease: "expo.inOut" })
-              
-              // 4. Começam as animações do resto da página
-              .from("#visual-panel", { x: "-10%", opacity: 0, duration: 1.5, ease: "expo.out" }, "-=0.5")
-              .from(".logo-container", { scale: 0.95, y: 20, opacity: 0, duration: 1.5, ease: "power3.out" }, "-=1")
-              
-              // 5. Elementos do formulário entram em cascata
-              .from(".form-element", {
-                  y: 30,
-                  opacity: 0,
-                  duration: 1,
-                  stagger: 0.15,
-                  ease: "power3.out"
-              }, "-=1.2");
-        });
+                // 1. Aparece o Logo isolado no centro
+                tl.to("#loader-logo", { opacity: 1, y: -10, duration: 1, ease: "power2.out" })
+                  
+                  // 2. Fica um pequeno momento em pausa para brilhar, depois some
+                  .to("#loader-logo", { opacity: 0, y: -20, duration: 0.6, delay: 0.8, ease: "power2.in" })
+                  
+                  // 3. O fundo do loader sobe (slide up)
+                  .to("#loader", { height: 0, duration: 1, ease: "expo.inOut" })
+                  
+                  // 4. Começam as animações do resto da página
+                  .from("#visual-panel", { x: "-10%", opacity: 0, duration: 1.5, ease: "expo.out" }, "-=0.5")
+                  .from(".logo-container", { scale: 0.95, y: 20, opacity: 0, duration: 1.5, ease: "power3.out" }, "-=1")
+                  
+                  // 5. Elementos do formulário entram em cascata
+                  .from(".form-element", {
+                      y: 30,
+                      opacity: 0,
+                      duration: 1,
+                      stagger: 0.15,
+                      ease: "power3.out"
+                  }, "-=1.2");
+            }
+        }, 100);
     </script>
+    @endscript
 </div>
