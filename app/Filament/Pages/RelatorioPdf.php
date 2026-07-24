@@ -502,6 +502,18 @@ class RelatorioPdf extends Page implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
+            // Análises rápidas (OperationalAction::TIPO_ANALISE_PONTUAL) contam tanto
+            // quanto um registo diário: entram na mesma tabela/agregação, não numa
+            // secção à parte (decisão do Daniel). Convertidas em DailyRecord
+            // sintético (mesmo padrão do "mockRecord" da agregação média diária,
+            // abaixo) para reutilizar phConforme()/cloroLivreConforme()/etc. sem
+            // duplicar a lógica de conformidade legal.
+            $analisesRapidas = ($acoesOperacionais->get($piscina->id) ?? collect())
+                ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+                ->map(fn (OperationalAction $acao) => self::registoSinteticoDeAnalise($acao, $piscina));
+
+            $registos = $registos->concat($analisesRapidas)->sortBy('registado_em')->values();
+
             if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
                     ->map(function ($grupo, $dataStr) use ($piscina) {
@@ -738,9 +750,36 @@ class RelatorioPdf extends Page implements HasForms
                 'piscina' => $piscina,
                 'registos' => $registos,
                 'controlador' => $controlador,
-                'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
+                // Análise rápida já entrou em 'registos' acima — não duplicar aqui.
+                'acoes_operacionais' => ($acoesOperacionais->get($piscina->id) ?? collect())
+                    ->where('tipo', '!=', OperationalAction::TIPO_ANALISE_PONTUAL)
+                    ->values(),
             ];
         })->all();
+    }
+
+    /**
+     * Converte uma análise rápida (OperationalAction) num DailyRecord sintético
+     * (nunca persistido) para que entre na mesma tabela/conformidade do livro
+     * sanitário que os registos diários — indistinguível de um registo normal.
+     */
+    private static function registoSinteticoDeAnalise(OperationalAction $acao, Pool $piscina): DailyRecord
+    {
+        $dados = $acao->dados ?? [];
+
+        $registo = new DailyRecord;
+        $registo->registado_em = $acao->registado_em;
+        $registo->ph = $dados['ph'] ?? null;
+        $registo->cloro_livre = $dados['cloro_livre'] ?? null;
+        $registo->cloro_total = $dados['cloro_total'] ?? null;
+        $registo->temperatura = $dados['temperatura'] ?? null;
+        $registo->observacoes = $acao->observacoes;
+        $registo->e_correcao = false;
+        $registo->setRelation('utilizador', $acao->utilizador);
+        $registo->setRelation('piscina', $piscina);
+        $registo->setRelation('adicoes', collect());
+
+        return $registo;
     }
 
     private static function cumpresRegraLavagemFiltro(mixed $ph, mixed $orp): bool
