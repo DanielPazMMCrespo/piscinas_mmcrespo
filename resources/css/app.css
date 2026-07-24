@@ -43,7 +43,7 @@ body {
 }
 
 .dark body {
-    background-color: #021a2f !important; /* Deep Ocean Background matching login */
+    background-color: #030f1c !important; /* Premium Deep Luxury Ocean */
 }
 
 
@@ -225,58 +225,59 @@ textarea:focus,
 
 /* ================== DARK MODE ================== */
 .dark .fi-topbar {
-    background: rgba(15, 23, 42, 0.85) !important; /* Slate 900 */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: rgba(3, 15, 28, 0.75) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
 }
 
 .dark .fi-topbar::before {
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 }
 
 .dark .fi-sidebar {
-    background: #0f172a !important; /* Slate 900 */
-    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: #030f1c !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
 }
 
 .dark .fi-sidebar-item-active > a,
 .dark .fi-sidebar-item-active > button {
-    background: rgba(14, 165, 233, 0.1) !important; /* Sky 500 at 10% */
-    border-left: 3px solid #0ea5e9 !important;
-    color: #0ea5e9 !important;
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.15) 0%, rgba(14, 165, 233, 0.02) 100%) !important;
+    border-left: 3px solid #38bdf8 !important;
+    color: #38bdf8 !important;
     border-radius: 0 8px 8px 0 !important;
 }
 
 .dark .fi-sidebar-item-active svg {
-    color: #0ea5e9 !important;
+    color: #38bdf8 !important;
 }
 
-/* Dark Cards & Sections */
+/* Dark Cards & Sections (Glassmorphism) */
 .dark .fi-section,
 .dark .fi-ta-ctn,
 .dark .fi-card,
-.dark .fi-fo-field-wrp,
 .dark .fi-modal-window,
 .dark .fi-dropdown-panel {
-    background-color: #1e293b !important; /* Slate 800 */
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
     border-radius: 16px !important;
 }
 
 .dark .fi-section-header,
 .dark .fi-ta-header,
 .dark .fi-ta-table th {
-    background: rgba(15, 23, 42, 0.5) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: rgba(255, 255, 255, 0.01) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
 }
 
 .dark .fi-ta-table td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
 }
 
 .dark .fi-ta-row:hover {
-    background-color: rgba(255, 255, 255, 0.02) !important;
+    background-color: rgba(255, 255, 255, 0.03) !important;
 }
 
 /* Dark Form Inputs */
@@ -288,17 +289,18 @@ textarea:focus,
 .dark select,
 .dark textarea,
 .dark .fi-input-wrp {
-    background-color: #0f172a !important; /* Slate 900 */
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     color: #f8fafc !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15) !important;
 }
 
 .dark input:focus,
 .dark select:focus,
 .dark textarea:focus,
 .dark .fi-input-wrp:focus-within {
-    background-color: #1e293b !important;
-    border-color: #0ea5e9 !important; /* Sky 500 */
-    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15) !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    border-color: #38bdf8 !important; /* Sky 400 */
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
