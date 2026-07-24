@@ -692,7 +692,7 @@ class DailyRecordFormBuilder
                                                 .'</div>'
                                             );
                                         }),
-                                    self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->required(), 'ns_ph', $pool),
+                                    self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->minValue(0)->maxValue(14)->required(), 'ns_ph', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->required(), 'ns_cloro_livre', $pool),
                                     self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
                                         ->id("ns_cloro_total_{$pool->id}")
