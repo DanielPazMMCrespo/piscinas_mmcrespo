@@ -1,5 +1,5 @@
-<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.25s ease-in-out; pointer-events: auto;">
-    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.9) translateY(15px); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
+<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 200ms ease-in-out; pointer-events: auto;">
+    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.95) translateY(10px); transition: opacity 100ms ease-out, transform 100ms ease-out;">
 </div>
 
 <script>
@@ -17,14 +17,16 @@
         loader.style.display = 'flex';
         loader.style.pointerEvents = 'auto';
         
-        // Força reflow para garantir a transição de opacidade
+        // Força reflow
         void loader.offsetWidth;
         
         loader.style.opacity = '1';
-        logo.style.opacity = '1';
-        logo.style.transform = 'scale(1) translateY(0)';
+        requestAnimationFrame(() => {
+            logo.style.opacity = '1';
+            logo.style.transform = 'scale(1) translateY(0)';
+        });
 
-        // Temporizador de segurança (fail-safe) para nunca ficar preso
+        // Temporizador de segurança (fail-safe)
         clearTimeout(fallbackTimeout);
         fallbackTimeout = setTimeout(() => {
             hidePreloader();
@@ -39,32 +41,34 @@
         clearTimeout(fallbackTimeout);
 
         logo.style.opacity = '0';
-        logo.style.transform = 'scale(0.95) translateY(-10px)';
+        logo.style.transform = 'scale(0.95) translateY(-5px)';
         loader.style.opacity = '0';
 
         setTimeout(() => {
             loader.style.display = 'none';
             loader.style.pointerEvents = 'none';
-        }, 250);
+        }, 200);
     }
 
     // 1. Revelação no Carregamento Inicial (Mantido a 500ms)
     document.addEventListener('DOMContentLoaded', () => {
         const logo = getLogo();
         if (logo) {
-            logo.style.opacity = '1';
-            logo.style.transform = 'scale(1) translateY(0)';
+            requestAnimationFrame(() => {
+                logo.style.opacity = '1';
+                logo.style.transform = 'scale(1) translateY(0)';
+            });
         }
         setTimeout(hidePreloader, 500);
     });
 
-    // 2. Transições SPA do Livewire (Destaque: 150ms | Fade-out: 250ms)
+    // 2. Transições SPA do Livewire (Aparecer: 100ms | Destaque: 200ms | Fade-out: 200ms)
     document.addEventListener('livewire:navigating', () => {
         showPreloader();
     });
 
     document.addEventListener('livewire:navigated', () => {
-        setTimeout(hidePreloader, 150);
+        setTimeout(hidePreloader, 200);
     });
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida
