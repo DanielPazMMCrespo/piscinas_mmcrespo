@@ -254,6 +254,7 @@ class DailyRecordTableBuilder
                                 'pool_id' => $record->pool_id,
                                 'user_id' => $record->user_id,
                                 'registado_em' => $record->registado_em,
+                                'hora_colheita' => $record->hora_colheita,
                                 'ph' => $isNS ? $record->ph : $data['ph'],
                                 'cloro_livre' => $isNS ? $record->cloro_livre : $data['cloro_livre'],
                                 'cloro_total' => $isNS ? $record->cloro_total : $data['cloro_total'],

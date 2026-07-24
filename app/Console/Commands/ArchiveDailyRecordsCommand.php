@@ -64,7 +64,7 @@ class ArchiveDailyRecordsCommand extends Command
                 // Insert into archive table (with explicit column mapping)
                 $insertCount = DB::table('daily_records_archive')->insertUsing(
                     [
-                        'id', 'pool_id', 'user_id', 'registado_em',
+                        'id', 'pool_id', 'user_id', 'registado_em', 'hora_colheita',
                         'ph', 'cloro_total', 'cloro_livre', 'cloro_combinado',
                         'alcalinidade', 'temperatura_agua', 'turbidez', 'observacoes',
                         'bomba_funcionamento', 'bomba_duracao_minutos', 'bomba_observacoes', 'bomba_foto',
@@ -80,7 +80,7 @@ class ArchiveDailyRecordsCommand extends Command
                     DB::table('daily_records')
                         ->whereIn('id', $ids)
                         ->select([
-                            'id', 'pool_id', 'user_id', 'registado_em',
+                            'id', 'pool_id', 'user_id', 'registado_em', 'hora_colheita',
                             'ph', 'cloro_total', 'cloro_livre',
                             DB::raw('NULL as cloro_combinado'),
                             DB::raw('NULL as alcalinidade'),

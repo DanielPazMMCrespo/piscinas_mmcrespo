@@ -8,6 +8,7 @@ use App\Constants\UserRole;
 use App\Jobs\ProcessDailyRecordAfterCreate;
 use App\Models\DailyRecord;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -24,10 +25,18 @@ class DailyRecordService
             throw new InvalidArgumentException('Utilizador não autenticado ou ID de utilizador ausente.');
         }
 
+        // A hora da colheita é a hora oficial do registo: registado_em passa a ser
+        // a data escolhida + a hora da colheita (o instante da submissão fica no
+        // created_at automático do model, para auditoria).
+        $horaColheita = $data['hora_colheita'] ?? null;
+        $registadoEm = Carbon::parse($data['registado_em'] ?? now());
+        $hora = filled($horaColheita) ? Carbon::parse($horaColheita) : now();
+        $registadoEm->setTime($hora->hour, $hora->minute, 0);
+
         $commonData = [
             'user_id' => $userId,
-            'registado_em' => $data['registado_em'] ?? now(),
-            'hora_colheita' => $data['hora_colheita'] ?? null,
+            'registado_em' => $registadoEm,
+            'hora_colheita' => filled($horaColheita) ? $registadoEm->format('H:i:s') : null,
         ];
 
         if (isset($data['ns_foto'])) {
