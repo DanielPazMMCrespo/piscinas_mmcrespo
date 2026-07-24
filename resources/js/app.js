@@ -1370,7 +1370,7 @@ const askUserToRestoreDraft = (formKey, component, stored) => {
                 <button id="mmc-draft-modal-discard-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer">
                     Não, descartar
                 </button>
-                <button id="mmc-draft-modal-recover-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-amber-600 hover:bg-amber-500 shadow-sm transition-colors duration-150 cursor-pointer">
+                <button id="mmc-draft-modal-recover-btn" type="button" style="background-color:#d97706;color:#fff;" class="px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-colors duration-150 cursor-pointer hover:opacity-90">
                     Sim, recuperar
                 </button>
             </div>
