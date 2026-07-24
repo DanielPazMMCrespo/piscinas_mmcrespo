@@ -172,7 +172,7 @@
     align-items: center;
     margin-bottom: 0.15rem;
 }
-.dark .neo-metric-label { color: #94a3b8; }
+.dark .neo-metric-label { color: #cbd5e1; } /* slate-300 for better contrast */
 
 .neo-metric-value {
     font-size: 1.15rem; /* Compact size */

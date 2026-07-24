@@ -2,7 +2,7 @@
     <!-- Main Header -->
     <div class="text-center mb-6">
         <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
-        <p class="text-sm text-slate-500 mt-1">Visão global das piscinas.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Visão global das piscinas.</p>
     </div>
 
     @if ($totalPiscinas > 0)
@@ -11,8 +11,8 @@
             @unless ($isNS)
                 <div class="neo-kpi-card">
                     <div>
-                        <div class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">Registos Hoje</div>
-                        <div class="text-3xl font-bold text-slate-800">{{ $registadasHoje }}<span class="text-lg text-slate-400 font-normal">/{{ $totalPiscinas }}</span></div>
+                        <div class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Registos Hoje</div>
+                        <div class="text-3xl font-bold text-slate-800 dark:text-white">{{ $registadasHoje }}<span class="text-lg text-slate-400 dark:text-slate-500 font-normal">/{{ $totalPiscinas }}</span></div>
                     </div>
                     <!-- Placeholder Donut / Progress -->
                     <div style="width: 50px; height: 50px; position: relative;">
@@ -25,8 +25,8 @@
             @endunless
             <div class="neo-kpi-card">
                 <div>
-                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">Piscinas Conformes</div>
-                    <div class="text-3xl font-bold text-slate-800">{{ $conformes }}<span class="text-lg text-slate-400 font-normal">/{{ $totalPiscinas }}</span></div>
+                    <div class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Piscinas Conformes</div>
+                    <div class="text-3xl font-bold text-slate-800 dark:text-white">{{ $conformes }}<span class="text-lg text-slate-400 dark:text-slate-500 font-normal">/{{ $totalPiscinas }}</span></div>
                 </div>
                 <div style="width: 50px; height: 50px; position: relative;">
                     <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
@@ -90,18 +90,18 @@
                     $bgClass = 'bg-slate-50 dark:bg-slate-800';
                     $textClass = 'text-slate-400 dark:text-slate-500';
                     $statusLabel = 'Sem Dados';
-                    $statusColor = 'text-slate-500';
+                    $statusColor = 'text-slate-500 dark:text-slate-400';
 
                     if ($estadoGeral === 'ok') {
                         $bgClass = 'bg-emerald-50 dark:bg-emerald-900/30';
                         $textClass = 'text-emerald-600 dark:text-emerald-400';
                         $statusLabel = 'Conforme';
-                        $statusColor = 'text-emerald-600';
+                        $statusColor = 'text-emerald-600 dark:text-emerald-400';
                     } elseif ($estadoGeral === 'bad') {
                         $bgClass = 'bg-rose-50 dark:bg-rose-900/30';
                         $textClass = 'text-rose-600 dark:text-rose-400';
                         $statusLabel = $numFora . ' Alerta' . ($numFora > 1 ? 's' : '');
-                        $statusColor = 'text-rose-600 font-bold';
+                        $statusColor = 'text-rose-600 dark:text-rose-400 font-bold';
                     }
                 @endphp
                 <div class="neo-pool-header cursor-pointer select-none" @click="toggle()">
@@ -111,7 +111,7 @@
                         </div>
                         <div>
                             <h3 class="neo-pool-title">{{ $piscina->name }}</h3>
-                            <div class="text-xs text-slate-500 mt-0.5">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ $piscina->instalacao?->name ?? 'Sem Instalação' }}</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
