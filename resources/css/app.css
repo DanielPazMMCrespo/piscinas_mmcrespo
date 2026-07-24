@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap');
 @import 'tailwindcss';
 @import 'widgets.css';
 @import 'esquema.css';
@@ -9,12 +9,16 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../../app/**/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-    --font-heading: 'Syne', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Lato', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+    --color-primary-500: #0284c7;
+    --color-primary-600: #004c8c;
+    --color-primary-700: #003b6d;
 }
 
 /* Tipografia Avançada: Headings */
@@ -34,12 +38,12 @@ html, body {
 
 body {
     font-family: var(--font-sans) !important;
-    background-color: #f0f7ff !important;
+    background-color: #f9fafb !important;
     position: relative;
 }
 
 .dark body {
-    background-color: #031225 !important; /* Deep Ocean Background */
+    background-color: #021a2f !important; /* Deep Ocean Background matching login */
 }
 
 

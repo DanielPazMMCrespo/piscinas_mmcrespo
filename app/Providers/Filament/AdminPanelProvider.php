@@ -49,7 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->font('Outfit')
+            ->font('Lato')
             ->login(Login::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
@@ -108,7 +108,7 @@ class AdminPanelProvider extends PanelProvider
             // (visível em qualquer página/passo do wizard, não só no fieldset de origem)
             ->renderHook(
                 PanelsRenderHook::BODY_START,
-                fn (): string => auth()->check() ? view('filament.timer-bar')->render() : '',
+                fn (): string => (auth()->check() ? view('filament.timer-bar')->render() : '') . view('filament.preloader')->render()
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
@@ -132,7 +132,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => <<<'HTML'
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
 HTML,
