@@ -1609,21 +1609,19 @@ const mmcSetup = () => {
     if (!document.documentElement.classList.contains('mmc-loaded')) {
         document.documentElement.classList.add('mmc-loaded');
 
-        // Carrega GSAP dinamicamente para animação global de entrada se necessário
+        // Animação global de entrada via GSAP
         const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (!reduzMovimento) {
-            import('gsap').then(({ gsap }) => {
-                const pageContent = document.querySelector('.fi-main');
-                if (pageContent) {
-                    gsap.from(pageContent, {
-                        opacity: 0,
-                        y: 10,
-                        duration: 0.4,
-                        ease: 'power2.out',
-                        clearProps: 'all'
-                    });
-                }
-            });
+        if (!reduzMovimento && window.gsap) {
+            const pageContent = document.querySelector('.fi-main');
+            if (pageContent) {
+                window.gsap.from(pageContent, {
+                    opacity: 0,
+                    y: 10,
+                    duration: 0.4,
+                    ease: 'power2.out',
+                    clearProps: 'all'
+                });
+            }
         }
     }
 

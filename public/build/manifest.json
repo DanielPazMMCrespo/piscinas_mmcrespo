@@ -47,14 +47,8 @@
       "_helpers.dataset-CoTfUTUI.js"
     ]
   },
-  "node_modules/gsap/index.js": {
-    "file": "assets/index-CgAXP8uT.js",
-    "name": "index",
-    "src": "node_modules/gsap/index.js",
-    "isDynamicEntry": true
-  },
   "resources/css/app.css": {
-    "file": "assets/app-D6NyFHXe.css",
+    "file": "assets/app-BJm-Moxb.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -63,7 +57,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CqqwDoyH.js",
+    "file": "assets/app-BBJYFPH1.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -73,8 +67,7 @@
       "node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.esm.js",
       "node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.esm.js",
       "node_modules/chartjs-adapter-luxon/dist/chartjs-adapter-luxon.esm.js",
-      "node_modules/chart.js/dist/chart.js",
-      "node_modules/gsap/index.js"
+      "node_modules/chart.js/dist/chart.js"
     ]
   }
 }

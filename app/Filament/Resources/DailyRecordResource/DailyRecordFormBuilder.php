@@ -449,7 +449,7 @@ class DailyRecordFormBuilder
                         ->label('Data do Registo')
                         ->default(now())
                         ->required()
-                        ->disabled()
+                        ->disabled(fn () => self::isNS())
                         ->dehydrated(),
                 ])->columns(3),
 
