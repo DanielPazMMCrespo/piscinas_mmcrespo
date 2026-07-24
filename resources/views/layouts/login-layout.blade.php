@@ -20,8 +20,9 @@
             margin: 0;
             padding: 0;
             width: 100%;
-            height: 100%;
-            overflow: hidden;
+            min-height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
             background: #021a2f;
             font-family: 'Lato', sans-serif;
             color: #111;
@@ -192,19 +193,20 @@
 
         .right-panel {
             width: 45%;
-            height: 100%;
+            min-height: 100vh;
             background: #fff;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 0 5rem;
+            padding: 3rem 5rem;
             box-sizing: border-box;
             position: relative;
+            overflow-y: auto;
         }
 
         @media (max-width: 1024px) {
             .left-panel { display: none; }
-            .right-panel { width: 100%; padding: 0 2rem; }
+            .right-panel { width: 100%; padding: 2rem 1.5rem 5rem 1.5rem; justify-content: flex-start; }
         }
     </style>
 </head>
