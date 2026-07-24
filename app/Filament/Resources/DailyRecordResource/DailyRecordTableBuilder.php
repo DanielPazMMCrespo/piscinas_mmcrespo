@@ -393,9 +393,9 @@ class DailyRecordTableBuilder
                     ->schema([
                         Grid::make(3)
                             ->schema([
-                                TextEntry::make('pool.name')
+                                TextEntry::make('piscina.name')
                                     ->label('Piscina'),
-                                TextEntry::make('user.name')
+                                TextEntry::make('utilizador.name')
                                     ->label('Operador'),
                                 TextEntry::make('registado_em')
                                     ->label('Data do Registo')
@@ -426,9 +426,9 @@ class DailyRecordTableBuilder
                             ->schema([
                                 Grid::make(2)
                                     ->schema([
-                                        TextEntry::make('pool.name')
+                                        TextEntry::make('piscina.name')
                                             ->label('Piscina'),
-                                        TextEntry::make('user.name')
+                                        TextEntry::make('utilizador.name')
                                             ->label('Operador'),
                                         TextEntry::make('registado_em')
                                             ->label('Data do Registo')
