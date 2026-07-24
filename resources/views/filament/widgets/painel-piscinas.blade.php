@@ -87,8 +87,8 @@
                 
                 <!-- Card Header -->
                 @php
-                    $bgClass = 'bg-slate-50 dark:bg-slate-800';
-                    $textClass = 'text-slate-400 dark:text-slate-500';
+                    $bgClass = 'bg-slate-50 dark:bg-white/5';
+                    $textClass = 'text-slate-400 dark:text-slate-300';
                     $statusLabel = 'Sem Dados';
                     $statusColor = 'text-slate-500 dark:text-slate-400';
 
@@ -158,7 +158,7 @@
                                         @endif
                                     </div>
                                     @if($metrica['origem'] !== 'sem_dados')
-                                        <div class="text-[0.65rem] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                        <div class="text-[0.65rem] text-slate-400 dark:text-slate-300 font-medium bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wide">
                                             @if($metrica['origem'] === 'controlador')
                                                 Sonda • {{ $metrica['idade'] }}
                                             @elseif($metrica['origem'] === 'manual')
