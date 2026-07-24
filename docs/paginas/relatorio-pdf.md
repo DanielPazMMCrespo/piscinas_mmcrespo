@@ -16,6 +16,7 @@ Gera o Livro de Registo Sanitário oficial em PDF (`barryvdh/laravel-dompdf`) + 
 - Regista `activity('relatorio')` para PDF e CSV (auditoria de quem exportou).
 
 ## `construirSeccoes()` (estático, reutilizado por `GerarRelatorioMensalCommand`)
+- **Análises rápidas contam como registo diário**: `OperationalAction` do tipo `analise_pontual` (normalmente feitas pelo Nadador-Salvador no local, sem passar pelo formulário completo) entram na mesma tabela `registos` que os `DailyRecord` manuais — como um `DailyRecord` mock (`ns_ph`/`ns_cloro_livre`/`ns_cloro_total`/`ns_temperatura`, os campos "Nossas Análises" do NS) com o utilizador que a registou. Contam para a conformidade, para o resumo e para as médias diárias (modo "média diária") tal como um registo normal. Para não duplicar, são excluídas da secção "Ações Operacionais" mais abaixo (onde antes apareciam como um evento avulso de menor peso).
 - Modo "média diária": cria `DailyRecord` **sintéticos** (nunca persistidos) com médias dos campos. Regras específicas nada óbvias:
   - `bombaFerrada`/`tanqueOk` só ficam `true` se **nenhum** registo do dia tiver `false` (unanimidade do dia).
   - `renovacaoAgua` é `true` se houve `renovacao_agua=true` OU modo `on_com_agua` OU (`auto_com_agua` E houve lavagem de filtro nesse dia).

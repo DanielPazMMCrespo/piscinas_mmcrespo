@@ -532,6 +532,38 @@ class RelatorioPdf extends Page implements HasForms
                 ->orderBy('registado_em')
                 ->get();
 
+            // Análises rápidas (Ações Operacionais, tipo "análise pontual") contam
+            // como um registo diário informal — normalmente feitas pelo Nadador-
+            // Salvador no local — com o nome de quem a fez, entram na mesma tabela
+            // e nas mesmas médias/conformidade que os registos manuais completos.
+            $analisesRapidas = ($acoesOperacionais->get($piscina->id) ?? collect())
+                ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+                ->map(function (OperationalAction $accao) use ($piscina) {
+                    $dados = $accao->dados ?? [];
+
+                    $mock = new DailyRecord;
+                    $mock->registado_em = Carbon::parse($accao->registado_em);
+                    $mock->ns_ph = filled($dados['ph'] ?? null) ? (float) $dados['ph'] : null;
+                    $mock->ns_cloro_livre = filled($dados['cloro_livre'] ?? null) ? (float) $dados['cloro_livre'] : null;
+                    $mock->ns_cloro_total = filled($dados['cloro_total'] ?? null) ? (float) $dados['cloro_total'] : null;
+                    $mock->ns_temperatura = filled($dados['temperatura'] ?? null) ? (float) $dados['temperatura'] : null;
+                    $mock->observacoes = $accao->observacoes;
+                    $mock->e_correcao = false;
+                    $mock->setRelation('utilizador', $accao->utilizador);
+                    $mock->setRelation('piscina', $piscina);
+
+                    return $mock;
+                });
+
+            if ($analisesRapidas->isNotEmpty()) {
+                $registos = $registos->concat($analisesRapidas)->sortBy('registado_em')->values();
+            }
+
+            // Já contabilizadas na tabela principal acima — não repetir na
+            // secção "Ações Operacionais" mais abaixo.
+            $acoesOperacionaisSemAnalises = ($acoesOperacionais->get($piscina->id) ?? collect())
+                ->reject(fn (OperationalAction $accao) => $accao->tipo === OperationalAction::TIPO_ANALISE_PONTUAL);
+
             if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
                     ->map(function ($grupo, $dataStr) use ($piscina) {
@@ -774,7 +806,7 @@ class RelatorioPdf extends Page implements HasForms
                 'piscina' => $piscina,
                 'registos' => $registos,
                 'controlador' => $controlador,
-                'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
+                'acoes_operacionais' => $acoesOperacionaisSemAnalises,
                 'filter_checks' => $filterChecks,
                 'incidentes' => $incidentesPorPiscina->get($piscina->id) ?? collect(),
                 'consumos_quimicos' => $consumosPorPiscina->get($piscina->id) ?? collect(),
