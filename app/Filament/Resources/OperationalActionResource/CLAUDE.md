@@ -16,7 +16,7 @@ Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do d
 | `bomba` | `bomba_ferrada` | nenhum |
 | `contador` | `contador_valor` | nenhum |
 | `tanque` | `tanque_ok` | nenhum |
-| `analise_pontual` | `ph`/`cloro_livre`/`cloro_total`/`temperatura` (≥1 obrigatório) | nenhum |
+| `analise_pontual` | `ph`/`cloro_livre`/`cloro_total`/`orp`/`temperatura` (≥1 obrigatório) | nenhum |
 | `reabastecimento_bidao` | `bidao_tipo` (cloro/ph_menos/ambos), `quantidade_l` | reabastece `DosingContainer` |
 | `outro` | livre (só textarea) | nenhum |
 
