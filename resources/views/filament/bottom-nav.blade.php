@@ -37,6 +37,13 @@
 </div>
 
 <style>
+    #mmc-bottom-nav {
+        position: fixed !important;
+        bottom: 1rem !important;
+        left: 1rem !important;
+        right: 1rem !important;
+        z-index: 9999 !important;
+    }
     .dark #mmc-bottom-nav > div {
         background-color: #0f172a !important;
         border-color: #1e293b !important;

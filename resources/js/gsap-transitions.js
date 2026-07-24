@@ -9,13 +9,13 @@ document.addEventListener('livewire:navigated', () => {
     // Animate Topbar and Sidebar (subtle slide down/right)
     gsap.fromTo(".fi-topbar", 
         { y: -15, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }
+        { y: 0, opacity: 1, duration: 0.5, ease: "power2.out", clearProps: "transform" }
     );
     
     // Mobile Bottom Nav pop-up
     gsap.fromTo("#mmc-bottom-nav", 
         { y: 20, opacity: 0, scale: 0.95 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.2)", delay: 0.1 }
+        { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.2)", delay: 0.1, clearProps: "transform,scale" }
     );
 
     // Staggered reveal for cards and sections in the main content area
