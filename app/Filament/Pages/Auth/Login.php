@@ -17,9 +17,6 @@ use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
-    protected static string $layout = 'layouts.login-layout';
-    protected static string $view = 'filament.pages.auth.login';
-
     public function authenticate(): ?LoginResponse
     {
         $data = $this->form->getState();
