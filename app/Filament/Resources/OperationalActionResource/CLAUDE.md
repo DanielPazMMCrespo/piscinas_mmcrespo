@@ -27,6 +27,7 @@ Registo de eventos pontuais fora do ciclo diário (lavagem de filtro a meio do d
   - Sempre invalida cache de piscina + todos os alertas + cache local do utilizador.
 - Sem transação/fila: qualquer falha no observer (ex. DosingContainer inválido) propaga erro direto na submissão do formulário.
 - `dadosFormatados()` no model é a fonte única de tradução do JSON `dados` para texto legível (usado na tabela e no infolist).
+- **`analise_pontual` conta tanto quanto um `DailyRecord` no relatório PDF** (decisão do Daniel): `RelatorioPdf::construirSeccoes()` converte-a num `DailyRecord` sintético e mistura-a cronologicamente na mesma tabela do livro sanitário, indistinguível de um registo normal — ver `docs/paginas/relatorio-pdf.md`. Deixa por isso de aparecer na tabela "Ações Operacionais" desse relatório (só lá ficam os outros tipos).
 - **`analise_pontual.orp` é preenchido automaticamente pela sonda** (decisão do Daniel: ORP não tem método de medição manual de campo, ao contrário de pH/cloro): `OperationalActionResource::preencherOrpDaSonda()` corre em `afterStateUpdated` de `pool_id`/`tipo`/`registado_em` (todos `->live()`) e procura a `SensorReading` mais próxima da hora de colheita dentro da janela `sensor_fresco_minutos` (`AppSetting`, padrão 240 min). Encontrando, marca `dados.orp_da_sonda=true` e o campo fica `readOnly()`. Sem leitura na janela (sonda offline/piscina sem sonda), o campo destranca para input manual como fallback — e se o valor lá estava era um auto-preenchido de uma seleção anterior, é limpo para não ficar a passar por manual.
 
 ## Ações

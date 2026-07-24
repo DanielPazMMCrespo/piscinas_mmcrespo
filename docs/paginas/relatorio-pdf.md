@@ -16,6 +16,7 @@ Gera o Livro de Registo Sanitário oficial em PDF (`barryvdh/laravel-dompdf`) + 
 - Regista `activity('relatorio')` para PDF e CSV (auditoria de quem exportou).
 
 ## `construirSeccoes()` (estático, reutilizado por `GerarRelatorioMensalCommand`)
+- **Análise rápida (`OperationalAction::TIPO_ANALISE_PONTUAL`) conta tanto quanto um registo diário** (decisão do Daniel): entra na mesma tabela `registos`, indistinguível de um `DailyRecord` normal — sem coluna/rótulo de origem. `registoSinteticoDeAnalise()` converte cada análise pontual num `DailyRecord` sintético (nunca persistido, `ph`/`cloro_livre`/`cloro_total`/`temperatura` vindos de `dados`) reutilizando `phConforme()`/`cloroLivreConforme()`/`cloroCombinadoConforme()`/`temperaturaConforme()` sem duplicar a lógica de conformidade legal. Consequência: participa também no modo "média diária" (entra na agregação do dia) e no matching de "registo manual mais próximo" da secção do controlador. A ação deixa de aparecer na tabela "Ações Operacionais" (filtrada de lá para não duplicar). **Limitação conhecida**: `exportarCsv()` continua a ler só `DailyRecord` diretamente — análise rápida não entra no CSV.
 - Modo "média diária": cria `DailyRecord` **sintéticos** (nunca persistidos) com médias dos campos. Regras específicas nada óbvias:
   - `bombaFerrada`/`tanqueOk` só ficam `true` se **nenhum** registo do dia tiver `false` (unanimidade do dia).
   - `renovacaoAgua` é `true` se houve `renovacao_agua=true` OU modo `on_com_agua` OU (`auto_com_agua` E houve lavagem de filtro nesse dia).
