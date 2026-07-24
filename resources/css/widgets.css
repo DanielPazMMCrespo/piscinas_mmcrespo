@@ -32,10 +32,10 @@
     --mmc-cta-color: #031225;
     --mmc-cta-hover-bg: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
     
-    --mmc-cta-outline-color: #38bdf8;
-    --mmc-cta-outline-border: rgba(255, 255, 255, 0.15);
-    --mmc-cta-outline-bg: rgba(255, 255, 255, 0.05);
-    --mmc-cta-outline-hover-bg: rgba(255, 255, 255, 0.1);
+    --mmc-cta-outline-color: #f8fafc;
+    --mmc-cta-outline-border: rgba(255, 255, 255, 0.25);
+    --mmc-cta-outline-bg: rgba(255, 255, 255, 0.1);
+    --mmc-cta-outline-hover-bg: rgba(255, 255, 255, 0.2);
 
     --mmc-bad-color: #fb7185; /* rose-400 */
     --mmc-bad-bg: rgba(244, 63, 94, 0.15);
