@@ -63,7 +63,7 @@
                     </div>
 
                     <button type="submit" wire:loading.attr="disabled" class="btn-premium font-sans" style="background-color: #004c8c !important; color: #ffffff !important; opacity: 1 !important; display: block !important; visibility: visible !important;">
-                        <span wire:loading.remove>Aceder ao Portal</span>
+                        <span wire:loading.remove>Entrar</span>
                         <span wire:loading>A Validar...</span>
                     </button>
                 </form>
