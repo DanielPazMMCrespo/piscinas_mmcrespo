@@ -179,7 +179,7 @@
                 @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
                     <div class="neo-pool-actions">
                         @foreach ($item['acoes_rapidas'] as $acao)
-                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline @endif">
+                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline dark:!bg-white/10 dark:!border-white/20 dark:!text-white dark:hover:!bg-white/20 @endif">
                                 <x-filament::icon :icon="$acao['icon']" class="neo-icon-sm" />
                                 {{ $acao['label'] }}
                             </a>
