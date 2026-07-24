@@ -704,54 +704,56 @@ document.addEventListener('alpine:init', () => {
         },
 
         navegar(statePath, poolId) {
-            // Estratégia 1: tenta data-pools-fieldset
-            let fieldset = document.querySelector(`[data-pools-fieldset="${poolId}"]`);
+            // Lavagem e enxaguamento são passos distintos do Wizard. Antes de fazer
+            // scroll é preciso trocar para o passo certo — senão o fieldset está num
+            // passo escondido (display:none) e o scrollIntoView cai numa posição vazia.
+            const fase = String(statePath).includes('timer_enxaguamento') ? 'enxaguamento' : 'lavagem';
+            const stepLabel = fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem filtros';
 
-            // Estratégia 2: se não encontrou, procura todos os fieldsets e compara o statePath
-            if (!fieldset) {
-                const allFieldsets = document.querySelectorAll('fieldset');
-                for (const fs of allFieldsets) {
-                    // Procura inputs dentro do fieldset que pertencem ao statePath
-                    const inputs = fs.querySelectorAll(`[name*="pools.${poolId}"]`);
-                    if (inputs.length > 0) {
-                        fieldset = fs;
-                        break;
-                    }
-                }
+            const trocouPasso = this.irParaPasso(stepLabel);
+
+            // Aguarda o Alpine trocar o passo (x-show) antes de localizar o fieldset.
+            setTimeout(() => this.focarFieldset(poolId), trocouPasso ? 300 : 50);
+        },
+
+        // Clica no header do passo do Wizard cujo label corresponde. Devolve true se
+        // encontrou o botão do passo (e portanto vale a pena esperar pela transição).
+        irParaPasso(stepLabel) {
+            const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+            const wizardRoot = document.querySelector('[class*="fi-fo-wizard"], [class*="wizard"]') || document;
+            const stepButton = Array.from(wizardRoot.querySelectorAll('button')).find((b) =>
+                norm(b.getAttribute('aria-label')) === stepLabel || norm(b.textContent).includes(stepLabel)
+            );
+            if (stepButton) {
+                stepButton.click();
+                return true;
             }
+            return false;
+        },
 
-            // Estratégia 3: procura por Fieldset do Filament (tem classes específicas)
-            if (!fieldset) {
-                const fieldsets = Array.from(document.querySelectorAll('fieldset'));
-                fieldset = fieldsets.find(fs => {
-                    const label = fs.textContent;
-                    const poolName = window.__poolNomes?.[poolId];
-                    return poolName && label.includes(poolName);
+        focarFieldset(poolId) {
+            const visivel = (el) => el && el.offsetParent !== null;
+            const candidatos = [];
+
+            document.querySelectorAll(`[data-pools-fieldset="${poolId}"]`).forEach((el) => candidatos.push(el));
+            document.querySelectorAll('fieldset').forEach((fs) => {
+                if (fs.querySelector(`[name*="pools.${poolId}"]`)) candidatos.push(fs);
+            });
+            const poolName = window.__poolNomes?.[poolId];
+            if (poolName) {
+                document.querySelectorAll('fieldset').forEach((fs) => {
+                    if (fs.textContent.includes(poolName)) candidatos.push(fs);
                 });
             }
 
+            // Vários passos têm fieldsets da mesma piscina — preferir o que está visível.
+            const fieldset = candidatos.find(visivel) || candidatos[0];
             if (!fieldset) {
                 console.warn(`Fieldset não encontrado para pool ${poolId}`);
                 return;
             }
 
-            // Scroll até ao fieldset
-            setTimeout(() => {
-                fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 50);
-
-            // Encontra o toggle/collapse (Filament usa um button ou x-data collapse)
-            const legend = fieldset.querySelector('legend');
-            const toggleButton = legend?.querySelector('button') ||
-                                legend?.closest('[x-data*="collapsible"]')?.querySelector('button') ||
-                                fieldset.previousElementSibling?.querySelector('button');
-
-            // Se está colapsado, expande
-            if (fieldset.classList.contains('hidden') || fieldset.style.display === 'none') {
-                toggleButton?.click();
-            }
-
-            // Destaca o fieldset
+            fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
             fieldset.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
             setTimeout(() => {
                 fieldset.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
