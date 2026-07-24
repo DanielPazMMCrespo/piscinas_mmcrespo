@@ -17,9 +17,21 @@ use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
+    protected static string $layout = 'layouts.login-layout';
+    protected static string $view = 'filament.pages.auth.login';
+
     public function authenticate(): ?LoginResponse
     {
-        $data = $this->form->getState();
+        try {
+            $data = $this->form->getState();
+        } catch (\Throwable $e) {
+            $data = $this->data ?? [];
+        }
+
+        if (empty($data['email']) || empty($data['password'])) {
+            $data = array_merge($this->data ?? [], $data);
+        }
+
         $email = $data['email'] ?? '';
         $password = (string) ($data['password'] ?? '');
 
