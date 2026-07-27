@@ -7,6 +7,8 @@ namespace App\Filament\Pages;
 use App\Constants\WaterQualityThresholds;
 use App\Models\DailyRecord;
 use App\Models\Installation;
+use App\Models\DosingContainerLog;
+use App\Models\Incident;
 use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
@@ -107,6 +109,10 @@ class RelatorioPdf extends Page implements HasForms
                 'mostrar_controlador_tabela', 'mostrar_acoes_operacionais',
                 'mostrar_assinaturas', 'mostrar_nota_legal',
             ],
+            // mostrar_incidentes e mostrar_consumos_quimicos ficam de fora do
+            // default: mantêm o modelo regulamentar "completo" original (6
+            // secções) usado pela verificação de aviso_customizacao e pelo
+            // relatório mensal automático.
         ]);
     }
 
@@ -240,6 +246,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_controlador_grafico' => 'Gráfico do controlador Hanna BL132',
                                 'mostrar_controlador_tabela' => 'Tabela do controlador Hanna BL132',
                                 'mostrar_acoes_operacionais' => 'Ações operacionais (torneira, filtro, contador, etc.)',
+                                'mostrar_incidentes' => 'Ocorrências e incidentes',
+                                'mostrar_consumos_quimicos' => 'Reposições e consumos químicos (bidões)',
                                 'mostrar_assinaturas' => 'Área de assinaturas',
                                 'mostrar_nota_legal' => 'Nota legal de rodapé',
                             ])
@@ -492,15 +500,69 @@ class RelatorioPdf extends Page implements HasForms
 
         $artefactoService = app(LeituraArtefactoService::class);
 
+        // Incidentes e reposições de bidões no período, agrupados por piscina
+        // (mesmo padrão de batch de $acoesOperacionais, para evitar N+1).
+        $incidentesPorPiscina = Incident::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('ocorreu_em', [$inicio, $fim])
+            ->with(['utilizador', 'resolvidoPor'])
+            ->orderBy('ocorreu_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $containerIdsPorPiscina = $piscinas->mapWithKeys(
+            fn (Pool $piscina) => [$piscina->id => $piscina->bidoesDosagem()->pluck('id')]
+        );
+
+        $consumosPorPiscina = DosingContainerLog::query()
+            ->whereIn('dosing_container_id', $containerIdsPorPiscina->flatten())
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->with(['container', 'utilizador'])
+            ->orderBy('registado_em')
+            ->get()
+            ->groupBy(fn (DosingContainerLog $log) => $log->container?->pool_id);
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $modoControlador): array {
+        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $incidentesPorPiscina, $consumosPorPiscina, $modo, $modoControlador): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina', 'adicoes'])
                 ->whereBetween('registado_em', [$inicio, $fim])
                 ->whereDoesntHave('correcoes')
                 ->orderBy('registado_em')
                 ->get();
+
+            // Análises rápidas (Ações Operacionais, tipo "análise pontual") contam
+            // como um registo diário informal — normalmente feitas pelo Nadador-
+            // Salvador no local — com o nome de quem a fez, entram na mesma tabela
+            // e nas mesmas médias/conformidade que os registos manuais completos.
+            $analisesRapidas = ($acoesOperacionais->get($piscina->id) ?? collect())
+                ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+                ->map(function (OperationalAction $accao) use ($piscina) {
+                    $dados = $accao->dados ?? [];
+
+                    $mock = new DailyRecord;
+                    $mock->registado_em = Carbon::parse($accao->registado_em);
+                    $mock->ns_ph = filled($dados['ph'] ?? null) ? (float) $dados['ph'] : null;
+                    $mock->ns_cloro_livre = filled($dados['cloro_livre'] ?? null) ? (float) $dados['cloro_livre'] : null;
+                    $mock->ns_cloro_total = filled($dados['cloro_total'] ?? null) ? (float) $dados['cloro_total'] : null;
+                    $mock->ns_temperatura = filled($dados['temperatura'] ?? null) ? (float) $dados['temperatura'] : null;
+                    $mock->observacoes = $accao->observacoes;
+                    $mock->e_correcao = false;
+                    $mock->setRelation('utilizador', $accao->utilizador);
+                    $mock->setRelation('piscina', $piscina);
+
+                    return $mock;
+                });
+
+            if ($analisesRapidas->isNotEmpty()) {
+                $registos = $registos->concat($analisesRapidas)->sortBy('registado_em')->values();
+            }
+
+            // Já contabilizadas na tabela principal acima — não repetir na
+            // secção "Ações Operacionais" mais abaixo.
+            $acoesOperacionaisSemAnalises = ($acoesOperacionais->get($piscina->id) ?? collect())
+                ->reject(fn (OperationalAction $accao) => $accao->tipo === OperationalAction::TIPO_ANALISE_PONTUAL);
 
             if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
@@ -734,11 +796,20 @@ class RelatorioPdf extends Page implements HasForms
                 }
             }
 
+            $filterChecks = $piscina->verificacoesFiltro()
+                ->whereBetween('verificado_em', [$inicio, $fim])
+                ->with('utilizador')
+                ->orderBy('verificado_em')
+                ->get();
+
             return [
                 'piscina' => $piscina,
                 'registos' => $registos,
                 'controlador' => $controlador,
-                'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
+                'acoes_operacionais' => $acoesOperacionaisSemAnalises,
+                'filter_checks' => $filterChecks,
+                'incidentes' => $incidentesPorPiscina->get($piscina->id) ?? collect(),
+                'consumos_quimicos' => $consumosPorPiscina->get($piscina->id) ?? collect(),
             ];
         })->all();
     }
