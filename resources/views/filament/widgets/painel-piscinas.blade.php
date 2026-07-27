@@ -129,14 +129,8 @@
                         @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
                             @php($metrica = $item['metricas4'][$key])
                             <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="neo-metric-label">
-                                        <span>{{ $metrica['label'] }}</span>
-                                    </div>
-                                    <div class="neo-metric-value text-right">
-                                        <span>{{ $metrica['valor'] }}</span>
-                                    </div>
-                                </div>
+                                <div class="neo-metric-label">{{ $metrica['label'] }}</div>
+                                <div class="neo-metric-value" title="{{ $metrica['valor'] }}">{{ $metrica['valor'] }}</div>
                                 <!-- Sparkline -->
                                 @if(isset($metrica['sparkline']) && $metrica['sparkline'])
                                     <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
@@ -147,7 +141,7 @@
                                     <div class="neo-metric-sparkline"></div>
                                 @endif
 
-                                <div class="flex items-center justify-between mt-auto">
+                                <div class="neo-metric-footer">
                                     <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
                                         @if($metrica['ok'] !== null)
                                             <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @else bg-emerald-500 @endif"></div>
@@ -158,17 +152,20 @@
                                         @endif
                                     </div>
                                     @if($metrica['origem'] !== 'sem_dados')
-                                        <div class="text-[0.65rem] text-slate-400 dark:text-slate-300 font-medium bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                                            @if($metrica['origem'] === 'controlador')
-                                                Sonda • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'manual')
-                                                Manual • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'artefacto')
-                                                Lavagem • {{ $metrica['idade'] }}
-                                            @elseif($metrica['origem'] === 'controlador_offline')
-                                                Inativa • {{ $metrica['idade'] }}
-                                            @endif
-                                        </div>
+                                        @php
+                                            $origemLabel = match ($metrica['origem']) {
+                                                'controlador' => 'Sonda',
+                                                'manual' => 'Manual',
+                                                'artefacto' => 'Lavagem',
+                                                'controlador_offline' => 'Inativa',
+                                                default => null,
+                                            };
+                                        @endphp
+                                        @if($origemLabel)
+                                            <div class="neo-metric-origem" title="{{ $origemLabel }} • {{ $metrica['idade'] }}">
+                                                {{ $origemLabel }} • {{ $metrica['idade'] }}
+                                            </div>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -179,7 +176,7 @@
                 @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
                     <div class="neo-pool-actions">
                         @foreach ($item['acoes_rapidas'] as $acao)
-                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline dark:!bg-white/10 dark:!border-white/20 dark:!text-white dark:hover:!bg-white/20 @endif">
+                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline @endif">
                                 <x-filament::icon :icon="$acao['icon']" class="neo-icon-sm" />
                                 {{ $acao['label'] }}
                             </a>
