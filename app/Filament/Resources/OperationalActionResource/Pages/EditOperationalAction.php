@@ -14,13 +14,13 @@ class EditOperationalAction extends EditRecord
 {
     protected static string $resource = OperationalActionResource::class;
 
-    public function mount(): void
+    public function mount(string|int $record): void
     {
         if (! auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
             throw new AuthorizationException('Sem acesso a ações operacionais.');
         }
 
-        parent::mount();
+        parent::mount($record);
     }
 
     protected function getHeaderActions(): array
