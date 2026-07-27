@@ -297,26 +297,29 @@ class DailyRecordFormBuilder
                         ->icon('heroicon-o-users')
                         ->schema([
                             ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
-                            ...$poolsByBombas->map(fn(Pool $pool) => 
+                            ...$poolsByBombas->map(fn(Pool $pool) =>
                                 Forms\Components\Fieldset::make($pool->name)
                                     ->statePath("pools.{$pool->id}")
+                                    ->columns(1)
                                     ->schema([
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01), 'ns_ph', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01), 'ns_cloro_livre', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
-                                            ->id("ns_cloro_total_{$pool->id}")
-                                            ->label('Cl total')
-                                            ->numeric()
-                                            ->step(0.01)
-                                            ->rules([
-                                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                                    if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
-                                                        $fail('O cloro total não pode ser inferior ao cloro livre.');
-                                                    }
-                                                },
-                                            ]), 'ns_cloro_total', $pool),
-                                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01), 'ns_temperatura', $pool),
-                                    ])->columns(4)
+                                        Forms\Components\Grid::make(4)->schema([
+                                            self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01), 'ns_ph', $pool)->columnSpan(1),
+                                            self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01), 'ns_cloro_livre', $pool)->columnSpan(1),
+                                            self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
+                                                ->id("ns_cloro_total_{$pool->id}")
+                                                ->label('Cl total')
+                                                ->numeric()
+                                                ->step(0.01)
+                                                ->rules([
+                                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                                        if (filled($get('ns_cloro_livre')) && (float) $value < (float) $get('ns_cloro_livre')) {
+                                                            $fail('O cloro total não pode ser inferior ao cloro livre.');
+                                                        }
+                                                    },
+                                                ]), 'ns_cloro_total', $pool)->columnSpan(1),
+                                            self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01), 'ns_temperatura', $pool)->columnSpan(1),
+                                        ]),
+                                    ])
                             )->toArray()
                         ]);
                         
