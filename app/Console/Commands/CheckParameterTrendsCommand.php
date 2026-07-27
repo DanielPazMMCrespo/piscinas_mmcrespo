@@ -9,6 +9,7 @@ use App\Models\DailyRecord;
 use App\Models\Pool;
 use App\Models\User;
 use App\Notifications\TendenciaAlertaNotification;
+use App\Services\SettingsService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -29,6 +30,11 @@ class CheckParameterTrendsCommand extends Command
      */
     protected $description = 'Verifica tendências degradantes nos parâmetros das piscinas e alerta preventivamente';
 
+    public function __construct(private readonly SettingsService $settings)
+    {
+        parent::__construct();
+    }
+
     /**
      * Execute the console command.
      */
@@ -36,6 +42,7 @@ class CheckParameterTrendsCommand extends Command
     {
         $pools = Pool::where('active', true)->with('instalacao')->get();
         $adminAndTecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
+        $registosMinimos = $this->settings->getInt('tendencia_registos_minimos', 3);
 
         foreach ($pools as $pool) {
             // Get last 5 records without corrections
@@ -47,18 +54,18 @@ class CheckParameterTrendsCommand extends Command
                 ->reverse()
                 ->values();
 
-            if ($records->count() < 3) {
+            if ($records->count() < $registosMinimos) {
                 continue;
             }
 
-            $this->checkTrend($pool, $records, 'ph', $adminAndTecnicos);
-            $this->checkTrend($pool, $records, 'cloro_livre', $adminAndTecnicos);
+            $this->checkTrend($pool, $records, 'ph', $adminAndTecnicos, $registosMinimos);
+            $this->checkTrend($pool, $records, 'cloro_livre', $adminAndTecnicos, $registosMinimos);
         }
 
         return Command::SUCCESS;
     }
 
-    private function checkTrend(Pool $pool, $records, string $parameter, $users): void
+    private function checkTrend(Pool $pool, $records, string $parameter, $users, int $registosMinimos): void
     {
         $values = [];
         foreach ($records as $record) {
@@ -68,7 +75,7 @@ class CheckParameterTrendsCommand extends Command
             }
         }
 
-        if (count($values) < 3) {
+        if (count($values) < $registosMinimos) {
             return;
         }
 

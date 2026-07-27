@@ -11,6 +11,7 @@ use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\User;
 use App\Notifications\EscalacaoIncidenteNotification;
+use App\Services\SettingsService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -32,6 +33,11 @@ class ExecuteBusinessRulesCommand extends Command
      */
     protected $description = 'Executa regras de negócio automáticas (incidentes, escalação, stock)';
 
+    public function __construct(private readonly SettingsService $settings)
+    {
+        parent::__construct();
+    }
+
     /**
      * Execute the console command.
      */
@@ -51,6 +57,7 @@ class ExecuteBusinessRulesCommand extends Command
     private function rule1_autoCreateIncidents(): void
     {
         $today = today();
+        $violacoesMinimas = $this->settings->getInt('auto_incidente_violacoes_minimas', 3);
 
         // Get today's DailyRecord entries grouped by pool_id (exclude corrections)
         $records = DailyRecord::with('piscina.instalacao')
@@ -81,7 +88,7 @@ class ExecuteBusinessRulesCommand extends Command
             }
 
             foreach ($violationsCount as $param => $count) {
-                if ($count >= 3) {
+                if ($count >= $violacoesMinimas) {
                     $cacheKey = "auto_incidente_{$poolId}_{$param}_{$today->toDateString()}";
 
                     if (! Cache::has($cacheKey)) {
@@ -107,13 +114,15 @@ class ExecuteBusinessRulesCommand extends Command
 
     private function rule2_autoEscalateIncidents(): void
     {
+        $horasSemResposta = $this->settings->getInt('escalacao_incidente_horas', 24);
+
         $staleIncidents = Incident::where('status', '!=', IncidentStatus::RESOLVIDO)
-            ->where('created_at', '<', now()->subHours(24))
+            ->where('created_at', '<', now()->subHours($horasSemResposta))
             ->get();
 
         foreach ($staleIncidents as $incident) {
             $hasRecentMessages = $incident->mensagens()
-                ->where('created_at', '>=', now()->subHours(24))
+                ->where('created_at', '>=', now()->subHours($horasSemResposta))
                 ->exists();
 
             if (! $hasRecentMessages) {

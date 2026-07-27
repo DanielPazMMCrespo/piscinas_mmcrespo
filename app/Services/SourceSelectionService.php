@@ -18,15 +18,7 @@ use Carbon\Carbon;
  */
 class SourceSelectionService
 {
-    /**
-     * Sonda online se lida há ≤60 minutos, sem artefacto, e com dados válidos.
-     */
-    private const SONDA_FRESH_MINUTES = 60;
-
-    /**
-     * Leitura manual válida se registada há ≤8 horas.
-     */
-    private const MANUAL_FRESH_HOURS = 8;
+    public function __construct(private readonly SettingsService $settings) {}
 
     /**
      * Determina qual fonte (sonda/manual/stale/nenhuma) usar para uma piscina.
@@ -65,7 +57,7 @@ class SourceSelectionService
 
         $hannaOnline = $leitura !== null
             && $idadeMin !== null
-            && $idadeMin <= self::SONDA_FRESH_MINUTES
+            && $idadeMin <= $this->getSondaFreshMinutes()
             && $artefacto === null;
 
         // Se Hanna online, usa Hanna
@@ -85,7 +77,7 @@ class SourceSelectionService
             ->first();
 
         $manual = null;
-        if ($registo !== null && abs((int) $registo->registado_em->diffInHours(now())) <= self::MANUAL_FRESH_HOURS) {
+        if ($registo !== null && abs((int) $registo->registado_em->diffInHours(now())) <= $this->getManualFreshHours()) {
             $manual = $registo;
         }
 
@@ -120,15 +112,15 @@ class SourceSelectionService
     }
 
     /**
-     * Constantes de timing expostas para reutilização (ex.: UI tooltips).
+     * Timings configuráveis expostos para reutilização (ex.: UI tooltips).
      */
     public function getSondaFreshMinutes(): int
     {
-        return self::SONDA_FRESH_MINUTES;
+        return $this->settings->getInt('sonda_online_minutos', 60);
     }
 
     public function getManualFreshHours(): int
     {
-        return self::MANUAL_FRESH_HOURS;
+        return $this->settings->getInt('registo_manual_validade_horas', 8);
     }
 }

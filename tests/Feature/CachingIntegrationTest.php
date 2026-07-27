@@ -39,7 +39,7 @@ class CachingIntegrationTest extends TestCase
         $pool = Pool::factory()->create();
 
         // Primeira chamada: cache miss
-        $alertasService = new AlertasService;
+        $alertasService = app(AlertasService::class);
         $start1 = microtime(true);
         $resultado1 = $alertasService->calcular($user);
         $tempo1 = microtime(true) - $start1;
