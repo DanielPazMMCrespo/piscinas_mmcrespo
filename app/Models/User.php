@@ -144,6 +144,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'hanna_threshold' => ['push' => true, 'mail' => false],
             'hanna_overtime' => ['push' => true, 'mail' => false],
             'custom_broadcast' => ['push' => true, 'mail' => false],
+            'resumo_turno' => ['push' => true, 'mail' => false],
+            'tendencia_alerta' => ['push' => true, 'mail' => false],
+            'comparacao_semanal' => ['push' => true, 'mail' => false],
+            'relatorio_mensal' => ['push' => true, 'mail' => false],
+            'escalacao_incidente' => ['push' => true, 'mail' => false],
         ];
 
         return $prefs[$key][$canal] ?? $defaults[$key][$canal] ?? false;

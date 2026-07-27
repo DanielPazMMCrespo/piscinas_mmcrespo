@@ -10,10 +10,11 @@ use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\User;
-use Filament\Notifications\Notification as FilamentNotification;
+use App\Notifications\EscalacaoIncidenteNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class ExecuteBusinessRulesCommand extends Command
 {
@@ -121,13 +122,7 @@ class ExecuteBusinessRulesCommand extends Command
                 if (! Cache::has($cacheKey)) {
                     $adminsAndGestores = User::role([UserRole::ADMIN, UserRole::GESTOR])->get();
 
-                    foreach ($adminsAndGestores as $user) {
-                        FilamentNotification::make()
-                            ->title('Incidente sem resposta há 24h')
-                            ->body("O incidente #{$incident->id} encontra-se estagnado.")
-                            ->warning()
-                            ->sendToDatabase($user);
-                    }
+                    Notification::send($adminsAndGestores, new EscalacaoIncidenteNotification($incident));
 
                     Cache::put($cacheKey, true, now()->endOfDay());
                     $this->info("Incidente #{$incident->id} escalado para admins/gestores.");
