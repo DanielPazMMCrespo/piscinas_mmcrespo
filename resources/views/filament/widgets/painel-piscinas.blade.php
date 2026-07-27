@@ -152,15 +152,13 @@
                                         @endif
                                     </div>
                                     @if($metrica['origem'] !== 'sem_dados')
-                                        @php
-                                            $origemLabel = match ($metrica['origem']) {
-                                                'controlador' => 'Sonda',
-                                                'manual' => 'Manual',
-                                                'artefacto' => 'Lavagem',
-                                                'controlador_offline' => 'Inativa',
-                                                default => null,
-                                            };
-                                        @endphp
+                                        @php($origemLabel = match ($metrica['origem']) {
+                                            'controlador' => 'Sonda',
+                                            'manual' => 'Manual',
+                                            'artefacto' => 'Lavagem',
+                                            'controlador_offline' => 'Inativa',
+                                            default => null,
+                                        })
                                         @if($origemLabel)
                                             <div class="neo-metric-origem" title="{{ $origemLabel }} • {{ $metrica['idade'] }}">
                                                 {{ $origemLabel }} • {{ $metrica['idade'] }}
