@@ -87,25 +87,12 @@
         </template>
 
         <template x-if="estado === 'default'">
-            <div class="space-y-3">
+            <div>
                 <x-filament::button x-on:click="ativar()" x-bind:disabled="aProcessar" icon="heroicon-m-bell">
                     <span x-text="aProcessar ? 'A ativar...' : 'Ativar notificações'"></span>
                 </x-filament::button>
-
-                @if(auth()->user()->push_notifications_requested_at === null)
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Não consegue ativar agora? <x-filament::link wire:click="solicitarAtivacao" color="primary">Solicitar ao administrador</x-filament::link>
-                    </p>
-                @endif
             </div>
         </template>
-
-        @if(auth()->user()->push_notifications_requested_at !== null)
-            <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-4 text-sm text-info-700 dark:text-info-400 space-y-2">
-                <p class="font-medium">Pedido pendente</p>
-                <p>O seu pedido de ativação foi registado em {{ auth()->user()->push_notifications_requested_at->format('d/m/Y H:i') }}. O administrador será notificado.</p>
-            </div>
-        @endif
     </div>
 
     <form wire:submit="savePreferences" class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-6 mb-6">
@@ -215,16 +202,69 @@
                 </div>
             </div>
 
-            {{-- Estado das Notificações dos Utilizadores --}}
+            {{-- Solicitar Ativação de Notificações --}}
             <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 mt-6">
-                <h2 class="text-base font-semibold text-gray-950 dark:text-white mb-4">Estado das Notificações dos Utilizadores</h2>
+                <div class="space-y-3 mb-6">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">Solicitar Ativação de Notificações</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Envie um pedido aos utilizadores para que ativem as notificações push. É essencial para comunicação e resolução de incidentes.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-800">
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300">Nome</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300">Cargos</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @php
+                                $usuariosInativo = $this->getUsuariosNotificacoes()->filter(fn($u) => $u->push_subscriptions_count === 0);
+                            @endphp
+
+                            @forelse($usuariosInativo as $usuario)
+                                <tr>
+                                    <td class="py-3 text-gray-900 dark:text-gray-100 font-medium">{{ $usuario->name }}</td>
+                                    <td class="py-3 text-gray-500 dark:text-gray-400">
+                                        {{ collect($usuario->roles)->pluck('name')->map(fn($r) => self::rotulosCargos()[$r] ?? $r)->join(', ') ?: '—' }}
+                                    </td>
+                                    <td class="py-3 text-right">
+                                        <x-filament::button
+                                            size="xs"
+                                            wire:click="enviarPedidoAtivacao({{ $usuario->id }})"
+                                            icon="heroicon-m-bell-alert"
+                                        >
+                                            Solicitar
+                                        </x-filament::button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="py-6 text-center text-gray-500 dark:text-gray-400 text-sm">
+                                        ✓ Todos os utilizadores têm notificações ativas!
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- Estado de Todas as Notificações --}}
+            <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 mt-6">
+                <h2 class="text-base font-semibold text-gray-950 dark:text-white mb-4">Estado de Todas as Notificações</h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="border-b border-gray-200 dark:border-gray-800">
                                 <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Nome</th>
                                 <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Cargos</th>
-                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Dispositivos Ativos</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Estado</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -235,19 +275,11 @@
                                         {{ collect($usuario->roles)->pluck('name')->map(fn($r) => self::rotulosCargos()[$r] ?? $r)->join(', ') ?: 'Nenhum' }}
                                     </td>
                                     <td class="py-3">
-                                        @if($usuario->push_status === 'ativo')
+                                        @if($usuario->push_subscriptions_count > 0)
                                             <span class="inline-flex items-center gap-1.5 rounded-md bg-success-50 dark:bg-success-950 px-2 py-1 text-xs font-medium text-success-700 dark:text-success-300 ring-1 ring-inset ring-success-600/10 dark:ring-success-500/20">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>
                                                 {{ $usuario->push_subscriptions_count }} {{ $usuario->push_subscriptions_count === 1 ? 'dispositivo' : 'dispositivos' }}
                                             </span>
-                                        @elseif($usuario->push_status === 'solicitado')
-                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-warning-50 dark:bg-warning-950 px-2 py-1 text-xs font-medium text-warning-700 dark:text-warning-300 ring-1 ring-inset ring-warning-600/10 dark:ring-warning-500/20">
-                                                <span class="h-1.5 w-1.5 rounded-full bg-warning-500"></span>
-                                                Solicitado
-                                            </span>
-                                            <x-filament::link wire:click="limparSolicitacao({{ $usuario->id }})" color="gray" class="ml-2 text-xs">
-                                                Limpar
-                                            </x-filament::link>
                                         @else
                                             <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-50 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>

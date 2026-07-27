@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Constants\UserRole;
-use App\Filament\Pages\Notificacoes;
+use App\Filament\Pages\Definicoes;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
@@ -15,7 +15,7 @@ use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class NotificacoesPageTest extends TestCase
+class DefinicoesPageTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -45,7 +45,7 @@ class NotificacoesPageTest extends TestCase
 
         $this->actingAs($admin);
 
-        $response = $this->get('/admin/notificacoes');
+        $response = $this->get('/admin/definicoes');
         $response->assertStatus(200);
     }
 
@@ -56,7 +56,7 @@ class NotificacoesPageTest extends TestCase
 
         $this->actingAs($admin);
 
-        Livewire::test(Notificacoes::class)
+        Livewire::test(Definicoes::class)
             ->callTableAction('novo_aviso', null, [
                 'titulo' => 'Novo de Teste',
                 'corpo' => 'Mensagem de teste',
@@ -83,7 +83,7 @@ class NotificacoesPageTest extends TestCase
 
         Notification::fake();
 
-        Livewire::test(Notificacoes::class)
+        Livewire::test(Definicoes::class)
             ->set('destinoTipo', 'cargo')
             ->set('destinoCargo', UserRole::TECNICO)
             ->set('manualTitulo', 'Teste Manual')
@@ -109,7 +109,7 @@ class NotificacoesPageTest extends TestCase
 
         Notification::fake();
 
-        Livewire::test(Notificacoes::class)
+        Livewire::test(Definicoes::class)
             ->set('destinoTipo', 'utilizador')
             ->set('destinoUtilizador', $tecnico->id)
             ->set('manualTitulo', 'Teste Individual')
@@ -136,7 +136,7 @@ class NotificacoesPageTest extends TestCase
 
         $this->actingAs($swimmer);
 
-        Livewire::test(Notificacoes::class)
+        Livewire::test(Definicoes::class)
             ->assertFormFieldExists('notification_preferences.custom_broadcast.push', 'preferencesForm')
             ->assertFormFieldDoesNotExist('notification_preferences.incident_created.push', 'preferencesForm')
             ->fillForm([

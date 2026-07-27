@@ -104,23 +104,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         return $this->hasMany(Incident::class);
     }
 
-    public function hasPushActive(): bool
-    {
-        return $this->pushSubscriptions()->count() > 0;
-    }
-
-    public function requestPushNotifications(): void
-    {
-        if (! $this->push_notifications_requested_at) {
-            $this->update(['push_notifications_requested_at' => now()]);
-        }
-    }
-
-    public function clearPushNotificationRequest(): void
-    {
-        $this->update(['push_notifications_requested_at' => null]);
-    }
-
     /**
      * Se este utilizador consegue ver/usar a secção indicada. Para cargos
      * que não sejam Nadador-Salvador não há restrição. Para NS sem
@@ -187,7 +170,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'must_change_password',
         'ns_permissions',
         'notification_preferences',
-        'push_notifications_requested_at',
     ];
 
     /**
@@ -214,7 +196,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'pin' => 'hashed',
             'ns_permissions' => 'array',
             'notification_preferences' => 'array',
-            'push_notifications_requested_at' => 'datetime',
         ];
     }
 }

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Constants\UserRole;
+use App\Models\AppSetting;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
+use App\Services\CacheService;
 use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -21,27 +23,37 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 
 /**
- * Ativação de notificações push neste dispositivo, zona de testes e envio de
- * avisos globais (Notificações Personalizadas).
+ * Página única de Definições: junta o que era "Definições do Sistema" e
+ * "Notificações" em três separadores — Minhas Notificações (todos), Sistema
+ * e Avisos (admin) — em vez de dois itens de menu separados.
  */
-class Notificacoes extends Page implements HasForms, HasTable
+class Definicoes extends Page implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-bell-alert';
+    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static ?string $navigationGroup = 'Sistema';
 
-    protected static ?string $navigationLabel = 'Notificações';
+    protected static ?string $navigationLabel = 'Definições';
 
-    protected static ?string $title = 'Notificações';
+    protected static ?string $title = 'Definições';
 
     protected static ?int $navigationSort = 10;
 
-    protected static string $view = 'filament.pages.notificacoes';
+    protected static string $view = 'filament.pages.definicoes';
+
+    public string $tab = 'notificacoes';
+
+    public bool $mostrarAvancado = false;
+
+    public ?array $data = [];
+
+    public ?array $preferencesData = [];
 
     public string $destinoTipo = 'cargo';
 
@@ -53,27 +65,251 @@ class Notificacoes extends Page implements HasForms, HasTable
 
     public string $manualCorpo = '';
 
-    public ?array $preferencesData = [];
-
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
     }
 
+    public function mount(): void
+    {
+        $this->tab = $this->podeGerir() ? 'sistema' : 'notificacoes';
+        $this->destinoCargo = UserRole::ADMIN;
+
+        if ($this->podeGerir()) {
+            $settings = AppSetting::all()->pluck('value', 'key')->toArray();
+            $this->form->fill($settings);
+        }
+
+        $this->preferencesForm->fill([
+            'notification_preferences' => auth()->user()->notification_preferences ?? [],
+        ]);
+    }
+
+    public function podeGerir(): bool
+    {
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+    }
+
     protected function getForms(): array
     {
         return [
+            'form',
             'preferencesForm',
         ];
     }
 
+    private function opcoesHorario(): array
+    {
+        $horas = [];
+
+        foreach (range(6, 23) as $h) {
+            $label = sprintf('%02d:00', $h);
+            $horas[$label] = $label;
+        }
+
+        return $horas;
+    }
+
+    // ==================================================================
+    // Separador "Sistema" (admin)
+    // ==================================================================
+
+    public function form(Forms\Form $form): Forms\Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Limites Regulamentares (CN 14/DA)')
+                    ->description('Limites legais para a qualidade da água das piscinas.')
+                    ->icon('heroicon-o-scale')
+                    ->schema([
+                        Forms\Components\Placeholder::make('aviso_legal')
+                            ->hiddenLabel()
+                            ->content(new HtmlString(
+                                '<div class="p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-sm flex gap-3">'.
+                                '<span class="font-semibold text-base">⚠️ Atenção:</span>'.
+                                '<span>Alterar estes limites afeta a conformidade legal exibida no painel e relatórios. Certifique-se de que os valores cumprem a regulamentação em vigor.</span>'.
+                                '</div>'
+                            ))
+                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('ph_min')
+                            ->label('pH Mínimo')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 6.9'),
+                        Forms\Components\TextInput::make('ph_max')
+                            ->label('pH Máximo')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 8.0'),
+                        Forms\Components\TextInput::make('cloro_livre_min')
+                            ->label('Cloro Livre Mínimo (mg/L)')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 0.5'),
+                        Forms\Components\TextInput::make('cloro_livre_max')
+                            ->label('Cloro Livre Máximo (mg/L)')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 2.0'),
+                        Forms\Components\TextInput::make('cloro_combinado_max')
+                            ->label('Cloro Combinado Máximo (mg/L)')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 0.6'),
+                        Forms\Components\TextInput::make('transparencia_max')
+                            ->label('Turbidez Máxima (FNU)')
+                            ->numeric()
+                            ->step(0.1)
+                            ->helperText('Padrão original: 5.0'),
+                        Forms\Components\TextInput::make('tolerancia_amarelo')
+                            ->label('Tolerância (Aviso Amarelo)')
+                            ->numeric()
+                            ->step(0.01)
+                            ->helperText('Diferença para o limite (Padrão: 0.2)'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Horários de Resumos')
+                    ->description('A que horas a aplicação envia os resumos automáticos à equipa.')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Forms\Components\Select::make('resumo_turno_horas')
+                            ->label('Resumo de Turno (Máx. 4)')
+                            ->options($this->opcoesHorario())
+                            ->multiple()
+                            ->maxItems(4)
+                            ->searchable()
+                            ->helperText('Resumo operacional do turno. Padrão: 14:00 e 20:00.'),
+                        Forms\Components\Select::make('digest_conformidade_horas')
+                            ->label('Resumo de Conformidade (Máx. 4)')
+                            ->options($this->opcoesHorario())
+                            ->multiple()
+                            ->maxItems(4)
+                            ->searchable()
+                            ->helperText('Resumo de piscinas não conformes. Padrão: 08:00, 13:00 e 18:00.'),
+                        Forms\Components\TextInput::make('fator_compensacao_dosagem')
+                            ->label('Fator de Compensação (Dosagem)')
+                            ->numeric()
+                            ->step(0.05)
+                            ->helperText('Multiplica a dose calculada para compensar filtros, utilização, etc. (Padrão: 1.25 = +25%)')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Definições Avançadas')
+                    ->description('Prazos e regras de negócio que raramente precisam de ser alterados depois da configuração inicial.')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->visible(fn () => $this->mostrarAvancado)
+                    ->schema([
+                        Forms\Components\TextInput::make('sensor_fresco_minutos')
+                            ->label('Validade da Leitura do Dashboard (Minutos)')
+                            ->numeric()
+                            ->helperText('Até quanto tempo a leitura da sonda é considerada "válida" no painel. (Padrão: 240)'),
+                        Forms\Components\TextInput::make('sensor_timeout_minutos')
+                            ->label('Timeout da Sonda (Minutos)')
+                            ->numeric()
+                            ->helperText('Tempo sem resposta da sonda até disparar o alerta de falha de comunicação. (Padrão: 30)'),
+                        Forms\Components\TextInput::make('convite_validade_horas')
+                            ->label('Validade do Convite (Horas)')
+                            ->numeric()
+                            ->helperText('Quanto tempo o link do convite demora a expirar. (Padrão: 48)'),
+                        Forms\Components\TextInput::make('torneira_aberta_horas_aviso')
+                            ->label('Aviso de Torneira Aberta (Horas)')
+                            ->numeric()
+                            ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
+                        Forms\Components\TextInput::make('sonda_online_minutos')
+                            ->label('Sonda Considerada "Online" Até (Minutos)')
+                            ->numeric()
+                            ->helperText('Minutos desde a última leitura da sonda Hanna para o dashboard a mostrar como fonte ativa. (Padrão: 60)'),
+                        Forms\Components\TextInput::make('registo_manual_validade_horas')
+                            ->label('Registo Manual Válido Até (Horas)')
+                            ->numeric()
+                            ->helperText('Horas desde o último registo manual para ainda ser usado como fonte no dashboard, se a sonda não estiver online. (Padrão: 8)'),
+                        Forms\Components\TextInput::make('sem_registo_hora_critica')
+                            ->label('Hora do Dia — "Sem Registo" Torna-se Crítico')
+                            ->numeric()
+                            ->helperText('A partir desta hora do dia, uma piscina sem registo diário passa de aviso amarelo a alerta vermelho. (Padrão: 12)'),
+                        Forms\Components\TextInput::make('tendencia_registos_minimos')
+                            ->label('Registos para Deteção de Tendência')
+                            ->numeric()
+                            ->helperText('Número mínimo de registos consecutivos para detetar tendências degradantes. (Padrão: 3)'),
+                        Forms\Components\TextInput::make('auto_incidente_violacoes_minimas')
+                            ->label('Violações para Auto-Incidente')
+                            ->numeric()
+                            ->helperText('Quantas violações do mesmo parâmetro no mesmo dia/piscina disparam um incidente automático. (Padrão: 3)'),
+                        Forms\Components\TextInput::make('escalacao_incidente_horas')
+                            ->label('Escalar Incidente Sem Resposta (Horas)')
+                            ->numeric()
+                            ->helperText('Horas sem mensagens novas num incidente aberto até notificar admin/gestor. (Padrão: 24)'),
+                        Forms\Components\TextInput::make('incidentes_kanban_dias')
+                            ->label('Incidentes Mostrados no Kanban (Dias)')
+                            ->numeric()
+                            ->helperText('Janela de dias de incidentes ainda não resolvidos mostrados no quadro operacional. (Padrão: 30)'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Templates de Email')
+                    ->description('Personalize o assunto e corpo dos emails automáticos enviados pela aplicação.')
+                    ->icon('heroicon-o-envelope')
+                    ->visible(fn () => $this->mostrarAvancado)
+                    ->schema([
+                        Forms\Components\TextInput::make('email_convite_assunto')
+                            ->label('Assunto do Email (Convite)')
+                            ->placeholder('Convite — Piscinas MMCrespo')
+                            ->helperText('Predefinição: Convite — Piscinas MMCrespo')
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('email_convite_mensagem')
+                            ->label('Mensagem do Corpo (Convite)')
+                            ->rows(3)
+                            ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
+                            ->helperText('Predefinição: Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
+                            ->columnSpanFull(),
+                    ]),
+            ])
+            ->statePath('data');
+    }
+
+    public function save(): void
+    {
+        abort_unless($this->podeGerir(), 403);
+
+        $data = $this->form->getState();
+
+        foreach ($data as $key => $value) {
+            $val = $value !== null ? $value : '';
+            $setting = AppSetting::find($key);
+            if ($setting) {
+                $setting->update(['value' => $val]);
+            } else {
+                AppSetting::create([
+                    'key' => $key,
+                    'value' => $val,
+                    'group' => 'geral',
+                    'label' => ucwords(str_replace('_', ' ', $key)),
+                    'type' => 'string',
+                ]);
+            }
+        }
+
+        app(SettingsService::class)->flush();
+
+        app(CacheService::class)->invalidatePoolData();
+        app(CacheService::class)->invalidateAllAlerts();
+
+        Notification::make()
+            ->title('Definições atualizadas')
+            ->body('As definições do sistema foram guardadas com sucesso e a cache foi limpa.')
+            ->success()
+            ->send();
+    }
+
+    // ==================================================================
+    // Separador "Minhas Notificações" (todos)
+    // ==================================================================
+
     public function preferencesForm(Forms\Form $form): Forms\Form
     {
         $schema = [
-            Forms\Components\Section::make('Preferências Globais de Notificação')
+            Forms\Components\Section::make('Preferências de Notificação')
                 ->description('Personalize exatamente quais notificações deseja receber por Push (no dispositivo/browser) e por E-mail.')
                 ->schema([
-                    // 1. Incidentes
                     Forms\Components\Section::make('Incidentes e Ocorrências')
                         ->icon('heroicon-o-exclamation-triangle')
                         ->schema([
@@ -84,7 +320,6 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
-                    // 2. Operação
                     Forms\Components\Section::make('Operação e Casa das Máquinas')
                         ->icon('heroicon-o-wrench-screwdriver')
                         ->schema([
@@ -96,7 +331,6 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
-                    // 3. Conformidade & Sensores
                     Forms\Components\Section::make('Segurança, Conformidade & Sensores')
                         ->icon('heroicon-o-shield-check')
                         ->schema([
@@ -110,7 +344,6 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
 
-                    // 4. Sistema
                     Forms\Components\Section::make('Avisos do Sistema')
                         ->icon('heroicon-o-megaphone')
                         ->schema([
@@ -155,32 +388,47 @@ class Notificacoes extends Page implements HasForms, HasTable
             'notification_preferences' => $newPrefs,
         ]);
 
-        if ($this->podeGerir() && isset($data['digest_conformidade_horas'])) {
-            $settings = app(SettingsService::class);
-            $settings->set('digest_conformidade_horas', $data['digest_conformidade_horas']);
-        }
-
         Notification::make()
             ->title('Preferências guardadas com sucesso!')
             ->success()
             ->send();
     }
 
-    public function mount(): void
+    public function solicitarAtivacao(): void
     {
-        $this->destinoCargo = UserRole::ADMIN;
-        $settings = app(SettingsService::class);
-        $digestHoras = $settings->getArray('digest_conformidade_horas', ['08:00', '13:00', '18:00']);
+        $user = auth()->user();
 
-        $this->preferencesForm->fill([
-            'notification_preferences' => auth()->user()->notification_preferences ?? [],
-            'digest_conformidade_horas' => $digestHoras,
-        ]);
+        if ($user->hasPushActive()) {
+            Notification::make()
+                ->title('Notificações já ativas')
+                ->body('Já tem notificações ativadas neste dispositivo.')
+                ->info()
+                ->send();
+
+            return;
+        }
+
+        $user->requestPushNotifications();
+
+        Notification::make()
+            ->title('Pedido enviado!')
+            ->body('O seu pedido de ativação de notificações foi registado. O administrador será notificado.')
+            ->success()
+            ->send();
     }
 
-    public function podeGerir(): bool
+    // ==================================================================
+    // Separador "Avisos" (admin)
+    // ==================================================================
+
+    public static function rotulosCargos(): array
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        return [
+            UserRole::ADMIN => 'Admin',
+            UserRole::GESTOR => 'Gestor',
+            UserRole::TECNICO => 'Técnico',
+            UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+        ];
     }
 
     public function getUsuariosNotificacoes(): Collection
@@ -189,7 +437,16 @@ class Notificacoes extends Page implements HasForms, HasTable
             ->with('roles')
             ->withCount('pushSubscriptions')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function (User $user) {
+                $user->push_status = match (true) {
+                    $user->push_subscriptions_count > 0 => 'ativo',
+                    $user->push_notifications_requested_at !== null => 'solicitado',
+                    default => 'inativo',
+                };
+
+                return $user;
+            });
     }
 
     public function getUsuariosLista(): array
@@ -200,7 +457,7 @@ class Notificacoes extends Page implements HasForms, HasTable
             ->toArray();
     }
 
-    public function enviarPedidoAtivacao(int $userId): void
+    public function limparSolicitacao(int $userId): void
     {
         if (! $this->podeGerir()) {
             return;
@@ -208,35 +465,15 @@ class Notificacoes extends Page implements HasForms, HasTable
 
         $user = User::find($userId);
 
-        if (! $user) {
+        if ($user) {
+            $user->clearPushNotificationRequest();
+
             Notification::make()
-                ->title('Utilizador não encontrado')
-                ->danger()
+                ->title('Pedido de ativação limpo')
+                ->body("Solicitação de {$user->name} foi removida.")
+                ->success()
                 ->send();
-
-            return;
         }
-
-        if ($user->pushSubscriptions()->count() > 0) {
-            Notification::make()
-                ->title('Utilizador já tem notificações ativas')
-                ->body("{$user->name} já tem notificações ativadas.")
-                ->info()
-                ->send();
-
-            return;
-        }
-
-        \Illuminate\Support\Facades\Notification::send(
-            $user,
-            new \App\Notifications\PedidoAtivacaoPushNotification()
-        );
-
-        Notification::make()
-            ->title('Pedido enviado!')
-            ->body("Pedido de ativação enviado para {$user->name}.")
-            ->success()
-            ->send();
     }
 
     public function enviarManual(): void
@@ -289,7 +526,6 @@ class Notificacoes extends Page implements HasForms, HasTable
                 ->success()
                 ->send();
 
-            // Limpar formulário
             $this->manualTitulo = '';
             $this->manualCorpo = '';
         } catch (\Exception $e) {
@@ -300,16 +536,6 @@ class Notificacoes extends Page implements HasForms, HasTable
                 ->persistent()
                 ->send();
         }
-    }
-
-    public static function rotulosCargos(): array
-    {
-        return [
-            UserRole::ADMIN => 'Admin',
-            UserRole::GESTOR => 'Gestor',
-            UserRole::TECNICO => 'Técnico',
-            UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
-        ];
     }
 
     public function table(Table $table): Table
