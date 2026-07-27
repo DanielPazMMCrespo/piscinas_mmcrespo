@@ -189,7 +189,16 @@ class Notificacoes extends Page implements HasForms, HasTable
             ->with('roles')
             ->withCount('pushSubscriptions')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function (User $user) {
+                $user->push_status = match (true) {
+                    $user->push_subscriptions_count > 0 => 'ativo',
+                    $user->push_notifications_requested_at !== null => 'solicitado',
+                    default => 'inativo',
+                };
+
+                return $user;
+            });
     }
 
     public function getUsuariosLista(): array
@@ -198,6 +207,48 @@ class Notificacoes extends Page implements HasForms, HasTable
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    public function solicitarAtivacao(): void
+    {
+        $user = auth()->user();
+
+        if ($user->hasPushActive()) {
+            Notification::make()
+                ->title('Notificações já ativas')
+                ->body('Já tem notificações ativadas neste dispositivo.')
+                ->info()
+                ->send();
+
+            return;
+        }
+
+        $user->requestPushNotifications();
+
+        Notification::make()
+            ->title('Pedido enviado!')
+            ->body('O seu pedido de ativação de notificações foi registado. O administrador será notificado.')
+            ->success()
+            ->send();
+    }
+
+    public function limparSolicitacao(int $userId): void
+    {
+        if (! $this->podeGerir()) {
+            return;
+        }
+
+        $user = User::find($userId);
+
+        if ($user) {
+            $user->clearPushNotificationRequest();
+
+            Notification::make()
+                ->title('Pedido de ativação limpo')
+                ->body("Solicitação de {$user->name} foi removida.")
+                ->success()
+                ->send();
+        }
     }
 
     public function enviarManual(): void

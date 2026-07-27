@@ -87,12 +87,25 @@
         </template>
 
         <template x-if="estado === 'default'">
-            <div>
+            <div class="space-y-3">
                 <x-filament::button x-on:click="ativar()" x-bind:disabled="aProcessar" icon="heroicon-m-bell">
                     <span x-text="aProcessar ? 'A ativar...' : 'Ativar notificações'"></span>
                 </x-filament::button>
+
+                @if(auth()->user()->push_notifications_requested_at === null)
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Não consegue ativar agora? <x-filament::link wire:click="solicitarAtivacao" color="primary">Solicitar ao administrador</x-filament::link>
+                    </p>
+                @endif
             </div>
         </template>
+
+        @if(auth()->user()->push_notifications_requested_at !== null)
+            <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-4 text-sm text-info-700 dark:text-info-400 space-y-2">
+                <p class="font-medium">Pedido pendente</p>
+                <p>O seu pedido de ativação foi registado em {{ auth()->user()->push_notifications_requested_at->format('d/m/Y H:i') }}. O administrador será notificado.</p>
+            </div>
+        @endif
     </div>
 
     <form wire:submit="savePreferences" class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-6 mb-6">
@@ -222,15 +235,20 @@
                                         {{ collect($usuario->roles)->pluck('name')->map(fn($r) => self::rotulosCargos()[$r] ?? $r)->join(', ') ?: 'Nenhum' }}
                                     </td>
                                     <td class="py-3">
-                                        @if($usuario->push_subscriptions_count > 0)
+                                        @if($usuario->push_status === 'ativo')
                                             <span class="inline-flex items-center gap-1.5 rounded-md bg-success-50 dark:bg-success-950 px-2 py-1 text-xs font-medium text-success-700 dark:text-success-300 ring-1 ring-inset ring-success-600/10 dark:ring-success-500/20">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>
                                                 {{ $usuario->push_subscriptions_count }} {{ $usuario->push_subscriptions_count === 1 ? 'dispositivo' : 'dispositivos' }}
                                             </span>
+                                        @elseif($usuario->push_status === 'solicitado')
+                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-warning-50 dark:bg-warning-950 px-2 py-1 text-xs font-medium text-warning-700 dark:text-warning-300 ring-1 ring-inset ring-warning-600/10 dark:ring-warning-500/20">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-warning-500"></span>
+                                                Solicitado
+                                            </span>
                                         @else
                                             <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-50 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
-                                                Inativo (0)
+                                                Inativo
                                             </span>
                                         @endif
                                     </td>
