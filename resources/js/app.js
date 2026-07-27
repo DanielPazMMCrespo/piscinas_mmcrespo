@@ -710,10 +710,11 @@ document.addEventListener('alpine:init', () => {
             const fase = String(statePath).includes('timer_enxaguamento') ? 'enxaguamento' : 'lavagem';
             const stepLabel = fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem filtros';
 
-            const trocouPasso = this.irParaPasso(stepLabel);
+            this.irParaPasso(stepLabel);
 
-            // Aguarda o Alpine trocar o passo (x-show) antes de localizar o fieldset.
-            setTimeout(() => this.focarFieldset(poolId), trocouPasso ? 300 : 50);
+            // Aguarda o Alpine terminar a transição do passo — em vez de um timeout
+            // fixo, espera (com retries) até existir um fieldset realmente visível.
+            this.focarFieldsetComRetry(poolId);
         },
 
         // Clica no header do passo do Wizard cujo label corresponde. Devolve true se
@@ -731,7 +732,7 @@ document.addEventListener('alpine:init', () => {
             return false;
         },
 
-        focarFieldset(poolId) {
+        focarFieldsetComRetry(poolId, tentativa = 0) {
             const visivel = (el) => el && el.offsetParent !== null;
             const candidatos = [];
 
@@ -746,10 +747,17 @@ document.addEventListener('alpine:init', () => {
                 });
             }
 
-            // Vários passos têm fieldsets da mesma piscina — preferir o que está visível.
-            const fieldset = candidatos.find(visivel) || candidatos[0];
+            // Vários passos têm fieldsets da mesma piscina — só o do passo ativo está visível.
+            const fieldset = candidatos.find(visivel);
+
             if (!fieldset) {
-                console.warn(`Fieldset não encontrado para pool ${poolId}`);
+                // A transição do Wizard ainda não terminou (ou o passo ainda não montou
+                // os fieldsets). Tenta de novo por até ~2s antes de desistir.
+                if (tentativa < 20) {
+                    setTimeout(() => this.focarFieldsetComRetry(poolId, tentativa + 1), 100);
+                } else {
+                    console.warn(`Fieldset visível não encontrado para pool ${poolId}`);
+                }
                 return;
             }
 
@@ -1374,7 +1382,7 @@ const askUserToRestoreDraft = (formKey, component, stored) => {
                 <button id="mmc-draft-modal-discard-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer">
                     Não, descartar
                 </button>
-                <button id="mmc-draft-modal-recover-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-amber-600 hover:bg-amber-500 shadow-sm transition-colors duration-150 cursor-pointer">
+                <button id="mmc-draft-modal-recover-btn" type="button" style="background-color:#d97706;color:#fff;" class="px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-colors duration-150 cursor-pointer hover:opacity-90">
                     Sim, recuperar
                 </button>
             </div>
