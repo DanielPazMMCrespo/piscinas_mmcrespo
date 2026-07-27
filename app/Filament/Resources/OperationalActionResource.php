@@ -112,6 +112,32 @@ class OperationalActionResource extends Resource
         }
     }
 
+    /**
+     * Preenche a quantidade a reabastecer com a capacidade total do bidão da
+     * piscina/tipo selecionados — o caso mais comum é encher até ao topo.
+     * Corre sempre que piscina ou tipo de bidão mudam (afterStateUpdated),
+     * não como ->default() do campo: um default só é avaliado no mount do
+     * formulário, antes de a piscina/tipo estarem escolhidos, pelo que nunca
+     * teria valores para calcular a partir de.
+     */
+    private static function atualizarQuantidadeBidaoDefault(Get $get, Set $set): void
+    {
+        $poolId = $get('pool_id');
+        $tipo = $get('dados.bidao_tipo');
+
+        if (! $poolId || ! $tipo || $tipo === 'ambos') {
+            return;
+        }
+
+        $container = DosingContainer::where('pool_id', $poolId)
+            ->where('tipo', $tipo)
+            ->first();
+
+        if ($container && $container->capacidade_ml) {
+            $set('dados.quantidade_l', $container->capacidade_ml / 1000);
+        }
+    }
+
     private static function piscinasOptions(): array
     {
         return Pool::query()
@@ -136,7 +162,10 @@ class OperationalActionResource extends Resource
                 ->searchable()
                 ->required()
                 ->live()
-                ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),
+                ->afterStateUpdated(function (Get $get, Set $set) {
+                    self::preencherOrpDaSonda($get, $set);
+                    self::atualizarQuantidadeBidaoDefault($get, $set);
+                }),
 
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
@@ -251,18 +280,16 @@ class OperationalActionResource extends Resource
 
             // Reabastecimento de bidão.
             Forms\Components\Select::make('dados.bidao_tipo')
-                ->label('Tipo de bidão / produto')
+                ->label('Tipo de bidão')
                 ->options([
                     DosingContainer::TIPO_CLORO => 'Cloro',
                     DosingContainer::TIPO_PH_MENOS => 'pH-',
-                    'coagulante' => 'Coagulante / Floculante',
-                    'ph_mais' => 'pH+',
-                    'anti_algas' => 'Anti-algas',
                     'ambos' => 'Ambos (Cloro e pH-)',
                 ])
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
                 ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
-                ->live(),
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::atualizarQuantidadeBidaoDefault($get, $set)),
 
             Forms\Components\TextInput::make('dados.quantidade_l')
                 ->label('Quantidade reabastecida (L)')
@@ -271,20 +298,6 @@ class OperationalActionResource extends Resource
                 ->minValue(0)
                 ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO)
                 ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO && $get('dados.bidao_tipo') !== 'ambos')
-                ->default(function (Get $get) {
-                    $poolId = $get('pool_id');
-                    $tipo = $get('dados.bidao_tipo');
-                    if ($poolId && $tipo && $tipo !== 'ambos') {
-                        $container = DosingContainer::where('pool_id', $poolId)
-                            ->where('tipo', $tipo)
-                            ->first();
-                        if ($container && $container->capacidade_ml) {
-                            return $container->capacidade_ml / 1000;
-                        }
-                    }
-
-                    return null;
-                })
                 ->helperText(fn (Get $get) => $get('dados.bidao_tipo') === 'ambos'
                     ? 'Deixe em branco para encher ambos os bidões até às respetivas capacidades totais.'
                     : 'Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
