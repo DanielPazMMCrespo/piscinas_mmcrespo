@@ -81,6 +81,11 @@ class CloroPhChartWidget extends Widget implements HasForms
                 'min' => 0.0, 'max' => 3.0, 'cor' => '#0e7490',
                 'banda' => null,
             ],
+            'cloro_combinado' => [
+                'label' => 'Cloro Combinado', 'unidade' => 'mg/L', 'casas' => 2,
+                'min' => 0.0, 'max' => 1.5, 'cor' => '#b45309',
+                'banda' => ['min' => 0.0, 'max' => DailyRecord::getCloroCombinadoMax()],
+            ],
             'ph' => [
                 'label' => 'pH', 'unidade' => '', 'casas' => 2,
                 'min' => 6.5, 'max' => 8.5, 'cor' => '#76b82a',
@@ -317,8 +322,13 @@ class CloroPhChartWidget extends Widget implements HasForms
         } else {
             $campo = $metricKey;
 
-            $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_'.$campo : null;
-            $colunas = $nsCampo !== null ? ['registado_em', $campo, $nsCampo] : ['registado_em', $campo];
+            if ($campo === 'cloro_combinado') {
+                $colunas = ['registado_em', 'cloro_livre', 'cloro_total', 'ns_cloro_livre', 'ns_cloro_total'];
+            } else {
+                $nsCampo = in_array($campo, self::NS_CAMPOS, true) ? 'ns_'.$campo : null;
+                $colunas = $nsCampo !== null ? ['registado_em', $campo, $nsCampo] : ['registado_em', $campo];
+            }
+
             $rows = DailyRecord::query()
                 ->select($colunas)
                 ->where('pool_id', $poolId)
@@ -329,7 +339,9 @@ class CloroPhChartWidget extends Widget implements HasForms
                 ->get();
 
             $data = $rows->map(fn ($r) => [
-                'val' => $r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null),
+                'val' => $campo === 'cloro_combinado'
+                    ? $r->cloro_combinado
+                    : ($r->{$campo} ?? ($nsCampo !== null ? $r->{$nsCampo} : null)),
                 'r' => $r,
             ])
                 ->filter(fn ($item) => $item['val'] !== null)
