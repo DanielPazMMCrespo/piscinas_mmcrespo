@@ -10,15 +10,19 @@ use App\Models\DailyRecord;
 use App\Models\DosingContainer;
 use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\SensorReading;
+use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class OperationalActionResource extends Resource
 {
@@ -72,6 +76,42 @@ class OperationalActionResource extends Resource
         return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
+    private static function preencherOrpDaSonda(Get $get, Set $set): void
+    {
+        if ($get('tipo') !== OperationalAction::TIPO_ANALISE_PONTUAL) {
+            return;
+        }
+
+        $poolId = $get('pool_id');
+        $registadoEm = $get('registado_em');
+
+        if (! $poolId || ! $registadoEm) {
+            return;
+        }
+
+        $momento = Carbon::parse($registadoEm);
+        $janelaMinutos = app(SettingsService::class)->getInt('sensor_fresco_minutos', 240);
+
+        $leitura = SensorReading::query()
+            ->where('pool_id', $poolId)
+            ->whereNotNull('orp')
+            ->whereBetween('lida_em', [
+                $momento->clone()->subMinutes($janelaMinutos),
+                $momento->clone()->addMinutes($janelaMinutos),
+            ])
+            ->get()
+            ->sortBy(fn (SensorReading $r) => abs($r->lida_em->diffInSeconds($momento)))
+            ->first();
+
+        if ($leitura) {
+            $set('dados.orp', (float) $leitura->orp);
+            $set('dados.orp_da_sonda', true);
+        } elseif ($get('dados.orp_da_sonda')) {
+            $set('dados.orp', null);
+            $set('dados.orp_da_sonda', false);
+        }
+    }
+
     private static function piscinasOptions(): array
     {
         return Pool::query()
@@ -94,20 +134,25 @@ class OperationalActionResource extends Resource
                 ->options(fn () => self::piscinasOptions())
                 ->default(fn () => request()->integer('pool') ?: null)
                 ->searchable()
-                ->required(),
+                ->required()
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),
 
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
                 ->options(OperationalAction::TIPOS)
                 ->default(fn () => in_array(request()->query('tipo'), array_keys(OperationalAction::TIPOS), true) ? request()->query('tipo') : null)
                 ->required()
-                ->live(),
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),
 
             Forms\Components\DateTimePicker::make('registado_em')
-                ->label('Data e hora')
+                ->label('Data e hora (colheita)')
                 ->default(now())
                 ->seconds(false)
-                ->required(),
+                ->required()
+                ->live(onBlur: true)
+                ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),
 
             // Lavagem / enxaguamento de filtro.
             Forms\Components\TextInput::make('dados.filtro_nome')
@@ -281,10 +326,15 @@ class OperationalActionResource extends Resource
                         ->extraInputAttributes(['inputmode' => 'decimal']),
                     Forms\Components\TextInput::make('dados.orp')
                         ->label('ORP (mV)')->numeric()->step(1)
-                        ->extraInputAttributes(['inputmode' => 'numeric']),
+                        ->extraInputAttributes(['inputmode' => 'numeric'])
+                        ->readOnly(fn (Get $get) => $get('dados.orp_da_sonda') === true)
+                        ->helperText(fn (Get $get) => $get('dados.orp_da_sonda') === true
+                            ? 'Preenchido automaticamente pela sonda (hora mais próxima da colheita).'
+                            : 'Sem leitura da sonda perto desta hora — pode inserir manualmente.'),
                     Forms\Components\TextInput::make('dados.temperatura')
                         ->label('Temp (°C)')->numeric()->step(0.1)
                         ->extraInputAttributes(['inputmode' => 'decimal']),
+                    Forms\Components\Hidden::make('dados.orp_da_sonda'),
                 ])->columns(['default' => 2, 'sm' => 5]),
 
             Forms\Components\Textarea::make('observacoes')
