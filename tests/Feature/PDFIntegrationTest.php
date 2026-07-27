@@ -9,7 +9,6 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -437,14 +436,14 @@ class PDFIntegrationTest extends TestCase
 
     public function test_pdf_all_metricas_constants_available(): void
     {
-        // Verify all constants defined in DailyRecord are available for PDF
-        $metricas = DailyRecord::METRICAS;
+        // Verify all metrics from the single source of truth are available for PDF
+        $metricas = DailyRecord::getMetricas();
 
         $required_metricas = ['ph', 'cloro_livre', 'cloro_combinado', 'transparencia', 'temperatura'];
 
         foreach ($required_metricas as $metrica) {
             $this->assertArrayHasKey($metrica, $metricas,
-                "METRICAS should include {$metrica}");
+                "getMetricas() should include {$metrica}");
         }
     }
 

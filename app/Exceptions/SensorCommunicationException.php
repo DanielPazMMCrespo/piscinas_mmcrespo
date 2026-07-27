@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Exceptions;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Exceptions;
 
 /**
  * Lançada quando a comunicação com a API Hanna Cloud falha.
@@ -32,8 +34,8 @@ class SensorCommunicationException extends \Exception
     /** Mensagem amigável para o UI. */
     public function friendlyMessage(): string
     {
-        return "Leitura de sensores indisponível. "
-            ."A app continua funcional — mostra dados guardados anteriormente.";
+        return 'Leitura de sensores indisponível. '
+            .'A app continua funcional — mostra dados guardados anteriormente.';
     }
 
     /** Booleano: deve triggerar retry automático? */

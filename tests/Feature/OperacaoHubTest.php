@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\OperacaoHub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
 
 class OperacaoHubTest extends TestCase
 {
@@ -18,10 +19,10 @@ class OperacaoHubTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Limpar cache de permissões
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
-        
+
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
     }
 
@@ -50,7 +51,7 @@ class OperacaoHubTest extends TestCase
         $user->assignRole('admin');
 
         Livewire::actingAs($user)
-            ->test(\App\Filament\Pages\OperacaoHub::class)
+            ->test(OperacaoHub::class)
             ->assertActionVisible('registoDiario');
     }
 }

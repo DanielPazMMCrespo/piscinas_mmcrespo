@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
-use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\Product;
 use App\Models\StockInstallation;
-use App\Models\StockInstallationLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -27,8 +26,11 @@ class DailyRecordStockInsufficientTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Installation $installation;
+
     private Pool $pool;
+
     private Product $product;
 
     protected function setUp(): void
@@ -61,7 +63,7 @@ class DailyRecordStockInsufficientTest extends TestCase
     }
 
     /**
-     * @param array<int, array<string, mixed>> $adicoes
+     * @param  array<int, array<string, mixed>>  $adicoes
      */
     private function criarRegisto(array $adicoes): void
     {
@@ -85,10 +87,10 @@ class DailyRecordStockInsufficientTest extends TestCase
         $estado = [
             'installation_id' => $this->pool->installation_id,
             'registado_em' => now(),
-            'ns_foto' => [\Illuminate\Http\UploadedFile::fake()->create('ns_foto.jpg', 10)],
+            'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
             'pools' => [
                 $this->pool->id => $poolData,
-            ]
+            ],
         ];
 
         Livewire::actingAs($this->user)
@@ -117,27 +119,17 @@ class DailyRecordStockInsufficientTest extends TestCase
         $this->assertSame(1.0, $this->stockAtual());
     }
 
-    public function test_form_rejeita_quantidade_superior_ao_disponivel(): void
+    public function test_registo_e_criado_e_stock_desconta_ate_zero_quando_pedido_excede_disponivel(): void
     {
-        // Validação de quantidade (Sessão 13): tentar consumir mais do que o disponível
-        // é rejeitado pelo formulário; o registo não é criado e o stock fica intacto.
-        Livewire::actingAs($this->user)
-            ->test(CreateDailyRecord::class)
-            ->fillForm([
-                'installation_id' => $this->pool->installation_id,
-                'pools' => [
-                    $this->pool->id => [
-                        'adicoes' => [
-                            ['product_id' => $this->product->id, 'quantity' => 10.0],
-                        ],
-                    ]
-                ],
-            ])
-            ->call('create')
-            ->assertHasFormErrors(["pools.{$this->pool->id}.adicoes.0.quantity"]);
+        // Quantidade pedida (10.0) excede o disponível (3.0): o formulário não bloqueia
+        // (o técnico pode adicionar stock ali mesmo ou gravar o registo na mesma); o
+        // backend desconta até zero em vez de rejeitar o registo.
+        $this->criarRegisto([
+            ['product_id' => $this->product->id, 'quantity' => 10.0],
+        ]);
 
-        $this->assertDatabaseCount('daily_records', 0);
-        $this->assertSame(3.0, $this->stockAtual());
+        $this->assertDatabaseHas('daily_records', ['pool_id' => $this->pool->id]);
+        $this->assertSame(0.0, $this->stockAtual());
     }
 
     public function test_log_de_consumo_criado(): void

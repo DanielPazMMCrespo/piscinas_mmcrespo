@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\Auth\Login;
+use App\Filament\Resources\UserInvitationResource\Pages\ListUserInvitations;
+use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Mail\UserInvitationMail;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
@@ -29,7 +33,7 @@ class InvitationFlowTest extends TestCase
         Role::firstOrCreate(['name' => 'admin',           'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'gestor',          'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'tecnico',         'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'nadador_salvador','guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'nadador_salvador', 'guard_name' => 'web']);
     }
 
     public function test_admin_can_create_invitation(): void
@@ -39,12 +43,12 @@ class InvitationFlowTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('novo@test.pt', 'tecnico', $admin);
 
         $this->assertDatabaseHas('user_invitations', [
             'email' => 'novo@test.pt',
-            'role'  => 'tecnico',
+            'role' => 'tecnico',
         ]);
         $this->assertNull($invitation->accepted_at);
         $this->assertTrue($invitation->isPending());
@@ -54,7 +58,7 @@ class InvitationFlowTest extends TestCase
     {
         Mail::fake();
 
-        $admin    = User::factory()->create();
+        $admin = User::factory()->create();
         $admin->assignRole('admin');
         $existing = User::factory()->create(['email' => 'existe@test.pt']);
 
@@ -85,13 +89,13 @@ class InvitationFlowTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('novo@test.pt', 'tecnico', $admin);
 
         $user = $service->accept($invitation, [
             'first_name' => 'Ana',
-            'last_name'  => 'Silva',
-            'password'   => 'password123',
+            'last_name' => 'Silva',
+            'password' => 'password123',
         ]);
 
         $this->assertDatabaseHas('users', ['email' => 'novo@test.pt']);
@@ -106,12 +110,12 @@ class InvitationFlowTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('novo@test.pt', 'tecnico', $admin);
 
         $service->accept($invitation, [
             'first_name' => 'Ana',
-            'last_name'  => 'Silva',
+            'last_name' => 'Silva',
         ]);
 
         $this->assertNotNull($invitation->fresh()->accepted_at);
@@ -125,16 +129,16 @@ class InvitationFlowTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('novo@test.pt', 'tecnico', $admin);
 
         $user = $service->accept($invitation, [
             'first_name' => 'Ana',
-            'last_name'  => 'Silva',
-            'password'   => 'password123',
+            'last_name' => 'Silva',
+            'password' => 'password123',
         ]);
 
-        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+        Livewire::test(Login::class)
             ->fillForm(['email' => 'novo@test.pt', 'password' => 'password123'])
             ->call('authenticate')
             ->assertHasNoFormErrors();
@@ -174,13 +178,13 @@ class InvitationFlowTest extends TestCase
         $poolA = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Competição']);
         $poolB = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Lazer']);
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('ns@test.pt', 'nadador_salvador', $admin, [$poolA->id, $poolB->id]);
 
         $user = $service->accept($invitation, [
             'first_name' => 'Rui',
-            'last_name'  => 'Costa',
-            'pin'        => '1234',
+            'last_name' => 'Costa',
+            'pin' => '1234',
         ]);
 
         $this->assertEqualsCanonicalizing(
@@ -199,15 +203,15 @@ class InvitationFlowTest extends TestCase
         $instalacao = Installation::factory()->create(['name' => 'Leiria']);
         $pool = Pool::factory()->create(['installation_id' => $instalacao->id, 'name' => 'Competição']);
 
-        $service    = app(InvitationService::class);
+        $service = app(InvitationService::class);
         $invitation = $service->send('tec@test.pt', 'tecnico', $admin, [$pool->id]);
 
         $this->assertNull($invitation->pool_ids);
 
         $user = $service->accept($invitation, [
             'first_name' => 'Ana',
-            'last_name'  => 'Silva',
-            'password'   => 'password123',
+            'last_name' => 'Silva',
+            'password' => 'password123',
         ]);
 
         $this->assertCount(0, $user->piscinas()->get());
@@ -221,7 +225,7 @@ class InvitationFlowTest extends TestCase
         // Montar a ação exercita o schema do form (CheckboxList de piscinas + Get)
         // e apanha erros de import/render na página.
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Resources\UserResource\Pages\ListUsers::class)
+            ->test(ListUsers::class)
             ->assertActionVisible('convidar')
             ->mountAction('convidar')
             ->assertActionMounted('convidar');
@@ -230,20 +234,84 @@ class InvitationFlowTest extends TestCase
         $gestor->assignRole('gestor');
 
         Livewire::actingAs($gestor)
-            ->test(\App\Filament\Resources\UserResource\Pages\ListUsers::class)
+            ->test(ListUsers::class)
             ->assertActionVisible('convidar');
     }
 
-    public function test_findValid_returns_null_for_expired_token(): void
+    public function test_find_valid_returns_null_for_expired_token(): void
     {
         $invitation = UserInvitation::create([
-            'email'          => 'old@test.pt',
-            'role'           => 'tecnico',
-            'token'          => hash('sha256', 'expiredtoken'),
-            'invited_by_id'  => User::factory()->create()->id,
-            'expires_at'     => now()->subHour(),
+            'email' => 'old@test.pt',
+            'role' => 'tecnico',
+            'token' => hash('sha256', 'expiredtoken'),
+            'invited_by_id' => User::factory()->create()->id,
+            'expires_at' => now()->subHour(),
         ]);
 
         $this->assertNull(UserInvitation::findValid('expiredtoken'));
+    }
+
+    public function test_resend_regenerates_token_and_extends_expiry(): void
+    {
+        Mail::fake();
+
+        $invitation = UserInvitation::create([
+            'email' => 'reenvio@test.pt',
+            'role' => 'tecnico',
+            'token' => hash('sha256', 'tokenantigo'),
+            'invited_by_id' => User::factory()->create()->id,
+            'expires_at' => now()->subHour(), // expirado
+        ]);
+        $tokenAntigo = $invitation->token;
+
+        app(InvitationService::class)->resend($invitation);
+
+        $fresh = $invitation->fresh();
+        $this->assertNotSame($tokenAntigo, $fresh->token);
+        $this->assertTrue($fresh->expires_at->isFuture());
+        $this->assertNull(UserInvitation::findValid('tokenantigo'));
+        Mail::assertQueued(UserInvitationMail::class);
+    }
+
+    public function test_resend_throws_if_already_accepted(): void
+    {
+        Mail::fake();
+
+        $invitation = UserInvitation::create([
+            'email' => 'aceite@test.pt',
+            'role' => 'tecnico',
+            'token' => hash('sha256', 'x'),
+            'invited_by_id' => User::factory()->create()->id,
+            'expires_at' => now()->addDay(),
+            'accepted_at' => now(),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(InvitationService::class)->resend($invitation);
+    }
+
+    public function test_admin_can_render_invitations_list_and_resend_action(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $invitation = UserInvitation::create([
+            'email' => 'pendente@test.pt',
+            'role' => 'nadador_salvador',
+            'token' => hash('sha256', 'tok'),
+            'invited_by_id' => $admin->id,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListUserInvitations::class)
+            ->assertOk()
+            ->assertCanSeeTableRecords([$invitation])
+            ->callTableAction('reenviar', $invitation);
+
+        Mail::assertQueued(UserInvitationMail::class);
     }
 }

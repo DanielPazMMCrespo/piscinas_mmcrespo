@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Models;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +13,7 @@ class IncidentMessage extends Model
     use HasFactory;
 
     public const TIPO_MENSAGEM = 'mensagem';
+
     public const TIPO_SISTEMA = 'sistema';
 
     protected $fillable = [

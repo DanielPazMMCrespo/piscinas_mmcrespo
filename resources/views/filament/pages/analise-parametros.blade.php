@@ -4,6 +4,15 @@
         @livewire(\App\Filament\Widgets\CloroPhChartWidget::class)
     </div>
 
+    @unless (auth()->user()?->hasRole(\App\Constants\UserRole::NADADOR_SALVADOR))
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            @livewire(\App\Filament\Widgets\ScoreConformidadeWidget::class)
+            @livewire(\App\Filament\Widgets\HeatmapConformidadeWidget::class)
+            @livewire(\App\Filament\Widgets\EstabilidadeMedicoesWidget::class)
+            @livewire(\App\Filament\Widgets\ConsumoQuimicosWidget::class)
+        </div>
+    @endunless
+
     <style>
         /* Nesta página os gráficos ganham mais altura para análise detalhada. */
         .mmc-analise-grande .mmc-grafico-canvas-wrap { height: 420px; }

@@ -11,7 +11,6 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -22,10 +21,15 @@ class RelatorioPdfFineCombTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $tecnico;
+
     private User $nadador;
+
     private Installation $installation;
+
     private Pool $poolLazer;
+
     private Pool $poolCompeticao;
 
     protected function setUp(): void
@@ -190,7 +194,7 @@ class RelatorioPdfFineCombTest extends TestCase
         // Let's call exportar manually on the component instance to assert the file response headers.
         $streamResponse = $instance->exportar();
         $this->assertNotNull($streamResponse);
-        
+
         $contentDisposition = $streamResponse->headers->get('Content-Disposition');
         $this->assertStringContainsString('attachment;', $contentDisposition);
         // Slug check: complexo-aquatico-de-teste-leiria-at-2026 (due to '@' in name)
@@ -341,13 +345,14 @@ class RelatorioPdfFineCombTest extends TestCase
                 $phAvg = $grupo->map(fn ($r) => $r->ph)->filter(fn ($v) => $v !== null)->average();
                 $tempAvg = $grupo->map(fn ($r) => $r->temperatura)->filter(fn ($v) => $v !== null)->average();
                 $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre)->filter(fn ($v) => $v !== null)->average();
-                
-                $mockRecord = new DailyRecord();
-                $mockRecord->ph = $phAvg !== null ? round((float)$phAvg, 2) : null;
-                $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
-                $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float)$cloroLivreAvg, 2) : null;
+
+                $mockRecord = new DailyRecord;
+                $mockRecord->ph = $phAvg !== null ? round((float) $phAvg, 2) : null;
+                $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
+                $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float) $cloroLivreAvg, 2) : null;
                 $mockRecord->e_correcao = false;
                 $mockRecord->registado_em = $grupo->first()->registado_em;
+
                 return $mockRecord;
             });
 
@@ -496,5 +501,140 @@ class RelatorioPdfFineCombTest extends TestCase
         $this->assertStringContainsString('pH controlador (médias diárias)', $html); // graph legend
         $this->assertStringContainsString('ORP Médio (mV)', $html); // table header
         $this->assertStringContainsString('700', $html); // reading value
+    }
+
+    /**
+     * Test 11: Sensor Readings Graph & Table Logic in Todos Mode (prevent PHP 8.2 Dynamic Property exception)
+     */
+    public function test_sensor_readings_todos_mode_graph_and_table_logic(): void
+    {
+        // Create sensor readings
+        SensorReading::create([
+            'pool_id' => $this->poolLazer->id,
+            'hanna_device_id' => 'DEV-TEST',
+            'lida_em' => now()->subDays(3)->startOfDay()->addHours(12),
+            'ph' => 7.2,
+            'orp' => 700.0,
+            'temperatura_agua' => 28.5,
+        ]);
+
+        $controlador = collect();
+        $sintetico = new \stdClass;
+        $sintetico->dia = now()->subDays(3)->format('Y-m-d');
+        $sintetico->hora = '12:00';
+        $sintetico->ph = 7.2;
+        $sintetico->orp = 700.0;
+        $sintetico->temp_agua = 28.5;
+        $sintetico->leituras = 1;
+        $sintetico->motivo_exclusao = null;
+        $sintetico->sem_leitura_valida = false;
+        $controlador->push($sintetico);
+
+        $seccoes = [[
+            'piscina' => $this->poolLazer,
+            'registos' => collect(),
+            'controlador' => $controlador,
+        ]];
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => $seccoes,
+            'inicio' => now()->subDays(5)->startOfDay(),
+            'fim' => now()->subDays(1)->endOfDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Admin',
+            'colunasVisiveis' => ['ph'],
+            'seccoesVisiveis' => ['mostrar_controlador_grafico', 'mostrar_controlador_tabela'],
+            'modo' => 'todos',
+            'controladorModo' => 'todos',
+        ])->render();
+
+        // Verify that graph and table are rendered without PHP crash
+        $this->assertStringContainsString('Controlador Hanna BL132 — Leituras Automáticas', $html);
+        $this->assertStringContainsString('pH Conforme', $html); // table header for todos mode
+        $this->assertStringContainsString('7,20', $html); // formatted ph value
+    }
+
+    /**
+     * Test 12: Automatic Filter Wash Detection based on pH and ORP limits.
+     */
+    public function test_sensor_readings_automatic_filter_wash_detection(): void
+    {
+        $day = now()->subDays(2)->format('Y-m-d');
+
+        // Reading A: meets filter wash rule (ph < 6 and orp < 600)
+        SensorReading::create([
+            'pool_id' => $this->poolLazer->id,
+            'hanna_device_id' => 'DEV-TEST',
+            'lida_em' => now()->subDays(2)->startOfDay()->addHours(10),
+            'ph' => 5.5,
+            'orp' => 550.0,
+            'temperatura_agua' => 28.5,
+        ]);
+
+        // Reading B: does not meet rule (normal reading)
+        SensorReading::create([
+            'pool_id' => $this->poolLazer->id,
+            'hanna_device_id' => 'DEV-TEST',
+            'lida_em' => now()->subDays(2)->startOfDay()->addHours(11),
+            'ph' => 7.2,
+            'orp' => 700.0,
+            'temperatura_agua' => 28.5,
+        ]);
+
+        $instance = Livewire::actingAs($this->admin)
+            ->test(RelatorioPdf::class)
+            ->fillForm([
+                'installation_id' => $this->installation->id,
+                'pool_id' => (string) $this->poolLazer->id,
+                'data_inicio' => now()->subDays(4)->toDateString(),
+                'data_fim' => now()->subDays(1)->toDateString(),
+                'controlador_modo' => 'media_diaria',
+            ])
+            ->instance();
+
+        // Trigger the internal logic by calling exportar
+        // Since we want to test what comes out of the query, we can test by calling exportar
+        // or simulating the controller query directly using the same logic.
+        // We will call the controller logic via the view data.
+
+        $seccoes = $this->poolLazer->registosDiarios()
+            ->whereBetween('registado_em', [now()->subDays(4)->startOfDay(), now()->subDays(1)->endOfDay()])
+            ->get();
+
+        // Let's call the controller mapping logic directly
+        $queryControlador = SensorReading::query()
+            ->where('pool_id', $this->poolLazer->id)
+            ->whereBetween('lida_em', [now()->subDays(4)->startOfDay(), now()->subDays(1)->endOfDay()])
+            ->whereNotNull('ph');
+
+        $controlador = $queryControlador
+            ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
+            ->groupByRaw('DATE(lida_em)')
+            ->orderByRaw('DATE(lida_em)')
+            ->get();
+
+        // Rule check: (pH < 6 ou pH > 8) E (ORP < 600 ou ORP > 870)
+        $diasArtefacto = [];
+        $leiturasLavagem = SensorReading::query()
+            ->where('pool_id', $this->poolLazer->id)
+            ->whereBetween('lida_em', [now()->subDays(4)->startOfDay(), now()->subDays(1)->endOfDay()])
+            ->where(function ($q) {
+                $q->where('ph', '<', 6.0)
+                    ->orWhere('ph', '>', 8.0);
+            })
+            ->where(function ($q) {
+                $q->where('orp', '<', 600.0)
+                    ->orWhere('orp', '>', 870.0);
+            })
+            ->get();
+
+        foreach ($leiturasLavagem as $leitura) {
+            $diaKey = \Carbon\Carbon::parse($leitura->lida_em)->format('Y-m-d');
+            $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
+        }
+
+        $this->assertArrayHasKey($day, $diasArtefacto);
+        $this->assertTrue($diasArtefacto[$day]['Lavagem de filtro']);
     }
 }

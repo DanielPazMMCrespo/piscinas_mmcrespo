@@ -1,10 +1,19 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\UserResource\Pages;
 
-
 use App\Filament\Resources\UserResource;
+use App\Models\User;
 use Filament\Actions;
+use Filament\Actions\StaticAction;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class EditUser extends EditRecord
 {
@@ -22,9 +31,9 @@ class EditUser extends EditRecord
                 ->modalHeading('Enviar email de redefinição')
                 ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
                 ->modalSubmitActionLabel('Sim, enviar e-mail')
-                ->action(function (\App\Models\User $record): void {
-                    \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $record->email]);
-                    \Filament\Notifications\Notification::make()
+                ->action(function (User $record): void {
+                    Password::broker()->sendResetLink(['email' => $record->email]);
+                    Notification::make()
                         ->title('E-mail enviado')
                         ->body('As instruções para redefinir a palavra-passe foram enviadas.')
                         ->success()
@@ -35,29 +44,29 @@ class EditUser extends EditRecord
                 ->icon('heroicon-o-lock-closed')
                 ->color('danger')
                 ->form([
-                    \Filament\Forms\Components\TextInput::make('password')
+                    TextInput::make('password')
                         ->label('Nova Palavra-passe')
                         ->password()
                         ->minLength(8)
                         ->requiredWithout('pin'),
-                    \Filament\Forms\Components\TextInput::make('pin')
+                    TextInput::make('pin')
                         ->label('Novo PIN')
                         ->password()
                         ->minLength(4)
                         ->requiredWithout('password'),
-                    \Filament\Forms\Components\Checkbox::make('consciencia')
+                    Checkbox::make('consciencia')
                         ->label('Tenho consciência que vou alterar as credenciais deste utilizador')
-                        ->required()
+                        ->required(),
                 ])
-                ->action(function (\App\Models\User $record, array $data): void {
-                    if (!empty($data['password'])) {
-                        $record->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+                ->action(function (User $record, array $data): void {
+                    if (! empty($data['password'])) {
+                        $record->password = Hash::make($data['password']);
                     }
-                    if (!empty($data['pin'])) {
-                        $record->pin = \Illuminate\Support\Facades\Hash::make($data['pin']);
+                    if (! empty($data['pin'])) {
+                        $record->pin = Hash::make($data['pin']);
                     }
                     $record->save();
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Credenciais alteradas com sucesso')
                         ->success()
                         ->send();
@@ -65,7 +74,7 @@ class EditUser extends EditRecord
                 ->modalHeading('Forçar Alteração Manual')
                 ->modalDescription('Atenção: está prestes a definir manualmente a palavra-passe/PIN de um utilizador. Aguarde 5 segundos para confirmar.')
                 ->modalSubmitActionLabel('Confirmar Alteração')
-                ->modalSubmitAction(fn (\Filament\Actions\StaticAction $action) => $action->extraAttributes([
+                ->modalSubmitAction(fn (StaticAction $action) => $action->extraAttributes([
                     'x-data' => '{ seconds: 5, init() { const i = setInterval(() => { if (this.seconds > 0) { this.seconds-- } else { clearInterval(i) } }, 1000) } }',
                     'x-bind:disabled' => 'seconds > 0',
                     'style' => 'transition: all 0.3s;',

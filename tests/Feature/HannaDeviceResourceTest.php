@@ -8,6 +8,7 @@ use App\Filament\Resources\HannaDeviceResource;
 use App\Models\HannaDevice;
 use App\Models\Installation;
 use App\Models\Pool;
+use App\Models\SensorReading;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -22,8 +23,11 @@ class HannaDeviceResourceTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $tecnico;
+
     private Pool $pool;
+
     private Installation $installation;
 
     protected function setUp(): void
@@ -60,7 +64,7 @@ class HannaDeviceResourceTest extends TestCase
         ]);
 
         // Seed a fresh sensor reading to prevent the EnsureHannaReadingsAreFresh middleware from triggering sync jobs
-        \App\Models\SensorReading::create([
+        SensorReading::create([
             'pool_id' => $this->pool->id,
             'hanna_device_id' => 'DEV-123',
             'lida_em' => now(),
@@ -188,7 +192,7 @@ class HannaDeviceResourceTest extends TestCase
         ]);
 
         Livewire::test(HannaDeviceResource\Pages\ListHannaDevices::class)
-            ->callTableAction('ver_detalhes', $device)
+            ->callTableAction('view', $device)
             ->assertHasNoTableActionErrors();
     }
 

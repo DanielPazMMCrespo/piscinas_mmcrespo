@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
@@ -24,7 +26,7 @@ class PoolResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()?->hasRole('admin') ?? false;
     }
 
     public static function form(Form $form): Form
@@ -82,6 +84,10 @@ class PoolResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
                     ->label('Instalação')
@@ -124,12 +130,13 @@ class PoolResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ViewAction::make()->slideOver(),
+                Tables\Actions\EditAction::make()->slideOver(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->modalDescription('Eliminar uma piscina apaga em cascata os seus registos diários, verificações de filtro, ações operacionais, leituras de sensores e bidões de dosagem. Esta ação é irreversível.'),
                 ]),
             ]);
     }
@@ -151,4 +158,3 @@ class PoolResource extends Resource
         ];
     }
 }
-

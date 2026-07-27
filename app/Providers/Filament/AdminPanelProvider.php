@@ -1,18 +1,22 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Providers\Filament;
 
-
 use App\Filament\AvatarProviders\GenericAvatarProvider;
+use App\Filament\Pages\Auth\Login;
+use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\RequirePasswordChange;
+use Filament\Enums\ThemeMode;
 use Filament\Forms\Components\TextInput;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Enums\ThemeMode;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\MaxWidth;
 use Filament\View\PanelsRenderHook;
@@ -45,17 +49,17 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->font('Inter')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->font('Lato')
+            ->login(Login::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/logo-mmcrespo.png'))
             ->colors([
-                'primary' => Color::hex('#2b9cd8'),
-                'success' => Color::hex('#76b82a'),
+                'primary' => Color::hex('#0284c7'), /* Aqua / Sky Cyan 600 */
+                'success' => Color::hex('#059669'), /* Emerald 600 */
                 'warning' => Color::Amber,
-                'danger' => Color::hex('#dc2626'),
+                'danger' => Color::hex('#f43f5e'), /* Rose 500 */
                 'gray' => Color::Zinc,
             ])
             ->databaseNotifications()
@@ -66,6 +70,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth(MaxWidth::ScreenTwoExtraLarge)
             ->navigationGroups([
+                'Registo Diário',
                 'Operação',
                 'Dados',
                 'Stock',
@@ -76,14 +81,16 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                \App\Filament\Pages\Dashboard::class,
+                Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
-                fn (): string => session('mmc_sem_cargo')
-                    ? '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4">A sua conta não tem um cargo atribuído. Contacte o administrador.</div>'
-                    : '',
+                fn (): string => match (true) {
+                    (bool) session('mmc_inativo') => '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4"><strong>Ficou sem acesso.</strong><br>A sua conta foi encerrada por inatividade. Se acha que isto é um engano, contacte o administrador.</div>',
+                    (bool) session('mmc_sem_cargo') => '<div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 mb-4">A sua conta não tem um cargo atribuído. Contacte o administrador.</div>',
+                    default => '',
+                },
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -91,8 +98,17 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">' .
-                    '<script>window.__userId = ' . (auth()->id() ?? 'null') . ';</script>',
+                fn (): string => '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">'.
+                    '<meta name="csrf-token" content="'.csrf_token().'">'.
+                    '<script>window.__userId = '.(auth()->id() ?? 'null').';'.
+                    'window.__vapidPublicKey = '.json_encode(config('webpush.vapid.public_key')).';'.
+                    'window.__poolNomes = '.json_encode(\App\Models\Pool::pluck('name', 'id')).';</script>',
+            )
+            // Barra global fixa com os timers de retrolavagem/enxaguamento ativos
+            // (visível em qualquer página/passo do wizard, não só no fieldset de origem)
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): string => (auth()->check() ? view('filament.timer-bar')->render() : '') . (view()->exists('filament.preloader') ? view('filament.preloader')->render() : '')
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
@@ -104,10 +120,19 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => auth()->check() ? view('filament.bottom-nav')->render() : '',
             )
+            // Alerta/Prompt para ativar notificações
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => auth()->check() ? view('filament.notification-prompt')->render() : '',
+            )
+
 
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'HTML'
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
 HTML,
@@ -122,7 +147,7 @@ HTML,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\RequirePasswordChange::class,
+                RequirePasswordChange::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

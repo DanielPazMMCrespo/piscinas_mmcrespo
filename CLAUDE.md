@@ -1,8 +1,111 @@
+# Branch Atual: TEST
+
+Este ficheiro está checked-in no branch `test` (staging — `https://piscinasmmcrespo-testes.up.railway.app`).
+**Push automático para `test`** (`git push origin test`) — não perguntar "main ou teste?" antes de dar push.
+Se em algum momento este texto disser "TEST" mas `git branch --show-current` disser outra coisa, o ficheiro está desatualizado nesse checkout — confiar no `git branch`, não neste texto.
+
+---
+
+# Comandos
+
+```bash
+composer install && npm install        # setup inicial (ou: composer run setup)
+php artisan migrate --seed             # schema + dados iniciais (users, piscinas, produtos)
+
+composer run dev                       # serve + queue:listen + pail + vite, tudo junto
+npm run dev                            # só Vite (hot reload)
+
+composer test                          # == php artisan config:clear && php artisan test
+php artisan test --filter=NomeDoTeste  # correr um teste único
+vendor/bin/pest tests/Feature/Foo.php  # idem, via Pest diretamente
+
+vendor/bin/pint                        # lint/format (Laravel Pint)
+npm run build                          # build de assets para produção
+
+php artisan hanna:sync --discover      # descobrir sensores Hanna Cloud da conta
+php artisan hanna:sync                 # sincronizar leituras (agendado a cada 15min)
+```
+
+Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ver "Regras de Sessão" mais abaixo. `test`/`pest` acima são só para a suite automatizada (SQLite in-memory).
+
+---
+
+# Arquitetura
+
+- **Só admin**: a app inteira vive dentro do painel Filament em `/admin` (`AdminPanelProvider`). Não há front-end público separado — a raiz `/` redireciona para `/admin`.
+- **Padrão append-only**: `DailyRecord`, `FilterCheck` e `Incident` nunca apagam o registo original numa edição. Uma correção cria uma nova linha com `e_correcao=true` + `corrige_registo_id` a apontar para a original; `razao_correcao` documenta o porquê. Gráficos e relatórios filtram sempre com `whereDoesntHave('correcoes')` para não contar o registo substituído duas vezes.
+- **Duas fontes de verdade por piscina**: o valor "atual" de pH/cloro/temperatura vem ou do último `DailyRecord` manual (`_efetivo` accessors combinam manual + NS) ou da última leitura do controlador Hanna Cloud (`SensorReading`, sincronizado por `hanna:sync`). `PainelPiscinasWidget` e `AlertasService` decidem qual usar por piscina (sonda online <60min > registo manual <8h > sonda offline > sem dados) — esta ordem de prioridade é a lógica central do dashboard. Hoje todas as 5 piscinas têm sonda Hanna instalada.
+- **Roles via `App\Constants\UserRole`** (não strings soltas) + `spatie/laravel-permission`: `admin`, `gestor`, `tecnico`, `nadador_salvador`, `inativo`. Nadador-Salvador só vê as suas piscinas e um subconjunto de secções do formulário de registo diário (sem Bomba/Filtros/Contador/Químicos); usa telemóvel pessoal no local. Gestor é essencialmente leitura/relatórios — vê dashboards, análises e stock, mas não mexe em Definições do Sistema, Sensores Hanna nem gere utilizadores ao mesmo nível que Admin. Policies (`DailyRecordPolicy`, `IncidentPolicy`, etc.) fazem a validação de autorização real.
+- **Stock em duas camadas**: `StockWarehouse` (central) → `StockInstallation` (por instalação). Toda a movimentação (transferência, consumo em "Adições de Químicos", reabastecimento) é `DB::transaction()` + `lockForUpdate()` e gera um `StockWarehouseLog`/`StockInstallationLog` para auditoria. Alerta de stock baixo compara `quantity <= limite_minimo` por produto/instalação.
+- **Cache do dashboard é versionado**: `CacheService` guarda o payload do `PainelPiscinasWidget` sob uma chave `cache_painel_piscinas_{scope}_v{N}`. Ao mudar a forma do array cacheado (`metricas4`, etc.), incrementar `PainelPiscinasWidget::CACHE_SHAPE_VERSION` — caso contrário um deploy pode devolver dados com a forma antiga a uma view já atualizada e rebentar com "Undefined array key" (já aconteceu em produção).
+- **Notificações**: `laravel-notification-channels/webpush` (push) + `DatabaseNotification` (sino do Filament). Trilhos de conformidade/incidentes/torneira passam todos por `AlertasService` como fonte única — não recalcular a lógica de "está fora dos limites" noutro sítio.
+- **Automação agendada** (`routes/console.php`): sync de sondas, backup diário da BD, arquivamento semanal de registos >1 ano, processamento de filas via scheduler (sem worker Railway dedicado), regras de negócio automáticas (auto-incidente em 3x violação/dia/piscina, escalação de incidente sem resposta >24h via notificação Filament — não confundir com a classe `EscalacaoIncidenteNotification`, que era código morto e foi removida), digests de conformidade/turno/comparação semanal, relatório mensal automático.
+
+---
+
+# Stack Técnica e Integrações
+
+- **Framework:** Laravel 12 LTS, PHP 8.5+.
+- **Admin/UI:** Filament 3.3.x.
+- **DB:** SQLite (dev) / PostgreSQL 16 (produção, Railway).
+- **Roles:** `spatie/laravel-permission`.
+- **Audit Trail:** `spatie/laravel-activitylog` + `rmsramos/activitylog` (UI em `CustomActivitylogResource`).
+- **PDF:** `barryvdh/laravel-dompdf`.
+- **Charts:** Chart.js, carregado por render hook.
+- **Sensores:** Hanna Cloud API (sondas BL132), uma por piscina, todas as 5 piscinas cobertas.
+- **Fotos:** Cloudflare R2 (S3-compatible) — Railway tem filesystem efémero, uploads vão para o disco `r2`.
+- **Deploy:** Railway. Produção: `https://piscinasmmcrespo.up.railway.app`. Staging/testes: `https://piscinasmmcrespo-testes.up.railway.app`.
+
+---
+
+# Páginas do Painel `/admin`
+
+Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local mais detalhado (propósito, lógica não óbvia, ações, e uma lista de coisas a rever encontradas no código — carrega automaticamente ao trabalhar nessa pasta). As páginas standalone (sem pasta própria) têm o equivalente em `docs/paginas/*.md`:
+
+- `app/Filament/Resources/DailyRecordResource/CLAUDE.md`, `IncidentResource/CLAUDE.md`, `OperationalActionResource/CLAUDE.md`
+- `app/Filament/Resources/StockWarehouseResource/CLAUDE.md` (+ StockService), `StockInstallationResource/CLAUDE.md`, `ProductResource/CLAUDE.md`, `DosingContainerResource/CLAUDE.md`, `StockWarehouseLogResource/CLAUDE.md`, `StockInstallationLogResource/CLAUDE.md`
+- `app/Filament/Resources/UserResource/CLAUDE.md`, `UserInvitationResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
+- `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `esquema-piscina.md`, `notificacoes.md`, `operacao-hub.md`, `relatorio-pdf.md`, `auth-login.md`
+
+## Operação
+- **Registo Diário** (`OperacaoHub` → `DailyRecordResource`): página núcleo, uso diário. Hub de entrada que esconde da sidebar a escolha entre Registos Diários e Incidentes (`shouldRegisterNavigation() = false` nos dois, só o hub aparece). Semáforo de conformidade em tempo real por campo, smart defaults (última piscina/bomba/água/tanque), adições de químicos descontam stock da instalação.
+- **Incidentes** (`IncidentResource`): quase sempre criados manualmente pela equipa (auto-incidente por 3x violação/dia/piscina existe mas é raro na prática). Ciclo de vida aberto/resolvido; `IncidentChatWidget` na vista dá timeline de mensagens + mudanças de estado automáticas. Escalação automática (sem resposta >24h) é uma notificação Filament (sino), disparada pelo `ExecuteBusinessRulesCommand`.
+- **Esquema** (`EsquemaPiscina`): uso frequente. Vista visual do circuito de água (torneira/contador → piscina → bomba → filtro → retorno) por instalação, com bidões de dosagem e estado da sonda Hanna sobre o mesmo esquema.
+- **Ações Operacionais** (`OperationalActionResource`): lavagem/enxaguamento de filtro, torneira, bomba, contador, tanque, análise pontual, reabastecimento de bidão, outro. Cada tipo tem o seu resumo formatado a partir de `dados` (JSON).
+
+## Stock
+- **Stock Armazém / Stock Instalação** (`StockWarehouseResource` / `StockInstallationResource`): uso frequente. Duas camadas — ver Arquitetura. Ação "Transferir p/ Instalação" debita armazém, credita instalação.
+- **Produtos** (`ProductResource`): catálogo com unidade e `limite_minimo` por instalação (usado no alerta de stock baixo).
+- **Bidões de Dosagem** (`DosingContainerResource`, grupo Stock): capacidade e nível de cada bidão de reagente (cloro/pH-) por piscina. O nível desce automaticamente com a dosagem sincronizada do controlador Hanna; aqui só se configura capacidade e regista reabastecimento.
+
+## Dados
+- **Análise de Parâmetros** (`AnaliseParametros`): uso pontual, não diário. Reutiliza o `CloroPhChartWidget` em ecrã cheio + `ScoreConformidadeWidget`, `HeatmapConformidadeWidget`, `ConsumoQuimicosWidget` (estes três só aparecem aqui, não no Dashboard).
+- **Relatório PDF (CN 14/DA)** (`RelatorioPdf`): livro de registo sanitário oficial. Serve dois usos: auditorias DGS externas (gerado sob pedido) e arquivo interno mensal (o `relatorio:mensal-automatico` já gera automaticamente todo dia 1). Exclui registos corrigidos (`whereDoesntHave('correcoes')`), coluna Conforme ✓/✗ contra os limites de `DailyRecord`.
+
+## Sistema
+- **Definições** (`DefinicoesSistema`, admin only): limites regulamentares CN 14/DA (pH, cloro livre, cloro combinado, turbidez, tolerância de aviso), tempos/prazos (validade de leitura, timeout de sonda, validade de convite, aviso de torneira aberta, horários de digest), automação operacional (fator de compensação de dosagem, etc.). Cada campo já tem `helperText` com o valor padrão — a fonte de verdade dos números é este ficheiro de código + `AppSetting`, não este documento.
+- **Notificações** (`Notificacoes`): três coisas na mesma página — ativação de push neste dispositivo, zona de testes, e Notificações Personalizadas (broadcast manual por cargo ou utilizador). Uso real: avisos operacionais (piscina fechada, trocar produto no armazém) e lembretes administrativos (reuniões, RH).
+- **Utilizadores** (`UserResource`, admin/gestor): gestão de contas + convites (`UserInvitation`/`InvitationService`, token expira em `convite_validade_horas`). Nadador-Salvador pode ter piscinas pré-atribuídas no convite.
+- **Convites** (`UserInvitationResource`, admin/gestor): lista convites pendentes/expirados/aceites; ações "Reenviar" (regenera token + reenvia email) e "Revogar".
+- **Sensores Hanna** (`HannaDeviceResource`, admin only): mapeamento dispositivo Hanna Cloud → piscina. `php artisan hanna:sync --discover` lista os dispositivos da conta e cria/atualiza este mapeamento.
+
+## Estrutura
+- **Piscinas** (`PoolResource`) / **Instalações** (`InstallationResource`): CRUD admin dos dados físicos (volume, temp_min/max, orp_min/max) usados em todos os cálculos de conformidade.
+
+## Logs
+- **Movimentos Armazém/Instalação** (`StockWarehouseLogResource` / `StockInstallationLogResource`): histórico auditável de todas as transações de stock.
+- **Activity Log** (`CustomActivitylogResource`): trilho genérico do `rmsramos/activitylog`, visível só a admin.
+
+---
+
 # Regras de Sessão
 
 ## Branch de Trabalho
 - Trabalhar sempre no branch ativo no momento. Não fazer checkout para outro branch.
-- Push só com permissão explícita do Daniel.
+- Push automático para o branch indicado no topo deste ficheiro ("Branch Atual") — não perguntar main/teste, o CLAUDE.md de cada branch já diz qual é.
+
+## Testes
+- Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app (`https://piscinas-mmcrespo-main.up.railway.app`). Não montar ambiente local (SQLite, artisan serve) para validar features.
 
 ## Persona e Estilo de Resposta
 - Lead with the solution. Explain only what isn't obvious.
@@ -11,6 +114,7 @@
 - No filler: no "great question", no "certainly", no "I'd be happy to".
 - No hedging: no "you might want to consider", no "one approach could be".
 - Short sentences. If a paragraph can be a bullet list, use the list.
+- Respostas curtas — menos texto, especialmente com Opus. Contexto extenso, planos e trade-offs longos vão para o CLAUDE.md/docs da página, não para o chat. No chat: o essencial e a decisão.
 - Code must be complete and runnable. Never truncate with "// rest of code here".
 
 ## Regras de Código
@@ -35,12 +139,30 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-06-23 (Sessão 16 — Batch 4 & Batch 5: Auditoria Completa + Correção de Cache Locks)
+> Última atualização: 2026-07-27 (Sessão 19 — Auditoria e Correção do CLAUDE.md)
+
+## Sessão 19 — Auditoria Completa e Correção de Discrepâncias (resumo)
+- **Auditoria do CLAUDE.md**: Comparação sistemática da documentação vs código real. Todas as features técnicas confirmadas como implementadas corretamente (R2, GLightbox, CSP, Dark Mode, localStorage auto-save, Policies, etc.).
+- **Discrepâncias encontradas e corrigidas**:
+  1. Font documentada como "DM Sans" mas código tinha "Lato" — corrigido CLAUDE.md para documentar a font real (Lato)
+  2. LIVEWIRE_TMP_DISK não estava em `.env.example` — adicionado com comentário explicativo
+  3. Sessão 17 agora documenta corretamente LIVEWIRE_TMP_DISK em `.env` e referencia SecurityHeaders para CSP
+  4. Merge conflict no final do CLAUDE.md (stashed changes) — removido completamente, ficheiro limpo
+- **Estado do GitHub**: 5 PRs abertas em draft (2 para `test`, 3 para `main`): Fixes de UI/rascunho, mobile improvements, merge de test, relatório PDF, documentação ORP.
+- **Verificação de features concluídas**: Código morto removido (Sessão 18), R2+GLightbox integrados (Sessão 17), Policies implementadas (Sessão 16), Incident lifecycle funcional (Sessão 10), TapAlert model existe, Hanna sync agendado, ActivitylogPlugin ativo.
+- **Commits desta sessão**: Correções em CLAUDE.md (fonte, LIVEWIRE_TMP_DISK, Sessão 17 CSP), merge conflict removido, .env.example atualizado.
+
+## Sessão 18 — Limpeza e Otimização Geral de Código Morto (resumo)
+- **Purga de Backend & Middlewares**: Removidos serviços órfãos (`AlertingService`, `HannaThresholdService`, `StructuredLogger`), middlewares não registados (`RequestIdMiddleware`, `SentryContextMiddleware`) e o comando debug `HannaInspectSchema`. Limpos os blocos de credenciais `'slack'` e `'gemini'` em `config/services.php`.
+- **Eliminação de Vistas Legadas**: Apagado o ficheiro `welcome.blade.php` (a raiz redireciona para `/admin`), componentes órfãos (`daily-record-action.blade.php`, `daily-record-wizard-submit.blade.php`, `estilos-mobile.blade.php`, `sticky-logo.blade.php`, `topbar-saudacao.blade.php`, `forms/components/timer-retrolavagem.blade.php`) e a pasta de passos do wizard Livewire apagado (`registo-diario-passos/`).
+- **Remoção de Seeders Inativos & Configs**: Removidos os seeders `AppSettingsSeeder`, `CompeticaoSeeder`, `DemoRegistosDiariosSeeder`, `InfantilSeeder`, `LazerSeeder`, `MaceiraDailyRecordsSeeder`, `StockArmazemSeeder`, os dumps SQL correspondentes e ficheiros de configuração inativos (`alerting.php`, `prometheus.php`).
+- **Limpeza de Assets (JS & CSS)**: Removido o componente Alpine `mmcKanban` do `app.js` e a dependência `sortablejs` do `package.json`. Expurgada a função inativa `setupAutoScroll` de `app.js`. Purga de seletores mortos nos ficheiros `app.css` e `widgets.css` associados a estes componentes.
+- **Validação**: Testes unitários/funcionais (308 testes) a passar com sucesso. Compilação Vite bem-sucedida e otimizada (npm run build).
 
 ## Sessão 17 — Fotos R2 + Upload Mobile + Lightbox (resumo)
 - **Cloudflare R2 para fotos persistentes**: Railway tem filesystem efémero — ficheiros perdem-se no deploy. Integrado R2 (S3-compatible) via `league/flysystem-aws-s3-v3`. Disco `r2` configurado em `config/filesystems.php`. Todos os 8 campos `FileUpload` e `ImageEntry` do `DailyRecordResource` usam `->disk('r2')`.
-- **Fixes de upload**: corrigido `TypeError` no `DailyRecordObserver` (`pool_id` string→int); criado diretório `livewire-tmp` no `docker-entrypoint.sh`; `LIVEWIRE_TMP_DISK` mantido em `local` (R2 não suporta mime_type durante validação Livewire).
-- **CSP atualizada**: `img-src` inclui `https://*.r2.dev`; `script-src`/`style-src` incluem `https://cdn.jsdelivr.net` (para GLightbox).
+- **Fixes de upload**: corrigido `TypeError` no `DailyRecordObserver` (`pool_id` string→int); criado diretório `livewire-tmp` no `docker-entrypoint.sh`; `LIVEWIRE_TMP_DISK=local` configurado em `.env` (R2 não suporta mime_type durante validação Livewire).
+- **CSP atualizada**: `img-src` inclui `https://*.r2.dev`; `script-src`/`style-src` incluem `https://cdn.jsdelivr.net` (para GLightbox). Configurada em `app/Http/Middleware/SecurityHeaders.php`.
 - **Limites de upload para mobile/iPhone HEIC**: `upload_max_filesize=25M` no Dockerfile e `.user.ini`; nginx `client_max_body_size=100M`; `maxSize(20480)` nos FileUpload.
 - **Lightbox (GLightbox)**: carregado via CDN no `AdminPanelProvider` (render hook `HEAD_END`). Ao clicar numa foto abre lightbox a ecrã inteiro com pinch-to-zoom mobile. Auto-wired a todas as `ImageEntry` do painel via MutationObserver.
 - **Vista do registo**: row click na tabela abre modal com infolist completo (todos os campos + fotos); botão "Editar" no header abre página de edição.
@@ -54,12 +176,12 @@ Return exactly:
   - Adicionado painel com barras de progresso visual dinâmicas no topo do painel principal (`PainelPiscinasWidget` / `painel-piscinas.blade.php`), exibindo a percentagem de registos diários preenchidos hoje e conformidade com limites legais.
   - Refatorado todo o estilo CSS no widget do painel para usar Custom Properties (variáveis CSS) nos blocos `:root` e `.dark`, garantindo compatibilidade elegante e automática com Dark Mode.
   - Substituídos os pesos inválidos de fonte (de `650` para `600`) e corrigida a opacidade e rácio de contraste da classe `.mmc-metric-label` (`0.72` em light mode e `0.8` em dark mode) para cumprir as regras WCAG AA.
-  - Configurada a fonte premium **DM Sans** em Filament (`AdminPanelProvider.php`) e tema principal (`resources/css/app.css`).
+  - Fonte padrão configurada como **Lato** em Filament (`AdminPanelProvider.php:52`) para consistência visual. Dark Mode integrado com Custom Properties CSS.
   - Implementado o rascunho de auto-save/restore do formulário via `localStorage` no ficheiro `resources/js/app.js` para o formulário `/daily-records/create`, com auto-limpeza aquando do evento de gravação.
 - **Commits**: `dfe810a` e `e7e76bf` (pushed para `test` e `main`).
 
 ## Sessão 15 — Deploy Railway PostgreSQL + fix JSONB notifications (resumo)
-- **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). App em `https://piscinas-mmcrespo-main.up.railway.app`.
+- **Produção em Railway**: Transição de SQLite (dev) para PostgreSQL 16 (produção). Produção: `https://piscinasmmcrespo.up.railway.app`. Testes/Staging: `https://piscinasmmcrespo-testes.up.railway.app`.
 - **Erro 500 no dashboard diagnosticado**: Coluna `notifications.data` era `TEXT` em vez de `JSONB`. Filament filtra com `data->>'format' = 'filament'` — o operador `->>` (JSON extraction) requer JSONB em PostgreSQL. Erro: `SQLSTATE[42883]: Undefined function` + `operator does not exist: text ->> unknown`.
 - **Fix migração**: `2026_06_19_000001_fix_notifications_data_column_jsonb.php` executa `ALTER TABLE notifications ALTER COLUMN data TYPE jsonb USING data::jsonb` em produção. Migração original (`2026_06_11_172454_create_notifications_table.php`) corrigida para criar `jsonb` em vez de `text`.
 - **Login funcional**: Utilizador `daniel@mmcrespo.pt` (password rotacionada em produção Railway). Seeder `UserSeeder` corre em `docker-entrypoint.sh` com `db:seed --force` — utiliza `ADMIN_PASSWORD_DANIEL` e `ADMIN_PASSWORD_MARCIO` de env vars. Em dev local, fallback para `dev_changeme_*`.
@@ -232,3 +354,18 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 
 ### Prompt 3 — Migração para PostgreSQL + Documentação
 **Tarefa:** Adaptar ficheiros de migração para conformidade estrita PostgreSQL (tinyint vs boolean, remoção de `.sqlite` refs). Criar o ficheiro `PRODUCAO.md` na raiz com o checklist de *deploy* e comandos de cache otimizada.
+
+---
+
+## 🗺️ Mapa de Contexto (AI_CONTEXT)
+Para referência futura, os seguintes ficheiros principais possuem um bloco `[AI_CONTEXT]` no seu cabeçalho (PHP DocBlock) que dita as regras estritas da sua modificação. **Lê-os sempre antes de os alterares**:
+
+- **Operações:**
+  - `app/Filament/Resources/DailyRecordResource.php` (Registos diários, validação CN 14/DA, append-only)
+  - `app/Filament/Resources/IncidentResource.php` (Incidentes e auto-resolução)
+  - `app/Filament/Pages/RelatorioPdf.php` (Livro de Registo Sanitário oficial)
+- **Stock:**
+  - `app/Filament/Resources/StockWarehouseResource.php` (Armazém central, transferências)
+  - `app/Filament/Resources/StockInstallationResource.php` (Stock local, consumos)
+- **Dashboards:**
+  - `app/Filament/Pages/Dashboard.php` (Exception-first, Kanban)

@@ -362,7 +362,7 @@ class EdgeCasesTest extends TestCase
             'temperatura' => 26.5,
             'transparencia' => 2,
             'analises_fotos' => [
-                'foto1.jpg', 'foto2.jpg', 'foto3.jpg', 'foto4.jpg', 'foto5.jpg'
+                'foto1.jpg', 'foto2.jpg', 'foto3.jpg', 'foto4.jpg', 'foto5.jpg',
             ],
         ]);
 

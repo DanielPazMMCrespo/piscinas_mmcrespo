@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Models\DailyRecord;
+use App\Models\DosingContainer;
 use App\Models\FilterCheck;
 use App\Models\Installation;
 use App\Models\Pool;
@@ -173,6 +174,59 @@ class PoolTest extends TestCase
         $this->assertEquals('Exterior', $pool->type);
         $this->assertEquals(600.0, $pool->volume);
         $this->assertTrue($pool->active);
+    }
+
+    public function test_deleting_pool_cascades_children(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $pool = Pool::create([
+            'installation_id' => $inst->id,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => 26,
+            'temp_max' => 27,
+            'volume' => 900,
+            'active' => true,
+        ]);
+        $user = User::factory()->create();
+
+        FilterCheck::create(['pool_id' => $pool->id, 'user_id' => $user->id, 'verificado_em' => now(), 'tipo_operacao' => 'lavagem']);
+        DailyRecord::create([
+            'pool_id' => $pool->id, 'user_id' => $user->id, 'registado_em' => now(),
+            'cloro_livre' => 1.0, 'cloro_total' => 1.2, 'ph' => 7.4, 'temperatura' => 26.5, 'transparencia' => 2,
+        ]);
+        DosingContainer::create(['pool_id' => $pool->id, 'tipo' => DosingContainer::TIPO_CLORO, 'capacidade_ml' => 20000, 'restante_ml' => 5000]);
+
+        $poolId = $pool->id;
+        $pool->delete();
+
+        $this->assertDatabaseMissing('pools', ['id' => $poolId]);
+        $this->assertDatabaseMissing('filter_checks', ['pool_id' => $poolId]);
+        $this->assertDatabaseMissing('daily_records', ['pool_id' => $poolId]);
+        $this->assertDatabaseMissing('dosing_containers', ['pool_id' => $poolId]);
+    }
+
+    public function test_deleting_installation_cascades_pool_children(): void
+    {
+        $inst = Installation::create(['name' => 'Leiria', 'morada' => 'Rua X', 'active' => true]);
+        $pool = Pool::create([
+            'installation_id' => $inst->id,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => 26,
+            'temp_max' => 27,
+            'volume' => 900,
+            'active' => true,
+        ]);
+        $user = User::factory()->create();
+        FilterCheck::create(['pool_id' => $pool->id, 'user_id' => $user->id, 'verificado_em' => now(), 'tipo_operacao' => 'lavagem']);
+
+        $poolId = $pool->id;
+        $inst->delete();
+
+        $this->assertDatabaseMissing('installations', ['id' => $inst->id]);
+        $this->assertDatabaseMissing('pools', ['id' => $poolId]);
+        $this->assertDatabaseMissing('filter_checks', ['pool_id' => $poolId]);
     }
 
     public function test_pool_nome_completo_accessor(): void

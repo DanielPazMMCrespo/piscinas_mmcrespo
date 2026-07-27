@@ -1,0 +1,23 @@
+<?php declare(strict_types=1);
+
+namespace {{ namespace }};
+
+{{ factoryImport }}
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * [AI_CONTEXT]
+ * 
+ * IDEALIZADO:
+ * [Descreve o propósito deste modelo de negócio aqui]
+ * 
+ * IMPLEMENTADO:
+ * [Regras estritas, relacionamentos e lógicas já funcionais]
+ * 
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
+class {{ class }} extends Model
+{
+    {{ factory }}
+}

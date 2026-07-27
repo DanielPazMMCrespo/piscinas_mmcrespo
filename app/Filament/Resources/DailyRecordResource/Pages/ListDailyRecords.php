@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources\DailyRecordResource\Pages;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
 use Filament\Actions;

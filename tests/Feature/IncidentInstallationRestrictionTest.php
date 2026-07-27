@@ -19,9 +19,13 @@ class IncidentInstallationRestrictionTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $nadador;
+
     private Installation $leiria;
+
     private Installation $maceira;
+
     private Pool $competicao;
 
     protected function setUp(): void

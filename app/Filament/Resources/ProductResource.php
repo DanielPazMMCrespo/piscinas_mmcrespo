@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
@@ -26,21 +29,25 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'tecnico']);
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->label('Nome do Produto')
                     ->required()
                     ->maxLength(100),
-                Forms\Components\TextInput::make('unidade')
-                    ->label('Unidade de Medida (ex: kg, L)')
-                    ->required()
-                    ->maxLength(255),
+                Select::make('unidade')
+                    ->label('Unidade de Medida')
+                    ->options([
+                        'L' => 'L',
+                        'kg' => 'kg',
+                        'un' => 'un',
+                    ])
+                    ->required(),
                 Select::make('categoria')
                     ->label('Categoria')
                     ->options(function (): array {
@@ -52,15 +59,15 @@ class ProductResource extends Resource
                             ->mapWithKeys(fn ($cat) => [$cat => $cat])
                             ->all();
                         $categorias['outro'] = 'Outro';
+
                         return $categorias;
                     })
                     ->live(),
                 TextInput::make('categoria_custom')
                     ->label('Especificar Categoria')
                     ->maxLength(50)
-                    ->visible(fn (Get $get) => $get('categoria') === 'outro')
-                    ->dehydrated(false),
-                Forms\Components\TextInput::make('concentracao_cl')
+                    ->visible(fn (Get $get) => $get('categoria') === 'outro'),
+                TextInput::make('concentracao_cl')
                     ->label('Concentração de cloro ativo (%)')
                     ->helperText('Ex: 56 para granulado, 16,8 para hipoclorito de sódio. Usado na calculadora de dosagem.')
                     ->numeric()
@@ -134,4 +141,3 @@ class ProductResource extends Resource
         ];
     }
 }
-

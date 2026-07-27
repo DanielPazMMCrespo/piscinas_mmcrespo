@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Services;
 
-
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -33,9 +36,10 @@ class HannaCloudService
      */
     public function authenticate(string $email, string $password): void
     {
-        $cachedToken = \Illuminate\Support\Facades\Cache::get('hanna_cloud_access_token');
+        $cachedToken = Cache::get('hanna_cloud_access_token');
         if ($cachedToken) {
             $this->accessToken = $cachedToken;
+
             return;
         }
 
@@ -68,7 +72,7 @@ class HannaCloudService
             if (($token['tokenType'] ?? '') === 'accessToken') {
                 $this->accessToken = $token['token'];
                 // Cachear por 1 hora (3600 segundos)
-                \Illuminate\Support\Facades\Cache::put('hanna_cloud_access_token', $this->accessToken, 3600);
+                Cache::put('hanna_cloud_access_token', $this->accessToken, 3600);
 
                 return;
             }
@@ -154,7 +158,6 @@ class HannaCloudService
         ];
     }
 
-
     /**
      * Definições completas de um dispositivo (inclui reportedSettings.DS —
      * setpoints/banda/overtime de dosagem — que a query de lista `devices()`
@@ -198,6 +201,74 @@ class HannaCloudService
         ], $query);
 
         return $data['deviceLogHistory'] ?? [];
+    }
+
+    /**
+     * Histórico já normalizado: cada entrada do `deviceLogHistory.data` do BL13x
+     * vem em CSV posicional. Devolve uma lista de leituras estruturadas ordenadas
+     * da mais antiga para a mais recente.
+     *
+     * @return list<array{dt: ?string, ph: ?float, orp: ?float, temperatura_agua: ?float, temperatura_ar: ?float, dose_ph_ml: ?float, dose_cloro_ml: ?float, no_flow: bool}>
+     */
+    public function getHistoryReadings(string $deviceId, \DateTime $from, \DateTime $to): array
+    {
+        $history = $this->getHistory($deviceId, $from, $to);
+        $entradas = $history['data'] ?? [];
+
+        if (! is_array($entradas)) {
+            return [];
+        }
+
+        $leituras = array_map([self::class, 'parseHistoryEntry'], $entradas);
+
+        usort($leituras, static fn (array $a, array $b): int => ($a['dt'] ?? '') <=> ($b['dt'] ?? ''));
+
+        return $leituras;
+    }
+
+    /**
+     * Normaliza uma entrada bruta do `deviceLogHistory.data`.
+     *
+     * Formato posicional CSV do BL13x:
+     *   RD = "pH,ORP,tempAgua,tempAr"       (leituras)
+     *   DV = "dose_pH_mL,dose_cloro_mL"     (volume doseado nesse ciclo)
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array{dt: ?string, ph: ?float, orp: ?float, temperatura_agua: ?float, temperatura_ar: ?float, dose_ph_ml: ?float, dose_cloro_ml: ?float, no_flow: bool}
+     */
+    public static function parseHistoryEntry(array $entry): array
+    {
+        $rd = self::csvValores($entry['RD'] ?? null);
+        $dv = self::csvValores($entry['DV'] ?? null);
+
+        return [
+            'dt' => isset($entry['DT']) ? (string) $entry['DT'] : null,
+            'ph' => $rd[0] ?? null,
+            'orp' => $rd[1] ?? null,
+            'temperatura_agua' => $rd[2] ?? null,
+            'temperatura_ar' => $rd[3] ?? null,
+            'dose_ph_ml' => $dv[1] ?? null,
+            'dose_cloro_ml' => $dv[0] ?? null,
+            'no_flow' => (bool) ($entry['noFlow'] ?? false),
+        ];
+    }
+
+    /**
+     * Parte uma string CSV numérica ("7.28,767,29.82") num array de floats.
+     * Campos vazios ficam null.
+     *
+     * @return array<int, ?float>
+     */
+    private static function csvValores(mixed $csv): array
+    {
+        if (! is_string($csv) || $csv === '') {
+            return [];
+        }
+
+        return array_map(
+            static fn (string $v): ?float => trim($v) === '' ? null : (float) $v,
+            explode(',', $csv),
+        );
     }
 
     // ---------------------------------------------------------------- Helpers
@@ -307,8 +378,8 @@ class HannaCloudService
         } catch (\RuntimeException $e) {
             if (str_contains($e->getMessage(), '403')) {
                 // Invalidar o token em cache se recebermos 403
-                \Illuminate\Support\Facades\Cache::forget('hanna_cloud_access_token');
-                
+                Cache::forget('hanna_cloud_access_token');
+
                 // Re-autentica com as credenciais da config.
                 $this->authenticate(
                     config('services.hanna.email'),

@@ -1,14 +1,18 @@
-<?php declare(strict_types=1);
-namespace App\Models;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Installation extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = ['name', 'morada', 'active', 'tanques_verificaveis'];
 
@@ -21,32 +25,43 @@ class Installation extends Model
     {
         static::deleting(function (Installation $installation): void {
             $installation->incidentes()->delete();
-            $installation->piscinas()->delete();
+            // Apagar piscina a piscina (não `piscinas()->delete()` em massa) para
+            // disparar o hook Pool::deleting de cada uma — senão os filhos das
+            // piscinas (filter_checks, tap_alerts, sensor_readings, bidões) ficam
+            // órfãos ou rebentam com FK violation.
+            $installation->piscinas->each(function (Pool $pool): void {
+                $pool->delete();
+            });
+            // stock_installation_logs.stock_installation_id é restrictOnDelete();
+            // sem apagar primeiro os logs, qualquer instalação com histórico de
+            // stock (o caso normal) falha a eliminação com violação de FK.
+            $installation->stockInstallations->each(function (StockInstallation $stock): void {
+                $stock->registos()->delete();
+            });
             $installation->stockInstallations()->delete();
         });
     }
 
-    /**
-     * @return HasMany
-     */
     public function piscinas(): HasMany
     {
         return $this->hasMany(Pool::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function incidentes(): HasMany
     {
         return $this->hasMany(Incident::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function stockInstallations(): HasMany
     {
         return $this->hasMany(StockInstallation::class);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

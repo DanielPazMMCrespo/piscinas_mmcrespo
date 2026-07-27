@@ -1,10 +1,14 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
+use App\Services\StockService;
+use DomainException;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -16,6 +20,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Gestão do stock local de cada instalação. Os técnicos gastam este stock ao registarem
+ * adições de químicos nos Registos Diários.
+ *
+ * IMPLEMENTADO:
+ * - Validação de Quantidade: Ao registar um consumo (no Registo Diário ou manualmente),
+ *   o sistema garante que a instalação tem quantidade disponível suficiente.
+ * - Regra Estrita de DB: Tal como no armazém, movimentações obrigam a `DB::transaction()` e `lockForUpdate()`.
+ * - Rastreabilidade: Criação de `StockInstallationLog` automático para entradas e consumos.
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
+ */
 class StockInstallationResource extends Resource
 {
     protected static ?string $model = StockInstallation::class;
@@ -76,6 +96,7 @@ class StockInstallationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'produto']))
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
@@ -100,6 +121,40 @@ class StockInstallationResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('entrada_stock')
+                    ->label('Entrada Direta')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->visible(fn ($record) => auth()->user()->can('update', $record))
+                    ->form([
+                        Forms\Components\TextInput::make('quantidade')
+                            ->label('Quantidade recebida')
+                            ->helperText('Entrega direta na instalação (fora do fluxo do armazém central).')
+                            ->numeric()
+                            ->minValue(0.001)
+                            ->rules(['gt:0'])
+                            ->required(),
+                    ])
+                    ->action(function (StockInstallation $record, array $data): void {
+                        try {
+                            app(StockService::class)->addInstallationStock(
+                                $record->id,
+                                (float) $data['quantidade'],
+                                auth()->id()
+                            );
+
+                            Notification::make()
+                                ->success()
+                                ->title('Entrada registada')
+                                ->send();
+                        } catch (DomainException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Não foi possível registar a entrada')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
                 Tables\Actions\Action::make('consumo_stock')
                     ->label('Consumo Manual')
                     ->icon('heroicon-o-beaker')
@@ -114,27 +169,24 @@ class StockInstallationResource extends Resource
                             ->required(),
                     ])
                     ->action(function (StockInstallation $record, array $data): void {
-                        DB::transaction(function () use ($record, $data) {
-                            $fresh = StockInstallation::lockForUpdate()->findOrFail($record->id);
-                            if ($fresh->quantity < $data['quantidade']) {
-                                Notification::make()
-                                    ->danger()
-                                    ->title('Stock insuficiente')
-                                    ->body("Disponível: {$fresh->quantity}. Pedido: {$data['quantidade']}.")
-                                    ->send();
+                        try {
+                            app(StockService::class)->consumeInstallationStock(
+                                $record->id,
+                                (float) $data['quantidade'],
+                                auth()->id()
+                            );
 
-                                return;
-                            }
-                            $fresh->quantity -= $data['quantidade'];
-                            $fresh->save();
-                            StockInstallationLog::create([
-                                'stock_installation_id' => $fresh->id,
-                                'user_id' => auth()->id(),
-                                'tipo_movimento' => 'consumo',
-                                'quantity' => $data['quantidade'],
-                                'created_at' => now(),
-                            ]);
-                        });
+                            Notification::make()
+                                ->success()
+                                ->title('Consumo registado')
+                                ->send();
+                        } catch (DomainException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Stock insuficiente')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     }),
             ])
             ->bulkActions([

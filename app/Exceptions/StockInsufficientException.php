@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Exceptions;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Exceptions;
 
 /**
  * Lançada quando a quantidade disponível em stock é insuficiente para a operação.
@@ -27,6 +29,7 @@ class StockInsufficientException extends \Exception
     public function friendlyMessage(): string
     {
         $shortage = $this->requested - $this->available;
+
         return "Quantidade insuficiente de {$this->productName}. "
             ."Disponível: {$this->available}. Insuficiência: {$shortage} unidades.";
     }

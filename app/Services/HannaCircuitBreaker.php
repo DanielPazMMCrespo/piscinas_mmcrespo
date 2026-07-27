@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Services;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Services;
 
 use App\Exceptions\SensorCommunicationException;
 use Illuminate\Support\Facades\Cache;
@@ -21,17 +23,24 @@ use Illuminate\Support\Facades\Log;
 class HannaCircuitBreaker
 {
     private const CACHE_KEY = 'hanna:circuit:state';
+
     private const FAILURES_KEY = 'hanna:circuit:failures';
+
     private const LAST_ATTEMPT_KEY = 'hanna:circuit:last_attempt';
+
     private const OPENED_AT_KEY = 'hanna:circuit:opened_at';
 
     // Configuração do circuit breaker (segundos, contadores).
     private const FAILURE_THRESHOLD = 5;          // falhas antes de abrir
+
     private const TIME_WINDOW = 5 * 60;            // 5 minutos
+
     private const OPEN_TIMEOUT = 60;               // 1 minuto antes de tentar half-open
 
     public const STATE_CLOSED = 'closed';
+
     public const STATE_OPEN = 'open';
+
     public const STATE_HALF_OPEN = 'half-open';
 
     /** @return 'closed'|'open'|'half-open' */
@@ -92,14 +101,17 @@ class HannaCircuitBreaker
             if ($openedAt === null) {
                 // Circuito acabou de abrir, registar o momento.
                 Cache::put(self::OPENED_AT_KEY, now()->timestamp, 300);
+
                 return false; // Nega imediatamente.
             }
 
             if ((now()->timestamp - $openedAt) >= self::OPEN_TIMEOUT) {
                 // Timeout passado, volta para half-open.
                 self::halfOpen();
+
                 return true; // Deixa passar a prova.
             }
+
             return false; // Ainda em open, nega.
         }
 
@@ -113,6 +125,7 @@ class HannaCircuitBreaker
         if (! self::allow()) {
             // Circuit aberto e timeout não passado — usa fallback.
             Log::warning('Hanna circuit breaker: aberto. Usando fallback.');
+
             return $fallback();
         }
 
@@ -121,6 +134,7 @@ class HannaCircuitBreaker
         try {
             $result = $fn();
             self::recordSuccess();
+
             return $result;
         } catch (SensorCommunicationException $e) {
             if ($e->shouldRetry()) {

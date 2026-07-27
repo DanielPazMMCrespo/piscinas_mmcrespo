@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -18,11 +20,11 @@ class IncidentFactory extends Factory
     {
         return [
             'installation_id' => Installation::factory(),
-            'user_id'         => User::factory(),
-            'ocorreu_em'      => now(),
-            'type'            => fake()->randomElement(['avaria', 'vidro_partido', 'quimico']),
-            'descricao'       => fake()->sentence(),
-            'status'          => 'aberto',
+            'user_id' => User::factory(),
+            'ocorreu_em' => now(),
+            'type' => fake()->randomElement(['avaria', 'vidro_partido', 'quimico']),
+            'descricao' => fake()->sentence(),
+            'status' => 'aberto',
         ];
     }
 }

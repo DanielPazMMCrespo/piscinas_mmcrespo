@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMCrespo | Architectural Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-ceramic: #F6F4EF;
+            --pool-indigo: #1A2E40;
+            --terracotta: #C85A32;
+            --sage-green: #5B7065;
+            --brass: #C29B38;
+            --text-main: #1A2E40;
+            --text-light: #5B7065;
+            
+            --font-display: 'Fraunces', serif;
+            --font-body: 'DM Sans', sans-serif;
+            
+            --transition-smooth: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-ceramic);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-display);
+            font-weight: 300;
+            line-height: 1.1;
+        }
+
+        /* Layout */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem 4rem;
+        }
+
+        /* Animations */
+        @keyframes revealUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reveal {
+            animation: revealUp 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            opacity: 0;
+        }
+
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        .delay-3 { animation-delay: 0.6s; }
+
+        /* Header */
+        header {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 4rem;
+            padding-bottom: 3rem;
+            border-bottom: 1px solid rgba(26, 46, 64, 0.1);
+            margin-bottom: 4rem;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            color: var(--pool-indigo);
+            text-decoration: none;
+        }
+        .logo i { font-style: italic; color: var(--terracotta); }
+
+        nav {
+            display: flex;
+            gap: 2.5rem;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: var(--transition-smooth);
+            position: relative;
+            padding-bottom: 0.2rem;
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0%;
+            height: 1px;
+            background-color: var(--pool-indigo);
+            transition: var(--transition-smooth);
+        }
+
+        nav a:hover { color: var(--pool-indigo); }
+        nav a:hover::after, nav a.active::after { width: 100%; }
+        nav a.active { color: var(--pool-indigo); }
+
+        .meta-info {
+            text-align: right;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .weather {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 0.2rem;
+            color: var(--pool-indigo);
+        }
+
+        /* Hero / Stats */
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            margin-bottom: 8rem;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            font-size: 5rem;
+            margin-bottom: 2rem;
+            color: var(--pool-indigo);
+        }
+        .hero-text h1 span {
+            display: block;
+            font-style: italic;
+            color: var(--sage-green);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 4rem;
+        }
+
+        .stat-card {
+            border-left: 2px solid var(--brass);
+            padding-left: 1.5rem;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            line-height: 1;
+            color: var(--pool-indigo);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+        }
+
+        .hero-image {
+            position: relative;
+            height: 700px;
+        }
+
+        .hero-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(20%) sepia(10%);
+        }
+
+        .image-caption {
+            position: absolute;
+            bottom: -2rem;
+            right: -2rem;
+            background: var(--bg-ceramic);
+            padding: 2rem;
+            border: 1px solid rgba(26, 46, 64, 0.1);
+            max-width: 300px;
+            font-style: italic;
+        }
+
+        /* Main Content Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            margin-bottom: 8rem;
+        }
+
+        /* Parameters Panel */
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .section-title::after {
+            content: '';
+            height: 1px;
+            flex-grow: 1;
+            background-color: rgba(26, 46, 64, 0.1);
+        }
+
+        .params-panel {
+            background: #fff;
+            padding: 4rem;
+            box-shadow: 0 30px 60px rgba(26, 46, 64, 0.03);
+            border: 1px solid rgba(26, 46, 64, 0.05);
+        }
+
+        .param-group {
+            margin-bottom: 3rem;
+        }
+
+        .param-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1rem;
+        }
+        
+        .param-name {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            color: var(--pool-indigo);
+        }
+
+        .param-val {
+            font-size: 1.25rem;
+            color: var(--terracotta);
+            font-family: var(--font-display);
+            font-style: italic;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--terracotta);
+            cursor: pointer;
+            margin-top: -7px;
+            box-shadow: 0 0 0 4px var(--bg-ceramic);
+            transition: transform 0.3s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: rgba(26, 46, 64, 0.1);
+        }
+
+        .gauges-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+        
+        .gauge {
+            position: relative;
+            text-align: center;
+        }
+
+        .gauge svg {
+            width: 120px;
+            height: 120px;
+            transform: rotate(-90deg);
+        }
+        .gauge circle.bg { stroke: rgba(26,46,64,0.05); stroke-width: 4; fill: none; }
+        .gauge circle.progress {
+            stroke: var(--sage-green);
+            stroke-width: 4;
+            fill: none;
+            stroke-dasharray: 314;
+            stroke-dashoffset: 60; /* Adjust per value */
+            transition: stroke-dashoffset 1s ease-out;
+        }
+
+        .gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            color: var(--pool-indigo);
+        }
+        .gauge-label {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 3rem;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 7px;
+            height: 100%;
+            width: 1px;
+            background: rgba(26, 46, 64, 0.1);
+        }
+
+        .event {
+            position: relative;
+            margin-bottom: 4rem;
+        }
+        .event::before {
+            content: '';
+            position: absolute;
+            left: -3rem;
+            top: 0.5rem;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: var(--bg-ceramic);
+            border: 2px solid var(--pool-indigo);
+            transition: var(--transition-smooth);
+        }
+        .event:hover::before {
+            background: var(--pool-indigo);
+            transform: scale(1.2);
+        }
+        .event.active::before {
+            background: var(--brass);
+            border-color: var(--brass);
+        }
+
+        .event-date {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .event-title {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            color: var(--pool-indigo);
+            margin-bottom: 0.5rem;
+        }
+
+        .event-desc {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            max-width: 80%;
+        }
+
+        /* Gallery */
+        .gallery-section {
+            margin-bottom: 6rem;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .filter-btn {
+            background: none;
+            border: none;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-light);
+            cursor: pointer;
+            padding-bottom: 0.2rem;
+            position: relative;
+            transition: var(--transition-smooth);
+        }
+        .filter-btn.active { color: var(--pool-indigo); }
+        .filter-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 0; height: 1px;
+            background: var(--pool-indigo);
+            transition: var(--transition-smooth);
+        }
+        .filter-btn:hover::after, .filter-btn.active::after { width: 100%; }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 4/5;
+            overflow: hidden;
+            cursor: pointer;
+            background: #e0dcd3;
+        }
+        .gallery-item.large {
+            grid-column: span 2;
+            aspect-ratio: 16/9;
+        }
+
+        .gallery-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1);
+            filter: grayscale(10%);
+        }
+
+        .gallery-item:hover .gallery-img {
+            transform: scale(1.05);
+            filter: grayscale(0%);
+        }
+
+        .gallery-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(26,46,64,0.8), transparent);
+            opacity: 0;
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 2rem;
+        }
+
+        .gallery-item:hover .gallery-overlay {
+            opacity: 1;
+        }
+
+        .gallery-overlay h3 {
+            color: var(--bg-ceramic);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            transform: translateY(20px);
+            transition: var(--transition-smooth);
+        }
+        .gallery-overlay p {
+            color: rgba(246, 244, 239, 0.8);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transform: translateY(20px);
+            transition: var(--transition-smooth);
+            transition-delay: 0.1s;
+        }
+
+        .gallery-item:hover .gallery-overlay h3,
+        .gallery-item:hover .gallery-overlay p {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 1024px) {
+            .hero, .dashboard-grid { grid-template-columns: 1fr; gap: 4rem; }
+            .hero-image { height: 500px; }
+            header { gap: 2rem; }
+            .gallery-grid { grid-template-columns: 1fr 1fr; }
+            .gallery-item.large { grid-column: span 1; aspect-ratio: 4/5; }
+        }
+        @media (max-width: 768px) {
+            header { grid-template-columns: 1fr; text-align: center; gap: 1.5rem; }
+            nav, .weather { justify-content: center; }
+            .meta-info { text-align: center; }
+            .gallery-grid { grid-template-columns: 1fr; }
+            .hero-text h1 { font-size: 3.5rem; }
+            .dashboard-container { padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        
+        <header class="reveal">
+            <a href="#" class="logo">MM<i>Crespo</i></a>
+            <nav>
+                <a href="#" class="active">Visão Geral</a>
+                <a href="#">Obras</a>
+                <a href="#">Manutenção</a>
+                <a href="#">Projetos</a>
+            </nav>
+            <div class="meta-info">
+                <div id="current-date"></div>
+                <div class="weather">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    24°C, Céu Limpo
+                </div>
+            </div>
+        </header>
+
+        <section class="hero reveal delay-1">
+            <div class="hero-text">
+                <h1>Excelência <span>Arquitetônica</span></h1>
+                <p style="color: var(--text-light); max-width: 400px; font-size: 1.1rem; margin-top: 1.5rem;">
+                    Monitoramento integrado de obras e manutenção. A perfeita harmonia entre engenharia de precisão e design estético para espelhos d'água excepcionais.
+                </p>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">Obras em Andamento</div>
+                    </div>
+                    <div class="stat-card" style="border-color: var(--sage-green);">
+                        <div class="stat-value">48</div>
+                        <div class="stat-label">Piscinas em Manutenção</div>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1576013551627-11d3c1626f21?q=80&w=2069&auto=format&fit=crop" alt="Piscina arquitetônica">
+                <div class="image-caption">
+                    Projeto Residência Villa Verde, 2026. Borda infinita com revestimento em pedra natural vulcânica.
+                </div>
+            </div>
+        </section>
+
+        <div class="dashboard-grid">
+            
+            <!-- Parameters Panel -->
+            <div class="reveal delay-2">
+                <h2 class="section-title">Controle Químico</h2>
+                <div class="params-panel">
+                    
+                    <div class="param-group">
+                        <div class="param-header">
+                            <span class="param-name">pH da Água</span>
+                            <span class="param-val" id="ph-val">7.4</span>
+                        </div>
+                        <input type="range" id="ph-slider" min="6.8" max="8.2" step="0.1" value="7.4">
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-header">
+                            <span class="param-name">Cloro Livre</span>
+                            <span class="param-val" id="cl-val">2.0 ppm</span>
+                        </div>
+                        <input type="range" id="cl-slider" min="0" max="5" step="0.1" value="2.0">
+                    </div>
+                    
+                    <div class="gauges-container">
+                        <div class="gauge">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="progress" cx="50" cy="50" r="45" style="stroke-dashoffset: 120; stroke: var(--terracotta);"></circle>
+                            </svg>
+                            <div class="gauge-value">82<span style="font-size: 0.5em">%</span></div>
+                            <div class="gauge-label">Qualidade Geral</div>
+                        </div>
+                        <div class="gauge">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="progress" cx="50" cy="50" r="45" style="stroke-dashoffset: 80; stroke: var(--pool-indigo);"></circle>
+                            </svg>
+                            <div class="gauge-value">26<span style="font-size: 0.5em">°C</span></div>
+                            <div class="gauge-label">Temperatura</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Schedule Timeline -->
+            <div class="reveal delay-3">
+                <h2 class="section-title">Cronograma</h2>
+                <div class="timeline">
+                    
+                    <div class="event active">
+                        <span class="event-date">Hoje, 14:00</span>
+                        <h3 class="event-title">Concretagem Estrutural</h3>
+                        <p class="event-desc">Projeto Casa do Lago. Acompanhamento do engenheiro responsável para verificação das ferragens e cura.</p>
+                    </div>
+
+                    <div class="event">
+                        <span class="event-date">Amanhã, 09:00</span>
+                        <h3 class="event-title">Manutenção Preventiva</h3>
+                        <p class="event-desc">Condomínio Altos da Serra. Limpeza de filtros, ajuste de automação e dosagem de produtos.</p>
+                    </div>
+
+                    <div class="event">
+                        <span class="event-date">24 Jul, 10:30</span>
+                        <h3 class="event-title">Instalação de Revestimento</h3>
+                        <p class="event-desc">Residência Amaral. Início do assentamento de pedras Hijau na área submersa.</p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <section class="gallery-section reveal">
+            <h2 class="section-title">Portfólio & Projetos</h2>
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">Todos os Projetos</button>
+                <button class="filter-btn" data-filter="construction">Em Construção</button>
+                <button class="filter-btn" data-filter="completed">Concluídos</button>
+            </div>
+            
+            <div class="gallery-grid">
+                
+                <div class="gallery-item large" data-category="completed">
+                    <img src="https://images.unsplash.com/photo-1572331165267-854da2b10ccc?q=80&w=2070&auto=format&fit=crop" class="gallery-img" alt="Piscina 1">
+                    <div class="gallery-overlay">
+                        <h3>Villa da Pedra</h3>
+                        <p>Concluído • Design Minimalista</p>
+                    </div>
+                </div>
+
+                <div class="gallery-item" data-category="construction">
+                    <img src="https://images.unsplash.com/photo-1622397815608-3382025ebae2?q=80&w=1964&auto=format&fit=crop" class="gallery-img" alt="Piscina 2">
+                    <div class="gallery-overlay">
+                        <h3>Casa das Brisas</h3>
+                        <p>Em Construção • Fase 2</p>
+                    </div>
+                </div>
+
+                <div class="gallery-item" data-category="completed">
+                    <img src="https://images.unsplash.com/photo-1573250260428-299f187a875a?q=80&w=1974&auto=format&fit=crop" class="gallery-img" alt="Piscina 3">
+                    <div class="gallery-overlay">
+                        <h3>Refúgio Urbano</h3>
+                        <p>Concluído • Raia Olímpica</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Set current date
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR', dateOptions);
+
+        // Sliders interaction
+        const phSlider = document.getElementById('ph-slider');
+        const phVal = document.getElementById('ph-val');
+        
+        phSlider.addEventListener('input', (e) => {
+            phVal.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        const clSlider = document.getElementById('cl-slider');
+        const clVal = document.getElementById('cl-val');
+        
+        clSlider.addEventListener('input', (e) => {
+            clVal.textContent = parseFloat(e.target.value).toFixed(1) + ' ppm';
+        });
+
+        // Gallery Filter
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const galleryItems = document.querySelectorAll('.gallery-item');
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active button
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Filter items
+                const filter = btn.getAttribute('data-filter');
+                galleryItems.forEach(item => {
+                    if(filter === 'all' || item.getAttribute('data-category') === filter) {
+                        item.style.display = 'block';
+                        setTimeout(() => item.style.opacity = '1', 50);
+                    } else {
+                        item.style.opacity = '0';
+                        setTimeout(() => item.style.display = 'none', 300);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

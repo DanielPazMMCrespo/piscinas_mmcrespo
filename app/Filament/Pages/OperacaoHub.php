@@ -1,12 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use Filament\Actions\Action;
-use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Pages\Page;
 
 /**
@@ -18,21 +20,18 @@ class OperacaoHub extends Page implements HasActions
 {
     use InteractsWithActions;
 
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-
-    protected static ?string $navigationGroup = 'Operação';
-
-    protected static ?string $navigationLabel = 'Registo Diário';
-
     protected static ?string $title = 'Registo Diário';
-
-    protected static ?int $navigationSort = 1;
 
     protected static string $view = 'filament.pages.operacao-hub';
 
     public static function canAccess(): bool
     {
         return (bool) auth()->user();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
     }
 
     public function registoDiarioAction(): Action

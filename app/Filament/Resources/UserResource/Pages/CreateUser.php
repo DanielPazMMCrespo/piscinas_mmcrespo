@@ -1,10 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Constants\UserRole;
 use App\Filament\Resources\UserResource;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Hash;
 
 class CreateUser extends CreateRecord
 {
@@ -12,11 +15,9 @@ class CreateUser extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if (empty($data['password'])) {
-            throw ValidationException::withMessages([
-                'data.password' => 'A palavra-passe é obrigatória.',
-            ]);
-        }
+        $data['password'] = Hash::make('password');
+        $data['must_change_password'] = true;
+
         return $data;
     }
 

@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\RecordAddition;
 use App\Models\StockInstallation;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -84,26 +85,30 @@ test('o job processa fotos, desconta stock e abre alerta de torneira no caminho 
     ]);
 });
 
-test('a validação crítica de stock impede a criação do registo e o despacho do job', function (): void {
+test('stock insuficiente na instalação não impede a criação do registo nem o despacho do job', function (): void {
     Queue::fake();
 
     Livewire::actingAs($this->user)
         ->test(CreateDailyRecord::class)
         ->fillForm([
             'installation_id' => $this->pool->installation_id,
+            'ns_foto' => [UploadedFile::fake()->create('ns_foto.jpg', 10)],
             'pools' => [
                 $this->pool->id => [
+                    'ns_ph' => 7.2,
+                    'ns_cloro_livre' => 1.0,
+                    'ns_cloro_total' => 1.2,
+                    'ns_temperatura' => 27.0,
                     'adicoes' => [
                         ['product_id' => $this->product->id, 'quantity' => 10.000],
                     ],
-                ]
+                ],
             ],
         ])
         ->call('create')
-        ->assertHasFormErrors(["pools.{$this->pool->id}.adicoes.0.quantity"]);
+        ->assertHasNoFormErrors(["pools.{$this->pool->id}.adicoes.0.quantity"]);
 
-    $this->assertDatabaseCount('daily_records', 0);
-    expect((float) $this->stock->fresh()->quantity)->toBe(3.0);
+    $this->assertDatabaseCount('daily_records', 1);
 
-    Queue::assertNotPushed(ProcessDailyRecordAfterCreate::class);
+    Queue::assertPushed(ProcessDailyRecordAfterCreate::class);
 });

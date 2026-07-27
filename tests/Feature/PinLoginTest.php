@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\Auth\Login;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -29,11 +30,11 @@ class PinLoginTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'tecnico@test.pt',
-            'pin'   => Hash::make('1234'),
+            'pin' => Hash::make('1234'),
         ]);
         $user->assignRole('tecnico');
 
-        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+        Livewire::test(Login::class)
             ->fillForm(['email' => 'tecnico@test.pt', 'password' => '1234'])
             ->call('authenticate')
             ->assertHasNoFormErrors();
@@ -45,10 +46,10 @@ class PinLoginTest extends TestCase
     {
         User::factory()->create([
             'email' => 'tecnico@test.pt',
-            'pin'   => Hash::make('1234'),
+            'pin' => Hash::make('1234'),
         ]);
 
-        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+        Livewire::test(Login::class)
             ->fillForm(['email' => 'tecnico@test.pt', 'password' => '9999'])
             ->call('authenticate')
             ->assertHasFormErrors(['email']);
@@ -60,16 +61,16 @@ class PinLoginTest extends TestCase
     {
         $userA = User::factory()->create([
             'email' => 'a@test.pt',
-            'pin'   => Hash::make('1111'),
+            'pin' => Hash::make('1111'),
         ]);
         $userA->assignRole('tecnico');
 
         User::factory()->create([
             'email' => 'b@test.pt',
-            'pin'   => Hash::make('2222'),
+            'pin' => Hash::make('2222'),
         ]);
 
-        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+        Livewire::test(Login::class)
             ->fillForm(['email' => 'a@test.pt', 'password' => '2222'])
             ->call('authenticate')
             ->assertHasFormErrors(['email']);
@@ -81,10 +82,10 @@ class PinLoginTest extends TestCase
     {
         User::factory()->create([
             'email' => 'nopn@test.pt',
-            'pin'   => null,
+            'pin' => null,
         ]);
 
-        Livewire::test(\App\Filament\Pages\Auth\Login::class)
+        Livewire::test(Login::class)
             ->fillForm(['email' => 'nopn@test.pt', 'password' => '1234'])
             ->call('authenticate')
             ->assertHasFormErrors(['email']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -97,7 +98,7 @@ class UserTest extends TestCase
     {
         $user1 = User::factory()->create(['email' => 'unique@example.com']);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         User::create([
             'name' => 'Outro Utilizador',
             'email' => 'unique@example.com',

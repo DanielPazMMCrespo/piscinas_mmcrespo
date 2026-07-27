@@ -1,10 +1,12 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
-
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Alerta de "torneira de água aberta": criado quando um registo diário marca a
@@ -16,13 +18,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class TapAlert extends Model
 {
     use HasFactory;
+
     protected $fillable = [
-        'pool_id', 'opened_record_id', 'opened_by', 'opened_at',
+        'pool_id', 'opened_record_id', 'opened_by', 'opened_at', 'notified_at',
         'resolved_at', 'resolved_by', 'resolved_record_id', 'resolution',
     ];
 
     protected $casts = [
         'opened_at' => 'datetime',
+        'notified_at' => 'datetime',
         'resolved_at' => 'datetime',
     ];
 

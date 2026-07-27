@@ -25,7 +25,10 @@
         </div>
 
         <form wire:submit.prevent="enviarMensagem" class="flex gap-2">
+            <label for="incident_chat_texto" class="sr-only">Escreva uma mensagem</label>
             <textarea
+                id="incident_chat_texto"
+                name="texto"
                 wire:model="texto"
                 rows="2"
                 class="fi-input flex-1 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-900"

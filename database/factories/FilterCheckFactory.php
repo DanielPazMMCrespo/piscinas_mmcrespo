@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -17,8 +19,8 @@ class FilterCheckFactory extends Factory
     public function definition(): array
     {
         return [
-            'pool_id'       => Pool::factory(),
-            'user_id'       => User::factory(),
+            'pool_id' => Pool::factory(),
+            'user_id' => User::factory(),
             'verificado_em' => now(),
             'tipo_operacao' => fake()->randomElement(['lavagem', 'enxaguamento', 'posicao_normal']),
         ];

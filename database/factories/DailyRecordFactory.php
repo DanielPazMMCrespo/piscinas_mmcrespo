@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -17,17 +19,17 @@ class DailyRecordFactory extends Factory
     public function definition(): array
     {
         return [
-            'pool_id'       => Pool::factory(),
-            'user_id'       => User::factory(),
-            'registado_em'  => now(),
-            'cloro_livre'   => 1.00,
-            'cloro_total'   => 1.20,
-            'ph'            => 7.40,
-            'temperatura'   => 27.0,
+            'pool_id' => Pool::factory(),
+            'user_id' => User::factory(),
+            'registado_em' => now(),
+            'cloro_livre' => 1.00,
+            'cloro_total' => 1.20,
+            'ph' => 7.40,
+            'temperatura' => 27.0,
             'transparencia' => 1,
             'caleira_feita' => true,
             'renovacao_agua' => false,
-            'e_correcao'    => false,
+            'e_correcao' => false,
         ];
     }
 }

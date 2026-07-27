@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -15,7 +17,7 @@ class InstallationFactory extends Factory
     public function definition(): array
     {
         return [
-            'name'   => fake()->unique()->city(),
+            'name' => fake()->unique()->city(),
             'morada' => fake()->address(),
             'active' => true,
         ];

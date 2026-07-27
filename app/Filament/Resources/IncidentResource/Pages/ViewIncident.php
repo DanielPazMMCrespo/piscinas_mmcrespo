@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources\IncidentResource\Pages;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources\IncidentResource\Pages;
 
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Widgets\IncidentChatWidget;
@@ -14,6 +16,7 @@ class ViewIncident extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            IncidentResource::resolverHeaderAction(),
             Actions\EditAction::make(),
         ];
     }

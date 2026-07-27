@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstallationResource\Pages;
 use App\Models\Installation;
@@ -24,7 +26,7 @@ class InstallationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasRole('admin');
+        return auth()->user()?->hasRole('admin') ?? false;
     }
 
     public static function form(Form $form): Form
@@ -78,7 +80,8 @@ class InstallationResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->modalDescription('Eliminar uma instalação apaga em cascata todas as piscinas, registos diários, verificações de filtro, incidentes, ações operacionais, bidões e histórico de stock associados. Esta ação é irreversível.'),
                 ]),
             ]);
     }

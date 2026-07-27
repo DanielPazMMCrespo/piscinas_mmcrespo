@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Database\Factories;
 
@@ -15,10 +17,10 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         return [
-            'name'      => fake()->unique()->words(2, true),
-            'unidade'   => fake()->randomElement(['kg', 'L', 'un']),
+            'name' => fake()->unique()->words(2, true),
+            'unidade' => fake()->randomElement(['kg', 'L', 'un']),
             'categoria' => fake()->randomElement(['quimico', 'consumivel']),
-            'active'    => true,
+            'active' => true,
         ];
     }
 }

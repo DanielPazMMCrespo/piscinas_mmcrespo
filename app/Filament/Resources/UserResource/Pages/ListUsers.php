@@ -1,7 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Filament\Resources\UserResource\Pages;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\UserResource;
 use App\Models\Pool;
 use App\Services\InvitationService;
@@ -13,7 +16,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use App\Constants\UserRole;
 
 class ListUsers extends ListRecords
 {
@@ -25,8 +27,8 @@ class ListUsers extends ListRecords
 
         $opcoesCargo = $isAdmin
             ? [
-                UserRole::GESTOR           => 'Gestor',
-                UserRole::TECNICO          => 'Técnico',
+                UserRole::GESTOR => 'Gestor',
+                UserRole::TECNICO => 'Técnico',
                 UserRole::NADADOR_SALVADOR => 'Nadador Salvador',
             ]
             : [
@@ -57,17 +59,25 @@ class ListUsers extends ListRecords
                         ->visible(fn (Get $get): bool => $get('role') === UserRole::NADADOR_SALVADOR),
                 ])
                 ->action(function (array $data): void {
+                    // $opcoesCargo só restringe as opções mostradas no Select — sem
+                    // esta reconfirmação, um Gestor podia adulterar o pedido Livewire
+                    // e convidar alguém como Admin.
+                    $isAdmin = auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+                    $role = $isAdmin ? $data['role'] : UserRole::NADADOR_SALVADOR;
+
                     try {
-                        app(InvitationService::class)->send(
+                        $invitation = app(InvitationService::class)->send(
                             $data['email'],
-                            $data['role'],
+                            $role,
                             auth()->user(),
                             $data['pool_ids'] ?? [],
                         );
 
+                        $validoAte = $invitation->expires_at->locale('pt')->diffForHumans();
+
                         Notification::make()
                             ->title('Convite enviado')
-                            ->body("Email enviado para {$data['email']}. Válido 48 horas.")
+                            ->body("Email enviado para {$data['email']}. Válido até {$validoAte}.")
                             ->success()
                             ->send();
                     } catch (\RuntimeException $e) {

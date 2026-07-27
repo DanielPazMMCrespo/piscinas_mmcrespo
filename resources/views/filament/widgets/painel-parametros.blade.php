@@ -7,9 +7,31 @@
             {{ $this->form }}
         </div>
 
+        @unless ($this->isNS())
+            {{-- Atalhos: comparar leitura do controlador Hanna com a leitura manual do técnico --}}
+            <div class="flex gap-2 mb-3 flex-wrap">
+                <span class="text-xs text-gray-400 dark:text-gray-500 self-center">Sensor vs Manual:</span>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_ph', 'ph')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >pH</button>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_orp', 'cloro_livre')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >Cloro (ORP vs livre)</button>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('controlador_temp', 'temperatura')"
+                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >Temperatura</button>
+            </div>
+        @endunless
+
         {{-- Tabs + botões de período --}}
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-            <div class="flex gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-sm font-medium">
+            <div class="flex gap-0 border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden text-sm font-medium">
                 <button
                     type="button"
                     wire:click="setTab('graph')"
@@ -23,7 +45,7 @@
                     type="button"
                     wire:click="setTab('table')"
                     @class([
-                        'px-4 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700',
+                        'px-4 py-1.5 transition-colors border-l border-gray-200 dark:border-white/10',
                         'bg-primary-600 text-white' => $this->tabAtiva === 'table',
                         'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' => $this->tabAtiva !== 'table',
                     ])
@@ -32,16 +54,16 @@
 
             <div class="flex gap-1">
                 @if ($this->isNS())
-                    <span class="px-3 py-1.5 text-xs font-medium rounded-md bg-primary-600 text-white shadow-sm">Últimas 12h</span>
+                    <span class="px-3 py-1.5 text-xs font-medium rounded-xl bg-primary-600 text-white shadow-sm">Últimas 12h</span>
                 @else
                     @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
                         <button
                             type="button"
                             wire:click="setPeriod('{{ $key }}')"
                             @class([
-                                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                'px-3 py-1.5 text-xs font-medium rounded-xl transition-colors',
                                 'bg-primary-600 text-white shadow-sm' => $this->period === $key,
-                                'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700' => $this->period !== $key,
+                                'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-white/10' => $this->period !== $key,
                             ])
                         >{{ $label }}</button>
                     @endforeach

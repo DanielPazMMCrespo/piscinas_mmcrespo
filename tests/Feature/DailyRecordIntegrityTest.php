@@ -54,7 +54,7 @@ class DailyRecordIntegrityTest extends TestCase
         ]);
     }
 
-    public function test_apenas_admin_pode_editar_e_eliminar_registos(): void
+    public function test_ninguem_edita_registos_apenas_admin_elimina(): void
     {
         $pool = $this->novaPiscina();
 
@@ -75,7 +75,7 @@ class DailyRecordIntegrityTest extends TestCase
         $this->assertFalse(DailyRecordResource::canEdit($registo), 'NS não deve poder editar');
 
         $this->actingAs($admin);
-        $this->assertTrue(DailyRecordResource::canEdit($registo), 'Admin deve poder editar');
+        $this->assertFalse(DailyRecordResource::canEdit($registo), 'Livro sanitário é append-only — nem o Admin edita, só corrige');
         $this->assertTrue(DailyRecordResource::canDelete($registo), 'Admin deve poder eliminar');
     }
 

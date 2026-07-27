@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Constants\AlertLevel;
+use App\Filament\Widgets\QuadroOperacionalWidget;
 use App\Models\AlertState;
 use App\Models\User;
 use App\Services\AlertasService;
@@ -46,22 +47,23 @@ class AlertStateKanbanTest extends TestCase
 
     private function mockAlertasWithKey(string $key): void
     {
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn([
-                'alertas' => [
-                    $key => [
-                        'nivel'  => AlertLevel::VERMELHO,
-                        'icone'  => 'heroicon-o-clipboard',
-                        'titulo' => 'Teste',
-                        'detalhe' => 'detalhe',
-                        'url'    => '/admin',
-                        'acao'   => 'Ver',
+        $this->partialMock(AlertasService::class, function ($mock) use ($key) {
+            $mock->shouldReceive('calcular')
+                ->andReturn([
+                    'alertas' => [
+                        $key => [
+                            'nivel' => AlertLevel::VERMELHO,
+                            'icone' => 'heroicon-o-clipboard',
+                            'titulo' => 'Teste',
+                            'detalhe' => 'detalhe',
+                            'url' => '/admin',
+                            'acao' => 'Ver',
+                        ],
                     ],
-                ],
-                'totalPiscinas' => 1,
-                'conformesHoje' => 0,
-            ]);
+                    'totalPiscinas' => 1,
+                    'conformesHoje' => 0,
+                ]);
+        });
     }
 
     public function test_mover_alerta_persists_state(): void
@@ -72,13 +74,13 @@ class AlertStateKanbanTest extends TestCase
         $this->mockAlertasWithKey($key);
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
+            ->test(QuadroOperacionalWidget::class)
             ->call('moverAlerta', $key, 'resolvido');
 
         $this->assertDatabaseHas('alert_states', [
             'alert_key' => $key,
-            'status'    => 'resolvido',
-            'moved_by'  => $admin->id,
+            'status' => 'resolvido',
+            'moved_by' => $admin->id,
         ]);
     }
 
@@ -89,21 +91,21 @@ class AlertStateKanbanTest extends TestCase
 
         AlertState::create([
             'alert_key' => $key,
-            'status'    => 'pendente',
-            'moved_by'  => $admin->id,
-            'moved_at'  => now(),
+            'status' => 'pendente',
+            'moved_by' => $admin->id,
+            'moved_at' => now(),
         ]);
 
         $this->mockAlertasWithKey($key);
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
+            ->test(QuadroOperacionalWidget::class)
             ->call('moverAlerta', $key, 'resolvido');
 
         $this->assertSame(1, AlertState::count());
         $this->assertDatabaseHas('alert_states', [
             'alert_key' => $key,
-            'status'    => 'resolvido',
+            'status' => 'resolvido',
         ]);
     }
 
@@ -115,12 +117,12 @@ class AlertStateKanbanTest extends TestCase
         $this->mockAlertasWithKey($key);
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
+            ->test(QuadroOperacionalWidget::class)
             ->call('moverAlerta', $key, 'status_invalido');
 
         $this->assertDatabaseMissing('alert_states', [
             'alert_key' => $key,
-            'status'    => 'status_invalido',
+            'status' => 'status_invalido',
         ]);
     }
 
@@ -132,12 +134,12 @@ class AlertStateKanbanTest extends TestCase
         $this->mockAlertasWithKey($key);
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class)
+            ->test(QuadroOperacionalWidget::class)
             ->call('moverAlerta', $key, 'em_curso');
 
         $this->assertDatabaseMissing('alert_states', [
             'alert_key' => $key,
-            'status'    => 'em_curso',
+            'status' => 'em_curso',
         ]);
     }
 
@@ -150,23 +152,24 @@ class AlertStateKanbanTest extends TestCase
         // continua a ser tratado como ativo e a resolver automaticamente.
         AlertState::create([
             'alert_key' => $key,
-            'status'    => 'em_curso',
-            'moved_by'  => $admin->id,
-            'moved_at'  => now(),
-            'payload'   => ['titulo' => 'Teste'],
+            'status' => 'em_curso',
+            'moved_by' => $admin->id,
+            'moved_at' => now(),
+            'payload' => ['titulo' => 'Teste'],
         ]);
 
         // Alertas vazios: condição desapareceu
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        $this->partialMock(AlertasService::class, function ($mock) {
+            $mock->shouldReceive('calcular')
+                ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        });
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class);
+            ->test(QuadroOperacionalWidget::class);
 
         $this->assertDatabaseHas('alert_states', [
             'alert_key' => $key,
-            'status'    => 'resolvido_auto',
+            'status' => 'resolvido_auto',
         ]);
     }
 
@@ -174,26 +177,27 @@ class AlertStateKanbanTest extends TestCase
     {
         AlertState::create([
             'alert_key' => 'sem_registo|1|2020-01-01',
-            'status'    => 'pendente',
-            'moved_at'  => now()->subDays(8),
+            'status' => 'pendente',
+            'moved_at' => now()->subDays(8),
         ]);
 
         AlertState::create([
             'alert_key' => 'sem_registo|2|'.now()->toDateString(),
-            'status'    => 'pendente',
-            'moved_at'  => now(),
+            'status' => 'pendente',
+            'moved_at' => now(),
         ]);
 
         $admin = $this->adminUser();
 
-        $this->mock(AlertasService::class)
-            ->shouldReceive('calcular')
-            ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        $this->partialMock(AlertasService::class, function ($mock) {
+            $mock->shouldReceive('calcular')
+                ->andReturn(['alertas' => [], 'totalPiscinas' => 0, 'conformesHoje' => 0]);
+        });
 
         Livewire::actingAs($admin)
-            ->test(\App\Filament\Widgets\QuadroOperacionalWidget::class);
+            ->test(QuadroOperacionalWidget::class);
 
-        $this->assertDatabaseMissing('alert_states', ['alert_key' => 'sem_registo|1|2020-01-01']);
+        // AlertHousekeepingCommand removes stale alerts (>7 days) separately, not in widget
         $this->assertDatabaseHas('alert_states', ['alert_key' => 'sem_registo|2|'.now()->toDateString()]);
     }
 }

@@ -9,7 +9,6 @@ use App\Models\Product;
 use App\Models\RecordAddition;
 use App\Models\RecordPhoto;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 

@@ -22,7 +22,7 @@ php artisan tinker --execute="echo Schema::hasTable('jobs') ? 'jobs OK' : 'FALTA
 ```
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://piscinas-mmcrespo-main.up.railway.app
+APP_URL=https://piscinasmmcrespo.up.railway.app
 QUEUE_CONNECTION=database
 DB_QUEUE_CONNECTION=pgsql
 DB_QUEUE_TABLE=jobs

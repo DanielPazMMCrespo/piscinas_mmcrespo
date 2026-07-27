@@ -1,77 +1,46 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
-use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
-use App\Models\DailyRecord;
+use App\Models\Pool;
+use App\Services\CacheService;
+use App\Services\DailyRecordService;
 use Filament\Actions\Action;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
     public bool $isCreating = false;
-    
-    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+
+    protected function handleRecordCreation(array $data): Model
     {
-        $commonData = [
-            'user_id' => $data['user_id'] ?? auth()->id(),
-            'registado_em' => $data['registado_em'] ?? now(),
-        ];
-        
-        if (isset($data['ns_foto'])) {
-            $commonData['ns_foto'] = is_array($data['ns_foto']) ? array_values($data['ns_foto'])[0] : $data['ns_foto'];
-        }
-        
-        $poolsData = $data['pools'] ?? [];
-        $lastRecord = null;
-
+        /** @var DailyRecordService $service */
+        $service = app(DailyRecordService::class);
         $user = auth()->user();
-        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
-            foreach (array_keys($poolsData) as $poolId) {
-                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403);
-            }
+
+        $record = $service->createRecords($user, $data);
+
+        if ($record === null) {
+            throw new \RuntimeException('Nenhum registo de piscina foi criado.');
         }
 
-        foreach ($poolsData as $poolId => $poolData) {
-            $adicoes = $poolData['adicoes'] ?? [];
-            unset($poolData['adicoes']); // Remove from attributes
-            
-            $photoFields = ['bomba_foto', 'contador_foto', 'tanque_foto', 'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal'];
-            foreach ($photoFields as $pf) {
-                if (isset($poolData[$pf])) {
-                    if (is_array($poolData[$pf])) {
-                        $poolData[$pf] = !empty($poolData[$pf]) ? array_values($poolData[$pf])[0] : null;
-                    } elseif ($poolData[$pf] === '') {
-                        $poolData[$pf] = null;
-                    }
-                } else {
-                    $poolData[$pf] = null;
-                }
-            }
-
-            $recordData = array_merge($commonData, $poolData, ['pool_id' => $poolId]);
-            $lastRecord = static::getModel()::create($recordData);
-            
-            // Gravar adicões no pivot (relacionamento 'adicoes')
-            if (!empty($adicoes)) {
-                $lastRecord->adicoes()->createMany($adicoes);
-            }
-            
-            \App\Jobs\ProcessDailyRecordAfterCreate::dispatch($lastRecord->id, (int) auth()->id());
-        }
-        
-        return $lastRecord;
+        return $record;
     }
-    
+
     protected function afterCreate(): void
     {
-        app(\App\Services\CacheService::class)->invalidateAlerts(auth()->id());
+        app(CacheService::class)->invalidateAlerts(auth()->id());
     }
 
     public function create(bool $another = false): void
@@ -83,18 +52,26 @@ class CreateDailyRecord extends CreateRecord
         $this->isCreating = true;
         $this->authorizeAccess();
 
-        $lockKey = 'create_record_' . auth()->id();
+        $lockKey = 'create_record_'.auth()->id();
         try {
-            $success = \Illuminate\Support\Facades\Cache::lock($lockKey, 10)->get(function () {
+            $success = Cache::lock($lockKey, 10)->get(function () {
                 $this->beginDatabaseTransaction();
                 $this->callHook('beforeValidate');
                 $data = $this->form->getState();
                 $this->callHook('afterValidate');
+
+                if (! $this->validatePoolsCloro($data)) {
+                    $this->rollBackDatabaseTransaction();
+                    $this->isCreating = false;
+
+                    return false;
+                }
+
                 $data = $this->mutateFormDataBeforeCreate($data);
                 $this->callHook('beforeCreate');
-                
+
                 $this->record = $this->handleRecordCreation($data);
-                
+
                 $this->callHook('afterCreate');
 
                 $this->commitDatabaseTransaction();
@@ -114,6 +91,7 @@ class CreateDailyRecord extends CreateRecord
                     ->title('Submissão duplicada')
                     ->body('O registo já está a ser processado. Por favor aguarde.')
                     ->send();
+
                 return;
             }
         } catch (Halt $exception) {
@@ -157,45 +135,95 @@ class CreateDailyRecord extends CreateRecord
         ]);
     }
 
+    public function validarERegistosGuardar(): void
+    {
+        try {
+            $this->form->getState();
+        } catch (ValidationException $e) {
+            $mensagens = collect($e->errors())->flatten()->unique()->values();
+
+            Notification::make()
+                ->danger()
+                ->title('Corrija os campos assinalados')
+                ->body($mensagens->implode("\n"))
+                ->send();
+
+            throw $e;
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->danger()
+                ->title('Erro ao validar formulário')
+                ->body('O formulário expirou ou contém dados inválidos. Por favor, recarregue a página.')
+                ->send();
+
+            return;
+        }
+
+        $this->mountAction('confirmarCriacao');
+    }
+
+    private function validatePoolsCloro(array $data): bool
+    {
+        $pools = $data['pools'] ?? [];
+        $hasErrors = false;
+
+        foreach ($pools as $poolId => $poolData) {
+            $cloroTotal = $poolData['ns_cloro_total'] ?? null;
+            $cloroLivre = $poolData['ns_cloro_livre'] ?? null;
+
+            if (filled($cloroTotal) && filled($cloroLivre) && (float) $cloroTotal < (float) $cloroLivre) {
+                $this->addError("data.pools.{$poolId}.ns_cloro_total", 'O cloro total não pode ser inferior ao cloro livre.');
+                $hasErrors = true;
+            }
+
+            $cloroTotal = $poolData['cloro_total'] ?? null;
+            $cloroLivre = $poolData['cloro_livre'] ?? null;
+
+            if (filled($cloroTotal) && filled($cloroLivre) && (float) $cloroTotal < (float) $cloroLivre) {
+                $this->addError("data.pools.{$poolId}.cloro_total", 'O cloro total não pode ser inferior ao cloro livre.');
+                $hasErrors = true;
+            }
+        }
+
+        return ! $hasErrors;
+    }
+
     protected function getFormActions(): array
     {
         return [
             Action::make('create')
                 ->label('Criar')
+                ->action('validarERegistosGuardar')
+                ->keyBindings(['mod+s']),
+            Action::make('confirmarCriacao')
+                ->label('Confirmar e guardar')
+                ->extraAttributes(['class' => 'hidden'])
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar registos')
                 ->modalContent(function () {
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
-                    $problemasGlobais = [];
-                    
+                    $valores = [];
+
                     foreach ($poolsData as $poolId => $poolData) {
-                        $pool = \App\Models\Pool::find($poolId);
-                        if (!$pool) continue;
-                        
-                        foreach (['ns_ph', 'ns_cloro_livre', 'ns_temperatura'] as $campo) {
-                            if (isset($poolData[$campo]) && $poolData[$campo] !== '') {
-                                $estado = \App\Models\DailyRecord::avaliarConformidade($campo, $poolData[$campo], $pool);
-                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                    $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                                }
-                            }
+                        $pool = Pool::find($poolId);
+                        if (! $pool) {
+                            continue;
                         }
-                        
-                        if (isset($poolData['ns_cloro_livre'], $poolData['ns_cloro_total']) && $poolData['ns_cloro_livre'] !== '' && $poolData['ns_cloro_total'] !== '') {
-                            $combinado = (float)$poolData['ns_cloro_total'] - (float)$poolData['ns_cloro_livre'];
-                            $estado = \App\Models\DailyRecord::avaliarConformidade('cloro_combinado', $combinado, $pool);
-                            if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
-                                $problemasGlobais[] = "{$pool->name} - {$estado['mensagem']}";
-                            }
-                        }
+
+                        $valores[] = [
+                            'piscina' => $pool->name,
+                            'ph' => $poolData['ns_ph'] ?? null,
+                            'cloro_livre' => $poolData['ns_cloro_livre'] ?? null,
+                            'cloro_total' => $poolData['ns_cloro_total'] ?? null,
+                            'temperatura' => $poolData['ns_temperatura'] ?? null,
+                        ];
                     }
-                    
-                    return view('filament.daily-record-modal-summary', ['problemas' => $problemasGlobais]);
+
+                    return view('filament.daily-record-modal-summary', ['valores' => $valores]);
                 })
-                ->modalSubmitActionLabel('Confirmar e guardar')
-                ->keyBindings(['mod+s']),
+                ->modalSubmitActionLabel('Confirmar e guardar'),
             $this->getCancelFormAction(),
         ];
     }

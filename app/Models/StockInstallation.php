@@ -1,13 +1,19 @@
-<?php declare(strict_types=1);
-namespace App\Models;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class StockInstallation extends Model
 {
+    use LogsActivity;
+
     protected $fillable = ['installation_id', 'product_id', 'quantity', 'limite_minimo'];
 
     protected $casts = [
@@ -28,5 +34,13 @@ class StockInstallation extends Model
     public function registos(): HasMany
     {
         return $this->hasMany(StockInstallationLog::class);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

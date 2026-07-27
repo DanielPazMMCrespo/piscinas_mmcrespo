@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Services;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Services;
 
 use App\Constants\AlertLevel;
 use App\Constants\AlertType;
@@ -9,6 +11,7 @@ use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
+use App\Models\AlertState;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\Pool;
@@ -16,7 +19,10 @@ use App\Models\StockInstallation;
 use App\Models\TapAlert;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -42,6 +48,44 @@ class AlertasService
     public static function resetMemo(): void
     {
         self::$memo = [];
+    }
+
+    /**
+     * Move um alerta entre pendente e resolvido (Kanban).
+     *
+     * @throws \DomainException Se houver demasiados movimentos (Rate Limiting).
+     */
+    public function moverAlerta(User $user, string $key, string $status): void
+    {
+        if (! in_array($status, ['pendente', 'resolvido'], true)) {
+            return;
+        }
+
+        $executed = RateLimiter::attempt(
+            'move_alert_'.$user->id,
+            30, // 30 movimentos
+            function () use ($user, $key, $status) {
+                // Recupera do cache (garantido pela chamada do widget antes) ou recalcula se necessário
+                $ativos = $this->calcular($user)['alertas'];
+
+                DB::transaction(function () use ($user, $key, $status, $ativos) {
+                    AlertState::updateOrCreate(
+                        ['alert_key' => $key],
+                        [
+                            'status' => $status,
+                            'payload' => $ativos[$key] ?? null,
+                            'moved_by' => $user->id,
+                            'moved_at' => now(),
+                        ],
+                    );
+                });
+            },
+            60 // por minuto
+        );
+
+        if (! $executed) {
+            throw new \DomainException('Muitos movimentos. Aguarde um momento antes de mover mais cartões.');
+        }
     }
 
     /**
@@ -77,7 +121,7 @@ class AlertasService
         $conformesHoje = 0;
 
         // Torneiras abertas: uma query única fora do loop.
-        $hasTable = \Illuminate\Support\Facades\Cache::remember('schema_has_tap_alerts', 3600, fn() => Schema::hasTable('tap_alerts'));
+        $hasTable = Cache::remember('schema_has_tap_alerts', 3600, fn () => Schema::hasTable('tap_alerts'));
         $taps = $hasTable
             ? TapAlert::whereNull('resolved_at')->limit(200)->get()->groupBy('pool_id')
             : collect();
@@ -163,51 +207,21 @@ class AlertasService
 
     private function violacoesLegais(DailyRecord $registo): array
     {
-        $violacoes = [];
-        $fmt = fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
-        $settings = app(\App\Services\SettingsService::class);
-
-        // Leituras em falta (registos legados) não são violações — a falta de
-        // registo recente já é coberta pelo alerta "sem registo diário hoje".
-        if ($registo->ph_efetivo !== null && ! $registo->phConforme()) {
-            $ph = (float) $registo->ph_efetivo;
-            $phMin = $settings->getFloat('ph_min', DailyRecord::PH_MIN);
-            $phMax = $settings->getFloat('ph_max', DailyRecord::PH_MAX);
-            $violacoes[] = $ph < $phMin
-                ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
-                : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')';
-        }
-
-        if ($registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme()) {
-            $cl = (float) $registo->cloro_livre_efetivo;
-            $clMin = $settings->getFloat('cloro_livre_min', DailyRecord::CLORO_LIVRE_MIN);
-            $clMax = $settings->getFloat('cloro_livre_max', DailyRecord::CLORO_LIVRE_MAX);
-            $violacoes[] = $cl < $clMin
-                ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
-                : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')';
-        }
-
-        if ($registo->cloro_total_efetivo !== null && $registo->cloro_livre_efetivo !== null && ! $registo->cloroCombinadoConforme()) {
-            $clCombMax = $settings->getFloat('cloro_combinado_max', DailyRecord::CLORO_COMBINADO_MAX);
-            $violacoes[] = 'cloro combinado '.$fmt((float) $registo->cloro_combinado)
-                .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')';
-        }
-
-        return $violacoes;
+        return array_column(
+            array_filter($registo->listarViolacoes(), fn (array $v) => $v['parametro'] !== 'temperatura'),
+            'mensagem'
+        );
     }
 
-    private function violacaoTemperatura(DailyRecord $registo, Pool $piscina): ?string
+    private function violacaoTemperatura(DailyRecord $registo): ?string
     {
-        if ($registo->temperatura_efetivo === null || $registo->temperaturaConforme()) {
-            return null;
+        foreach ($registo->listarViolacoes() as $violacao) {
+            if ($violacao['parametro'] === 'temperatura') {
+                return $violacao['mensagem'];
+            }
         }
 
-        $fmt = fn (float $v): string => number_format($v, 1, ',', '');
-        $temp = (float) $registo->temperatura_efetivo;
-
-        return $temp < (float) $piscina->temp_min
-            ? 'temperatura '.$fmt($temp).' °C abaixo do mínimo ('.$fmt((float) $piscina->temp_min).')'
-            : 'temperatura '.$fmt($temp).' °C acima do máximo ('.$fmt((float) $piscina->temp_max).')';
+        return null;
     }
 
     /**
@@ -242,7 +256,7 @@ class AlertasService
             $registo->setRelation('piscina', $piscina);
 
             $violacoes = $this->violacoesLegais($registo);
-            $violacaoTemp = $this->violacaoTemperatura($registo, $piscina);
+            $violacaoTemp = $this->violacaoTemperatura($registo);
 
             if ($violacoes !== []) {
                 $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
@@ -251,7 +265,7 @@ class AlertasService
                     'titulo' => "{$nome}: parâmetros fora dos limites CN 14/DA",
                     'detalhe' => implode(' · ', $violacoes)
                         .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                    'url' => DailyRecordResource::getUrl('edit', ['record' => $registo]),
+                    'url' => DailyRecordResource::getUrl('index'),
                     'acao' => 'Ver registo',
                 ];
             }
@@ -263,7 +277,7 @@ class AlertasService
                     'titulo' => "{$nome}: temperatura fora da gama da piscina",
                     'detalhe' => $violacaoTemp
                         .' (registo de '.$registo->registado_em->format('d/m H:i').')',
-                    'url' => DailyRecordResource::getUrl('edit', ['record' => $registo]),
+                    'url' => DailyRecordResource::getUrl('index'),
                     'acao' => 'Ver registo',
                 ];
             }
@@ -281,7 +295,7 @@ class AlertasService
      *
      * @return array<string, array<string, mixed>>
      */
-    private function gerarAlertasTorneiras(Pool $piscina, string $nome, \Illuminate\Support\Collection $taps): array
+    private function gerarAlertasTorneiras(Pool $piscina, string $nome, Collection $taps): array
     {
         $alertas = [];
 

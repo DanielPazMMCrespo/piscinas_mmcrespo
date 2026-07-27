@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP extensions required by the app
-RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache
+# PHP extensions required by the app (bcmath: VAPID signing em minishlink/web-push)
+RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache bcmath
 
 # Upload limits
 RUN { \

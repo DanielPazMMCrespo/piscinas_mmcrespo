@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Models\DailyRecord;
 use App\Models\User;
@@ -12,7 +13,11 @@ class DailyRecordPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(UserRole::all());
+        if (! $user->hasAnyRole(UserRole::all())) {
+            return false;
+        }
+
+        return $user->podeVer(NSPermission::REGISTO_DIARIO);
     }
 
     public function view(User $user, DailyRecord $record): bool
@@ -22,6 +27,7 @@ class DailyRecordPolicy
         }
 
         return $user->hasRole(UserRole::NADADOR_SALVADOR)
+            && $user->podeVer(NSPermission::REGISTO_DIARIO)
             && $user->piscinas()->where('pools.id', $record->pool_id)->exists();
     }
 
@@ -31,8 +37,9 @@ class DailyRecordPolicy
             return true;
         }
         if ($user->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return $user->piscinas()->exists();
+            return $user->podeVer(NSPermission::REGISTO_DIARIO) && $user->piscinas()->exists();
         }
+
         return false;
     }
 

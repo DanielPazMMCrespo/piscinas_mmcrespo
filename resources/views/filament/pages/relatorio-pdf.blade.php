@@ -3,14 +3,27 @@
     <form wire:submit="exportar" class="space-y-6">
         {{ $this->form }}
 
-        <x-filament::button
-            type="submit"
-            icon="heroicon-o-arrow-down-tray"
-            wire:loading.attr="disabled"
-        >
-            <span wire:loading.remove wire:target="exportar">Exportar PDF</span>
-            <span wire:loading wire:target="exportar">A gerar PDF…</span>
-        </x-filament::button>
+        <div class="flex gap-2">
+            <x-filament::button
+                type="submit"
+                icon="heroicon-o-arrow-down-tray"
+                wire:loading.attr="disabled"
+            >
+                <span wire:loading.remove wire:target="exportar">Exportar PDF</span>
+                <span wire:loading wire:target="exportar">A gerar PDF…</span>
+            </x-filament::button>
+
+            <x-filament::button
+                type="button"
+                color="gray"
+                icon="heroicon-o-table-cells"
+                wire:click="exportarCsv"
+                wire:loading.attr="disabled"
+            >
+                <span wire:loading.remove wire:target="exportarCsv">Exportar CSV</span>
+                <span wire:loading wire:target="exportarCsv">A gerar CSV…</span>
+            </x-filament::button>
+        </div>
     </form>
 
     <x-filament::section icon="heroicon-o-information-circle" collapsible collapsed>
@@ -26,6 +39,9 @@
             <p>
                 Registos corrigidos pelos técnicos são excluídos (mantém-se apenas a versão válida,
                 assinalada com "(correção)"), em linha com o modelo append-only da aplicação.
+            </p>
+            <p>
+                Na tabela de leituras automáticas da sonda, o valor na coluna de <strong>Cloro Livre Manual</strong> apenas é apresentado quando um registo manual e uma leitura automática coincidem, permitindo verificar a correspondência entre o cloro livre e o valor de ORP medido. Caso o valor de cloro livre manual não seja credível (por estar fora dos limites legais ou em incoerência com o ORP), o mesmo é apresentado com destaque numa cor específica e acompanhado pela indicação do motivo.
             </p>
         </div>
     </x-filament::section>

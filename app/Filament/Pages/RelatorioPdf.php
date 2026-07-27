@@ -1,18 +1,24 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Filament\Pages;
 
-
+use App\Constants\WaterQualityThresholds;
+use App\Models\DailyRecord;
 use App\Models\Installation;
+use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
+use App\Services\LeituraArtefactoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -20,6 +26,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -32,6 +39,23 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * registo contra os limites legais definidos em DailyRecord (CN 14/DA, DGS 2009).
  * O download é feito por streamDownload a partir desta action Livewire —
  * sem rotas web adicionais.
+ */
+/**
+ * [AI_CONTEXT]
+ *
+ * IDEALIZADO:
+ * Geração do Livro de Registo Sanitário exigido pela legislação (CN 14/DA).
+ * Formato oficial em PDF que as autoridades e inspetores de saúde exigem.
+ *
+ * IMPLEMENTADO:
+ * - Filtros por instalação, piscina e datas.
+ * - Renderiza `resources/views/pdf/livro-sanitario.blade.php` via `barryvdh/laravel-dompdf`.
+ * - Avalia a conformidade de cada registo para preencher a coluna "Conforme" (✓/✗).
+ * - Regra Estrita de Query: Exclui do relatório oficial os registos que sofreram correção
+ *   (garantindo apenas a versão final via `whereDoesntHave('correcoes')`).
+ *
+ * EM FALTA (ROADMAP):
+ * - N/A
  */
 class RelatorioPdf extends Page implements HasForms
 {
@@ -71,16 +95,17 @@ class RelatorioPdf extends Page implements HasForms
             'data_inicio' => now()->startOfMonth()->toDateString(),
             'data_fim' => now()->subDay()->toDateString(),
             'registo_modo' => 'todos',
+            'controlador_modo' => 'media_diaria',
             'colunas_visiveis' => [
                 'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
                 'cloro_combinado', 'temperatura', 'transparencia',
-                'contador_valor', 'bomba_tanque', 'acao_corretiva',
-                'observacoes', 'conforme',
+                'contador_valor', 'bomba_tanque', 'banhistas',
+                'acao_corretiva', 'observacoes', 'conforme',
             ],
             'seccoes_visiveis' => [
                 'mostrar_resumo', 'mostrar_controlador_grafico',
-                'mostrar_controlador_tabela', 'mostrar_assinaturas',
-                'mostrar_nota_legal',
+                'mostrar_controlador_tabela', 'mostrar_acoes_operacionais',
+                'mostrar_assinaturas', 'mostrar_nota_legal',
             ],
         ]);
     }
@@ -149,10 +174,9 @@ class RelatorioPdf extends Page implements HasForms
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         Placeholder::make('aviso_customizacao')
-                            ->hidden(fn (Get $get) => 
-                                $get('registo_modo') === 'todos' &&
-                                count($get('colunas_visiveis') ?? []) === 13 &&
-                                count($get('seccoes_visiveis') ?? []) === 5
+                            ->hidden(fn (Get $get) => $get('registo_modo') === 'todos' &&
+                                count($get('colunas_visiveis') ?? []) === 14 &&
+                                count($get('seccoes_visiveis') ?? []) === 6
                             )
                             ->columnSpanFull()
                             ->content(new HtmlString('
@@ -167,10 +191,19 @@ class RelatorioPdf extends Page implements HasForms
                             ')),
 
                         Select::make('registo_modo')
-                            ->label('Tipo de agrupamento')
+                            ->label('Tipo de agrupamento (Registos Manuais)')
                             ->options([
                                 'todos' => 'Todos os registos diários',
                                 'media_diaria' => 'Média diária (um registo por dia)',
+                            ])
+                            ->required()
+                            ->live(),
+
+                        Select::make('controlador_modo')
+                            ->label('Tipo de agrupamento (Controlador)')
+                            ->options([
+                                'media_diaria' => 'Média diária (um registo por dia)',
+                                'todos' => 'Todos os registos detalhados (pode gerar muitas páginas)',
                             ])
                             ->required()
                             ->live(),
@@ -188,6 +221,11 @@ class RelatorioPdf extends Page implements HasForms
                                 'transparencia' => 'Transparência',
                                 'contador_valor' => 'Contador',
                                 'bomba_tanque' => 'Bomba / Tanque',
+                                'renovacao_agua' => 'Renovação Água',
+                                'caleira_feita' => 'Limpeza Caleira',
+                                'pressao_filtro' => 'Pressão Filtro (bar)',
+                                'lavagens_filtro' => 'Lavagens do Filtro',
+                                'banhistas' => 'Banhistas',
                                 'acao_corretiva' => 'Ações corretivas',
                                 'observacoes' => 'Observações',
                                 'conforme' => 'Conformidade',
@@ -201,6 +239,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_resumo' => 'Resumo da conformidade da piscina',
                                 'mostrar_controlador_grafico' => 'Gráfico do controlador Hanna BL132',
                                 'mostrar_controlador_tabela' => 'Tabela do controlador Hanna BL132',
+                                'mostrar_acoes_operacionais' => 'Ações operacionais (torneira, filtro, contador, etc.)',
                                 'mostrar_assinaturas' => 'Área de assinaturas',
                                 'mostrar_nota_legal' => 'Nota legal de rodapé',
                             ])
@@ -218,6 +257,9 @@ class RelatorioPdf extends Page implements HasForms
      */
     public function exportar(): ?StreamedResponse
     {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(240);
+
         $estado = $this->form->getState();
 
         $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
@@ -229,6 +271,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('A data de fim tem de ser igual ou posterior à data de início.')
                 ->danger()
                 ->send();
+
             return null;
         }
 
@@ -238,15 +281,34 @@ class RelatorioPdf extends Page implements HasForms
                 ->body('As datas não podem estar no futuro.')
                 ->danger()
                 ->send();
+
             return null;
         }
 
         $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
         $todas = $estado['pool_id'] === 'todas';
+        $numPiscinas = $todas ? $instalacao->piscinas()->count() : 1;
+
+        $dias = $inicio->diffInDays($fim->copy()->startOfDay()) + 1;
+        $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
+
+        // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
+        if ($modoControlador === 'todos' && $dias > 7) {
+            $novoFim = $inicio->copy()->addDays(6);
+            $this->data['data_fim'] = $novoFim->toDateString();
+
+            Notification::make()
+                ->title('Período ajustado')
+                ->body('O modo "Todos os registos" está limitado a 7 dias. A data fim foi ajustada para '.$novoFim->format('d/m/Y').'.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
 
         $piscinas = $instalacao->piscinas()
             ->when(! $todas, fn ($query) => $query->whereKey((int) $estado['pool_id']))
-                ->orderBy('name')
+            ->orderBy('name')
             ->get();
 
         if ($piscinas->isEmpty()) {
@@ -263,84 +325,7 @@ class RelatorioPdf extends Page implements HasForms
         $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
         $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
 
-        // Leituras do controlador agregadas por dia (média, min, max por piscina).
-        // Agrupadas por pool_id para acesso O(1) na montagem das secções.
-        $leiturasControlador = SensorReading::query()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->whereBetween('lida_em', [$inicio, $fim])
-            ->selectRaw('pool_id, DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
-            ->whereNotNull('ph')
-            ->groupByRaw('pool_id, DATE(lida_em)')
-            ->orderByRaw('DATE(lida_em)')
-            ->get()
-            ->groupBy('pool_id');
-
-        // Uma secção por piscina: registos do período, sem registos já corrigidos
-        // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        $seccoes = $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $leiturasControlador, $modo): array {
-            $registos = $piscina->registosDiarios()
-                ->with(['utilizador', 'piscina'])
-                ->whereBetween('registado_em', [$inicio, $fim])
-                ->whereDoesntHave('correcoes')
-                ->orderBy('registado_em')
-                ->get();
-
-            if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
-                $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
-                    ->map(function ($grupo, $dataStr) use ($piscina) {
-                        $dia = Carbon::parse($dataStr);
-                        
-                        $phAvg = $grupo->map(fn ($r) => $r->ph ?? $r->ns_ph)->filter(fn ($v) => $v !== null)->average();
-                        $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre ?? $r->ns_cloro_livre)->filter(fn ($v) => $v !== null)->average();
-                        $cloroTotalAvg = $grupo->map(fn ($r) => $r->cloro_total ?? $r->ns_cloro_total)->filter(fn ($v) => $v !== null)->average();
-                        $tempAvg = $grupo->map(fn ($r) => $r->temperatura ?? $r->ns_temperatura)->filter(fn ($v) => $v !== null)->average();
-                        $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
-                        $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
-                        
-                        $acoes = $grupo->pluck('acao_corretiva')->filter()->unique()->implode('; ');
-                        $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
-                        $tecnicos = $grupo->map(fn ($r) => $r->utilizador?->name)->filter()->unique()->implode(', ');
-                        
-                        $bombaFerrada = null;
-                        if ($grupo->whereNotNull('bomba_ferrada')->isNotEmpty()) {
-                            $bombaFerrada = $grupo->where('bomba_ferrada', false)->isEmpty();
-                        }
-                        $tanqueOk = null;
-                        if ($grupo->whereNotNull('tanque_ok')->isNotEmpty()) {
-                            $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
-                        }
-
-                        $mockRecord = new \App\Models\DailyRecord();
-                        $mockRecord->registado_em = $dia;
-                        $mockRecord->ph = $phAvg !== null ? round((float)$phAvg, 2) : null;
-                        $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float)$cloroLivreAvg, 2) : null;
-                        $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float)$cloroTotalAvg, 2) : null;
-                        $mockRecord->temperatura = $tempAvg !== null ? round((float)$tempAvg, 1) : null;
-                        $mockRecord->transparencia = $transparenciaAvg !== null ? round((float)$transparenciaAvg, 2) : null;
-                        $mockRecord->contador_valor = $contadorAvg !== null ? round((float)$contadorAvg, 2) : null;
-                        $mockRecord->bomba_ferrada = $bombaFerrada;
-                        $mockRecord->tanque_ok = $tanqueOk;
-                        $mockRecord->acao_corretiva = $acoes ?: null;
-                        $mockRecord->observacoes = $observacoes ?: null;
-                        $mockRecord->e_correcao = false;
-
-                        if ($tecnicos !== '') {
-                            $u = new \App\Models\User();
-                            $u->name = $tecnicos;
-                            $mockRecord->setRelation('utilizador', $u);
-                        }
-                        $mockRecord->setRelation('piscina', $piscina);
-
-                        return $mockRecord;
-                    })->values();
-            }
-
-            return [
-                'piscina' => $piscina,
-                'registos' => $registos,
-                'controlador' => $leiturasControlador->get($piscina->id) ?? collect(),
-            ];
-        })->all();
+        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $modo, $modoControlador);
 
         $pdf = Pdf::loadView('pdf.livro-sanitario', [
             'instalacao' => $instalacao,
@@ -352,6 +337,7 @@ class RelatorioPdf extends Page implements HasForms
             'colunasVisiveis' => $colunasVisiveis,
             'seccoesVisiveis' => $seccoesVisiveis,
             'modo' => $modo,
+            'controladorModo' => $estado['controlador_modo'] ?? 'media_diaria',
         ])->setPaper('a4', 'landscape');
 
         // Numeração "Página X de Y": render explícito no objeto Dompdf e
@@ -385,10 +371,390 @@ class RelatorioPdf extends Page implements HasForms
             $fim->format('Y-m-d'),
         );
 
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Gerou relatório PDF: {$nomeFicheiro}");
+
         return response()->streamDownload(
-            fn () => print($conteudo),
+            fn () => print ($conteudo),
             $nomeFicheiro,
             ['Content-Type' => 'application/pdf'],
         );
+    }
+
+    /**
+     * Exporta os registos filtrados (mesmos parâmetros do formulário) em CSV
+     * plano — um registo por linha, sem agregação diária — para análise em
+     * Excel/BI externo. Não aplica limite de 7 dias (não gera gráficos).
+     */
+    public function exportarCsv(): ?StreamedResponse
+    {
+        $estado = $this->form->getState();
+
+        $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
+        $fim = Carbon::parse((string) $estado['data_fim'])->endOfDay();
+
+        if ($inicio->isAfter($fim) || $inicio->isFuture() || $fim->isFuture()) {
+            Notification::make()
+                ->title('Erro de validação')
+                ->body('Verifique as datas de início e fim.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
+        $todas = $estado['pool_id'] === 'todas';
+
+        $piscinas = $instalacao->piscinas()
+            ->when(! $todas, fn ($query) => $query->whereKey((int) $estado['pool_id']))
+            ->orderBy('name')
+            ->get();
+
+        if ($piscinas->isEmpty()) {
+            Notification::make()
+                ->title('Sem piscinas')
+                ->body('A instalação selecionada não tem piscinas registadas.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
+        $registos = DailyRecord::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->whereDoesntHave('correcoes')
+            ->with(['piscina', 'utilizador'])
+            ->orderBy('registado_em')
+            ->get();
+
+        $nomeFicheiro = sprintf(
+            'registos_%s_%s_%s_%s.csv',
+            Str::slug($instalacao->name),
+            $todas ? 'todas' : Str::slug((string) $piscinas->first()?->name),
+            $inicio->format('Y-m-d'),
+            $fim->format('Y-m-d'),
+        );
+
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Exportou registos CSV: {$nomeFicheiro}");
+
+        return response()->streamDownload(function () use ($registos) {
+            $saida = fopen('php://output', 'w');
+            // BOM UTF-8: Excel no Windows abre acentos corretamente sem isto ficarem ilegíveis.
+            fwrite($saida, "\xEF\xBB\xBF");
+            fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Banhistas', 'Conforme'], ';');
+
+            foreach ($registos as $registo) {
+                fputcsv($saida, [
+                    $registo->piscina?->name,
+                    $registo->registado_em->format('d/m/Y H:i'),
+                    $registo->utilizador?->name,
+                    $registo->ph_efetivo,
+                    $registo->cloro_livre_efetivo,
+                    $registo->cloro_total_efetivo,
+                    $registo->cloro_combinado,
+                    $registo->temperatura_efetivo,
+                    $registo->transparencia,
+                    $registo->contador_valor,
+                    $registo->banhistas,
+                    empty($registo->listarViolacoes()) ? 'Sim' : 'Não',
+                ], ';');
+            }
+
+            fclose($saida);
+        }, $nomeFicheiro, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Constrói uma secção do livro sanitário por piscina (registos do período,
+     * agregados diários opcionais, e leituras do controlador Hanna). Extraído
+     * de exportar() para ser reutilizado pelo relatório mensal automático
+     * (GerarRelatorioMensalCommand) sem depender do estado do Livewire form.
+     *
+     * @param  Collection<int, Pool>  $piscinas
+     * @return array<int, array{piscina: Pool, registos: Collection, controlador: Collection, acoes_operacionais: Collection}>
+     */
+    public static function construirSeccoes(Collection $piscinas, Carbon $inicio, Carbon $fim, string $modo, string $modoControlador): array
+    {
+        // Ações operacionais no período, agrupadas por piscina — justificam
+        // valores anómalos do livro sanitário (ex.: lavagem de filtro).
+        $acoesOperacionais = OperationalAction::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->with('utilizador')
+            ->orderBy('registado_em')
+            ->get()
+            ->groupBy('pool_id');
+
+        $artefactoService = app(LeituraArtefactoService::class);
+
+        // Uma secção por piscina: registos do período, sem registos já corrigidos
+        // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
+        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $modoControlador): array {
+            $registos = $piscina->registosDiarios()
+                ->with(['utilizador', 'piscina', 'adicoes'])
+                ->whereBetween('registado_em', [$inicio, $fim])
+                ->whereDoesntHave('correcoes')
+                ->orderBy('registado_em')
+                ->get();
+
+            if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
+                $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
+                    ->map(function ($grupo, $dataStr) use ($piscina) {
+                        $dia = Carbon::parse($dataStr);
+
+                        $phAvg = $grupo->map(fn ($r) => $r->ph ?? $r->ns_ph)->filter(fn ($v) => $v !== null)->average();
+                        $cloroLivreAvg = $grupo->map(fn ($r) => $r->cloro_livre ?? $r->ns_cloro_livre)->filter(fn ($v) => $v !== null)->average();
+                        $cloroTotalAvg = $grupo->map(fn ($r) => $r->cloro_total ?? $r->ns_cloro_total)->filter(fn ($v) => $v !== null)->average();
+                        $tempAvg = $grupo->map(fn ($r) => $r->temperatura ?? $r->ns_temperatura)->filter(fn ($v) => $v !== null)->average();
+                        $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
+                        $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
+                        $pressaoAvg = $grupo->whereNotNull('pressao_filtro')->avg('pressao_filtro');
+
+                        $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
+                        $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
+                        $tecnicos = $grupo->map(fn ($r) => $r->utilizador?->name)->filter()->unique()->implode(', ');
+
+                        $bombaFerrada = null;
+                        if ($grupo->whereNotNull('bomba_ferrada')->isNotEmpty()) {
+                            $bombaFerrada = $grupo->where('bomba_ferrada', false)->isEmpty();
+                        }
+                        $tanqueOk = null;
+                        if ($grupo->whereNotNull('tanque_ok')->isNotEmpty()) {
+                            $tanqueOk = $grupo->where('tanque_ok', false)->isEmpty();
+                        }
+
+                        // Banhistas é contagem por registo ("desde o último registo") — o
+                        // agregado diário correto é a soma, não a média.
+                        $banhistasDia = $grupo->whereNotNull('banhistas')->isNotEmpty()
+                            ? (int) $grupo->sum('banhistas')
+                            : null;
+
+                        $lavagensFiltro = $grupo->sum('numero_lavagens_filtro');
+                        $lavouFiltroGrp = $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty() || $lavagensFiltro > 0;
+
+                        $renovacaoAgua = $grupo->where('renovacao_agua', true)->isNotEmpty()
+                            || $grupo->where('agua_modo', 'on_com_agua')->isNotEmpty()
+                            || ($grupo->where('agua_modo', 'auto_com_agua')->isNotEmpty() && $lavouFiltroGrp)
+                            ? true : null;
+
+                        $caleiraFeita = $grupo->where('caleira_feita', true)->isNotEmpty() ? true : null;
+
+                        if ($lavagensFiltro === 0 && $grupo->where('filtro_faz_retrolavagem', true)->isNotEmpty()) {
+                            $lavagensFiltro = 1;
+                        }
+
+                        $mockRecord = new DailyRecord;
+                        $mockRecord->registado_em = $dia;
+                        $mockRecord->ph = $phAvg !== null ? round((float) $phAvg, 2) : null;
+                        $mockRecord->cloro_livre = $cloroLivreAvg !== null ? round((float) $cloroLivreAvg, 2) : null;
+                        $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float) $cloroTotalAvg, 2) : null;
+                        $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
+                        $mockRecord->transparencia = $transparenciaAvg !== null ? round((float) $transparenciaAvg, 2) : null;
+                        $mockRecord->contador_valor = $contadorAvg !== null ? round((float) $contadorAvg, 2) : null;
+                        $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float) $pressaoAvg, 2) : null;
+                        $mockRecord->bomba_ferrada = $bombaFerrada;
+                        $mockRecord->tanque_ok = $tanqueOk;
+                        $mockRecord->renovacao_agua = $renovacaoAgua;
+                        $mockRecord->caleira_feita = $caleiraFeita;
+                        $mockRecord->numero_lavagens_filtro = $lavagensFiltro > 0 ? $lavagensFiltro : null;
+                        $mockRecord->banhistas = $banhistasDia;
+                        $mockRecord->acao_corretiva = $acoes ?: null;
+                        $mockRecord->observacoes = $observacoes ?: null;
+                        $mockRecord->e_correcao = false;
+
+                        if ($tecnicos !== '') {
+                            $u = new User;
+                            $u->name = $tecnicos;
+                            $mockRecord->setRelation('utilizador', $u);
+                        }
+                        $mockRecord->setRelation('piscina', $piscina);
+
+                        return $mockRecord;
+                    })->values();
+            }
+
+            // Controlador Hanna: lida com leituras artefacto (lavagem/bomba parada)
+            $janelas = $artefactoService->janelas($piscina->id, $inicio, $fim);
+
+            $queryControlador = SensorReading::query()
+                ->where('pool_id', $piscina->id)
+                ->whereBetween('lida_em', [$inicio, $fim])
+                ->whereNotNull('ph');
+
+            if ($modoControlador === 'media_diaria') {
+                $controlador = $queryControlador
+                    ->selectRaw('DATE(lida_em) as dia, AVG(ph) as ph_avg, MIN(ph) as ph_min, MAX(ph) as ph_max, AVG(orp) as orp_avg, AVG(temperatura_agua) as temp_avg, COUNT(*) as leituras')
+                    ->groupByRaw('DATE(lida_em)')
+                    ->orderByRaw('DATE(lida_em)')
+                    ->get();
+
+                // 1. Procurar anomalias ativas (pH < min, ORP < min ou ORP > max)
+                $anomalias = SensorReading::query()
+                    ->where('pool_id', $piscina->id)
+                    ->whereBetween('lida_em', [$inicio, $fim])
+                    ->where(function ($q) {
+                        $q->where('ph', '<', WaterQualityThresholds::ANOMALY_PH_MIN)
+                          ->orWhere('orp', '<', WaterQualityThresholds::ANOMALY_ORP_MIN)
+                          ->orWhere('orp', '>', WaterQualityThresholds::ANOMALY_ORP_MAX);
+                    })
+                    ->get();
+
+                $diasArtefacto = [];
+                // Se uma anomalia calhar dentro de uma janela, justificamos o dia com esse motivo
+                foreach ($anomalias as $anomalia) {
+                    $lidaEm = Carbon::parse($anomalia->lida_em);
+                    foreach ($janelas as $janela) {
+                        if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
+                            $diasArtefacto[$lidaEm->format('Y-m-d')][$janela['motivo']] = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Regra automática de lavagem de filtro para o controlador
+                // Aplicar a lógica de verificação usando base de dados para evitar carregar dezenas de milhares de modelos na memória
+                $phMin = WaterQualityThresholds::FILTER_WASH_PH_MIN;
+                $phMax = WaterQualityThresholds::FILTER_WASH_PH_MAX;
+                $orpMin = WaterQualityThresholds::FILTER_WASH_ORP_MIN;
+                $orpMax = WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+
+                $diasLavagem = SensorReading::query()
+                    ->where('pool_id', $piscina->id)
+                    ->whereBetween('lida_em', [$inicio, $fim])
+                    ->whereNotNull('ph')
+                    ->whereNotNull('orp')
+                    ->where(function ($q) use ($phMin, $phMax) {
+                        $q->where('ph', '<', $phMin)
+                          ->orWhere('ph', '>', $phMax);
+                    })
+                    ->where(function ($q) use ($orpMin, $orpMax) {
+                        $q->where('orp', '<', $orpMin)
+                          ->orWhere('orp', '>', $orpMax);
+                    })
+                    ->selectRaw('DATE(lida_em) as dia')
+                    ->groupByRaw('DATE(lida_em)')
+                    ->pluck('dia');
+
+                foreach ($diasLavagem as $diaKey) {
+                    $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
+                }
+
+                // 2. Para motivos de "Bomba parada", justificamos sempre o dia (causa falta de leituras)
+                foreach ($janelas as $janela) {
+                    if ($janela['motivo'] === 'Bomba parada') {
+                        $cursor = $janela['inicio']->copy()->startOfDay();
+                        $limite = $janela['fim']->copy();
+                        while ($cursor->lte($limite)) {
+                            $diasArtefacto[$cursor->format('Y-m-d')][$janela['motivo']] = true;
+                            $cursor->addDay();
+                        }
+                    }
+                }
+
+                $diasArtefacto = array_map(fn ($m) => implode(', ', array_keys($m)), $diasArtefacto);
+
+                $diasComLeitura = $controlador->pluck('dia')->all();
+                $controlador = $controlador->map(function ($linha) use ($diasArtefacto, $registos) {
+                    $linha->motivo_exclusao = $diasArtefacto[$linha->dia] ?? null;
+                    $linha->sem_leitura_valida = false;
+
+                    $diaCarbon = Carbon::parse($linha->dia);
+                    $cloroManualAvg = $registos
+                        ->filter(fn($r) => $r->registado_em->isSameDay($diaCarbon))
+                        ->map(fn($r) => $r->cloro_livre_efetivo)
+                        ->filter(fn($v) => $v !== null)
+                        ->average();
+
+                    $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;
+
+                    return $linha;
+                });
+                foreach ($diasArtefacto as $dia => $motivo) {
+                    if (! in_array($dia, $diasComLeitura, true)) {
+                        $sintetico = new \stdClass;
+                        $sintetico->dia = $dia;
+                        $sintetico->ph_avg = null;
+                        $sintetico->ph_min = null;
+                        $sintetico->ph_max = null;
+                        $sintetico->orp_avg = null;
+                        $sintetico->temp_avg = null;
+                        $sintetico->leituras = 0;
+                        $sintetico->motivo_exclusao = $motivo;
+                        $sintetico->sem_leitura_valida = true;
+                        $controlador->push($sintetico);
+                    }
+                }
+                $controlador = $controlador->sortBy('dia')->values();
+            } else {
+                // Modo todos os registos detalhados
+                $controladorLeituras = $queryControlador
+                    ->orderBy('lida_em')
+                    ->get();
+
+                $controlador = collect();
+                foreach ($controladorLeituras as $leitura) {
+                    $sintetico = new \stdClass;
+                    $sintetico->dia = Carbon::parse($leitura->lida_em)->format('Y-m-d');
+                    $sintetico->hora = Carbon::parse($leitura->lida_em)->format('H:i');
+                    $sintetico->ph = $leitura->ph;
+                    $sintetico->orp = $leitura->orp;
+                    $sintetico->temp_agua = $leitura->temperatura_agua;
+                    $sintetico->leituras = 1;
+
+                    $lidaEm = Carbon::parse($leitura->lida_em);
+
+                    // Procura o registo manual mais próximo (± 15 min)
+                    $closestRegisto = $registos->first(function ($r) use ($lidaEm) {
+                        return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
+                    });
+                    $sintetico->manual_cloro_livre = $closestRegisto ? $closestRegisto->cloro_livre_efetivo : null;
+
+                    // Verificar se cai em alguma janela
+                    $motivo = null;
+                    foreach ($janelas as $janela) {
+                        if ($lidaEm->between($janela['inicio'], $janela['fim'])) {
+                            $motivo = $janela['motivo'];
+                            break;
+                        }
+                    }
+
+                    if ($motivo === null && self::cumpresRegraLavagemFiltro($leitura->ph, $leitura->orp)) {
+                        $motivo = 'Lavagem de filtro';
+                    }
+
+                    $sintetico->motivo_exclusao = $motivo;
+                    $sintetico->sem_leitura_valida = $motivo !== null;
+
+                    $controlador->push($sintetico);
+                }
+            }
+
+            return [
+                'piscina' => $piscina,
+                'registos' => $registos,
+                'controlador' => $controlador,
+                'acoes_operacionais' => $acoesOperacionais->get($piscina->id) ?? collect(),
+            ];
+        })->all();
+    }
+
+    private static function cumpresRegraLavagemFiltro(mixed $ph, mixed $orp): bool
+    {
+        if ($ph === null || $orp === null || $ph === '' || $orp === '') {
+            return false;
+        }
+
+        $phFloat = (float) $ph;
+        $orpFloat = (float) $orp;
+
+        $phForaLimites = $phFloat < WaterQualityThresholds::FILTER_WASH_PH_MIN || $phFloat > WaterQualityThresholds::FILTER_WASH_PH_MAX;
+        $orpForaLimites = $orpFloat < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orpFloat > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
+
+        return $phForaLimites && $orpForaLimites;
     }
 }

@@ -28,23 +28,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
-    ],
-
-    'gemini' => [
-        'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_OCR_MODEL', 'gemini-2.0-flash'),
-        'confidence_threshold' => env('GEMINI_CONFIDENCE_THRESHOLD', 0.85),
-    ],
-
     'hanna' => [
         'email' => env('HANNA_CLOUD_EMAIL'),
         'password' => env('HANNA_CLOUD_PASSWORD'),
         'aes_key' => env('HANNA_AES_KEY'),
+    ],
+
+    'metrics' => [
+        'token' => env('METRICS_API_TOKEN'),
     ],
 
 ];

@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Widgets;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
 use App\Models\Pool;
@@ -8,6 +10,7 @@ use App\Models\StockInstallation;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Support\Facades\Cache;
 
 class StockBaixoWidget extends BaseWidget
 {
@@ -19,7 +22,7 @@ class StockBaixoWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $ids = \Illuminate\Support\Facades\Cache::remember('cache_low_stock_ids', 300, function () {
+        $ids = Cache::remember('cache_low_stock_ids', 300, function () {
             $query = StockInstallation::query()
                 ->whereColumn('quantity', '<=', 'limite_minimo');
 
@@ -35,6 +38,7 @@ class StockBaixoWidget extends BaseWidget
         });
 
         return $table
+            ->poll('30s')
             ->query(
                 StockInstallation::query()
                     ->whereIn('id', $ids)

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Services\HannaCloudService;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -17,7 +18,7 @@ class HannaCloudServiceTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
-        $this->service = new HannaCloudService();
+        $this->service = new HannaCloudService;
         config([
             'services.hanna.email' => 'test@mmcrespo.pt',
             'services.hanna.password' => 'secret_password',
@@ -34,9 +35,9 @@ class HannaCloudServiceTest extends TestCase
                         [
                             'tokenType' => 'accessToken',
                             'token' => 'mock_access_token_123',
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ]),
         ]);
 
@@ -50,8 +51,8 @@ class HannaCloudServiceTest extends TestCase
         Http::fake([
             'https://www.hannacloud.com/api/auth' => Http::response([
                 'data' => [
-                    'login' => []
-                ]
+                    'login' => [],
+                ],
             ]),
         ]);
 
@@ -89,9 +90,9 @@ class HannaCloudServiceTest extends TestCase
                             'status' => 'online',
                             'lastUpdated' => '2026-07-13T10:00:00Z',
                             'deviceName' => 'Piscina A',
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ]),
         ]);
 
@@ -102,8 +103,9 @@ class HannaCloudServiceTest extends TestCase
         $this->assertSame('SER-12345', $devices[0]['serial_number']);
         $this->assertSame('Piscina A', $devices[0]['name']);
 
-        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+        Http::assertSent(function (Request $request) {
             $payload = $request->data();
+
             return $request->url() === 'https://www.hannacloud.com/api/graphql'
                 && $payload['operationName'] === 'Devices'
                 && str_contains($payload['query'], 'query Devices');
@@ -135,10 +137,10 @@ class HannaCloudServiceTest extends TestCase
                                 'warnings' => [],
                                 'errors' => [],
                                 'status' => [],
-                            ]
-                        ]
-                    ]
-                ]
+                            ],
+                        ],
+                    ],
+                ],
             ]),
         ]);
 
@@ -166,9 +168,9 @@ class HannaCloudServiceTest extends TestCase
                         'DID' => 'DID-001',
                         'reportedSettings' => [
                             'DS' => 'Auto,7.2,0.5,60,750,50,60,1.2,0.8,300,300',
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ]),
         ]);
 
@@ -188,8 +190,8 @@ class HannaCloudServiceTest extends TestCase
                 'data' => [
                     'deviceLogHistory' => [
                         'data' => 'history_data_array',
-                    ]
-                ]
+                    ],
+                ],
             ]),
         ]);
 
@@ -199,5 +201,65 @@ class HannaCloudServiceTest extends TestCase
         $history = $this->service->getHistory('DID-001', $from, $to);
 
         $this->assertSame('history_data_array', $history['data']);
+    }
+
+    public function test_parse_history_entry_maps_positional_csv(): void
+    {
+        $parsed = HannaCloudService::parseHistoryEntry([
+            'DT' => '2026-07-21 07:55:57',
+            'RD' => '7.28,767,29.82,-44.5',
+            'DV' => '0.00,74.76',
+            'EV' => '00000000,00000000,00000000',
+            'noFlow' => false,
+        ]);
+
+        $this->assertSame('2026-07-21 07:55:57', $parsed['dt']);
+        $this->assertSame(7.28, $parsed['ph']);
+        $this->assertSame(767.0, $parsed['orp']);
+        $this->assertSame(29.82, $parsed['temperatura_agua']);
+        $this->assertSame(-44.5, $parsed['temperatura_ar']);
+        $this->assertSame(74.76, $parsed['dose_ph_ml']);
+        $this->assertSame(0.0, $parsed['dose_cloro_ml']);
+        $this->assertFalse($parsed['no_flow']);
+    }
+
+    public function test_parse_history_entry_tolerates_missing_fields(): void
+    {
+        $parsed = HannaCloudService::parseHistoryEntry(['DT' => '2026-07-21 07:00:00']);
+
+        $this->assertNull($parsed['ph']);
+        $this->assertNull($parsed['dose_cloro_ml']);
+        $this->assertFalse($parsed['no_flow']);
+    }
+
+    public function test_get_history_readings_sorts_oldest_first(): void
+    {
+        Cache::put('hanna_cloud_access_token', 'mock_access_token_123', 3600);
+        $this->service->authenticate('test@mmcrespo.pt', 'secret_password');
+
+        Http::fake([
+            'https://www.hannacloud.com/api/graphql' => Http::response([
+                'data' => [
+                    'deviceLogHistory' => [
+                        'data' => [
+                            ['DT' => '2026-07-21 07:55:57', 'RD' => '7.28,767,29.82,-44.5', 'DV' => '0.00,74.76'],
+                            ['DT' => '2026-07-21 07:39:27', 'RD' => '7.27,766,29.80,-44.5', 'DV' => '0.00,75.34'],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $leituras = $this->service->getHistoryReadings(
+            'DID-001',
+            new \DateTime('2026-07-21 07:00:00'),
+            new \DateTime('2026-07-21 08:00:00'),
+        );
+
+        $this->assertCount(2, $leituras);
+        $this->assertSame('2026-07-21 07:39:27', $leituras[0]['dt']);
+        $this->assertSame('2026-07-21 07:55:57', $leituras[1]['dt']);
+        $this->assertSame(75.34, $leituras[0]['dose_ph_ml']);
+        $this->assertSame(0.0, $leituras[0]['dose_cloro_ml']);
     }
 }

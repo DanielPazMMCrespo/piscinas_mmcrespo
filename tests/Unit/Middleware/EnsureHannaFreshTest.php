@@ -31,25 +31,25 @@ class EnsureHannaFreshTest extends TestCase
     private function createReading(int $minutesAgo): SensorReading
     {
         $installation = Installation::create([
-            'name'   => 'Leiria',
+            'name' => 'Leiria',
             'morada' => 'Rua Teste',
             'active' => true,
         ]);
 
         $pool = Pool::create([
             'installation_id' => $installation->id,
-            'name'            => 'Competição',
-            'type'            => 'competition',
-            'temp_min'        => 26.0,
-            'temp_max'        => 27.0,
-            'volume'          => 900.00,
-            'active'          => true,
+            'name' => 'Competição',
+            'type' => 'competition',
+            'temp_min' => 26.0,
+            'temp_max' => 27.0,
+            'volume' => 900.00,
+            'active' => true,
         ]);
 
         return SensorReading::create([
-            'pool_id'         => $pool->id,
+            'pool_id' => $pool->id,
             'hanna_device_id' => 'DEV-001',
-            'lida_em'         => now()->subMinutes($minutesAgo),
+            'lida_em' => now()->subMinutes($minutesAgo),
         ]);
     }
 

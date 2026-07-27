@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources\ProductResource\Pages;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources\ProductResource\Pages;
 
 use App\Filament\Resources\ProductResource;
 use App\Models\Product;
@@ -19,7 +21,7 @@ class EditProduct extends EditRecord
             ->pluck('categoria')
             ->toArray();
 
-        if (!in_array($data['categoria'] ?? '', $categoriasFixas, true)) {
+        if (! in_array($data['categoria'] ?? '', $categoriasFixas, true)) {
             $data['categoria_custom'] = $data['categoria'] ?? '';
             $data['categoria'] = 'outro';
         }
@@ -29,10 +31,11 @@ class EditProduct extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if ($data['categoria'] ?? null === 'outro' && !empty($data['categoria_custom'])) {
+        if (($data['categoria'] ?? null) === 'outro' && ! empty($data['categoria_custom'])) {
             $data['categoria'] = $data['categoria_custom'];
         }
         unset($data['categoria_custom']);
+
         return $data;
     }
 

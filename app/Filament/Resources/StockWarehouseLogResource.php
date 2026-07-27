@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Filament\Resources;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockWarehouseLogResource\Pages;
 use App\Models\StockWarehouseLog;
@@ -31,6 +33,7 @@ class StockWarehouseLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('produto', 'utilizador')->orderByDesc('created_at'))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
@@ -54,8 +57,7 @@ class StockWarehouseLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade')
-                    ->formatStateUsing(fn ($state, $record): string =>
-                        number_format((float) $state, 3, '.', '') . ' ' . ($record->produto?->unidade ?? ''))
+                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, '.', '').' '.($record->produto?->unidade ?? ''))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('fornecedor')
                     ->label('Fornecedor')

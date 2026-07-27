@@ -114,18 +114,18 @@
   <form method="POST" action="/primeiro-acesso">
     @csrf
 
-    <label>Nova palavra-passe *</label>
-    <input type="password" name="password" required autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+    <label for="password">Nova palavra-passe *</label>
+    <input type="password" id="password" name="password" required autocomplete="new-password" placeholder="Mínimo 8 caracteres">
     <p class="hint">Deve ser diferente da password inicial.</p>
 
-    <label>Confirmar palavra-passe *</label>
-    <input type="password" name="password_confirmation" required autocomplete="new-password">
+    <label for="password_confirmation">Confirmar palavra-passe *</label>
+    <input type="password" id="password_confirmation" name="password_confirmation" required autocomplete="new-password">
 
     <div class="section-title">PIN numérico (opcional)</div>
     <p class="section-hint">Para acesso rápido em campo.</p>
 
-    <label>PIN <span style="font-weight:400; color:#94a3b8">(4–6 dígitos)</span></label>
-    <input type="number" name="pin" inputmode="numeric" placeholder="Ex: 1234" min="0" max="999999">
+    <label for="pin">PIN <span style="font-weight:400; color:#94a3b8">(4–6 dígitos)</span></label>
+    <input type="number" id="pin" name="pin" inputmode="numeric" placeholder="Ex: 1234" min="0" max="999999">
     <p class="hint">Pode ter tanto a palavra-passe como o PIN.</p>
 
     <button class="btn" type="submit">Confirmar e continuar</button>

@@ -19,10 +19,15 @@ class DailyRecordRoleRestrictionTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $tecnico;
+
     private User $nadador;
+
     private Installation $leiria;
+
     private Pool $competicao;
+
     private Pool $lazer;
 
     protected function setUp(): void
@@ -95,5 +100,33 @@ class DailyRecordRoleRestrictionTest extends TestCase
             ->assertFormSet([
                 'installation_id' => $this->leiria->id,
             ]);
+    }
+
+    /**
+     * Regressão: a foto do quadro NS é obrigatória. O erro tem de aparecer como
+     * erro do campo (ns_foto) — antes, o fluxo de confirmação apanhava a
+     * ValidationException não importada como \Throwable e mostrava só a
+     * mensagem genérica "O formulário expirou", deixando o NS preso sem saber
+     * qual o campo em falta.
+     */
+    public function test_swimmer_missing_board_photo_surfaces_field_error(): void
+    {
+        $this->nadador->piscinas()->attach($this->competicao->id);
+
+        Livewire::actingAs($this->nadador)
+            ->test(CreateDailyRecord::class)
+            ->fillForm([
+                'installation_id' => $this->leiria->id,
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 27.0,
+                    ],
+                ],
+            ])
+            ->call('validarERegistosGuardar')
+            ->assertHasFormErrors(['ns_foto']);
     }
 }

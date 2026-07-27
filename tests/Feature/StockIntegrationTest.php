@@ -13,6 +13,7 @@ use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -101,13 +102,13 @@ class StockIntegrationTest extends TestCase
         $transfer_qty = 25.000;
 
         // Simulate the transfer action
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $transfer_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $transfer_qty, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $transfer_qty;
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $transfer_qty,
@@ -156,7 +157,7 @@ class StockIntegrationTest extends TestCase
         $this->assertEquals($transfer_qty, $stockInstallation->quantity);
 
         // Verify logs were created
-        $warehouse_log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $warehouse_log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('tipo_movimento', 'saida')
             ->first();
         $this->assertNotNull($warehouse_log);
@@ -179,7 +180,7 @@ class StockIntegrationTest extends TestCase
         $insufficient_qty = $stock_warehouse->quantity + 50.000;
 
         // Attempt transfer
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $insufficient_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $insufficient_qty) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
 
             if ($freshWarehouse->quantity < $insufficient_qty) {
@@ -213,13 +214,13 @@ class StockIntegrationTest extends TestCase
         $second_transfer = 15.000;
 
         // First transfer
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $first_transfer, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $first_transfer, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $first_transfer;
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $first_transfer,
@@ -243,13 +244,13 @@ class StockIntegrationTest extends TestCase
         });
 
         // Second transfer to same installation
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $second_transfer, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $installation, $second_transfer, $chlorine) {
             $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $freshWarehouse->quantity -= $second_transfer;
             $freshWarehouse->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'saida',
                 'quantity' => $second_transfer,
@@ -296,13 +297,13 @@ class StockIntegrationTest extends TestCase
         $initial_qty = $stock_warehouse->quantity;
         $entry_qty = 50.000;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $entry_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $entry_qty, $chlorine) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += $entry_qty;
             $fresh->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => 1,
                 'tipo_movimento' => 'entrada',
                 'quantity' => $entry_qty,
@@ -313,7 +314,7 @@ class StockIntegrationTest extends TestCase
         $stock_warehouse->refresh();
         $this->assertEquals($initial_qty + $entry_qty, $stock_warehouse->quantity);
 
-        $log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('tipo_movimento', 'entrada')
             ->first();
         $this->assertNotNull($log);
@@ -330,13 +331,13 @@ class StockIntegrationTest extends TestCase
 
         $test_time = now();
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $chlorine, $technician, $test_time) {
+        DB::transaction(function () use ($stock_warehouse, $chlorine, $technician) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += 10.000;
             $fresh->save();
 
             StockWarehouseLog::create([
-                'product_id' => $chlorine->id,
+                'stock_warehouse_id' => $stock_warehouse->id,
                 'user_id' => $technician->id,
                 'tipo_movimento' => 'entrada',
                 'quantity' => 10.000,
@@ -344,7 +345,7 @@ class StockIntegrationTest extends TestCase
             ]);
         });
 
-        $log = StockWarehouseLog::where('product_id', $chlorine->id)
+        $log = StockWarehouseLog::where('stock_warehouse_id', $stock_warehouse->id)
             ->where('user_id', $technician->id)
             ->first();
 
@@ -387,7 +388,7 @@ class StockIntegrationTest extends TestCase
         $total_transferred = 0;
 
         foreach ($quantities as $qty) {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($stock_warehouse, $installation, $qty, $chlorine, &$total_transferred) {
+            DB::transaction(function () use ($stock_warehouse, $installation, $qty, $chlorine, &$total_transferred) {
                 $freshWarehouse = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
 
                 if ($freshWarehouse->quantity >= $qty) {
@@ -396,7 +397,7 @@ class StockIntegrationTest extends TestCase
                     $total_transferred += $qty;
 
                     StockWarehouseLog::create([
-                        'product_id' => $chlorine->id,
+                        'stock_warehouse_id' => $stock_warehouse->id,
                         'user_id' => 1,
                         'tipo_movimento' => 'saida',
                         'quantity' => $qty,

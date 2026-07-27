@@ -5,14 +5,14 @@
 <img
     src="{{ asset('images/logo-mmcrespo.png') }}"
     alt="Piscinas MMCrespo"
-    class="mmcrespo-brand-logo h-full w-auto"
-    style="display: block;"
+    class="mmcrespo-brand-logo h-full w-auto object-contain"
+    style="display: block; background-color: transparent !important;"
 />
 <img
     src="{{ asset('images/logo_mmcrespo_branco.png') }}"
     alt="Piscinas MMCrespo"
-    class="mmcrespo-brand-logo-dark h-full w-auto"
-    style="display: none;"
+    class="mmcrespo-brand-logo-dark h-full w-auto object-contain"
+    style="display: none; background-color: transparent !important;"
 />
 <style>
     /* Pai do logo: manter sempre visível mesmo ao recolher a barra lateral */

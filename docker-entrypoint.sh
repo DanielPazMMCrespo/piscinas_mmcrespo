@@ -9,7 +9,7 @@ cd /var/www/html
 # nginx/php-fpm, and must NOT migrate/seed (the web service owns schema changes).
 # When invoked with any arguments (e.g. `php artisan queue:work ...`), run them
 # directly after a minimal, read-only setup.
-if [ "$#" -gt 0 ]; then
+if [ "$#" -gt 0 ] && [ "$1" != "php-fpm" ]; then
     echo "[entrypoint] command override detected — worker mode: $*"
     mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs
     chown -R www-data:www-data storage bootstrap/cache || true
@@ -59,9 +59,11 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan filament:optimize || true
 
+php artisan schedule:clear-cache || true
+
 # --- 5. Start scheduler in background (runs schedule:run every minute) ---
-php artisan schedule:work &
-echo "[entrypoint] scheduler started (PID $!)"
+(while true; do php artisan schedule:run & sleep 60; done) &
+echo "[entrypoint] scheduler started (resilient bash loop, PID $!)"
 
 # --- 6. Start php-fpm in background ---
 php-fpm --nodaemonize &

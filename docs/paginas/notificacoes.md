@@ -1,0 +1,27 @@
+# Notificações (`app/Filament/Pages/Notificacoes.php`)
+
+Sem pasta própria. Contexto local; o `CLAUDE.md` da raiz tem a arquitetura geral. Acesso: qualquer utilizador (partes de gestão condicionadas internamente a Admin via `podeGerir()`).
+
+## Propósito
+Três funções na mesma página:
+1. **Preferências pessoais** de notificação (push/email por tipo de evento) — 4 secções (Incidentes, Operação, Segurança/Conformidade/Sensores, Sistema); as 3 primeiras escondidas do NS.
+2. **Envio manual** de notificação a um cargo ou utilizador (só Admin). Uso real: avisos operacionais (piscina fechada, trocar produto) e lembretes administrativos (reuniões, RH).
+3. **Notificações Personalizadas agendadas** (`CustomBroadcast`, CRUD só Admin) — únicas ou diárias.
+
+## Lógica não óbvia
+- O Select "Horários do Resumo de Conformidade" aparece dentro do form de **preferências pessoais** só se `podeGerir()` — mistura de escopos (preferência individual vs. config global). Está **duplicado** com o mesmo campo em Definições do Sistema (mesmas opções, máx. 4) — dois pontos de edição para a mesma setting, mantê-los coerentes é manual.
+- `savePreferences()`: `array_replace_recursive` das preferências existentes com as novas — merge, não substituição total (não perde chaves ausentes do form atual).
+- `enviarManual()`: destino é cargo XOR utilizador; tag da notificação `manual-send-{time()}` (não idempotente entre pedidos muito próximos, aceitável para uma ação manual pontual).
+- Tabela de `CustomBroadcast`: coluna "Estado" muda de lógica por tipo — diário usa `ativo` (Ativo/Pausado), único usa `enviado_em` (Enviado/Agendado).
+
+## `FireDueCustomBroadcastsCommand` (`notificacoes:custom-fire-due`, agendado a cada minuto)
+- Únicos: `enviado_em IS NULL AND enviar_em <= now()` → envia e marca.
+- Diários: dispara em **qualquer corrida do dia a partir da hora agendada** (`hora_diaria <= agora`), não só no minuto exato — uma falha pontual do scheduler nesse minuto já não perde o envio. Protegido de duplo-envio no mesmo dia por `ultima_data_enviada`. (Nota: um broadcast diário criado depois da hora agendada dispara nesse mesmo dia; comportamento aceite.)
+- Destinatários via `User::role($broadcast->cargos)` — se vazio, não faz nada (sem log/aviso).
+
+## Coisas resolvidas
+- ✓ **Campo "Horários do Resumo de Conformidade" removido**: fonte de verdade agora só em DefinicoesSistema.php (página apropriada para settings globais, não para preferências pessoais).
+- ✓ **Janela de tolerância no disparo diário**: `FireDueCustomBroadcastsCommand` dispara a partir da hora agendada (não só no minuto exato), recuperando de uma falha pontual do scheduler sem risco de duplo-envio.
+
+## Coisas a rever
+- Nada pendente.

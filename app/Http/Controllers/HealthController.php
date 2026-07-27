@@ -1,6 +1,8 @@
-<?php declare(strict_types=1);
-namespace App\Http\Controllers;
+<?php
 
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -64,7 +66,7 @@ class HealthController extends Controller
     private function checkCache(): string
     {
         try {
-            $testKey = 'health_check_' . now()->timestamp;
+            $testKey = 'health_check_'.now()->timestamp;
             Cache::put($testKey, 'ok', 10);
             $value = Cache::get($testKey);
             Cache::forget($testKey);

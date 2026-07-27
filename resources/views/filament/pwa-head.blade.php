@@ -13,7 +13,7 @@
     // Regista o service worker para tornar a app instalável.
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-            navigator.serviceWorker.register('{{ url('/sw.js') }}', { scope: '/' })
+            navigator.serviceWorker.register('{{ url('/sw.js') }}?v=14', { scope: '/' })
                 .catch(function (e) { console.warn('SW registo falhou:', e); });
         });
     }

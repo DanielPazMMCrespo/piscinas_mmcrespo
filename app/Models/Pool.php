@@ -1,11 +1,16 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
-
+use App\Services\CacheService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -40,15 +45,19 @@ class Pool extends Model
         parent::boot();
 
         static::deleting(function (Pool $pool): void {
-            \Illuminate\Support\Facades\DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
-            \Illuminate\Support\Facades\DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
-            app(\App\Services\CacheService::class)->invalidatePoolData();
-            app(\App\Services\CacheService::class)->invalidateGraphCache($pool->id);
+            // filter_checks.pool_id é RESTRICT (sem cascade na BD) — tem de ser
+            // apagado à mão, senão o delete rebenta com FK violation em PostgreSQL.
+            $pool->verificacoesFiltro()->delete();
+            DB::table('tap_alerts')->where('pool_id', $pool->id)->delete();
+            DB::table('sensor_readings')->where('pool_id', $pool->id)->delete();
+            $pool->bidoesDosagem()->delete();
+            app(CacheService::class)->invalidatePoolData();
+            app(CacheService::class)->invalidateGraphCache($pool->id);
         });
 
         static::saved(function (Pool $pool): void {
-            app(\App\Services\CacheService::class)->invalidatePoolData();
-            app(\App\Services\CacheService::class)->invalidateGraphCache($pool->id);
+            app(CacheService::class)->invalidatePoolData();
+            app(CacheService::class)->invalidateGraphCache($pool->id);
         });
     }
 
@@ -86,7 +95,12 @@ class Pool extends Model
         return $this->hasMany(FilterCheck::class);
     }
 
-    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function bidoesDosagem(): HasMany
+    {
+        return $this->hasMany(DosingContainer::class);
+    }
+
+    public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_pools');
     }

@@ -14,8 +14,9 @@
     $colunasVisiveis = $colunasVisiveis ?? [
         'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
         'cloro_combinado', 'temperatura', 'transparencia',
-        'contador_valor', 'bomba_tanque', 'acao_corretiva',
-        'observacoes', 'conforme'
+        'contador_valor', 'bomba_tanque', 'renovacao_agua',
+        'caleira_feita', 'pressao_filtro', 'lavagens_filtro',
+        'banhistas', 'acao_corretiva', 'observacoes', 'conforme'
     ];
     $seccoesVisiveis = $seccoesVisiveis ?? [
         'mostrar_resumo', 'mostrar_controlador_grafico',
@@ -91,6 +92,8 @@
         table.registos {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
+            word-wrap: break-word;
         }
         table.registos thead { display: table-header-group; }
         table.registos th,
@@ -210,11 +213,16 @@
             $registos = $seccao['registos'];
             /** @var \Illuminate\Support\Collection $controlador */
             $controlador = $seccao['controlador'];
+            /** @var \Illuminate\Support\Collection<int, \App\Models\OperationalAction> $acoesOperacionais */
+            $acoesOperacionais = $seccao['acoes_operacionais'] ?? collect();
 
             // Conformidade global por registo: pH, cloro livre, cloro combinado
             // (limites legais do model) e temperatura (limites próprios da piscina).
+            // Chave por spl_object_id, não por id: em modo "média diária" os
+            // registos são objetos DailyRecord mock, cujo id nunca é definido
+            // (ficaria null para todos os dias e colapsaria a mesma chave).
             $conformidade = $registos->mapWithKeys(fn ($registo) => [
-                $registo->id => $registo->phConforme()
+                spl_object_id($registo) => $registo->phConforme()
                     && $registo->cloroLivreConforme()
                     && $registo->cloroCombinadoConforme()
                     && $registo->temperaturaConforme(),
@@ -226,8 +234,8 @@
                 ? round((($totalRegistos - $naoConformes) / $totalRegistos) * 100, 1)
                 : null;
 
-            $phMin = \App\Models\DailyRecord::PH_MIN;
-            $phMax = \App\Models\DailyRecord::PH_MAX;
+            $phMin = \App\Models\DailyRecord::getPhMin();
+            $phMax = \App\Models\DailyRecord::getPhMax();
         @endphp
 
         <div class="seccao-piscina {{ $indice > 0 ? 'quebra' : '' }}">
@@ -262,6 +270,11 @@
                             @if (in_array('transparencia', $colunasVisiveis)) <th>Transp.</th> @endif
                             @if (in_array('contador_valor', $colunasVisiveis)) <th>Contador (m³)</th> @endif
                             @if (in_array('bomba_tanque', $colunasVisiveis)) <th>Bomba / Tanque</th> @endif
+                            @if (in_array('renovacao_agua', $colunasVisiveis)) <th>Renov. Água</th> @endif
+                            @if (in_array('caleira_feita', $colunasVisiveis)) <th>Caleira</th> @endif
+                            @if (in_array('pressao_filtro', $colunasVisiveis)) <th>Pressão (bar)</th> @endif
+                            @if (in_array('lavagens_filtro', $colunasVisiveis)) <th>Lavagens</th> @endif
+                            @if (in_array('banhistas', $colunasVisiveis)) <th>Banhistas</th> @endif
                             @if (in_array('acao_corretiva', $colunasVisiveis)) <th>Ação corretiva</th> @endif
                             @if (in_array('observacoes', $colunasVisiveis)) <th>Observações</th> @endif
                             @if (in_array('conforme', $colunasVisiveis)) <th>Conforme</th> @endif
@@ -270,7 +283,7 @@
                     <tbody>
                         @foreach ($registos as $registo)
                             @php
-                                $conforme = $conformidade[$registo->id] ?? true;
+                                $conforme = $conformidade[spl_object_id($registo)] ?? true;
                                 // Negrito apenas quando o valor existe E está fora de gama.
                                 $phFora = $registo->ph_efetivo !== null && ! $registo->phConforme();
                                 $clFora = $registo->cloro_livre_efetivo !== null && ! $registo->cloroLivreConforme();
@@ -278,8 +291,14 @@
                                     && $registo->cloro_livre_efetivo !== null
                                     && ! $registo->cloroCombinadoConforme();
                                 $tempFora = $registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme();
-                                // Campo em implementação noutro fluxo — acesso defensivo.
-                                $acaoCorretiva = $registo->acao_corretiva ?? null;
+                                // Ação corretiva vem das adições de químicos (modo média usa o
+                                // atributo do mock; modo "todos" concatena as adições do registo).
+                                $acaoCorretiva = $registo->acao_corretiva
+                                    ?? ($registo->relationLoaded('adicoes')
+                                        ? ($registo->adicoes->pluck('acao_corretiva')->filter()->unique()->implode('; ') ?: null)
+                                        : null);
+                                $lavouFiltro = $registo->filtro_faz_retrolavagem || ($registo->numero_lavagens_filtro !== null && $registo->numero_lavagens_filtro > 0);
+                                $fezRenovacao = $registo->renovacao_agua || $registo->agua_modo === 'on_com_agua' || ($registo->agua_modo === 'auto_com_agua' && $lavouFiltro);
                             @endphp
                             <tr>
                                 <td>{{ $registo->registado_em?->format('d/m/Y') ?? '—' }}</td>
@@ -341,6 +360,29 @@
                                             {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
                                         @endif
                                     </td>
+                                @endif
+                                @if (in_array('renovacao_agua', $colunasVisiveis))
+                                    <td>{{ $fezRenovacao ? '✓' : ($registo->renovacao_agua === false ? '✗' : '—') }}</td>
+                                @endif
+                                @if (in_array('caleira_feita', $colunasVisiveis))
+                                    <td>{{ $registo->caleira_feita === null ? '—' : ($registo->caleira_feita ? '✓' : '✗') }}</td>
+                                @endif
+                                @if (in_array('pressao_filtro', $colunasVisiveis))
+                                    <td>{{ $registo->pressao_filtro !== null ? number_format((float) $registo->pressao_filtro, 2, ',', '') : '—' }}</td>
+                                @endif
+                                @if (in_array('lavagens_filtro', $colunasVisiveis))
+                                    <td>
+                                        @if ($registo->numero_lavagens_filtro !== null && $registo->numero_lavagens_filtro > 0)
+                                            {{ $registo->numero_lavagens_filtro }}
+                                        @elseif ($registo->filtro_faz_retrolavagem)
+                                            ✓
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                @endif
+                                @if (in_array('banhistas', $colunasVisiveis))
+                                    <td>{{ $registo->banhistas ?? '—' }}</td>
                                 @endif
                                 @if (in_array('acao_corretiva', $colunasVisiveis))
                                     <td class="texto">{{ $acaoCorretiva !== null && $acaoCorretiva !== '' ? \Illuminate\Support\Str::limit((string) $acaoCorretiva, 70) : '—' }}</td>
@@ -421,11 +463,12 @@
                     $prevHasVal = false;
                     foreach ($allDays as $i => $day) {
                         $leitura = $byDay->get($day->format('Y-m-d'));
-                        if ($leitura && $leitura->ph_avg !== null) {
+                        $phVal = $leitura ? ($leitura->ph_avg ?? $leitura->ph ?? null) : null;
+                        if ($phVal !== null) {
                             $x = $xFor($i);
-                            $y = $yFor((float) $leitura->ph_avg);
-                            $pathParts[] = ($prevHasVal ? "L{$x},{$y}" : "M{$x},{$y}");
-                            $prevHasVal  = true;
+                            $y = $yFor((float) $phVal);
+                            $pathParts[] = ($prevHasVal ? 'L' : 'M') . " $x $y";
+                            $prevHasVal = true;
                         } else {
                             $prevHasVal = false;
                         }
@@ -492,13 +535,16 @@
                             />
 
                             {{-- Pontos nos dias com leitura --}}
-                            @foreach ($allDays as $i => $day)
-                                @php $leitura = $byDay->get($day->format('Y-m-d')); @endphp
-                                @if ($leitura && $leitura->ph_avg !== null)
+                             @foreach ($allDays as $i => $day)
+                                @php
+                                    $leitura = $byDay->get($day->format('Y-m-d'));
+                                    $phVal = $leitura ? ($leitura->ph_avg ?? $leitura->ph ?? null) : null;
+                                @endphp
+                                @if ($phVal !== null)
                                     @php
                                         $cx    = $xFor($i);
-                                        $cy    = $yFor((float) $leitura->ph_avg);
-                                        $fora  = (float) $leitura->ph_avg < $phMin || (float) $leitura->ph_avg > $phMax;
+                                        $cy    = $yFor((float) $phVal);
+                                        $fora  = (float) $phVal < $phMin || (float) $phVal > $phMax;
                                     @endphp
                                     <circle
                                         cx="{{ $cx }}" cy="{{ $cy }}" r="2"
@@ -537,78 +583,317 @@
 
                 {{-- Tabela de médias diárias do controlador --}}
                 @if (in_array('mostrar_controlador_tabela', $seccoesVisiveis))
-                <table class="registos controlador">
+                @if (!isset($controladorModo) || $controladorModo === 'media_diaria')
+                    <table class="registos controlador">
+                        <thead>
+                            <tr>
+                                <th style="width: 9%;">Data</th>
+                                <th style="width: 7%;">Leituras/dia</th>
+                                <th style="width: 8%;">pH Médio</th>
+                                <th style="width: 8%;">pH Mínimo</th>
+                                <th style="width: 8%;">pH Máximo</th>
+                                <th style="width: 10%;">ORP Médio (mV)</th>
+                                <th style="width: 9%;">Cl. Livre Manual</th>
+                                <th style="width: 11%;">Temp. Água Média (°C)</th>
+                                <th style="width: 7%;">pH Conforme</th>
+                                <th style="width: 14%;">Excluído (motivo)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($controlador as $leitura)
+                                @php
+                                    $semLeitura = $leitura->sem_leitura_valida ?? false;
+                                    $motivoExclusao = $leitura->motivo_exclusao ?? null;
+                                    $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
+                                    $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
+                                    $phConforme = $phMed !== null && !$phMedFora;
+                                    $clManual = $leitura->manual_cloro_livre ?? null;
+                                @endphp
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
+                                    @if ($semLeitura)
+                                        <td colspan="8" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                    @else
+                                        <td>{{ $leitura->leituras }}</td>
+                                        <td>
+                                            @if ($phMed !== null)
+                                                <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->ph_min !== null)
+                                                @php $v = round((float) $leitura->ph_min, 2); @endphp
+                                                <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->ph_max !== null)
+                                                @php $v = round((float) $leitura->ph_max, 2); @endphp
+                                                <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->orp_avg !== null)
+                                                {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->temp_avg !== null)
+                                                {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($phMed !== null)
+                                                @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                    @endif
+                                    <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <table class="registos controlador">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">Data</th>
+                                <th style="width: 8%;">Hora</th>
+                                <th style="width: 11%;">pH</th>
+                                <th style="width: 12%;">ORP (mV)</th>
+                                <th style="width: 15%;">Cl. Livre Manual</th>
+                                <th style="width: 12%;">Temp. Água (°C)</th>
+                                <th style="width: 9%;">pH Conforme</th>
+                                <th style="width: 23%;">Excluído (motivo)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($controlador as $leitura)
+                                @php
+                                    $semLeitura = $leitura->sem_leitura_valida ?? false;
+                                    $motivoExclusao = $leitura->motivo_exclusao ?? null;
+                                    $ph = $leitura->ph !== null ? round((float) $leitura->ph, 2) : null;
+                                    $phFora = $ph !== null && ($ph < $phMin || $ph > $phMax);
+                                    $phConforme = $ph !== null && !$phFora;
+                                    $clManual = $leitura->manual_cloro_livre ?? null;
+                                @endphp
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
+                                    <td>{{ $leitura->hora ?? '—' }}</td>
+                                    @if ($semLeitura && $ph === null)
+                                        <td colspan="5" class="texto" style="font-style: italic;">Sem leitura válida</td>
+                                    @else
+                                        <td>
+                                            @if ($ph !== null)
+                                                <span @class(['fora-gama' => $phFora])>{{ number_format($ph, 2, ',', '') }}</span>
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->orp !== null)
+                                                {{ number_format(round((float) $leitura->orp, 0), 0, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($clManual !== null)
+                                                {{ number_format($clManual, 2, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($leitura->temp_agua !== null)
+                                                {{ number_format(round((float) $leitura->temp_agua, 1), 1, ',', '') }}
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($ph !== null)
+                                                @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                    @endif
+                                    <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+
+                @php
+                    $totalLeituras = $controlador->sum('leituras');
+                    $isTodos = isset($controladorModo) && $controladorModo === 'todos';
+                    $diasFora = $isTodos 
+                        ? $controlador->filter(fn ($l) => ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax))->count()
+                        : $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
+                    $diasComDados = $isTodos
+                        ? $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->unique('dia')->count()
+                        : $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
+                    $diasArtefacto = $isTodos
+                        ? $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->unique('dia')->count()
+                        : $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
+                @endphp
+                <p class="resumo">
+                    <strong>Controlador — {{ $piscina->name }}:</strong>
+                    {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
+                    | {{ $isTodos ? 'Leituras com' : 'Dias com' }} pH {{ $isTodos ? '' : 'médio ' }}fora de gama: <strong>{{ $diasFora }}</strong>
+                    @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
+                    | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
+                </p>
+                <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
+                    Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.
+                </p>
+                <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
+                    Nota (Cloro Livre Manual): o valor na coluna «Cl. Livre Manual» da tabela da sonda é apenas apresentado quando um registo manual coincide com uma leitura automática, de modo a permitir verificar qual o cloro livre que coincide com o valor de ORP. Caso o valor não seja credível (por estar fora dos limites ou em incoerência com o ORP), este é apresentado com destaque numa cor/formatação específica acompanhado do motivo da não conformidade.
+                </p>
+                @endif
+            @endif
+
+            {{-- ================================================================
+                 Ações Operacionais — eventos pontuais (torneira, filtro, contador,
+                 bomba, tanque, análise rápida) que podem justificar valores fora
+                 dos limites legais no período.
+                 ================================================================ --}}
+            @php
+                $todasAcoes = collect();
+                if ($acoesOperacionais->isNotEmpty()) {
+                    foreach ($acoesOperacionais as $a) {
+                        $todasAcoes->push((object)[
+                            'ts' => $a->registado_em,
+                            'tipo' => $a->tipoLabel(),
+                            'user' => $a->utilizador?->name ?? '—',
+                            'dados' => $a->dadosFormatados(),
+                            'obs' => $a->observacoes
+                        ]);
+                    }
+                }
+                if (isset($seccao['filter_checks']) && $seccao['filter_checks']->isNotEmpty()) {
+                    foreach ($seccao['filter_checks'] as $fc) {
+                        $todasAcoes->push((object)[
+                            'ts' => $fc->verificado_em,
+                            'tipo' => $fc->tipo_operacao === 'enxaguamento' ? 'Enxaguamento de filtro (Painel)' : 'Lavagem de filtro (Painel)',
+                            'user' => $fc->utilizador?->name ?? '—',
+                            'dados' => 'Pelo esquema interativo',
+                            'obs' => $fc->observacoes
+                        ]);
+                    }
+                }
+                $todasAcoes = $todasAcoes->sortBy('ts');
+            @endphp
+
+            @if ($todasAcoes->isNotEmpty() && in_array('mostrar_acoes_operacionais', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Ações Operacionais
+                    <span class="controlador-subtitulo">(eventos pontuais registados fora do registo diário completo)</span>
+                </p>
+                <table class="registos">
                     <thead>
                         <tr>
-                            <th style="width: 9%;">Data</th>
-                            <th style="width: 7%;">Leituras/dia</th>
-                            <th style="width: 9%;">pH Médio</th>
-                            <th style="width: 9%;">pH Mínimo</th>
-                            <th style="width: 9%;">pH Máximo</th>
-                            <th style="width: 11%;">ORP Médio (mV)</th>
-                            <th style="width: 12%;">Temp. Água Média (°C)</th>
-                            <th style="width: 8%;">pH Conforme</th>
+                            <th>Data</th>
+                            <th>Hora</th>
+                            <th>Ação</th>
+                            <th>Responsável</th>
+                            <th>Valores</th>
+                            <th>Observações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($controlador as $leitura)
-                            @php
-                                $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
-                                $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
-                                $phConforme = $phMed !== null && !$phMedFora;
-                            @endphp
+                        @foreach ($todasAcoes as $acao)
                             <tr>
-                                <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
-                                <td>{{ $leitura->leituras }}</td>
+                                <td>{{ \Carbon\Carbon::parse($acao->ts)->format('d/m/Y') }}</td>
+                                <td>{{ \Carbon\Carbon::parse($acao->ts)->format('H:i') }}</td>
+                                <td class="texto">{{ $acao->tipo }}</td>
+                                <td class="texto">{{ $acao->user }}</td>
+                                <td class="texto">{{ $acao->dados }}</td>
+                                <td class="texto">{{ filled($acao->obs) ? \Illuminate\Support\Str::limit((string) $acao->obs, 80) : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            {{-- ================================================================
+                 Ocorrências e Incidentes — reportes e problemas na instalação
+                 ================================================================ --}}
+            @if (isset($seccao['incidentes']) && $seccao['incidentes']->isNotEmpty() && in_array('mostrar_incidentes', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Ocorrências e Incidentes
+                    <span class="controlador-subtitulo">(problemas reportados que podem afetar o funcionamento normal)</span>
+                </p>
+                <table class="registos">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Data</th>
+                            <th style="width: 15%;">Tipo</th>
+                            <th style="width: 15%;">Reportado por</th>
+                            <th style="width: 25%;">Descrição</th>
+                            <th style="width: 13%;">Estado</th>
+                            <th style="width: 20%;">Resolução</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($seccao['incidentes'] as $inc)
+                            <tr>
+                                <td>{{ $inc->ocorreu_em->format('d/m/Y H:i') }}</td>
+                                <td class="texto">{{ ucfirst($inc->type ?? 'Geral') }}</td>
+                                <td class="texto">{{ $inc->utilizador?->name ?? '—' }}</td>
+                                <td class="texto">{{ \Illuminate\Support\Str::limit((string) $inc->descricao, 100) }}</td>
                                 <td>
-                                    @if ($phMed !== null)
-                                        <span @class(['fora-gama' => $phMedFora])>{{ number_format($phMed, 2, ',', '') }}</span>
-                                    @else — @endif
+                                    @if ($inc->estaResolvido())
+                                        Resolvido
+                                    @else
+                                        <span class="nao-conforme">Em aberto</span>
+                                    @endif
                                 </td>
-                                <td>
-                                    @if ($leitura->ph_min !== null)
-                                        @php $v = round((float) $leitura->ph_min, 2); @endphp
-                                        <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->ph_max !== null)
-                                        @php $v = round((float) $leitura->ph_max, 2); @endphp
-                                        <span @class(['fora-gama' => $v < $phMin || $v > $phMax])>{{ number_format($v, 2, ',', '') }}</span>
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->orp_avg !== null)
-                                        {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($leitura->temp_avg !== null)
-                                        {{ number_format(round((float) $leitura->temp_avg, 1), 1, ',', '') }}
-                                    @else — @endif
-                                </td>
-                                <td>
-                                    @if ($phMed !== null)
-                                        @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
-                                    @else — @endif
+                                <td class="texto">
+                                    @if ($inc->estaResolvido())
+                                        {{ $inc->resolvido_em?->format('d/m/Y') }} por {{ $inc->resolvidoPor?->name ?? '—' }}
+                                    @else
+                                        —
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
+            @endif
 
-                @php
-                    $totalLeituras = $controlador->sum('leituras');
-                    $diasFora = $controlador->filter(fn ($l) => $l->ph_avg !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
-                    $diasComDados = $controlador->count();
-                @endphp
-                <p class="resumo">
-                    <strong>Controlador — {{ $piscina->name }}:</strong>
-                    {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
-                    | Dias com pH médio fora de gama: <strong>{{ $diasFora }}</strong>
-                    | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
+            {{-- ================================================================
+                 Reposições e Consumos Químicos (Bidões)
+                 ================================================================ --}}
+            @if (isset($seccao['consumos_quimicos']) && $seccao['consumos_quimicos']->isNotEmpty() && in_array('mostrar_consumos_quimicos', $seccoesVisiveis))
+                <p class="controlador-titulo">
+                    Reposições e Consumos Químicos
+                    <span class="controlador-subtitulo">(registos de bidões e níveis de químicos)</span>
                 </p>
-                @endif
+                <table class="registos">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Data</th>
+                            <th style="width: 10%;">Ação</th>
+                            <th style="width: 15%;">Químico</th>
+                            <th style="width: 15%;">Quantidade</th>
+                            <th style="width: 15%;">Responsável</th>
+                            <th style="width: 33%;">Nota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($seccao['consumos_quimicos'] as $log)
+                            <tr>
+                                <td>{{ $log->registado_em->format('d/m/Y H:i') }}</td>
+                                <td class="texto">{{ ucfirst($log->tipo_movimento) }}</td>
+                                <td class="texto">{{ $log->container?->tipoLabel() ?? '—' }}</td>
+                                <td>
+                                    {{ $log->quantidade_ml > 0 ? '+' : '' }}{{ number_format((float) $log->quantidade_ml / 1000, 2) }} L
+                                    <br><span style="font-size: 6px;">(Ficou: {{ number_format((float) $log->restante_apos_ml / 1000, 2) }} L)</span>
+                                </td>
+                                <td class="texto">{{ $log->utilizador?->name ?? ($log->origem === 'sonda' ? 'Sistema Automático' : '—') }}</td>
+                                <td class="texto">{{ filled($log->nota) ? \Illuminate\Support\Str::limit((string) $log->nota, 80) : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             @endif
 
         </div>

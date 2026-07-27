@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('record_additions_archive')) {
+        if (! Schema::hasTable('record_additions_archive')) {
             Schema::create('record_additions_archive', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('daily_record_id')->constrained('daily_records_archive')->cascadeOnDelete();
@@ -21,7 +21,7 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('record_photos_archive')) {
+        if (! Schema::hasTable('record_photos_archive')) {
             Schema::create('record_photos_archive', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('daily_record_id')->constrained('daily_records_archive')->cascadeOnDelete();

@@ -10,7 +10,6 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class HannaSyncTest extends TestCase
@@ -20,40 +19,40 @@ class HannaSyncTest extends TestCase
     private function createDevice(array $override = []): HannaDevice
     {
         $installation = Installation::create([
-            'name'    => 'Leiria',
-            'morada'  => 'Rua Teste',
-            'active'  => true,
+            'name' => 'Leiria',
+            'morada' => 'Rua Teste',
+            'active' => true,
         ]);
 
         $pool = Pool::create([
             'installation_id' => $installation->id,
-            'name'            => 'Competição',
-            'type'            => 'competition',
-            'temp_min'        => 26.0,
-            'temp_max'        => 27.0,
-            'volume'          => 900.00,
-            'active'          => true,
+            'name' => 'Competição',
+            'type' => 'competition',
+            'temp_min' => 26.0,
+            'temp_max' => 27.0,
+            'volume' => 900.00,
+            'active' => true,
         ]);
 
         return HannaDevice::create(array_merge([
             'hanna_device_id' => 'DEV-001',
-            'name'            => 'Sensor Competição',
-            'pool_id'         => $pool->id,
-            'active'          => true,
+            'name' => 'Sensor Competição',
+            'pool_id' => $pool->id,
+            'active' => true,
         ], $override));
     }
 
     private function defaultReading(): array
     {
         return [
-            'dt'               => now()->toDateTimeString(),
-            'ph'               => 7.2,
-            'orp'              => 750.0,
+            'dt' => now()->toDateTimeString(),
+            'ph' => 7.2,
+            'orp' => 750.0,
             'temperatura_agua' => 26.5,
-            'temperatura_ar'   => 25.0,
-            'caudal_ph'        => 1.2,
-            'caudal_cloro'     => 0.8,
-            'raw_parameters'   => ['test' => true],
+            'temperatura_ar' => 25.0,
+            'caudal_ph' => 1.2,
+            'caudal_cloro' => 0.8,
+            'raw_parameters' => ['test' => true],
         ];
     }
 
@@ -74,7 +73,7 @@ class HannaSyncTest extends TestCase
 
         $this->assertDatabaseHas('sensor_readings', [
             'hanna_device_id' => 'DEV-001',
-            'ph'              => '7.20',
+            'ph' => '7.20',
         ]);
     }
 
@@ -84,13 +83,13 @@ class HannaSyncTest extends TestCase
         $timestamp = now()->toDateTimeString();
 
         SensorReading::create([
-            'pool_id'          => $device->pool_id,
-            'hanna_device_id'  => 'DEV-001',
-            'lida_em'          => $timestamp,
-            'ph'               => 7.2,
-            'orp'              => 750.0,
+            'pool_id' => $device->pool_id,
+            'hanna_device_id' => 'DEV-001',
+            'lida_em' => $timestamp,
+            'ph' => 7.2,
+            'orp' => 750.0,
             'temperatura_agua' => 26.5,
-            'temperatura_ar'   => 25.0,
+            'temperatura_ar' => 25.0,
         ]);
 
         $mock = $this->mock(HannaCloudService::class);
@@ -154,5 +153,37 @@ class HannaSyncTest extends TestCase
         config(['services.hanna.email' => '', 'services.hanna.password' => '']);
 
         $this->artisan('hanna:sync')->assertFailed();
+    }
+
+    public function test_discover_preserves_manually_disabled_device(): void
+    {
+        $device = $this->createDevice(['active' => false]);
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getDevices')->once()->andReturn([
+            ['DID' => 'DEV-001', 'name' => 'Sensor Competição', 'DM' => 'BL132'],
+        ]);
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync --discover')->assertSuccessful();
+
+        $this->assertFalse((bool) $device->fresh()->active);
+    }
+
+    public function test_discover_creates_new_device_as_active(): void
+    {
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getDevices')->once()->andReturn([
+            ['DID' => 'DEV-999', 'name' => 'Novo Sensor', 'DM' => 'BL132'],
+        ]);
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync --discover')->assertSuccessful();
+
+        $this->assertDatabaseHas('hanna_devices', ['hanna_device_id' => 'DEV-999', 'active' => true]);
     }
 }

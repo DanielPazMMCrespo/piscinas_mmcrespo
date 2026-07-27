@@ -1,13 +1,18 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Models;
 
-
+use App\Enums\EstadoConformidade;
+use App\Services\SettingsService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -29,27 +34,46 @@ class DailyRecord extends Model
      * Fonte única de verdade — usados em validação, tabelas e dashboard.
      */
     public const PH_MIN = 6.9;
+
     public const PH_MAX = 8.0;
+
     public const CLORO_LIVRE_MIN = 0.5;
+
     public const CLORO_LIVRE_MAX = 2.0;
+
     public const CLORO_COMBINADO_MAX = 0.6;
+
     public const TRANSPARENCIA_MAX = 5.0;
 
+    public static function getPhMin(): float
+    {
+        return app(SettingsService::class)->getFloat('ph_min', self::PH_MIN);
+    }
 
-    public const METRICAS = [
-        'ph' => ['label' => 'pH', 'min' => self::PH_MIN, 'max' => self::PH_MAX, 'unidade' => ''],
-        'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::CLORO_LIVRE_MIN, 'max' => self::CLORO_LIVRE_MAX, 'unidade' => 'mg/L'],
-        'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::CLORO_COMBINADO_MAX, 'unidade' => 'mg/L'],
-        'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::TRANSPARENCIA_MAX, 'unidade' => 'FNU'],
-        'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
-    ];
+    public static function getPhMax(): float
+    {
+        return app(SettingsService::class)->getFloat('ph_max', self::PH_MAX);
+    }
 
-    public static function getPhMin(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_min', self::PH_MIN); }
-    public static function getPhMax(): float { return app(\App\Services\SettingsService::class)->getFloat('ph_max', self::PH_MAX); }
-    public static function getCloroLivreMin(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN); }
-    public static function getCloroLivreMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX); }
-    public static function getCloroCombinadoMax(): float { return app(\App\Services\SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX); }
-    public static function getTransparenciaMax(): float { return app(\App\Services\SettingsService::class)->getFloat('transparencia_max', self::TRANSPARENCIA_MAX); }
+    public static function getCloroLivreMin(): float
+    {
+        return app(SettingsService::class)->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
+    }
+
+    public static function getCloroLivreMax(): float
+    {
+        return app(SettingsService::class)->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+    }
+
+    public static function getCloroCombinadoMax(): float
+    {
+        return app(SettingsService::class)->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+    }
+
+    public static function getTransparenciaMax(): float
+    {
+        return app(SettingsService::class)->getFloat('transparencia_max', self::TRANSPARENCIA_MAX);
+    }
 
     /**
      * Mapa central das métricas com limites legais dinâmicos — fonte única para o semáforo
@@ -67,7 +91,7 @@ class DailyRecord extends Model
     }
 
     protected $fillable = [
-        'pool_id', 'user_id', 'registado_em',
+        'pool_id', 'user_id', 'registado_em', 'hora_colheita',
         'cloro_livre', 'cloro_total',
         'ph', 'temperatura', 'transparencia',
         'caleira_feita', 'renovacao_agua',
@@ -76,11 +100,12 @@ class DailyRecord extends Model
         'corrige_registo_id', 'razao_correcao',
         // Leituras do Nadador-Salvador
         'ns_foto', 'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura',
+        'banhistas',
         // Filtros
-        'filtro_faz_retrolavagem',
+        'filtro_faz_retrolavagem', 'numero_lavagens_filtro',
         'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
         // Caminho da água
-        'bomba_ferrada', 'bomba_foto', 'contador_valor', 'contador_foto', 'agua_modo',
+        'bomba_ferrada', 'bomba_foto', 'contador_valor', 'contador_foto', 'torneira_foto', 'agua_modo',
         'tanque_ok', 'tanque_observacoes', 'tanque_foto',
         // Fotos das nossas análises (até 5)
         'analises_fotos',
@@ -104,6 +129,8 @@ class DailyRecord extends Model
         'bomba_ferrada' => 'boolean',
         'tanque_ok' => 'boolean',
         'filtro_faz_retrolavagem' => 'boolean',
+        'numero_lavagens_filtro' => 'integer',
+        'banhistas' => 'integer',
         'e_correcao' => 'boolean',
         'analises_fotos' => 'array',
     ];
@@ -152,18 +179,18 @@ class DailyRecord extends Model
      * Fonte única usada pelos hints reativos do DailyRecordResource.
      *
      * @return array{estado: string, mensagem: string}
-     *   estado: \App\Enums\EstadoConformidade (verde|amarelo|vermelho|neutro)
+     *                                                 estado: \App\Enums\EstadoConformidade (verde|amarelo|vermelho|neutro)
      */
     public static function avaliarConformidade(string $campo, mixed $valor, ?Pool $piscina = null): array
     {
         if ($valor === null || $valor === '') {
-            return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
+            return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
         $campoReal = str_starts_with($campo, 'ns_') ? substr($campo, 3) : $campo;
         $meta = self::getMetricas()[$campoReal] ?? null;
         if ($meta === null) {
-            return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => ''];
+            return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
         $valor = (float) $valor;
@@ -172,9 +199,9 @@ class DailyRecord extends Model
         $label = $meta['label'];
         $unidade = $meta['unidade'] !== '' ? ' '.$meta['unidade'] : '';
 
-        if ($campo === 'temperatura') {
+        if ($campoReal === 'temperatura') {
             if (! $piscina || $piscina->temp_min === null || $piscina->temp_max === null) {
-                return ['estado' => \App\Enums\EstadoConformidade::NEUTRO, 'mensagem' => 'Sem gama definida para esta piscina'];
+                return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => 'Sem gama definida para esta piscina'];
             }
             $min = (float) $piscina->temp_min;
             $max = (float) $piscina->temp_max;
@@ -182,29 +209,34 @@ class DailyRecord extends Model
 
         $fmt = static fn (float $v): string => rtrim(rtrim(number_format($v, 2, ',', ''), '0'), ',');
 
-        if ($min !== null && $valor < (float) $min) {
-            return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — abaixo do mínimo ('.$fmt((float) $min).')'];
+        $isBelowMin = $min !== null && $valor < (float) $min;
+        $isAboveMax = $max !== null && $valor > (float) $max;
+
+        if (! $isBelowMin && ! $isAboveMax) {
+            return ['estado' => EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];
         }
 
-        if ($max !== null && $valor > (float) $max) {
-            return ['estado' => \App\Enums\EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — acima do máximo ('.$fmt((float) $max).')'];
-        }
+        $margemTolerancia = app(SettingsService::class)->getFloat('tolerancia_amarelo', 0.2);
 
-        $referencia = ($min !== null && $max !== null)
-            ? (float) $max - (float) $min
-            : (float) ($max ?? $min);
-        $margem = abs($referencia) * 0.10;
-
-        if ($margem > 0.0) {
-            if ($min !== null && $valor < (float) $min + $margem) {
-                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do mínimo ('.$fmt((float) $min).')'];
+        if ($isBelowMin) {
+            $diff = (float) $min - $valor;
+            if ($diff < $margemTolerancia) {
+                return ['estado' => EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — ligeiramente abaixo do mínimo ('.$fmt((float) $min).')'];
             }
-            if ($max !== null && $valor > (float) $max - $margem) {
-                return ['estado' => \App\Enums\EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — perto do máximo ('.$fmt((float) $max).')'];
-            }
+
+            return ['estado' => EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — abaixo do mínimo ('.$fmt((float) $min).')'];
         }
 
-        return ['estado' => \App\Enums\EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];
+        if ($isAboveMax) {
+            $diff = $valor - (float) $max;
+            if ($diff < $margemTolerancia) {
+                return ['estado' => EstadoConformidade::AMARELO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — ligeiramente acima do máximo ('.$fmt((float) $max).')'];
+            }
+
+            return ['estado' => EstadoConformidade::VERMELHO, 'mensagem' => $label.' '.$fmt($valor).$unidade.' — acima do máximo ('.$fmt((float) $max).')'];
+        }
+
+        return ['estado' => EstadoConformidade::VERDE, 'mensagem' => '✓ Conforme'];
     }
 
     public function phConforme(): bool
@@ -253,40 +285,82 @@ class DailyRecord extends Model
     }
 
     /**
-     * @return BelongsTo
+     * Fonte única de deteção de violações (sino de notificações + Kanban de alertas).
+     *
+     * @return array<int, array{parametro: string, mensagem: string}>
      */
+    public function listarViolacoes(): array
+    {
+        $settings = app(SettingsService::class);
+        $fmt = static fn (float $v, int $casas = 2): string => number_format($v, $casas, ',', '');
+        $violacoes = [];
+
+        if ($this->ph_efetivo !== null && ! $this->phConforme()) {
+            $ph = (float) $this->ph_efetivo;
+            $phMin = $settings->getFloat('ph_min', self::PH_MIN);
+            $phMax = $settings->getFloat('ph_max', self::PH_MAX);
+            $violacoes[] = [
+                'parametro' => 'ph',
+                'mensagem' => $ph < $phMin
+                    ? 'pH '.$fmt($ph).' abaixo do mínimo ('.$fmt($phMin, 1).')'
+                    : 'pH '.$fmt($ph).' acima do máximo ('.$fmt($phMax, 1).')',
+            ];
+        }
+
+        if ($this->cloro_livre_efetivo !== null && ! $this->cloroLivreConforme()) {
+            $cl = (float) $this->cloro_livre_efetivo;
+            $clMin = $settings->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
+            $clMax = $settings->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+            $violacoes[] = [
+                'parametro' => 'cloro_livre',
+                'mensagem' => $cl < $clMin
+                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
+                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')',
+            ];
+        }
+
+        if ($this->cloro_total_efetivo !== null && $this->cloro_livre_efetivo !== null && ! $this->cloroCombinadoConforme()) {
+            $clCombMax = $settings->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+            $violacoes[] = [
+                'parametro' => 'cloro_combinado',
+                'mensagem' => 'cloro combinado '.$fmt((float) $this->cloro_combinado)
+                    .' mg/L acima do máximo ('.$fmt($clCombMax, 1).')',
+            ];
+        }
+
+        if ($this->temperatura_efetivo !== null && ! $this->temperaturaConforme() && $this->piscina) {
+            $temp = (float) $this->temperatura_efetivo;
+            $violacoes[] = [
+                'parametro' => 'temperatura',
+                'mensagem' => $temp < (float) $this->piscina->temp_min
+                    ? 'temperatura '.$fmt($temp, 1).' °C abaixo do mínimo ('.$fmt((float) $this->piscina->temp_min, 1).')'
+                    : 'temperatura '.$fmt($temp, 1).' °C acima do máximo ('.$fmt((float) $this->piscina->temp_max, 1).')',
+            ];
+        }
+
+        return $violacoes;
+    }
+
     public function piscina(): BelongsTo
     {
         return $this->belongsTo(Pool::class, 'pool_id');
     }
 
-    /**
-     * @return BelongsTo
-     */
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    /**
-     * @return HasMany
-     */
     public function adicoes(): HasMany
     {
         return $this->hasMany(RecordAddition::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function fotos(): HasMany
     {
         return $this->hasMany(RecordPhoto::class);
     }
 
-    /**
-     * @return HasMany
-     */
     public function correcoes(): HasMany
     {
         return $this->hasMany(DailyRecord::class, 'corrige_registo_id');
@@ -294,8 +368,6 @@ class DailyRecord extends Model
 
     /**
      * Registo original que este registo corrige (inversa de correcoes()).
-     *
-     * @return BelongsTo
      */
     public function registoOriginal(): BelongsTo
     {
@@ -306,10 +378,8 @@ class DailyRecord extends Model
      * Obter apenas o último registo válido de cada piscina.
      * Utiliza uma sub-query window function para performance (evita N+1 queries).
      *
-     * @param Builder $query
-     * @param int|null $dias Limita a janela analisada (a window function varre a
-     *                       tabela inteira se não for limitada — custo cresce com o histórico)
-     * @return Builder
+     * @param  int|null  $dias  Limita a janela analisada (a window function varre a
+     *                          tabela inteira se não for limitada — custo cresce com o histórico)
      */
     public function scopeLatestPerPool(Builder $query, ?int $dias = null): Builder
     {
@@ -328,6 +398,7 @@ class DailyRecord extends Model
     public static function getStorageDisk(): string
     {
         $default = config('filesystems.default', 'public');
+
         return $default === 'local' ? 'public' : $default;
     }
 
@@ -341,14 +412,15 @@ class DailyRecord extends Model
         }
 
         $disk = self::getStorageDisk();
-        $url = \Illuminate\Support\Facades\Storage::disk($disk)->url($path);
+        $url = Storage::disk($disk)->url($path);
 
         if (str_starts_with($url, 'http://localhost') || str_starts_with($url, 'http://127.0.0.1')) {
             $parsed = parse_url($url);
-            return ($parsed['path'] ?? '') . (isset($parsed['query']) ? '?' . $parsed['query'] : '');
+
+            return ($parsed['path'] ?? '').(isset($parsed['query']) ? '?'.$parsed['query'] : '');
         }
 
-        if (str_starts_with($url, 'http://') && !str_contains($url, 'localhost') && !str_contains($url, '127.0.0.1')) {
+        if (str_starts_with($url, 'http://') && ! str_contains($url, 'localhost') && ! str_contains($url, '127.0.0.1')) {
             $url = str_replace('http://', 'https://', $url);
         }
 

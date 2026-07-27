@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Jobs\ProcessHannaSync;
 use App\Models\SensorReading;
-use Closure;
 use App\Services\SettingsService;
+use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -39,7 +40,7 @@ class EnsureHannaReadingsAreFresh
         ) {
             // Leituras ausentes ou stale — sincroniza silenciosamente em background após a resposta.
             try {
-                \App\Jobs\ProcessHannaSync::dispatch()->afterResponse();
+                ProcessHannaSync::dispatch()->afterResponse();
             } catch (\Throwable) {
                 // Previne crash se falhar o dispatch do job.
             }
