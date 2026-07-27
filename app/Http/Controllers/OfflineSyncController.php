@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Constants\UserRole;
 use App\Models\OperationalAction;
 use App\Services\DailyRecordService;
 use Illuminate\Http\JsonResponse;
@@ -72,12 +73,18 @@ class OfflineSyncController extends Controller
 
     /**
      * Recebe um array de ações operacionais submetidas em modo offline e sincroniza-os com a base de dados.
+     * Autorização replica OperationalActionResource::canCreate() — só Admin/Técnico, porque
+     * este endpoint cria o registo diretamente e não passa pelas policies do Filament.
      */
     public function storeOperationalActions(Request $request): JsonResponse
     {
         $user = auth()->user();
         if ($user === null) {
             return response()->json(['success' => false, 'message' => 'Não autenticado.'], 401);
+        }
+
+        if (! $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+            return response()->json(['success' => false, 'message' => 'Sem permissão para criar ações operacionais.'], 403);
         }
 
         $actionsPayload = $request->input('records', []);

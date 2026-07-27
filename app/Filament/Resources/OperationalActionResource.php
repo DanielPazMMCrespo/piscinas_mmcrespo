@@ -119,13 +119,25 @@ class OperationalActionResource extends Resource
      * não como ->default() do campo: um default só é avaliado no mount do
      * formulário, antes de a piscina/tipo estarem escolhidos, pelo que nunca
      * teria valores para calcular a partir de.
+     *
+     * Em 'ambos' limpa sempre o campo: o Observer aplica a mesma quantidade a
+     * ambos os bidões quando preenchida, por isso um valor residual de uma
+     * seleção anterior (ex.: Cloro com 5L) aplicaria 5L também ao pH- em vez
+     * de encher cada bidão até à sua própria capacidade.
      */
     private static function atualizarQuantidadeBidaoDefault(Get $get, Set $set): void
     {
-        $poolId = $get('pool_id');
         $tipo = $get('dados.bidao_tipo');
 
-        if (! $poolId || ! $tipo || $tipo === 'ambos') {
+        if ($tipo === 'ambos') {
+            $set('dados.quantidade_l', null);
+
+            return;
+        }
+
+        $poolId = $get('pool_id');
+
+        if (! $poolId || ! $tipo) {
             return;
         }
 
