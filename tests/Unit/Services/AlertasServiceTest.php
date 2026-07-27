@@ -32,7 +32,7 @@ class AlertasServiceTest extends TestCase
 
         AlertasService::resetMemo();
 
-        $this->service = new AlertasService;
+        $this->service = app(AlertasService::class);
     }
 
     private function criarPiscina(string $nome = 'Teste', float $tempMin = 26.0, float $tempMax = 27.0): Pool
@@ -200,7 +200,7 @@ class AlertasServiceTest extends TestCase
         // para simular fielmente o cache miss e forçar o recálculo nesta nova "request".
         AlertasService::resetMemo();
         Cache::flush();
-        $novoServico = new AlertasService;
+        $novoServico = app(AlertasService::class);
         $resultado2 = $novoServico->calcular($user);
         $conformesDepois = $resultado2['conformesHoje'];
 

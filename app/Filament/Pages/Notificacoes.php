@@ -79,6 +79,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->schema([
                             $this->getSingleNotificationItemSchema('Novo Incidente', 'incident_created', 'Receber aviso quando um novo incidente é reportado.'),
                             $this->getSingleNotificationItemSchema('Mensagens em Incidentes', 'incident_message', 'Notificações de novas mensagens e respostas no chat de um incidente.'),
+                            $this->getSingleNotificationItemSchema('Incidente Sem Resposta 24h', 'escalacao_incidente', 'Aviso quando um incidente aberto fica 24h sem mensagens novas.'),
                         ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
@@ -90,6 +91,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Fim de Temporizador', 'timer_finished', 'Alerta quando o temporizador da retrolavagem/enxaguamento chega ao fim.'),
                             $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
                             $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
+                            $this->getSingleNotificationItemSchema('Resumo de Fim de Turno', 'resumo_turno', 'Resumo operacional do turno, nos horários configurados.'),
                         ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
@@ -102,6 +104,8 @@ class Notificacoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
+                            $this->getSingleNotificationItemSchema('Tendência Degradante', 'tendencia_alerta', 'Alerta quando pH ou cloro mostram tendência a sair dos limites nos próximos dias.'),
+                            $this->getSingleNotificationItemSchema('Comparação Semanal', 'comparacao_semanal', 'Resumo semanal de conformidade comparado com a semana anterior.'),
                         ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
@@ -111,6 +115,7 @@ class Notificacoes extends Page implements HasForms, HasTable
                         ->icon('heroicon-o-megaphone')
                         ->schema([
                             $this->getSingleNotificationItemSchema('Anúncios e Avisos Globais', 'custom_broadcast', 'Comunicados e mensagens emitidas pela administração.'),
+                            $this->getSingleNotificationItemSchema('Relatório Mensal Disponível', 'relatorio_mensal', 'Aviso quando o livro sanitário do mês anterior é gerado automaticamente.'),
                         ])
                         ->collapsible(),
                 ]),

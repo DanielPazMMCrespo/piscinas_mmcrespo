@@ -122,6 +122,18 @@ class DefinicoesSistema extends Page
                             ->label('Aviso de Torneira Aberta (Horas)')
                             ->numeric()
                             ->helperText('Horas com a torneira aberta até notificar admin/técnico. (Padrão: 4)'),
+                        TextInput::make('sonda_online_minutos')
+                            ->label('Sonda Considerada "Online" Até (Minutos)')
+                            ->numeric()
+                            ->helperText('Minutos desde a última leitura da sonda Hanna para o dashboard a mostrar como fonte ativa. (Padrão: 60)'),
+                        TextInput::make('registo_manual_validade_horas')
+                            ->label('Registo Manual Válido Até (Horas)')
+                            ->numeric()
+                            ->helperText('Horas desde o último registo manual para ainda ser usado como fonte no dashboard, se a sonda não estiver online. (Padrão: 8)'),
+                        TextInput::make('sem_registo_hora_critica')
+                            ->label('Hora do Dia — "Sem Registo" Torna-se Crítico')
+                            ->numeric()
+                            ->helperText('A partir desta hora do dia, uma piscina sem registo diário passa de aviso amarelo a alerta vermelho. (Padrão: 12)'),
                         Select::make('digest_conformidade_horas')
                             ->label('Horários do Resumo de Conformidade (Máx. 4)')
                             ->options([
@@ -184,6 +196,14 @@ class DefinicoesSistema extends Page
                             ->label('Violações para Auto-Incidente')
                             ->numeric()
                             ->helperText('Quantas violações do mesmo parâmetro no mesmo dia/piscina disparam um incidente automático. (Padrão: 3)'),
+                        TextInput::make('escalacao_incidente_horas')
+                            ->label('Escalar Incidente Sem Resposta (Horas)')
+                            ->numeric()
+                            ->helperText('Horas sem mensagens novas num incidente aberto até notificar admin/gestor. (Padrão: 24)'),
+                        TextInput::make('incidentes_kanban_dias')
+                            ->label('Incidentes Mostrados no Kanban (Dias)')
+                            ->numeric()
+                            ->helperText('Janela de dias de incidentes ainda não resolvidos mostrados no quadro operacional. (Padrão: 30)'),
                     ])->columns(2),
 
                 Section::make('Templates de Email')
