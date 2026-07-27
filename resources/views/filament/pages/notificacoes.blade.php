@@ -245,6 +245,9 @@
                                                 <span class="h-1.5 w-1.5 rounded-full bg-warning-500"></span>
                                                 Solicitado
                                             </span>
+                                            <x-filament::link wire:click="limparSolicitacao({{ $usuario->id }})" color="gray" class="ml-2 text-xs">
+                                                Limpar
+                                            </x-filament::link>
                                         @else
                                             <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-50 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
