@@ -42,6 +42,8 @@ class AlertasService
     /** Memo por-pedido: o hero e o Kanban partilham o mesmo cálculo. */
     private static array $memo = [];
 
+    public function __construct(private readonly SettingsService $settings) {}
+
     /**
      * Limpa o memo.
      */
@@ -153,7 +155,7 @@ class AlertasService
         if (! $soPiscinas) {
             $incidentes = Incident::query()
                 ->where('status', '!=', IncidentStatus::RESOLVIDO)
-                ->where('ocorreu_em', '>=', now()->subDays(30))
+                ->where('ocorreu_em', '>=', now()->subDays($this->settings->getInt('incidentes_kanban_dias', 30)))
                 ->with(['instalacao', 'utilizador'])
                 ->orderByDesc('ocorreu_em')
                 ->limit(10)
@@ -241,7 +243,7 @@ class AlertasService
 
         if (! $temRegistoHoje) {
             $alertas[AlertType::SEM_REGISTO."|{$piscina->id}|{$hoje}"] = [
-                'nivel' => now()->hour >= 12 ? AlertLevel::VERMELHO : AlertLevel::AMARELO,
+                'nivel' => now()->hour >= $this->settings->getInt('sem_registo_hora_critica', 12) ? AlertLevel::VERMELHO : AlertLevel::AMARELO,
                 'icone' => 'heroicon-o-clipboard-document-list',
                 'titulo' => "{$nome}: sem registo diário hoje",
                 'detalhe' => $registo
