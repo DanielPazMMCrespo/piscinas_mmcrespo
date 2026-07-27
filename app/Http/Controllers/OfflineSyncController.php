@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\OperationalAction;
 use App\Services\DailyRecordService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,7 +103,7 @@ class OfflineSyncController extends Controller
             try {
                 $data['user_id'] = $user->id;
 
-                \App\Models\OperationalAction::create($data);
+                OperationalAction::create($data);
 
                 $syncedCount += 1;
 
