@@ -46,7 +46,9 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/push/timer', [TimerPushController::class, 'destroy'])
         ->name('push.timer.destroy');
 
-    // Sincronização offline de registos diários.
+    // Sincronização offline de registos diários e ações operacionais.
     Route::post('/offline-sync/daily-records', [OfflineSyncController::class, 'storeDailyRecords'])
         ->name('offline-sync.daily-records');
+    Route::post('/offline-sync/operational-actions', [OfflineSyncController::class, 'storeOperationalActions'])
+        ->name('offline-sync.operational-actions');
 });

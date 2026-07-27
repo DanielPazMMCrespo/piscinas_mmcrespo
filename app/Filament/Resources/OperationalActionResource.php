@@ -131,7 +131,7 @@ class OperationalActionResource extends Resource
 
             Forms\Components\Select::make('pool_id')
                 ->label('Piscina')
-                ->options(fn () => self::piscinasOptions())
+                ->options(self::piscinasOptions())
                 ->default(fn () => request()->integer('pool') ?: null)
                 ->searchable()
                 ->required()

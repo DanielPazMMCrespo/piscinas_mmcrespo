@@ -1186,6 +1186,38 @@ const syncOfflineRecords = async () => {
     }
 };
 
+const syncOfflineOperationalActions = async () => {
+    if (!navigator.onLine) return;
+    const items = await getOfflineQueue();
+    if (!items || items.length === 0) {
+        return;
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const response = await fetch('/offline-sync/operational-actions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken || '',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ records: items })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result && result.success && Array.isArray(result.synced_ids)) {
+                for (const id of result.synced_ids) {
+                    await deleteFromOfflineQueue(id);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Offline sync failed for operational actions:', e);
+    }
+};
+
 // Voice Input Setup
 const setupVoiceInput = () => {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1679,10 +1711,14 @@ const mmcSetup = () => {
     setupGlobalImageLightbox();
     setupVoiceInput();
     syncOfflineRecords();
+    syncOfflineOperationalActions();
 
-    window.addEventListener('online', syncOfflineRecords);
+    window.addEventListener('online', async () => {
+        await syncOfflineRecords();
+        await syncOfflineOperationalActions();
+    });
 
-    // Intercetação do botão Guardar no modo Offline
+    // Intercetação do botão Guardar no modo Offline para Registos Diários
     document.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn || navigator.onLine) return;
@@ -1703,6 +1739,26 @@ const mmcSetup = () => {
                 }
             } else {
                 alert('⚡ Modo Offline: Por favor preencha os campos de medições antes de guardar.');
+            }
+        }
+        // Intercetação para Ações Operacionais
+        else if (window.location.pathname.includes('/operational-actions/create') && (btn.innerText.includes('Criar') || btn.innerText.includes('Confirmar e guardar'))) {
+            e.preventDefault();
+            e.stopPropagation();
+            const formKey = 'operational_action_form_draft_' + (window.__userId ?? 'anon');
+            const draftStr = localStorage.getItem(formKey);
+            if (draftStr) {
+                try {
+                    const draft = JSON.parse(draftStr);
+                    if (draft && draft.data) {
+                        await saveToOfflineQueue(draft.data);
+                        alert('⚡ Modo Offline: A ação operacional foi guardada localmente e será sincronizada automaticamente quando a internet for restaurada!');
+                    }
+                } catch (err) {
+                    console.error('Offline save error for operational action:', err);
+                }
+            } else {
+                alert('⚡ Modo Offline: Por favor preencha os campos obrigatórios antes de guardar.');
             }
         }
     }, true);
@@ -1729,6 +1785,18 @@ document.addEventListener('livewire:init', () => {
                     }
                 } catch (e) {
                     console.error('Error saving daily record draft:', e);
+                }
+            });
+        } else if (component && component.name && component.name.includes('create-operational-action')) {
+            respond(() => {
+                const formKey = 'operational_action_form_draft_' + (window.__userId ?? 'anon');
+                try {
+                    const currentData = component.get('data');
+                    if (currentData) {
+                        localStorage.setItem(formKey, JSON.stringify({ data: currentData, savedAt: Date.now() }));
+                    }
+                } catch (e) {
+                    console.error('Error saving operational action draft:', e);
                 }
             });
         }
