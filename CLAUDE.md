@@ -116,8 +116,6 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 - Short sentences. If a paragraph can be a bullet list, use the list.
 - Respostas curtas — menos texto, especialmente com Opus. Contexto extenso, planos e trade-offs longos vão para o CLAUDE.md/docs da página, não para o chat. No chat: o essencial e a decisão.
 - Code must be complete and runnable. Never truncate with "// rest of code here".
-<<<<<<< Updated upstream
-=======
 
 ## Regras de Código
 - Match the style and conventions already in the file.
@@ -360,4 +358,3 @@ Para referência futura, os seguintes ficheiros principais possuem um bloco `[AI
   - `app/Filament/Resources/StockInstallationResource.php` (Stock local, consumos)
 - **Dashboards:**
   - `app/Filament/Pages/Dashboard.php` (Exception-first, Kanban)
->>>>>>> Stashed changes
