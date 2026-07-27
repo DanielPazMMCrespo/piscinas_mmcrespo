@@ -116,8 +116,6 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 - Short sentences. If a paragraph can be a bullet list, use the list.
 - Respostas curtas — menos texto, especialmente com Opus. Contexto extenso, planos e trade-offs longos vão para o CLAUDE.md/docs da página, não para o chat. No chat: o essencial e a decisão.
 - Code must be complete and runnable. Never truncate with "// rest of code here".
-<<<<<<< Updated upstream
-=======
 
 ## Regras de Código
 - Match the style and conventions already in the file.
@@ -141,7 +139,18 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-07-17 (Sessão 18 — Purga e Limpeza Completa de Código Morto)
+> Última atualização: 2026-07-27 (Sessão 19 — Auditoria e Correção do CLAUDE.md)
+
+## Sessão 19 — Auditoria Completa e Correção de Discrepâncias (resumo)
+- **Auditoria do CLAUDE.md**: Comparação sistemática da documentação vs código real. Todas as features técnicas confirmadas como implementadas corretamente (R2, GLightbox, CSP, Dark Mode, localStorage auto-save, Policies, etc.).
+- **Discrepâncias encontradas e corrigidas**:
+  1. Font documentada como "DM Sans" mas código tinha "Lato" — corrigido CLAUDE.md para documentar a font real (Lato)
+  2. LIVEWIRE_TMP_DISK não estava em `.env.example` — adicionado com comentário explicativo
+  3. Sessão 17 agora documenta corretamente LIVEWIRE_TMP_DISK em `.env` e referencia SecurityHeaders para CSP
+  4. Merge conflict no final do CLAUDE.md (stashed changes) — removido completamente, ficheiro limpo
+- **Estado do GitHub**: 5 PRs abertas em draft (2 para `test`, 3 para `main`): Fixes de UI/rascunho, mobile improvements, merge de test, relatório PDF, documentação ORP.
+- **Verificação de features concluídas**: Código morto removido (Sessão 18), R2+GLightbox integrados (Sessão 17), Policies implementadas (Sessão 16), Incident lifecycle funcional (Sessão 10), TapAlert model existe, Hanna sync agendado, ActivitylogPlugin ativo.
+- **Commits desta sessão**: Correções em CLAUDE.md (fonte, LIVEWIRE_TMP_DISK, Sessão 17 CSP), merge conflict removido, .env.example atualizado.
 
 ## Sessão 18 — Limpeza e Otimização Geral de Código Morto (resumo)
 - **Purga de Backend & Middlewares**: Removidos serviços órfãos (`AlertingService`, `HannaThresholdService`, `StructuredLogger`), middlewares não registados (`RequestIdMiddleware`, `SentryContextMiddleware`) e o comando debug `HannaInspectSchema`. Limpos os blocos de credenciais `'slack'` e `'gemini'` em `config/services.php`.
@@ -152,8 +161,8 @@ Return exactly:
 
 ## Sessão 17 — Fotos R2 + Upload Mobile + Lightbox (resumo)
 - **Cloudflare R2 para fotos persistentes**: Railway tem filesystem efémero — ficheiros perdem-se no deploy. Integrado R2 (S3-compatible) via `league/flysystem-aws-s3-v3`. Disco `r2` configurado em `config/filesystems.php`. Todos os 8 campos `FileUpload` e `ImageEntry` do `DailyRecordResource` usam `->disk('r2')`.
-- **Fixes de upload**: corrigido `TypeError` no `DailyRecordObserver` (`pool_id` string→int); criado diretório `livewire-tmp` no `docker-entrypoint.sh`; `LIVEWIRE_TMP_DISK` mantido em `local` (R2 não suporta mime_type durante validação Livewire).
-- **CSP atualizada**: `img-src` inclui `https://*.r2.dev`; `script-src`/`style-src` incluem `https://cdn.jsdelivr.net` (para GLightbox).
+- **Fixes de upload**: corrigido `TypeError` no `DailyRecordObserver` (`pool_id` string→int); criado diretório `livewire-tmp` no `docker-entrypoint.sh`; `LIVEWIRE_TMP_DISK=local` configurado em `.env` (R2 não suporta mime_type durante validação Livewire).
+- **CSP atualizada**: `img-src` inclui `https://*.r2.dev`; `script-src`/`style-src` incluem `https://cdn.jsdelivr.net` (para GLightbox). Configurada em `app/Http/Middleware/SecurityHeaders.php`.
 - **Limites de upload para mobile/iPhone HEIC**: `upload_max_filesize=25M` no Dockerfile e `.user.ini`; nginx `client_max_body_size=100M`; `maxSize(20480)` nos FileUpload.
 - **Lightbox (GLightbox)**: carregado via CDN no `AdminPanelProvider` (render hook `HEAD_END`). Ao clicar numa foto abre lightbox a ecrã inteiro com pinch-to-zoom mobile. Auto-wired a todas as `ImageEntry` do painel via MutationObserver.
 - **Vista do registo**: row click na tabela abre modal com infolist completo (todos os campos + fotos); botão "Editar" no header abre página de edição.
@@ -167,7 +176,7 @@ Return exactly:
   - Adicionado painel com barras de progresso visual dinâmicas no topo do painel principal (`PainelPiscinasWidget` / `painel-piscinas.blade.php`), exibindo a percentagem de registos diários preenchidos hoje e conformidade com limites legais.
   - Refatorado todo o estilo CSS no widget do painel para usar Custom Properties (variáveis CSS) nos blocos `:root` e `.dark`, garantindo compatibilidade elegante e automática com Dark Mode.
   - Substituídos os pesos inválidos de fonte (de `650` para `600`) e corrigida a opacidade e rácio de contraste da classe `.mmc-metric-label` (`0.72` em light mode e `0.8` em dark mode) para cumprir as regras WCAG AA.
-  - Configurada a fonte premium **DM Sans** em Filament (`AdminPanelProvider.php`) e tema principal (`resources/css/app.css`).
+  - Fonte padrão configurada como **Lato** em Filament (`AdminPanelProvider.php:52`) para consistência visual. Dark Mode integrado com Custom Properties CSS.
   - Implementado o rascunho de auto-save/restore do formulário via `localStorage` no ficheiro `resources/js/app.js` para o formulário `/daily-records/create`, com auto-limpeza aquando do evento de gravação.
 - **Commits**: `dfe810a` e `e7e76bf` (pushed para `test` e `main`).
 
@@ -360,4 +369,3 @@ Para referência futura, os seguintes ficheiros principais possuem um bloco `[AI
   - `app/Filament/Resources/StockInstallationResource.php` (Stock local, consumos)
 - **Dashboards:**
   - `app/Filament/Pages/Dashboard.php` (Exception-first, Kanban)
->>>>>>> Stashed changes

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\OperationalAction;
 use App\Services\DailyRecordService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,6 +56,62 @@ class OfflineSyncController extends Controller
                 }
             } catch (\Throwable $e) {
                 Log::error('Erro na sincronização offline do registo', [
+                    'offline_id' => $offlineId,
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'synced_count' => $syncedCount,
+            'synced_ids' => $syncedIds,
+        ]);
+    }
+
+    /**
+     * Recebe um array de ações operacionais submetidas em modo offline e sincroniza-os com a base de dados.
+     */
+    public function storeOperationalActions(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user === null) {
+            return response()->json(['success' => false, 'message' => 'Não autenticado.'], 401);
+        }
+
+        $actionsPayload = $request->input('records', []);
+        if (! is_array($actionsPayload) || empty($actionsPayload)) {
+            return response()->json(['success' => true, 'synced_count' => 0, 'synced_ids' => []]);
+        }
+
+        $syncedIds = [];
+        $syncedCount = 0;
+
+        foreach ($actionsPayload as $item) {
+            $offlineId = $item['offline_id'] ?? null;
+            $data = $item['data'] ?? [];
+
+            if (! is_array($data) || empty($data)) {
+                if ($offlineId !== null) {
+                    $syncedIds[] = $offlineId;
+                }
+
+                continue;
+            }
+
+            try {
+                $data['user_id'] = $user->id;
+
+                OperationalAction::create($data);
+
+                $syncedCount += 1;
+
+                if ($offlineId !== null) {
+                    $syncedIds[] = $offlineId;
+                }
+            } catch (\Throwable $e) {
+                Log::error('Erro na sincronização offline da ação operacional', [
                     'offline_id' => $offlineId,
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
