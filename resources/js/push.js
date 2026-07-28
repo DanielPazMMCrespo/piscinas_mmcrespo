@@ -96,6 +96,39 @@ export const ativarNotificacoes = async () => {
     }
 };
 
+// Limpa a subscrição local (se ainda existir) e todas as guardadas no servidor
+// para este utilizador. Usado quando o dispositivo "desativou" silenciosamente
+// (ex: iOS revogou a permissão) e é preciso repor do zero sem ir às
+// definições do telemóvel — o botão "Ativar" volta a criar uma subscrição limpa.
+export const limparNotificacoes = async () => {
+    try {
+        if (suportado()) {
+            const registration = await getRegistration();
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                await subscription.unsubscribe();
+            }
+        }
+    } catch (e) {
+        /* segue para limpar no servidor mesmo que a limpeza local falhe */
+    }
+
+    try {
+        const response = await fetch('/push/subscriptions', {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+        return { ok: response.ok };
+    } catch (error) {
+        return { ok: false, erroMsg: error.message };
+    }
+};
+
 // Re-sync silencioso: mantém a subscription do servidor fresca a cada carregamento.
 const sincronizarSubscription = async () => {
     if (!suportado() || Notification.permission !== 'granted') return;
@@ -131,6 +164,7 @@ export const cancelarTodosTimers = () => {
 window.mmcPush = {
     estado: estadoNotificacoes,
     ativar: ativarNotificacoes,
+    limpar: limparNotificacoes,
     iosPrecisaInstalar,
     registarTimer,
     cancelarTimer,

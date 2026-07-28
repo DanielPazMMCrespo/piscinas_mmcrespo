@@ -1,6 +1,14 @@
 @php
     $user = auth()->user();
     $textoPrompt = 'Receba notificações importantes da aplicação diretamente no seu dispositivo.';
+    $pedidoAdminPendente = false;
+
+    if ($user) {
+        $pedidoAdminPendente = ! $user->hasPushActive()
+            && $user->unreadNotifications()
+                ->where('type', \App\Notifications\PedidoAtivacaoPushNotification::class)
+                ->exists();
+    }
 
     if ($user) {
         if ($user->hasRole(\App\Constants\UserRole::ADMIN)) {
@@ -21,6 +29,7 @@
         isProcessing: false,
         successState: false,
         iosInstalar: false,
+        pedidoAdmin: {{ $pedidoAdminPendente ? 'true' : 'false' }},
         init() {
             const verificarEInicializar = () => {
                 if (!window.mmcPush || typeof window.mmcPush.estado !== 'function') {
@@ -29,17 +38,20 @@
                     return;
                 }
 
-                // Verificar se o utilizador adiou recentemente
-                const dismissedUntil = localStorage.getItem('mmc_push_prompt_dismissed_until');
-                if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
-                    return;
+                // Um pedido explícito do administrador ignora o "lembrar mais
+                // tarde" — só deixa de aparecer quando o utilizador ativar.
+                if (!this.pedidoAdmin) {
+                    const dismissedUntil = localStorage.getItem('mmc_push_prompt_dismissed_until');
+                    if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
+                        return;
+                    }
                 }
 
                 // 'default': ainda não ativou nem negou. 'ios-instalar': iOS Safari
                 // fora do ecrã principal — mostra-se também, mas com instruções em
                 // vez do botão 'Ativar' (pedir permissão não funciona nesse estado).
                 const estado = window.mmcPush.estado();
-                if (estado === 'default' || estado === 'ios-instalar') {
+                if (estado === 'default' || estado === 'ios-instalar' || this.pedidoAdmin) {
                     this.iosInstalar = estado === 'ios-instalar';
                     setTimeout(() => {
                         this.showPrompt = true;
@@ -70,9 +82,12 @@
             }
         },
         lembrarMaisTarde() {
-            // Guardar no localStorage para não voltar a incomodar nos próximos 3 dias
-            const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-            localStorage.setItem('mmc_push_prompt_dismissed_until', (Date.now() + threeDaysInMs).toString());
+            // Um pedido do admin não se pode adiar por 3 dias — só fecha esta
+            // sessão; volta a aparecer no próximo carregamento até ativar.
+            if (!this.pedidoAdmin) {
+                const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+                localStorage.setItem('mmc_push_prompt_dismissed_until', (Date.now() + threeDaysInMs).toString());
+            }
             this.showPrompt = false;
         }
     }"
@@ -97,7 +112,7 @@
         <div class="space-y-1">
             <template x-if="!successState && !iosInstalar">
                 <div>
-                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Ative as Notificações</h4>
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white" x-text="pedidoAdmin ? 'O administrador pediu que ative as notificações' : 'Ative as Notificações'"></h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                         {{ $textoPrompt }}
                     </p>

@@ -47,6 +47,13 @@
                     }
                     this.aProcessar = false;
                 },
+                limpou: false,
+                async limpar() {
+                    this.aProcessar = true;
+                    await window.mmcPush.limpar();
+                    this.limpou = true;
+                    this.aProcessar = false;
+                },
             }"
             class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-4 mb-6"
         >
@@ -61,8 +68,23 @@
             </div>
 
             <template x-if="estado === 'granted'">
-                <div class="rounded-lg bg-success-50 dark:bg-success-950 border border-success-200 dark:border-success-800 p-4 text-sm text-success-700 dark:text-success-400">
-                    Notificações ativas neste dispositivo.
+                <div class="space-y-2">
+                    <div class="rounded-lg bg-success-50 dark:bg-success-950 border border-success-200 dark:border-success-800 p-4 text-sm text-success-700 dark:text-success-400">
+                        Notificações ativas neste dispositivo.
+                    </div>
+                    <template x-if="!limpou">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Não está a receber notificações mesmo assim?
+                            <button type="button" x-on:click="limpar()" x-bind:disabled="aProcessar" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                                <span x-text="aProcessar ? 'A limpar...' : 'Limpar subscrição deste dispositivo'"></span>
+                            </button>
+                        </p>
+                    </template>
+                    <template x-if="limpou">
+                        <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-3 text-xs text-info-700 dark:text-info-400">
+                            Subscrição limpa. Recarregue a página e clique em "Ativar notificações" para registar este dispositivo de novo.
+                        </div>
+                    </template>
                 </div>
             </template>
 
@@ -79,8 +101,23 @@
             </template>
 
             <template x-if="estado === 'denied'">
-                <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400">
-                    As notificações foram bloqueadas. Ative-as nas definições do navegador/telemóvel para este site e recarregue a página.
+                <div class="space-y-2">
+                    <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400">
+                        As notificações foram bloqueadas. Ative-as nas definições do navegador/telemóvel para este site e recarregue a página.
+                    </div>
+                    <template x-if="!limpou">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Isto também limpa o registo antigo no servidor (útil se o dispositivo ficou com uma subscrição desatualizada):
+                            <button type="button" x-on:click="limpar()" x-bind:disabled="aProcessar" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                                <span x-text="aProcessar ? 'A limpar...' : 'Limpar subscrição deste dispositivo'"></span>
+                            </button>
+                        </p>
+                    </template>
+                    <template x-if="limpou">
+                        <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-3 text-xs text-info-700 dark:text-info-400">
+                            Subscrição antiga removida do servidor. Ainda precisa de ativar as notificações nas definições do navegador/telemóvel para este site antes de recarregar a página.
+                        </div>
+                    </template>
                 </div>
             </template>
 
@@ -275,6 +312,7 @@
                                 <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Nome</th>
                                 <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Cargos</th>
                                 <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Dispositivos Ativos</th>
+                                <th class="py-2 pb-3 font-semibold text-gray-700 dark:text-gray-300"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -300,6 +338,26 @@
                                                 <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
                                                 Inativo
                                             </span>
+                                        @endif
+                                    </td>
+                                    <td class="py-3 text-right">
+                                        @if($usuario->push_status === 'ativo')
+                                            <button
+                                                type="button"
+                                                wire:click="limparSubscricoesUtilizador({{ $usuario->id }})"
+                                                wire:confirm="Limpar as subscrições de push de {{ $usuario->name }}? O utilizador terá de voltar a clicar em 'Ativar notificações'."
+                                                class="text-xs text-danger-600 dark:text-danger-400 hover:underline font-medium"
+                                            >
+                                                Limpar subscrições
+                                            </button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                wire:click="pedirAtivacao({{ $usuario->id }})"
+                                                class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                                            >
+                                                Pedir ativação
+                                            </button>
                                         @endif
                                     </td>
                                 </tr>

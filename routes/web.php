@@ -41,6 +41,8 @@ Route::middleware('auth')->group(function (): void {
         ->name('push.subscribe');
     Route::delete('/push/subscribe', [PushSubscriptionController::class, 'destroy'])
         ->name('push.unsubscribe');
+    Route::delete('/push/subscriptions', [PushSubscriptionController::class, 'destroyAll'])
+        ->name('push.unsubscribe.all');
     Route::post('/push/timer', [TimerPushController::class, 'store'])
         ->name('push.timer.store');
     Route::delete('/push/timer', [TimerPushController::class, 'destroy'])

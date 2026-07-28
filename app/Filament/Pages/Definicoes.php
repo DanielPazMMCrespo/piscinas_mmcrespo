@@ -9,6 +9,7 @@ use App\Models\AppSetting;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
+use App\Notifications\PedidoAtivacaoPushNotification;
 use App\Services\CacheService;
 use App\Services\SettingsService;
 use Filament\Forms;
@@ -455,6 +456,44 @@ class Definicoes extends Page implements HasForms, HasTable
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    public function pedirAtivacao(int $userId): void
+    {
+        if (! $this->podeGerir()) {
+            return;
+        }
+
+        $user = User::find($userId);
+
+        if ($user && ! $user->hasPushActive()) {
+            $user->notify(new PedidoAtivacaoPushNotification());
+
+            Notification::make()
+                ->title('Pedido enviado')
+                ->body("{$user->name} vai ver um aviso para ativar as notificações na próxima vez que abrir a aplicação.")
+                ->success()
+                ->send();
+        }
+    }
+
+    public function limparSubscricoesUtilizador(int $userId): void
+    {
+        if (! $this->podeGerir()) {
+            return;
+        }
+
+        $user = User::find($userId);
+
+        if ($user) {
+            $user->pushSubscriptions()->delete();
+
+            Notification::make()
+                ->title('Subscrições limpas')
+                ->body("As subscrições de push de {$user->name} foram removidas. Peça-lhe para voltar a clicar em \"Ativar notificações\".")
+                ->success()
+                ->send();
+        }
     }
 
     public function limparSolicitacao(int $userId): void

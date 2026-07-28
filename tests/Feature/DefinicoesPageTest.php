@@ -9,9 +9,11 @@ use App\Filament\Pages\Definicoes;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
+use App\Notifications\PedidoAtivacaoPushNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
+use NotificationChannels\WebPush\PushSubscription;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -121,6 +123,63 @@ class DefinicoesPageTest extends TestCase
             $tecnico,
             CustomBroadcastNotification::class
         );
+    }
+
+    public function test_admin_can_request_activation_from_inactive_user(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+
+        $this->actingAs($admin);
+
+        Notification::fake();
+
+        Livewire::test(Definicoes::class)
+            ->call('pedirAtivacao', $tecnico->id)
+            ->assertHasNoErrors();
+
+        Notification::assertSentTo($tecnico, PedidoAtivacaoPushNotification::class);
+    }
+
+    public function test_admin_cannot_request_activation_from_already_active_user(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+        $tecnico->updatePushSubscription('https://push.example/endpoint', 'p256dh-key', 'auth-key');
+
+        $this->actingAs($admin);
+
+        Notification::fake();
+
+        Livewire::test(Definicoes::class)
+            ->call('pedirAtivacao', $tecnico->id)
+            ->assertHasNoErrors();
+
+        Notification::assertNotSentTo($tecnico, PedidoAtivacaoPushNotification::class);
+    }
+
+    public function test_admin_can_clear_subscriptions_of_a_user(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(UserRole::ADMIN);
+
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole(UserRole::TECNICO);
+        $tecnico->updatePushSubscription('https://push.example/endpoint', 'p256dh-key', 'auth-key');
+
+        $this->actingAs($admin);
+
+        Livewire::test(Definicoes::class)
+            ->call('limparSubscricoesUtilizador', $tecnico->id)
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, PushSubscription::where('subscribable_id', $tecnico->id)->count());
     }
 
     public function test_swimmer_only_sees_system_broadcast_preferences(): void
