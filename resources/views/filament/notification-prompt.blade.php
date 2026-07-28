@@ -38,8 +38,8 @@
                     return;
                 }
 
-                // Um pedido explícito do administrador ignora o "lembrar mais
-                // tarde" — só deixa de aparecer quando o utilizador ativar.
+                // Um pedido explícito do administrador ignora o 'lembrar mais
+                // tarde' — só deixa de aparecer quando o utilizador ativar.
                 if (!this.pedidoAdmin) {
                     const dismissedUntil = localStorage.getItem('mmc_push_prompt_dismissed_until');
                     if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
