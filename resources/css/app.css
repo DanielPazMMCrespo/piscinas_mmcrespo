@@ -176,6 +176,16 @@ body {
     pointer-events: none;
 }
 
+/* No telemóvel, o cabeçalho (com o botão que abre a sidebar) acompanha o
+   scroll — sem isto era preciso subir a página inteira para abrir o menu. */
+@media (max-width: 1024px) {
+    .fi-topbar {
+        position: sticky !important;
+        top: 0;
+        z-index: 30;
+    }
+}
+
 .fi-sidebar {
     background: #ffffff !important;
     border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
