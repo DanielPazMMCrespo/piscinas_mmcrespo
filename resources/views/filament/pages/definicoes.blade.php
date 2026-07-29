@@ -54,6 +54,13 @@
                     this.limpou = true;
                     this.aProcessar = false;
                 },
+                async desativar() {
+                    this.aProcessar = true;
+                    await window.mmcPush.limpar();
+                    this.estado = 'default';
+                    this.limpou = false;
+                    this.aProcessar = false;
+                },
             }"
             class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-4 mb-6"
         >
@@ -72,19 +79,12 @@
                     <div class="rounded-lg bg-success-50 dark:bg-success-950 border border-success-200 dark:border-success-800 p-4 text-sm text-success-700 dark:text-success-400">
                         Notificações ativas neste dispositivo.
                     </div>
-                    <template x-if="!limpou">
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Não está a receber notificações mesmo assim?
-                            <button type="button" x-on:click="limpar()" x-bind:disabled="aProcessar" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
-                                <span x-text="aProcessar ? 'A limpar...' : 'Limpar subscrição deste dispositivo'"></span>
-                            </button>
-                        </p>
-                    </template>
-                    <template x-if="limpou">
-                        <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-3 text-xs text-info-700 dark:text-info-400">
-                            Subscrição limpa. Recarregue a página e clique em "Ativar notificações" para registar este dispositivo de novo.
-                        </div>
-                    </template>
+                    <x-filament::button x-on:click="desativar()" x-bind:disabled="aProcessar" color="gray" size="sm" icon="heroicon-m-bell-slash">
+                        <span x-text="aProcessar ? 'A desativar...' : 'Desativar notificações'"></span>
+                    </x-filament::button>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Não está a receber notificações mesmo assim? Desative e ative de novo — isto limpa o registo antigo e cria uma subscrição nova.
+                    </p>
                 </div>
             </template>
 
