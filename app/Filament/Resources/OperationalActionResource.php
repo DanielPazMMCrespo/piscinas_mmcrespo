@@ -18,6 +18,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -185,7 +186,8 @@ class OperationalActionResource extends Resource
                 ->helperText('Cria um registo de reabastecimento igual para cada uma das 3 piscinas de Leiria.')
                 ->dehydrated(false)
                 ->live()
-                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO),
+                ->visible(fn (Get $get, $livewire) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO
+                    && $livewire instanceof CreateRecord),
 
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
