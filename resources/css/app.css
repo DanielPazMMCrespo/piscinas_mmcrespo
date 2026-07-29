@@ -179,6 +179,15 @@ body {
 .fi-sidebar {
     background: #ffffff !important;
     border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    height: 100dvh !important;
+}
+
+.fi-sidebar-nav {
+    overflow-y: auto !important;
+    height: 100%;
 }
 
 /* Cards & Sections - Native feel */
