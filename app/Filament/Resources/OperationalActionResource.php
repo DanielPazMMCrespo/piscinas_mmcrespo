@@ -172,12 +172,20 @@ class OperationalActionResource extends Resource
                 ->options(self::piscinasOptions())
                 ->default(fn () => request()->integer('pool') ?: null)
                 ->searchable()
-                ->required()
+                ->visible(fn (Get $get) => ! $get('reabastecer_todas_leiria'))
+                ->required(fn (Get $get) => ! $get('reabastecer_todas_leiria'))
                 ->live()
                 ->afterStateUpdated(function (Get $get, Set $set) {
                     self::preencherOrpDaSonda($get, $set);
                     self::atualizarQuantidadeBidaoDefault($get, $set);
                 }),
+
+            Forms\Components\Checkbox::make('reabastecer_todas_leiria')
+                ->label('Aplicar às 3 piscinas de Leiria (Competição, Lazer, Infantil)')
+                ->helperText('Cria um registo de reabastecimento igual para cada uma das 3 piscinas de Leiria.')
+                ->dehydrated(false)
+                ->live()
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO),
 
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
