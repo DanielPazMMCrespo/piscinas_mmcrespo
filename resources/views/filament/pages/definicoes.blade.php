@@ -79,9 +79,14 @@
                     <div class="rounded-lg bg-success-50 dark:bg-success-950 border border-success-200 dark:border-success-800 p-4 text-sm text-success-700 dark:text-success-400">
                         Notificações ativas neste dispositivo.
                     </div>
-                    <x-filament::button x-on:click="desativar()" x-bind:disabled="aProcessar" color="gray" size="sm" icon="heroicon-m-bell-slash">
-                        <span x-text="aProcessar ? 'A desativar...' : 'Desativar notificações'"></span>
-                    </x-filament::button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <x-filament::button wire:click="testarNotificacao" color="primary" size="sm" icon="heroicon-m-paper-airplane">
+                            Testar notificação
+                        </x-filament::button>
+                        <x-filament::button x-on:click="desativar()" x-bind:disabled="aProcessar" color="gray" size="sm" icon="heroicon-m-bell-slash">
+                            <span x-text="aProcessar ? 'A desativar...' : 'Desativar notificações'"></span>
+                        </x-filament::button>
+                    </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
                         Não está a receber notificações mesmo assim? Desative e ative de novo — isto limpa o registo antigo e cria uma subscrição nova.
                     </p>

@@ -10,6 +10,7 @@ use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
 use App\Notifications\PedidoAtivacaoPushNotification;
+use App\Notifications\TesteNotificacaoPush;
 use App\Services\CacheService;
 use App\Services\SettingsService;
 use Filament\Forms;
@@ -391,6 +392,29 @@ class Definicoes extends Page implements HasForms, HasTable
 
         Notification::make()
             ->title('Preferências guardadas com sucesso!')
+            ->success()
+            ->send();
+    }
+
+    public function testarNotificacao(): void
+    {
+        $user = auth()->user();
+
+        if (! $user->hasPushActive()) {
+            Notification::make()
+                ->title('Nenhum dispositivo ativo')
+                ->body('Ative as notificações neste dispositivo antes de testar.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $user->notify(new TesteNotificacaoPush());
+
+        Notification::make()
+            ->title('Teste enviado')
+            ->body('Devia receber uma notificação neste dispositivo nos próximos segundos.')
             ->success()
             ->send();
     }
