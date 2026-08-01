@@ -23,6 +23,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 class OperationalActionResource extends Resource
@@ -85,6 +86,26 @@ class OperationalActionResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['observacoes', 'piscina.name', 'tipo'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return (OperationalAction::TIPOS[$record->tipo] ?? $record->tipo).' — '.$record->piscina->nome_completo;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Piscina' => $record->piscina->nome_completo,
+            'Quando' => $record->registado_em->format('d/m/Y H:i'),
+        ];
     }
 
     private static function preencherOrpDaSonda(Get $get, Set $set): void

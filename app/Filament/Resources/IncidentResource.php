@@ -26,6 +26,7 @@ use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 /**
@@ -105,6 +106,32 @@ class IncidentResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['descricao', 'piscina.name', 'instalacao.name', 'type'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return Str::limit((string) $record->descricao, 60) ?: 'Incidente';
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Instalação' => $record->instalacao->name,
+            'Piscina' => $record->piscina?->name ?? '—',
+            'Estado' => $record->status === IncidentStatus::RESOLVIDO ? 'Resolvido' : 'Aberto',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['instalacao', 'piscina']);
     }
 
     public static function form(Form $form): Form

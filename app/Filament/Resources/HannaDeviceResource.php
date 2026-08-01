@@ -15,6 +15,8 @@ use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 
 /**
@@ -38,6 +40,23 @@ class HannaDeviceResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->check() && auth()->user()->hasRole('admin');
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'hanna_device_id', 'piscina.name'];
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return ['Piscina' => $record->piscina?->name ?? '—'];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('piscina');
     }
 
     public static function form(Form $form): Form

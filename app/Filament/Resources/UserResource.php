@@ -15,7 +15,9 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Spatie\Permission\Models\Role;
@@ -78,6 +80,38 @@ class UserResource extends Resource
     private static function temDadosAssociados(User $record): bool
     {
         return $record->daily_records()->exists() || $record->incidents()->exists();
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->full_name;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Email' => $record->email,
+            'Cargo' => $record->roles->pluck('name')->map(fn (string $role): string => match ($role) {
+                UserRole::ADMIN => 'Admin',
+                UserRole::GESTOR => 'Gestor',
+                UserRole::TECNICO => 'Técnico',
+                UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+                UserRole::INATIVO => 'Inativo',
+                default => $role,
+            })->implode(', ') ?: '—',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('roles');
     }
 
     private static function rolesIncluemNS(Forms\Get $get): bool

@@ -29,6 +29,12 @@ class InstallationResource extends Resource
         return auth()->user()?->hasRole('admin') ?? false;
     }
 
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'morada'];
+    }
+
     public static function form(Form $form): Form
     {
         return $form
