@@ -12,6 +12,7 @@
                 <div class="neo-kpi-card">
                     <div>
                         <div class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Registos Hoje</div>
+                        <div class="text-[11px] text-slate-400 dark:text-slate-500 mb-1">piscinas com registo diário feito hoje</div>
                         <div class="text-3xl font-bold text-slate-800 dark:text-white">{{ $registadasHoje }}<span class="text-lg text-slate-400 dark:text-slate-500 font-normal">/{{ $totalPiscinas }}</span></div>
                     </div>
                     <!-- Placeholder Donut / Progress -->
@@ -26,6 +27,7 @@
             <div class="neo-kpi-card">
                 <div>
                     <div class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Piscinas Conformes</div>
+                    <div class="text-[11px] text-slate-400 dark:text-slate-500 mb-1">pela leitura mais recente (sonda ou registo)</div>
                     <div class="text-3xl font-bold text-slate-800 dark:text-white">{{ $conformes }}<span class="text-lg text-slate-400 dark:text-slate-500 font-normal">/{{ $totalPiscinas }}</span></div>
                 </div>
                 <div style="width: 50px; height: 50px; position: relative;">
@@ -41,7 +43,7 @@
     <!-- Pools Grid -->
     <div class="neo-pool-grid"
          x-data="{
-             allOpen: true,
+             allOpen: window.innerWidth >= 1024,
              toggleAll() {
                  this.allOpen = !this.allOpen;
                  this.$dispatch('mmc-toggle-all-pools', { open: this.allOpen });
@@ -63,7 +65,7 @@
             <div class="neo-pool-card" 
                  wire:key="pool-card-{{ $piscina->id }}"
                  x-data="{
-                     open: true,
+                     open: window.innerWidth >= 1024,
                      init() {
                          try {
                              const saved = localStorage.getItem('neo_pool_open_' + {{ $piscina->id }});
@@ -100,7 +102,11 @@
                     } elseif ($estadoGeral === 'bad') {
                         $bgClass = 'bg-rose-50 dark:bg-rose-900/30';
                         $textClass = 'text-rose-600 dark:text-rose-400';
-                        $statusLabel = $numFora . ' Alerta' . ($numFora > 1 ? 's' : '');
+                        $forasLabels = collect($item['metricas4'] ?? [])
+                            ->filter(fn ($m) => ($m['ok'] ?? null) === false)
+                            ->pluck('label')
+                            ->implode(', ');
+                        $statusLabel = $forasLabels !== '' ? $forasLabels : $numFora . ' Alerta' . ($numFora > 1 ? 's' : '');
                         $statusColor = 'text-rose-600 dark:text-rose-400 font-bold';
                     }
                 @endphp
@@ -115,7 +121,11 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs uppercase tracking-wide {{ $statusColor }}" x-show="!open" x-cloak>{{ $statusLabel }}</span>
+                        @if (! empty($item['sem_hoje']))
+                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 whitespace-nowrap">Falta registar</span>
+                        @else
+                            <span class="text-xs uppercase tracking-wide {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
+                        @endif
                         <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
                             <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
                         </button>
@@ -169,6 +179,25 @@
                             </div>
                         @endforeach
                     </div>
+
+                    {{-- Estado da sonda, sempre visível: com um registo manual fresco a
+                         cascata de fontes escolhe "manual" e o estado da sonda deixava
+                         de aparecer em qualquer sítio a que o técnico tenha acesso. --}}
+                    @if (! empty($item['sonda']['instalada']))
+                        @php($idadeSonda = $item['sonda']['idade_min'])
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $idadeSonda === null ? 'bg-rose-500' : ($idadeSonda <= 60 ? 'bg-emerald-500' : 'bg-amber-500') }}"></span>
+                            @if ($idadeSonda === null)
+                                Sonda instalada, sem leituras
+                            @elseif ($idadeSonda < 1)
+                                Sonda: leitura agora
+                            @elseif ($idadeSonda < 60)
+                                Sonda: leitura há {{ $idadeSonda }} min
+                            @else
+                                Sonda sem leituras há {{ (int) floor($idadeSonda / 60) }}h — verificar controlador
+                            @endif
+                        </div>
+                    @endif
 
                 <!-- Actions Footer -->
                 @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())

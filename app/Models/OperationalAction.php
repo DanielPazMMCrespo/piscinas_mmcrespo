@@ -223,13 +223,35 @@ class OperationalAction extends Model
             default:
                 foreach ($this->dados as $k => $v) {
                     if (filled($v)) {
-                        $partes[] = "{$k}: {$v}";
+                        $partes[] = self::rotuloDado($k).': '.(is_bool($v) ? ($v ? 'sim' : 'não') : $v);
                     }
                 }
                 break;
         }
 
         return empty($partes) ? '—' : implode(' | ', $partes);
+    }
+
+    /**
+     * Rótulo legível para chaves do JSON `dados` sem `case` próprio — o fallback
+     * imprimia a chave crua ("duracao_min: 7 | valor: 27").
+     */
+    private static function rotuloDado(string $chave): string
+    {
+        return match ($chave) {
+            'duracao_min' => 'Duração (min)',
+            'pressao_antes_bar' => 'Pressão inicial (bar)',
+            'pressao_depois_bar' => 'Pressão final (bar)',
+            'filtro_nome' => 'Filtro',
+            'valor' => 'Valor',
+            'contador_valor' => 'Contador (m³)',
+            'quantidade_l' => 'Quantidade (L)',
+            'orp' => 'ORP (mV)',
+            'ph' => 'pH',
+            'cloro_livre' => 'Cloro livre',
+            'temperatura' => 'Temperatura',
+            default => ucfirst(str_replace('_', ' ', $chave)),
+        };
     }
 
     public function getActivitylogOptions(): LogOptions

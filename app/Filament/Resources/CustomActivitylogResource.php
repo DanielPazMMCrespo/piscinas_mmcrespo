@@ -23,7 +23,7 @@ class CustomActivitylogResource extends ActivitylogResource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->columns([
                 static::getLogNameColumnComponent(),
                 static::getEventColumnComponent(),

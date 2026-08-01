@@ -14,6 +14,7 @@ use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class ProductResource extends Resource
 {
@@ -29,7 +30,22 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'categoria'];
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Categoria' => $record->categoria ?? '—',
+            'Unidade' => $record->unidade,
+        ];
     }
 
     public static function form(Form $form): Form

@@ -68,6 +68,7 @@ class DosageCalculatorService
                 'dose_calculada_ml' => round($doseCalculada, 2),
                 'dose_com_fator_ml' => round($doseComFator, 2),
                 'unidade' => $produto->unidade ?? 'ml',
+                'dose_formatada' => $this->formatarDose($doseComFator, $produto->unidade),
                 'explicacao' => "{$acao} para o valor ideal ({$targetFmt}).",
             ];
         } else {
@@ -85,8 +86,24 @@ class DosageCalculatorService
             'dose_calculada_ml' => round($doseCalculada, 2),
             'dose_com_fator_ml' => round($doseComFator, 2),
             'unidade' => $produto->unidade ?? 'ml',
+            'dose_formatada' => $this->formatarDose($doseComFator, $produto->unidade),
             'explicacao' => $explicacao,
         ];
+    }
+
+    /**
+     * A dose é calculada em ml (líquidos) ou g (sólidos). O produto é vendido em
+     * L ou kg, por isso imprimir o número cru com a unidade do produto dava um
+     * valor 1000x maior do que o real ("+24.438 kg" em vez de "24,4 L").
+     */
+    private function formatarDose(float $doseMlOuG, ?string $unidade): string
+    {
+        return match (strtolower(trim((string) $unidade))) {
+            'l', 'litro', 'litros' => number_format($doseMlOuG / 1000, 2, ',', ' ').' L',
+            'kg' => number_format($doseMlOuG / 1000, 2, ',', ' ').' kg',
+            'g' => number_format($doseMlOuG, 0, ',', ' ').' g',
+            default => number_format($doseMlOuG, 0, ',', ' ').' ml',
+        };
     }
 
     public function sugerirProduto(string $parametro, int $installationId): ?Product

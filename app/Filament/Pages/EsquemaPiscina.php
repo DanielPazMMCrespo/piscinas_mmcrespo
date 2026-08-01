@@ -11,10 +11,8 @@ use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
 use App\Models\DosingContainer;
 use App\Models\FilterCheck;
-use App\Models\HannaDevice;
 use App\Models\OperationalAction;
 use App\Models\Pool;
-use App\Models\SensorReading;
 use App\Models\TapAlert;
 use App\Services\LeituraArtefactoService;
 use App\Services\SourceSelectionService;
@@ -31,13 +29,15 @@ class EsquemaPiscina extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
 
-    protected static ?string $navigationGroup = 'Operação';
+    // Uso diário na casa das máquinas: fica junto ao registo diário, não numa
+    // secção separada (e com sort próprio — colidia com Ações Operacionais).
+    protected static ?string $navigationGroup = 'Registo Diário';
 
     protected static ?string $navigationLabel = 'Esquema';
 
     protected static ?string $title = 'Esquema do Circuito de Água';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     protected static string $view = 'filament.pages.esquema-piscina';
 
@@ -65,7 +65,14 @@ class EsquemaPiscina extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
+        // É o técnico que trabalha no circuito de água; o NS entra mas só vê as
+        // piscinas atribuídas (filtrado em piscinasPermitidas()).
+        return auth()->user()?->hasAnyRole([
+            UserRole::ADMIN,
+            UserRole::GESTOR,
+            UserRole::TECNICO,
+            UserRole::NADADOR_SALVADOR,
+        ]) ?? false;
     }
 
     public function mount(): void
@@ -175,7 +182,7 @@ class EsquemaPiscina extends Page
             ->with('openedBy')
             ->first();
 
-        $agua = $this->valoresAgua($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_ANALISE_PONTUAL));
+        $agua = $this->valoresAgua($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_ANALISE_PONTUAL), $source);
 
         $torneira = $this->estadoTorneira($registo, $tapAberta, $ultimaAcao);
         $bomba = $this->estadoBomba($registo, $ultimaAcao->get(OperationalAction::TIPO_BOMBA));
@@ -212,8 +219,8 @@ class EsquemaPiscina extends Page
             ->where('pool_id', $piscina->id)
             ->with(['logs' => function ($query) {
                 $query->where('tipo_movimento', 'like', 'consumo%')
-                      ->latest('registado_em')
-                      ->limit(5);
+                    ->latest('registado_em')
+                    ->limit(5);
             }])
             ->orderByRaw("CASE tipo WHEN 'cloro' THEN 0 ELSE 1 END")
             ->get()
@@ -500,10 +507,12 @@ class EsquemaPiscina extends Page
             ->all();
     }
 
-    private function valoresAgua(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $analise = null): array
+    /**
+     * @param  array<string, mixed>|null  $source  seleção de fonte já calculada (evita repetir as queries da sonda)
+     */
+    private function valoresAgua(Pool $piscina, ?DailyRecord $registo, ?OperationalAction $analise = null, ?array $source = null): array
     {
-        $sourceSelection = app(SourceSelectionService::class);
-        $source = $sourceSelection->selectSource($piscina);
+        $source ??= app(SourceSelectionService::class)->selectSource($piscina);
 
         // Leitura manual mais recente (≤8h): registo diário vs análise rápida.
         $manual = null;
@@ -518,7 +527,7 @@ class EsquemaPiscina extends Page
             );
         }
 
-        if ($source['source'] === 'hanna_online' || ($manual === null && $source['source'] === 'hanna_stale' && !$source['is_artifact'])) {
+        if ($source['source'] === 'hanna_online' || ($manual === null && $source['source'] === 'hanna_stale' && ! $source['is_artifact'])) {
             $leitura = $source['reading'];
             $ph = $leitura->ph !== null ? (float) $leitura->ph : null;
             $orp = $leitura->orp !== null ? (float) $leitura->orp : null;

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Constants\AlertLevel;
 use App\Constants\AlertType;
 use App\Constants\IncidentStatus;
+use App\Constants\IncidentType;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
@@ -162,11 +163,15 @@ class AlertasService
                 ->get();
 
             foreach ($incidentes as $incidente) {
+                $tipoLabel = $incidente->type
+                    ? IncidentType::label($incidente->type)
+                    : 'sem tipo';
+
                 $alertas[AlertType::INCIDENTE."|{$incidente->id}"] = [
-                    'nivel' => AlertLevel::NEUTRO,
+                    'nivel' => AlertLevel::AMARELO,
                     'icone' => 'heroicon-o-bell-alert',
                     'titulo' => ($incidente->instalacao?->name ? "{$incidente->instalacao->name}: " : '')
-                        .'incidente — '.($incidente->type ?: 'sem tipo'),
+                        .'incidente — '.$tipoLabel,
                     'detalhe' => $incidente->ocorreu_em->format('d/m H:i')
                         .($incidente->descricao ? ' · '.Str::limit($incidente->descricao, 80) : ''),
                     'url' => IncidentResource::getUrl('view', ['record' => $incidente]),
@@ -249,7 +254,7 @@ class AlertasService
                 'detalhe' => $registo
                     ? 'Último registo em '.$registo->registado_em->format('d/m H:i')
                     : 'Nunca teve registos',
-                'url' => DailyRecordResource::getUrl('create'),
+                'url' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id, 'quick' => 1]),
                 'acao' => 'Criar registo',
             ];
         }
@@ -307,7 +312,7 @@ class AlertasService
                 'icone' => 'heroicon-o-exclamation-triangle',
                 'titulo' => "{$nome}: torneira de água aberta por resolver",
                 'detalhe' => 'Aberta desde '.Carbon::parse($tap->opened_at)->format('d/m H:i'),
-                'url' => DailyRecordResource::getUrl('create'),
+                'url' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
                 'acao' => 'Registar fecho',
             ];
         }

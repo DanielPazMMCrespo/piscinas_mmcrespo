@@ -8,6 +8,8 @@ use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -18,8 +20,10 @@ use NotificationChannels\WebPush\WebPushMessage;
  * e ao push do telemóvel (mesmo com a app fechada) para que ajam sem depender
  * de WhatsApp/telefone.
  */
-class IncidentCreatedNotification extends Notification
+class IncidentCreatedNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         private readonly Incident $incident,
     ) {}

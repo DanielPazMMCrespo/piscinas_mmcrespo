@@ -1,6 +1,11 @@
 import './bootstrap';
 import './push';
 import './gsap-transitions';
+import GLightbox from 'glightbox';
+
+// Empacotado em vez de vir do CDN: era um CSS render-blocking e um JS de
+// terceiros carregados em todas as páginas, mesmo nas que não têm fotos.
+window.GLightbox = GLightbox;
 
 // Listener para notificações de timers expirados
 if (typeof Livewire !== 'undefined') {
@@ -398,6 +403,16 @@ document.addEventListener('alpine:init', () => {
         aberto: null,
         toggle(componente) {
             this.aberto = this.aberto === componente ? null : componente;
+
+            // Em telemóvel o painel de detalhe abre abaixo do desenho, fora do
+            // ecrã: sem isto tocar num componente parecia não fazer nada.
+            if (this.aberto && window.innerWidth < 1024) {
+                requestAnimationFrame(() => {
+                    const painel = [...this.$el.querySelectorAll('.mmc-esq__detalhe')]
+                        .find((el) => el.offsetParent !== null);
+                    painel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
         },
     }));
 
@@ -821,6 +836,8 @@ document.addEventListener('alpine:init', () => {
                     },
                     plugins: {
                         legend: { position: 'bottom' },
+                        annotation: false,
+                        zoom: false,
                     },
                 },
             });
@@ -1021,11 +1038,34 @@ const getDB = () => {
     });
 };
 
+// Um formulário recém-montado já tem as chaves todas (installation_id, pools…)
+// mas sem nada preenchido: gravar esse estado equivale a apagar o rascunho.
+const temAlgumValorPreenchido = (valor) => {
+    if (valor === null || valor === undefined || valor === '' || valor === false) {
+        return false;
+    }
+    if (Array.isArray(valor)) {
+        return valor.some(temAlgumValorPreenchido);
+    }
+    if (typeof valor === 'object') {
+        return Object.entries(valor).some(([chave, v]) => {
+            // Estes vêm sempre preenchidos por defeito e não indicam trabalho do utilizador.
+            if (['user_id', 'registado_em', 'hora_colheita', 'installation_id'].includes(chave)) {
+                return false;
+            }
+            return temAlgumValorPreenchido(v);
+        });
+    }
+    return true;
+};
+
 const saveDraftToDB = async (key, draftObj) => {
     try {
         const db = await getDB();
         const tx = db.transaction('form_drafts', 'readwrite');
-        tx.objectStore('form_drafts').put(draftObj, key);
+        // O estado do Livewire é um Proxy: o structuredClone do IndexedDB rejeita-o
+        // com DataCloneError. Serializar primeiro dá um objeto simples clonável.
+        tx.objectStore('form_drafts').put(JSON.parse(JSON.stringify(draftObj)), key);
     } catch (e) {
         console.error('Error saving draft to IndexedDB:', e);
     }
@@ -1105,12 +1145,13 @@ const clearAllPhotosFromDB = async () => {
 };
 
 // Offline Queue Management
-const saveToOfflineQueue = async (payload) => {
+const saveToOfflineQueue = async (payload, tipo = 'daily_record') => {
     try {
         const db = await getDB();
         const tx = db.transaction('offline_queue', 'readwrite');
         const item = {
             offline_id: 'off_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            tipo,
             data: payload,
             created_at: Date.now()
         };
@@ -1120,7 +1161,11 @@ const saveToOfflineQueue = async (payload) => {
             tx.onerror = () => rej(tx.error);
         });
         if (navigator.onLine) {
-            syncOfflineRecords();
+            if (tipo === 'operational_action') {
+                syncOfflineOperationalActions();
+            } else {
+                syncOfflineRecords();
+            }
         }
         return item.offline_id;
     } catch (e) {
@@ -1129,19 +1174,27 @@ const saveToOfflineQueue = async (payload) => {
     }
 };
 
-const getOfflineQueue = async () => {
+const getOfflineQueue = async (tipo = null) => {
     try {
         const db = await getDB();
         const tx = db.transaction('offline_queue', 'readonly');
         const req = tx.objectStore('offline_queue').getAll();
         return new Promise((res) => {
-            req.onsuccess = () => res(req.result || []);
+            req.onsuccess = () => {
+                const todos = req.result || [];
+                // Itens antigos não têm `tipo`: tratam-se como registo diário.
+                res(tipo === null ? todos : todos.filter((i) => (i.tipo ?? 'daily_record') === tipo));
+            };
             req.onerror = () => res([]);
         });
     } catch (e) {
         return [];
     }
 };
+
+// Evita que o arranque, o livewire:navigated e o evento 'online' corram a mesma
+// sincronização ao mesmo tempo (duplicava envios).
+const syncEmCurso = { daily_record: false, operational_action: false };
 
 const deleteFromOfflineQueue = async (offlineId) => {
     try {
@@ -1155,12 +1208,13 @@ const deleteFromOfflineQueue = async (offlineId) => {
 };
 
 const syncOfflineRecords = async () => {
-    if (!navigator.onLine) return;
-    const items = await getOfflineQueue();
+    if (!navigator.onLine || syncEmCurso.daily_record) return;
+    const items = await getOfflineQueue('daily_record');
     if (!items || items.length === 0) {
         return;
     }
 
+    syncEmCurso.daily_record = true;
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         const response = await fetch('/offline-sync/daily-records', {
@@ -1183,16 +1237,19 @@ const syncOfflineRecords = async () => {
         }
     } catch (e) {
         console.error('Offline sync failed:', e);
+    } finally {
+        syncEmCurso.daily_record = false;
     }
 };
 
 const syncOfflineOperationalActions = async () => {
-    if (!navigator.onLine) return;
-    const items = await getOfflineQueue();
+    if (!navigator.onLine || syncEmCurso.operational_action) return;
+    const items = await getOfflineQueue('operational_action');
     if (!items || items.length === 0) {
         return;
     }
 
+    syncEmCurso.operational_action = true;
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         const response = await fetch('/offline-sync/operational-actions', {
@@ -1215,6 +1272,8 @@ const syncOfflineOperationalActions = async () => {
         }
     } catch (e) {
         console.error('Offline sync failed for operational actions:', e);
+    } finally {
+        syncEmCurso.operational_action = false;
     }
 };
 
@@ -1389,6 +1448,11 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
 const askUserToRestoreDraft = (formKey, component, stored) => {
     if (document.getElementById('mmc-draft-modal')) return;
 
+    // Trava o auto-save enquanto o utilizador decide: sem isto o intervalo
+    // gravava o formulário vazio por cima do rascunho e "Sim, recuperar"
+    // devolvia campos em branco.
+    window.__mmcDraftPromptPending = true;
+
     const draftData = stored.data;
     const savedAt = stored.savedAt ?? 0;
     const savedStep = stored.step;
@@ -1425,6 +1489,7 @@ const askUserToRestoreDraft = (formKey, component, stored) => {
 
     document.getElementById('mmc-draft-modal-recover-btn').addEventListener('click', async () => {
         modal.remove();
+        window.__mmcDraftPromptPending = false;
         const urlParams = new URLSearchParams(window.location.search);
         if (savedStep && urlParams.get('step') !== savedStep) {
             localStorage.setItem('mmc_restore_draft_on_load', 'true');
@@ -1442,6 +1507,7 @@ const askUserToRestoreDraft = (formKey, component, stored) => {
     });
 
     document.getElementById('mmc-draft-modal-discard-btn').addEventListener('click', async () => {
+        window.__mmcDraftPromptPending = false;
         await clearDraftState(formKey);
         modal.remove();
         window.location.reload();
@@ -1571,8 +1637,14 @@ const setupFormDraft = () => {
         }
 
         const saveDraft = async () => {
+            // Enquanto o modal "Recuperar registo anterior?" está aberto, gravar
+            // apagava o rascunho que o utilizador está a decidir se quer.
+            if (window.__mmcDraftPromptPending) {
+                return;
+            }
+
             const currentData = component.get('data');
-            if (currentData && Object.keys(currentData).length > 0) {
+            if (currentData && Object.keys(currentData).length > 0 && temAlgumValorPreenchido(currentData)) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const currentStep = urlParams.get('step');
                 const payload = { data: currentData, step: currentStep, savedAt: Date.now() };
@@ -1593,8 +1665,8 @@ const setupFormDraft = () => {
         document.addEventListener('blur', triggerSave, true);
         document.addEventListener('click', triggerSave);
 
-        // 3. Fallback periodic save every 2 seconds
-        const intervalId = setInterval(saveDraft, 2000);
+        // 3. Rede de segurança periódica (os listeners acima cobrem o uso normal)
+        const intervalId = setInterval(saveDraft, 10000);
 
         formDraftCleanup = () => {
             clearTimeout(debounceTimeout);
@@ -1731,7 +1803,7 @@ const mmcSetup = () => {
                 try {
                     const draft = JSON.parse(draftStr);
                     if (draft && draft.data) {
-                        await saveToOfflineQueue(draft.data);
+                        await saveToOfflineQueue(draft.data, 'daily_record');
                         alert('⚡ Modo Offline: O registo foi guardado localmente e será sincronizado automaticamente quando a internet for restaurada!');
                     }
                 } catch (err) {
@@ -1751,7 +1823,7 @@ const mmcSetup = () => {
                 try {
                     const draft = JSON.parse(draftStr);
                     if (draft && draft.data) {
-                        await saveToOfflineQueue(draft.data);
+                        await saveToOfflineQueue(draft.data, 'operational_action');
                         alert('⚡ Modo Offline: A ação operacional foi guardada localmente e será sincronizada automaticamente quando a internet for restaurada!');
                     }
                 } catch (err) {
@@ -1817,3 +1889,21 @@ document.addEventListener('livewire:navigated', () => {
     setupDirtyStateWarning();
     syncOfflineRecords();
 });
+
+// A gaveta de navegação do Filament usa $persist(true): num telemóvel a app
+// abria com o menu a tapar 82% do ecrã e o técnico gastava 1 toque a fechá-lo
+// em cada carregamento de página.
+const fecharSidebarEmMobile = () => {
+    if (window.innerWidth >= 1024) return;
+    try {
+        const store = window.Alpine?.store?.('sidebar');
+        if (store?.isOpen) {
+            store.close?.();
+        }
+    } catch (e) {
+        // Alpine ainda não montou — o listener alpine:init abaixo cobre esse caso.
+    }
+};
+
+document.addEventListener('alpine:initialized', fecharSidebarEmMobile);
+document.addEventListener('livewire:navigated', fecharSidebarEmMobile);

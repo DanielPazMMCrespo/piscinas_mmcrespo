@@ -80,7 +80,9 @@ class RelatorioPdfInvalidDateTest extends TestCase
             ->fillForm([
                 'installation_id' => $this->installation->id,
                 'pool_id' => 'todas',
-                'data_inicio' => now()->startOfMonth()->toDateString(),
+                // Intervalo relativo: com startOfMonth o teste falhava no dia 1 de
+                // cada mês (data fim anterior à data início).
+                'data_inicio' => now()->subDays(7)->toDateString(),
                 'data_fim' => now()->subDay()->toDateString(),
             ])
             ->call('exportar')
@@ -102,7 +104,9 @@ class RelatorioPdfInvalidDateTest extends TestCase
                 'controlador_modo' => 'todos',
             ]);
 
-        $this->assertNull($component->instance()->exportar());
+        // O período é ajustado para 7 dias e o relatório é gerado no mesmo clique
+        // (antes o 1º clique só reescrevia a data e não gerava nada).
+        $this->assertNotNull($component->instance()->exportar());
         $this->assertEquals($expectedEndDate, $component->get('data.data_fim'));
     }
 }

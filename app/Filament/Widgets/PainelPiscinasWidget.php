@@ -38,7 +38,7 @@ class PainelPiscinasWidget extends Widget
     protected static string $view = 'filament.widgets.painel-piscinas';
 
     /** 30s de polling garante que os dados aparecem logo após um sync manual. */
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '60s';
 
     /** Range operacional do controlador BL132 — mínimo comum a todas as piscinas (660 mV). */
     private const ORP_MIN = 660;
@@ -119,7 +119,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 2;
+    private const CACHE_SHAPE_VERSION = 3;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -274,27 +274,45 @@ class PainelPiscinasWidget extends Widget
             }
         }
 
-        // Procurar o ORP correspondente ao momento da análise manual (janela de +/- 60 mins)
+        // ORP correspondente ao momento da análise manual (janela de ±60 min).
+        // Uma só query para todas as piscinas — era uma por piscina, a cada render
+        // e a cada poll do widget.
         $orpsNoMomento = [];
+        $janelas = [];
         foreach ($registosUnificados as $poolId => $registo) {
             $device = $sondas->get($poolId);
             if (! $device || ! $registo || ! $registo->registado_em) {
                 continue;
             }
 
-            $leituraProxima = SensorReading::query()
-                ->where('hanna_device_id', $device->hanna_device_id)
+            $janelas[$poolId] = [
+                'device' => $device->hanna_device_id,
+                'momento' => $registo->registado_em,
+                'de' => $registo->registado_em->copy()->subMinutes(60),
+                'ate' => $registo->registado_em->copy()->addMinutes(60),
+            ];
+        }
+
+        if ($janelas !== []) {
+            $leiturasJanela = SensorReading::query()
                 ->whereNotNull('orp')
+                ->whereIn('hanna_device_id', array_column($janelas, 'device'))
                 ->whereBetween('lida_em', [
-                    $registo->registado_em->copy()->subMinutes(60),
-                    $registo->registado_em->copy()->addMinutes(60),
+                    min(array_column($janelas, 'de')),
+                    max(array_column($janelas, 'ate')),
                 ])
                 ->get()
-                ->sortBy(fn ($leitura) => abs($leitura->lida_em->diffInSeconds($registo->registado_em)))
-                ->first();
+                ->groupBy('hanna_device_id');
 
-            if ($leituraProxima) {
-                $orpsNoMomento[$poolId] = (float) $leituraProxima->orp;
+            foreach ($janelas as $poolId => $janela) {
+                $maisProxima = $leiturasJanela->get($janela['device'], collect())
+                    ->filter(fn (SensorReading $l) => $l->lida_em->betweenIncluded($janela['de'], $janela['ate']))
+                    ->sortBy(fn (SensorReading $l) => abs($l->lida_em->diffInSeconds($janela['momento'])))
+                    ->first();
+
+                if ($maisProxima) {
+                    $orpsNoMomento[$poolId] = (float) $maisProxima->orp;
+                }
             }
         }
 
@@ -307,9 +325,15 @@ class PainelPiscinasWidget extends Widget
             $device = $sondas->get($piscina->id);
             $leitura = $device ? $ultimasLeituras->get($device->hanna_device_id) : null;
 
-            // Use centralized source selection
-            $sourceSelection = app(SourceSelectionService::class);
-            $source = $sourceSelection->selectSource($piscina);
+            // Reutiliza o que já foi carregado em lote acima (sondas, últimas
+            // leituras e registos): sem isto eram ~8 queries por piscina.
+            $source = app(SourceSelectionService::class)->selectSource(
+                $piscina,
+                $device,
+                $leitura,
+                $registo,
+                usarCarregados: true,
+            );
 
             $idadeMin = $source['age_minutes'];
             $ph = $leitura?->ph !== null ? (float) $leitura->ph : null;
@@ -423,10 +447,17 @@ class PainelPiscinasWidget extends Widget
             }
 
             // 4. Cloro Combinado (Sempre Manual se houver, independentemente do tempo)
-            $combOk = $registo?->cloro_combinado !== null ? $registo->cloroCombinadoConforme() : null;
+            // Um combinado negativo é impossível (total < livre = erro de medição):
+            // aparecia como "OK" verde. Passa a valor inválido, não a conforme.
+            $combinadoValido = $registo?->cloro_combinado !== null && (float) $registo->cloro_combinado >= 0;
+            $combOk = $combinadoValido ? $registo->cloroCombinadoConforme() : null;
             $metricas4['combinado'] = [
                 'label' => 'Cl. Combinado',
-                'valor' => $registo?->cloro_combinado !== null ? number_format((float) $registo->cloro_combinado, 2, ',', '').' mg/L' : '—',
+                'valor' => match (true) {
+                    $combinadoValido => number_format((float) $registo->cloro_combinado, 2, ',', '').' mg/L',
+                    $registo?->cloro_combinado !== null => 'verificar medição',
+                    default => '—',
+                },
                 'ok' => $combOk,
                 'origem' => $registo ? 'manual' : 'sem_dados',
                 'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
@@ -512,6 +543,13 @@ class PainelPiscinasWidget extends Widget
                 'piscina' => $piscina,
                 'registo' => $registo,
                 'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
+                // Estado da sonda independente da fonte escolhida: com um registo
+                // manual fresco a cascata escolhia 'manual' e a sonda desaparecia
+                // do cartão — o técnico não tinha como saber que estava offline.
+                'sonda' => [
+                    'instalada' => $device !== null,
+                    'idade_min' => $leitura !== null ? (int) abs($leitura->lida_em->diffInMinutes(now())) : null,
+                ],
                 'metricas4' => $metricas4,
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
                 'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['redox']['valor'] !== '—' || $metricas4['livre']['valor'] !== '—',

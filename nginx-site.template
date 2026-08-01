@@ -8,10 +8,41 @@ server {
 
     client_max_body_size 100M;
 
+    # Compressão: o default do nginx só cobre text/html, pelo que ~1 MB de JS/CSS
+    # por página seguia sem comprimir.
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/manifest+json
+        image/svg+xml
+        font/woff2;
+
     # Serve built assets directly (Vite output)
     location ~* ^/build/ {
         expires 30d;
         add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Imagens e fontes estáticas: sem isto o logótipo era revalidado a cada página.
+    location ~* ^/(images|fonts)/ {
+        expires 30d;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+    }
+
+    # O service worker não pode ser cacheado, senão uma versão antiga fica presa
+    # no dispositivo e continua a servir a app pela cache dela.
+    location = /sw.js {
+        add_header Cache-Control "no-cache, must-revalidate";
         try_files $uri =404;
     }
 

@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Services\LeituraArtefactoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -80,20 +82,25 @@ class RelatorioPdf extends Page implements HasForms
      */
     public ?array $data = [];
 
-    /** Apenas admin e técnico podem emitir relatórios regulamentares. */
+    /** Admin, técnico e gestor: o gestor é destinatário do relatório mensal. */
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->hasAnyRole(['admin', 'tecnico']);
+        return (bool) auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']);
     }
 
     public function mount(): void
     {
-        // Defaults: primeiro dia do mês corrente até ontem.
+        // No dia 1 o período útil é o mês anterior completo (é o dia em que se
+        // tira o livro do mês que fechou); nos restantes dias, mês corrente até ontem.
+        $ehDiaUm = now()->day === 1;
+        $inicioPadrao = $ehDiaUm ? now()->subMonth()->startOfMonth() : now()->startOfMonth();
+        $fimPadrao = $ehDiaUm ? now()->subMonth()->endOfMonth() : now()->subDay();
+
         $this->form->fill([
-            'installation_id' => null,
+            'installation_id' => Installation::query()->where('active', true)->value('id'),
             'pool_id' => 'todas',
-            'data_inicio' => now()->startOfMonth()->toDateString(),
-            'data_fim' => now()->subDay()->toDateString(),
+            'data_inicio' => $inicioPadrao->toDateString(),
+            'data_fim' => $fimPadrao->toDateString(),
             'registo_modo' => 'todos',
             'controlador_modo' => 'media_diaria',
             'colunas_visiveis' => [
@@ -108,6 +115,51 @@ class RelatorioPdf extends Page implements HasForms
                 'mostrar_assinaturas', 'mostrar_nota_legal',
             ],
         ]);
+    }
+
+    /**
+     * Contagem prévia do que o PDF vai conter. Antes, só se descobria que o
+     * intervalo estava vazio depois de gerar um livro oficial de 3 páginas.
+     */
+    private static function resumoPrevisto(Get $get): string
+    {
+        $installationId = $get('installation_id');
+        $inicio = $get('data_inicio');
+        $fim = $get('data_fim');
+
+        if (blank($installationId) || blank($inicio) || blank($fim)) {
+            return 'Escolha instalação e período para ver quantos registos vão sair.';
+        }
+
+        $inicioDt = Carbon::parse((string) $inicio)->startOfDay();
+        $fimDt = Carbon::parse((string) $fim)->endOfDay();
+
+        if ($fimDt->lt($inicioDt)) {
+            return 'A data fim é anterior à data início.';
+        }
+
+        $registos = DailyRecord::query()
+            ->where('e_correcao', false)
+            ->whereDoesntHave('correcoes')
+            ->whereBetween('registado_em', [$inicioDt, $fimDt])
+            ->whereHas('piscina', function ($q) use ($installationId, $get): void {
+                $q->where('installation_id', $installationId);
+
+                if (filled($get('pool_id')) && $get('pool_id') !== 'todas') {
+                    $q->whereKey((int) $get('pool_id'));
+                }
+            })
+            ->with('piscina')
+            ->get();
+
+        if ($registos->isEmpty()) {
+            return 'Nenhum registo neste período — o PDF sairia vazio.';
+        }
+
+        $foraLimites = $registos->filter(fn (DailyRecord $r) => $r->listarViolacoes() !== [])->count();
+
+        return $registos->count().' registo(s) no período · '
+            .($foraLimites > 0 ? $foraLimites.' fora dos limites CN 14/DA' : 'todos conformes');
     }
 
     public function form(Form $form): Form
@@ -151,26 +203,63 @@ class RelatorioPdf extends Page implements HasForms
                         DatePicker::make('data_inicio')
                             ->label('Data início')
                             ->required()
+                            ->live(onBlur: true)
                             ->maxDate(now())
                             ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection()
                             ->native(false),
 
                         DatePicker::make('data_fim')
                             ->label('Data fim')
                             ->required()
+                            ->live(onBlur: true)
                             ->maxDate(now()->subDay())
+                            ->helperText(fn (Get $get): ?string => $get('controlador_modo') === 'todos'
+                                ? 'No modo "Todos os registos" o período máximo é de 7 dias.'
+                                : null)
                             ->afterOrEqual('data_inicio')
                             ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection()
                             ->native(false)
                             ->validationMessages([
                                 'after_or_equal' => 'A data fim tem de ser igual ou posterior à data início.',
                             ]),
+
+                        Placeholder::make('previsao_registos')
+                            ->label('O que vai sair')
+                            ->columnSpanFull()
+                            ->content(fn (Get $get): string => static::resumoPrevisto($get)),
+
+                        Actions::make([
+                            FormAction::make('mes_passado')
+                                ->label('Mês passado')
+                                ->color('gray')
+                                ->action(function (Set $set): void {
+                                    $set('data_inicio', now()->subMonth()->startOfMonth()->toDateString());
+                                    $set('data_fim', now()->subMonth()->endOfMonth()->toDateString());
+                                }),
+                            FormAction::make('ultimos_7')
+                                ->label('Últimos 7 dias')
+                                ->color('gray')
+                                ->action(function (Set $set): void {
+                                    $set('data_inicio', now()->subDays(7)->toDateString());
+                                    $set('data_fim', now()->subDay()->toDateString());
+                                }),
+                            FormAction::make('este_mes')
+                                ->label('Este mês')
+                                ->color('gray')
+                                ->action(function (Set $set): void {
+                                    $set('data_inicio', now()->startOfMonth()->toDateString());
+                                    $set('data_fim', now()->subDay()->toDateString());
+                                }),
+                        ])->columnSpanFull(),
                     ]),
 
                 Section::make('Opções de personalização do PDF')
                     ->description('Personalize as colunas e secções que vão constar no documento PDF.')
                     ->icon('heroicon-o-cog-6-tooth')
                     ->collapsible()
+                    ->collapsed()
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         Placeholder::make('aviso_customizacao')
@@ -296,14 +385,15 @@ class RelatorioPdf extends Page implements HasForms
         if ($modoControlador === 'todos' && $dias > 7) {
             $novoFim = $inicio->copy()->addDays(6);
             $this->data['data_fim'] = $novoFim->toDateString();
+            $fim = $novoFim->copy()->endOfDay();
+            $dias = 7;
 
             Notification::make()
-                ->title('Período ajustado')
-                ->body('O modo "Todos os registos" está limitado a 7 dias. A data fim foi ajustada para '.$novoFim->format('d/m/Y').'.')
+                ->title('Período ajustado para 7 dias')
+                ->body('O modo "Todos os registos" está limitado a 7 dias. O relatório cobre '
+                    .$inicio->format('d/m/Y').' a '.$novoFim->format('d/m/Y').'.')
                 ->warning()
                 ->send();
-
-            return null;
         }
 
         $piscinas = $instalacao->piscinas()
@@ -611,8 +701,8 @@ class RelatorioPdf extends Page implements HasForms
                     ->whereBetween('lida_em', [$inicio, $fim])
                     ->where(function ($q) {
                         $q->where('ph', '<', WaterQualityThresholds::ANOMALY_PH_MIN)
-                          ->orWhere('orp', '<', WaterQualityThresholds::ANOMALY_ORP_MIN)
-                          ->orWhere('orp', '>', WaterQualityThresholds::ANOMALY_ORP_MAX);
+                            ->orWhere('orp', '<', WaterQualityThresholds::ANOMALY_ORP_MIN)
+                            ->orWhere('orp', '>', WaterQualityThresholds::ANOMALY_ORP_MAX);
                     })
                     ->get();
 
@@ -642,11 +732,11 @@ class RelatorioPdf extends Page implements HasForms
                     ->whereNotNull('orp')
                     ->where(function ($q) use ($phMin, $phMax) {
                         $q->where('ph', '<', $phMin)
-                          ->orWhere('ph', '>', $phMax);
+                            ->orWhere('ph', '>', $phMax);
                     })
                     ->where(function ($q) use ($orpMin, $orpMax) {
                         $q->where('orp', '<', $orpMin)
-                          ->orWhere('orp', '>', $orpMax);
+                            ->orWhere('orp', '>', $orpMax);
                     })
                     ->selectRaw('DATE(lida_em) as dia')
                     ->groupByRaw('DATE(lida_em)')
@@ -677,9 +767,9 @@ class RelatorioPdf extends Page implements HasForms
 
                     $diaCarbon = Carbon::parse($linha->dia);
                     $cloroManualAvg = $registos
-                        ->filter(fn($r) => $r->registado_em->isSameDay($diaCarbon))
-                        ->map(fn($r) => $r->cloro_livre_efetivo)
-                        ->filter(fn($v) => $v !== null)
+                        ->filter(fn ($r) => $r->registado_em->isSameDay($diaCarbon))
+                        ->map(fn ($r) => $r->cloro_livre_efetivo)
+                        ->filter(fn ($v) => $v !== null)
                         ->average();
 
                     $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;

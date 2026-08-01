@@ -23,6 +23,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 class OperationalActionResource extends Resource
@@ -64,7 +65,17 @@ class OperationalActionResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return auth()->user()->hasRole(UserRole::ADMIN);
+        $user = auth()->user();
+
+        if ($user?->hasRole(UserRole::ADMIN)) {
+            return true;
+        }
+
+        // Quem registou corrige o próprio engano no mesmo dia (ex: 1200 m³ em vez
+        // de 120). Passadas 24h fica só o admin, para não reescrever histórico.
+        return $user?->hasRole(UserRole::TECNICO)
+            && $record?->user_id === $user->id
+            && $record->created_at?->gt(now()->subDay());
     }
 
     public static function canDelete($record): bool
@@ -75,6 +86,26 @@ class OperationalActionResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()->hasRole(UserRole::ADMIN);
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['observacoes', 'piscina.name', 'tipo'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return (OperationalAction::TIPOS[$record->tipo] ?? $record->tipo).' — '.$record->piscina->nome_completo;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Piscina' => $record->piscina->nome_completo,
+            'Quando' => $record->registado_em->format('d/m/Y H:i'),
+        ];
     }
 
     private static function preencherOrpDaSonda(Get $get, Set $set): void
@@ -171,7 +202,15 @@ class OperationalActionResource extends Resource
             Forms\Components\Select::make('pool_id')
                 ->label('Piscina')
                 ->options(self::piscinasOptions())
-                ->default(fn () => request()->integer('pool') ?: null)
+                ->default(fn () => request()->integer('pool')
+                    ?: OperationalAction::query()
+                        ->where('user_id', auth()->id())
+                        ->orderByDesc('registado_em')
+                        ->value('pool_id')
+                    ?: DailyRecord::query()
+                        ->where('user_id', auth()->id())
+                        ->orderByDesc('registado_em')
+                        ->value('pool_id'))
                 ->searchable()
                 ->visible(fn (Get $get) => ! $get('reabastecer_todas_leiria'))
                 ->required(fn (Get $get) => ! $get('reabastecer_todas_leiria'))
@@ -181,14 +220,6 @@ class OperationalActionResource extends Resource
                     self::atualizarQuantidadeBidaoDefault($get, $set);
                 }),
 
-            Forms\Components\Checkbox::make('reabastecer_todas_leiria')
-                ->label('Aplicar às 3 piscinas de Leiria (Competição, Lazer, Infantil)')
-                ->helperText('Cria um registo de reabastecimento igual para cada uma das 3 piscinas de Leiria.')
-                ->dehydrated(false)
-                ->live()
-                ->visible(fn (Get $get, $livewire) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO
-                    && $livewire instanceof CreateRecord),
-
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
                 ->options(OperationalAction::TIPOS)
@@ -197,8 +228,16 @@ class OperationalActionResource extends Resource
                 ->live()
                 ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),
 
+            Forms\Components\Checkbox::make('reabastecer_todas_leiria')
+                ->label('Aplicar às 3 piscinas de Leiria (Competição, Lazer, Infantil)')
+                ->helperText('Cria um registo de reabastecimento igual para cada uma das 3 piscinas de Leiria.')
+                ->dehydrated(false)
+                ->live()
+                ->visible(fn (Get $get, $livewire) => $get('tipo') === OperationalAction::TIPO_REABASTECIMENTO_BIDAO
+                    && $livewire instanceof CreateRecord),
+
             Forms\Components\DateTimePicker::make('registado_em')
-                ->label('Data e hora (colheita)')
+                ->label('Data e hora')
                 ->default(now())
                 ->seconds(false)
                 ->required()
@@ -345,10 +384,10 @@ class OperationalActionResource extends Resource
                         ->label('pH')->numeric()->step(0.01)
                         ->extraInputAttributes(['inputmode' => 'decimal'])
                         ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_ANALISE_PONTUAL
-                            && !filled($get('dados.cloro_livre'))
-                            && !filled($get('dados.cloro_total'))
-                            && !filled($get('dados.orp'))
-                            && !filled($get('dados.temperatura'))
+                            && ! filled($get('dados.cloro_livre'))
+                            && ! filled($get('dados.cloro_total'))
+                            && ! filled($get('dados.orp'))
+                            && ! filled($get('dados.temperatura'))
                         )
                         ->validationMessages([
                             'required' => 'Preencha pelo menos um valor na análise rápida.',
@@ -433,7 +472,7 @@ class OperationalActionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->defaultSort('registado_em', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('registado_em')
@@ -446,19 +485,22 @@ class OperationalActionResource extends Resource
                 Tables\Columns\TextColumn::make('tipo')
                     ->label('Ação')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state),
+                    ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state)
+                    // O resumo passa a viver debaixo do tipo: em telemóvel a coluna
+                    // "Valores" ficava fora do ecrã, alcançável só por swipe.
+                    ->description(fn (OperationalAction $record): ?string => $record->dadosFormatados() ?: null),
                 Tables\Columns\TextColumn::make('valores')
                     ->label('Valores')
                     ->getStateUsing(fn (OperationalAction $record) => $record->dadosFormatados())
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Responsável')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('observacoes')
                     ->label('Observações')
                     ->searchable()
                     ->limit(40)
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('foto')
                     ->label('Foto')
                     ->icon('heroicon-o-camera')

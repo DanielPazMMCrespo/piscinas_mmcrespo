@@ -8,11 +8,16 @@ use App\Constants\IncidentStatus;
 use App\Constants\IncidentType;
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
+use App\Filament\Concerns\HasPeriodoFilter;
 use App\Filament\Resources\IncidentResource\Pages;
+use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\IncidentMessage;
+use App\Models\Pool;
 use App\Notifications\IncidentMessageNotification;
+use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
@@ -21,6 +26,8 @@ use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 /**
  * [AI_CONTEXT]
@@ -40,6 +47,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class IncidentResource extends Resource
 {
+    use HasPeriodoFilter;
+
     protected static ?string $model = Incident::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
@@ -77,6 +86,7 @@ class IncidentResource extends Resource
     public static function canCreate(): bool
     {
         $user = auth()->user();
+
         return ($user?->hasAnyRole(UserRole::all()) ?? false) && $user->podeVer(NSPermission::INCIDENTES);
     }
 
@@ -98,6 +108,32 @@ class IncidentResource extends Resource
         return auth()->user()->hasRole(UserRole::ADMIN);
     }
 
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['descricao', 'piscina.name', 'instalacao.name', 'type'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return Str::limit((string) $record->descricao, 60) ?: 'Incidente';
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Instalação' => $record->instalacao->name,
+            'Piscina' => $record->piscina?->name ?? '—',
+            'Estado' => $record->status === IncidentStatus::RESOLVIDO ? 'Resolvido' : 'Aberto',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['instalacao', 'piscina']);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -115,6 +151,10 @@ class IncidentResource extends Resource
                     ->preload()
                     ->searchable()
                     ->live()
+                    // Vir do dashboard/registo com a piscina já escolhida evita
+                    // repetir o que o utilizador acabou de ver noutro ecrã.
+                    ->default(fn () => request()->integer('installation')
+                        ?: Pool::find(request()->integer('pool'))?->installation_id)
                     ->afterStateUpdated(fn (Forms\Set $set) => $set('pool_id', null)),
                 Forms\Components\Select::make('pool_id')
                     ->label('Piscina (opcional)')
@@ -131,17 +171,17 @@ class IncidentResource extends Resource
                     )
                     ->preload()
                     ->searchable()
+                    ->default(fn () => request()->integer('pool') ?: null)
                     ->disabled(fn (Get $get): bool => ! $get('installation_id')),
-                Forms\Components\Select::make('user_id')
-                    ->label('Técnico / Nadador-Salvador')
-                    ->relationship('utilizador', 'name')
+                Forms\Components\Hidden::make('user_id')
                     ->default(auth()->id())
-                    ->required()
-                    ->disabled()
                     ->dehydrated(),
                 Forms\Components\DateTimePicker::make('ocorreu_em')
                     ->label('Data/Hora da Ocorrência')
                     ->default(now())
+                    ->seconds(false)
+                    ->native(false)
+                    ->displayFormat('d/m/Y H:i')
                     ->required(),
                 Forms\Components\Select::make('type')
                     ->label('Tipo de Incidente')
@@ -153,6 +193,18 @@ class IncidentResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('observacoes')
                     ->label('Observações Adicionais')
+                    ->columnSpanFull(),
+                Forms\Components\FileUpload::make('fotos')
+                    ->label('Fotos')
+                    ->helperText('Evidência da avaria/ocorrência (até 5 fotos).')
+                    ->disk(DailyRecord::getStorageDisk())
+                    ->visibility('public')
+                    ->directory('incidentes')
+                    ->image()
+                    ->multiple()
+                    ->maxFiles(5)
+                    ->maxSize(20480)
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
                     ->columnSpanFull(),
                 Forms\Components\Section::make('Resolução')
                     ->icon('heroicon-o-check-circle')
@@ -176,10 +228,9 @@ class IncidentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'piscina', 'utilizador']))
-            ->recordUrl(null)
-            ->recordAction('view')
+            ->recordUrl(fn (Incident $record): string => static::getUrl('view', ['record' => $record]))
             ->contentGrid([
                 'md' => 2,
                 'xl' => 3,
@@ -192,10 +243,14 @@ class IncidentResource extends Resource
                             ->weight('bold')
                             ->sortable()
                             ->searchable()
-                            ->description(fn (Incident $record): ?string => $record->piscina?->name),
+                            ->description(fn (Incident $record): ?string => trim(
+                                ($record->piscina?->name ? $record->piscina->name.' · ' : '')
+                                .Str::limit((string) $record->descricao, 70)
+                            )),
                         Tables\Columns\TextColumn::make('ocorreu_em')
                             ->label('Data/Hora')
                             ->dateTime('d/m/Y H:i')
+                            ->description(fn (Incident $record): string => $record->ocorreu_em->locale('pt')->diffForHumans())
                             ->color('gray')
                             ->size('sm')
                             ->sortable(),
@@ -220,13 +275,37 @@ class IncidentResource extends Resource
                             ->icon(fn (?string $state): string => $state === IncidentStatus::RESOLVIDO ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-circle'),
                     ])->space(1),
                 ])->from('md'),
+                // Colunas só para pesquisa: "bomba" não encontrava
+                // "Bomba do filtro com ruído anormal" (a busca não cobria a descrição).
+                Tables\Columns\TextColumn::make('descricao')
+                    ->label('Descrição')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('piscina.name')
+                    ->label('Piscina')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Estado')
                     ->options([IncidentStatus::ABERTO => 'Aberto', IncidentStatus::RESOLVIDO => 'Resolvido'])
                     ->default(IncidentStatus::ABERTO),
-            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
+                Tables\Filters\SelectFilter::make('installation_id')
+                    ->label('Instalação')
+                    ->relationship('instalacao', 'name')
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('pool_id')
+                    ->label('Piscina')
+                    ->relationship('piscina', 'name')
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('Tipo')
+                    ->options(IncidentType::options()),
+                static::filtroPeriodo('ocorreu_em', mesCorrentePorOmissao: false),
+            ], layout: FiltersLayout::Modal)
+            ->emptyStateHeading('Sem incidentes')
+            ->emptyStateDescription('A lista mostra apenas os incidentes abertos por omissão — abra os filtros para ver os resolvidos.')
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     static::resolverTableAction(),
@@ -279,9 +358,9 @@ class IncidentResource extends Resource
     /**
      * Ação "Resolver" para o cabeçalho de {@see Pages\ViewIncident}.
      */
-    public static function resolverHeaderAction(): \Filament\Actions\Action
+    public static function resolverHeaderAction(): Action
     {
-        return \Filament\Actions\Action::make('resolver')
+        return Action::make('resolver')
             ->label('Resolver')
             ->icon('heroicon-o-check-circle')
             ->color('success')
@@ -300,7 +379,7 @@ class IncidentResource extends Resource
             && (auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false);
     }
 
-    /** @return array<\Filament\Forms\Components\Component> */
+    /** @return array<Component> */
     private static function resolverFormSchema(): array
     {
         return [
@@ -316,6 +395,7 @@ class IncidentResource extends Resource
     {
         if (! static::podeResolver($record)) {
             Notification::make()->danger()->title('Sem permissão')->send();
+
             return;
         }
 
@@ -328,16 +408,16 @@ class IncidentResource extends Resource
 
         $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
 
-        \App\Models\IncidentMessage::create([
+        IncidentMessage::create([
             'incident_id' => $record->id,
             'user_id' => auth()->id(),
-            'tipo' => \App\Models\IncidentMessage::TIPO_SISTEMA,
+            'tipo' => IncidentMessage::TIPO_SISTEMA,
             'texto' => $texto,
         ]);
 
         \Illuminate\Support\Facades\Notification::send(
             $record->participantes(excluir: auth()->user()),
-            new \App\Notifications\IncidentMessageNotification($record, auth()->user(), $texto)
+            new IncidentMessageNotification($record, auth()->user(), $texto)
         );
 
         Notification::make()

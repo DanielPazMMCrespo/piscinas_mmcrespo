@@ -40,9 +40,17 @@
                                 <a href="{{ $a['url'] }}" class="mmc-alert-link">{{ $a['acao'] }}</a>
                             @endif
                         </div>
-                        <button type="button" class="mmc-alert-resolve-btn" wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')">
-                            Resolver
-                        </button>
+                        @if (str_starts_with($a['key'], 'incidente|'))
+                            <a href="{{ $a['url'] }}" class="mmc-alert-resolve-btn">Resolver</a>
+                        @else
+                            <button type="button" class="mmc-alert-resolve-btn"
+                                    wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')"
+                                    @if (\App\Filament\Widgets\QuadroOperacionalWidget::exigeConfirmacao($a))
+                                        wire:confirm="Este alerta é uma violação dos limites legais. Marcar como tratado não altera os valores registados. Continuar?"
+                                    @endif>
+                                Resolver
+                            </button>
+                        @endif
                     </div>
                 @endif
             @empty
@@ -66,7 +74,10 @@
                                     @if ($a['auto'])
                                         <span class="mmc-alert-auto">automático</span>
                                     @else
-                                        resolvido às {{ $a['movido_em'] }}
+                                        marcado como tratado às {{ $a['movido_em'] }}
+                                    @endif
+                                    @if (! empty($a['condicao_persiste']))
+                                        <span class="mmc-alert-auto" style="background:#fee2e2;color:#991b1b;">a condição continua ativa</span>
                                     @endif
                                 </div>
                             </div>

@@ -23,11 +23,9 @@ class EditIncident extends EditRecord
     protected function getFormActions(): array
     {
         return [
-            $this->getSaveFormAction()
-                ->requiresConfirmation()
-                ->modalHeading('Confirmar alteração')
-                ->modalDescription('Confirme que pretende guardar as alterações.')
-                ->modalSubmitActionLabel('Confirmar e guardar'),
+            // requiresConfirmation() aqui nunca aparecia (a ação usa submit(), que
+            // ignora modais) — removido em vez de dar a ideia de haver confirmação.
+            $this->getSaveFormAction(),
             $this->getCancelFormAction(),
         ];
     }

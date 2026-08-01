@@ -1,13 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
 use App\Models\DailyRecord;
 use App\Models\HannaDevice;
-use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
-use Carbon\Carbon;
 
 /**
  * Cascata de fontes centralizada: sonda fresca (≤60 min) → leitura manual
@@ -32,9 +32,19 @@ class SourceSelectionService
      *
      * @return array{source: string, reading: ?SensorReading, record: ?DailyRecord, age_minutes: ?int, is_artifact: ?bool}
      */
-    public function selectSource(Pool $pool): array
-    {
-        $device = HannaDevice::query()
+    /**
+     * @param  HannaDevice|null  $deviceCarregado  sonda já carregada pelo chamador
+     * @param  SensorReading|null  $leituraCarregada  última leitura já carregada
+     * @param  DailyRecord|null  $registoCarregado  último registo já carregado
+     */
+    public function selectSource(
+        Pool $pool,
+        ?HannaDevice $deviceCarregado = null,
+        ?SensorReading $leituraCarregada = null,
+        ?DailyRecord $registoCarregado = null,
+        bool $usarCarregados = false,
+    ): array {
+        $device = $usarCarregados ? $deviceCarregado : HannaDevice::query()
             ->where('active', true)
             ->where('pool_id', $pool->id)
             ->first();
@@ -44,7 +54,7 @@ class SourceSelectionService
         $artefacto = null;
 
         if ($device !== null) {
-            $leitura = SensorReading::query()
+            $leitura = $usarCarregados ? $leituraCarregada : SensorReading::query()
                 ->where('hanna_device_id', $device->hanna_device_id)
                 ->latest('lida_em')
                 ->first();
@@ -72,7 +82,7 @@ class SourceSelectionService
         }
 
         // Senão, procura leitura manual fresca (≤8h)
-        $registo = DailyRecord::latestPerPool()
+        $registo = $usarCarregados ? $registoCarregado : DailyRecord::latestPerPool()
             ->where('pool_id', $pool->id)
             ->first();
 

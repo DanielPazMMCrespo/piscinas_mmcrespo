@@ -5,7 +5,31 @@
 // - Navegações HTML (/admin/*): Network-First com fallback para cache local, permitindo ao técnico abrir o formulário de registo e o dashboard mesmo no terreno sem rede.
 // - Notificações Push: VAPID nativo para alertas e timers.
 
-const VERSAO = 'mmcrespo-v14';
+const VERSAO = 'mmcrespo-v15';
+
+// Sem isto uma rede que aceita a ligação mas não responde (wifi municipal com
+// captive portal, 4G fraca na casa das máquinas) pendura a navegação até o
+// browser desistir — foram medidos 25 s por página. Passado o limite usamos a
+// cache; a resposta da rede continua a atualizar a cache em segundo plano.
+const TIMEOUT_NAVEGACAO_MS = 4000;
+
+const TIMEOUT_ASSET_MS = 8000;
+
+function fetchComTimeout(request, ms) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout')), ms);
+        fetch(request).then(
+            (response) => {
+                clearTimeout(timer);
+                resolve(response);
+            },
+            (erro) => {
+                clearTimeout(timer);
+                reject(erro);
+            }
+        );
+    });
+}
 const CORE_ASSETS = [
     '/manifest.json',
     '/images/icon-192.png',
@@ -43,13 +67,20 @@ self.addEventListener('fetch', (event) => {
     }
 
     const url = new URL(event.request.url);
+
+    // Pedidos a outras origens (fontes, CDNs) não passam pelo SW: não os podemos
+    // cachear com utilidade e só serviam para atrasar tudo o que corre aqui.
+    if (url.origin !== self.location.origin) {
+        return;
+    }
+
     const isStaticAsset = url.pathname.startsWith('/build/') || url.pathname.startsWith('/images/') || url.pathname === '/manifest.json';
     const isNavigation = event.request.mode === 'navigate';
 
     if (isStaticAsset) {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
-                const fetchPromise = fetch(event.request).then((networkResponse) => {
+                const fetchPromise = fetchComTimeout(event.request, TIMEOUT_ASSET_MS).then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         const responseClone = networkResponse.clone();
                         caches.open(VERSAO).then((cache) => cache.put(event.request, responseClone));
@@ -65,7 +96,7 @@ self.addEventListener('fetch', (event) => {
 
     if (isNavigation) {
         event.respondWith(
-            fetch(event.request).then((networkResponse) => {
+            fetchComTimeout(event.request, TIMEOUT_NAVEGACAO_MS).then((networkResponse) => {
                 if (networkResponse && networkResponse.status === 200) {
                     const responseClone = networkResponse.clone();
                     caches.open(VERSAO).then((cache) => cache.put(event.request, responseClone));
@@ -94,7 +125,9 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith(
-        fetch(event.request).catch(() => caches.match(event.request))
+        fetchComTimeout(event.request, TIMEOUT_ASSET_MS)
+            .catch(() => caches.match(event.request))
+            .then((resposta) => resposta ?? fetch(event.request))
     );
 });
 

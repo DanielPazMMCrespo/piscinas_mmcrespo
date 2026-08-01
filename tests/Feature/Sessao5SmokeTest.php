@@ -88,14 +88,23 @@ class Sessao5SmokeTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_gestor_nao_acede_stock_armazem(): void
+    /**
+     * Gestor é leitura/relatórios: consulta o stock (as Policies já o autorizavam
+     * e o alerta de stock baixo aparece-lhe no dashboard), mas não o movimenta.
+     */
+    public function test_gestor_ve_stock_armazem_mas_nao_o_movimenta(): void
     {
-        $this->piscinaComStock();
+        $stock = $this->piscinaComStock();
         $gestor = $this->utilizador('gestor');
 
         $this->actingAs($gestor)
             ->get('/admin/stock-warehouses')
-            ->assertForbidden();
+            ->assertSuccessful();
+
+        $armazem = StockWarehouse::first();
+        $this->assertNotNull($armazem);
+        $this->assertFalse($gestor->can('updateStock', $armazem));
+        $this->assertFalse($gestor->can('transferStock', $armazem));
     }
 
     public function test_gestor_ve_lista_de_registos_diarios(): void

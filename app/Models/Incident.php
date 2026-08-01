@@ -22,11 +22,13 @@ class Incident extends Model
         'installation_id', 'pool_id', 'user_id', 'ocorreu_em',
         'type', 'descricao', 'observacoes',
         'status', 'resolvido_em', 'resolvido_por', 'resolucao',
+        'fotos',
     ];
 
     protected $casts = [
         'ocorreu_em' => 'datetime',
         'resolvido_em' => 'datetime',
+        'fotos' => 'array',
     ];
 
     public function estaResolvido(): bool
@@ -39,9 +41,6 @@ class Incident extends Model
         return $this->belongsTo(Installation::class, 'installation_id');
     }
 
-    /**
-     * @return BelongsTo
-     */
     public function piscina(): BelongsTo
     {
         return $this->belongsTo(Pool::class, 'pool_id');

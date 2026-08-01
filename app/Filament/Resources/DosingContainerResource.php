@@ -36,7 +36,7 @@ class DosingContainerResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
     }
 
     public static function form(Form $form): Form
@@ -53,6 +53,16 @@ class DosingContainerResource extends Resource
                 ->label('Reagente')
                 ->options(DosingContainer::TIPOS)
                 ->required(),
+
+            // Liga o bidão ao produto em stock: cada reabastecimento passa a
+            // descontar do stock da instalação (antes o consumo real por dosagem
+            // automática nunca aparecia em lado nenhum).
+            Forms\Components\Select::make('product_id')
+                ->label('Produto em stock')
+                ->relationship('produto', 'name')
+                ->searchable()
+                ->preload()
+                ->helperText('Produto debitado do stock da instalação em cada reabastecimento.'),
 
             Forms\Components\TextInput::make('capacidade_ml')
                 ->label('Capacidade (L)')
@@ -85,7 +95,8 @@ class DosingContainerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
+            ->modifyQueryUsing(fn ($query) => $query->with('piscina.instalacao'))
             ->columns([
                 Tables\Columns\TextColumn::make('piscina.name')
                     ->label('Piscina')

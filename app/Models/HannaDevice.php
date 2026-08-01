@@ -37,10 +37,22 @@ class HannaDevice extends Model
         return $this->hasMany(SensorReading::class, 'hanna_device_id', 'hanna_device_id');
     }
 
-    /** Ãšltima leitura guardada para este dispositivo. */
+    private ?SensorReading $ultimaLeituraMemo = null;
+
+    private bool $ultimaLeituraCarregada = false;
+
+    /**
+     * Última leitura guardada para este dispositivo. Memoizada: a tabela de
+     * sensores chamava-a numa coluna a seguir à outra, por linha.
+     */
     public function ultimaLeitura(): ?SensorReading
     {
-        return $this->leituras()->latest('lida_em')->first();
+        if (! $this->ultimaLeituraCarregada) {
+            $this->ultimaLeituraMemo = $this->leituras()->latest('lida_em')->first();
+            $this->ultimaLeituraCarregada = true;
+        }
+
+        return $this->ultimaLeituraMemo;
     }
 
     /**

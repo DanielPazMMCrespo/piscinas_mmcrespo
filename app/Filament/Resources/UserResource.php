@@ -15,7 +15,9 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Spatie\Permission\Models\Role;
@@ -78,6 +80,38 @@ class UserResource extends Resource
     private static function temDadosAssociados(User $record): bool
     {
         return $record->daily_records()->exists() || $record->incidents()->exists();
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->full_name;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Email' => $record->email,
+            'Cargo' => $record->roles->pluck('name')->map(fn (string $role): string => match ($role) {
+                UserRole::ADMIN => 'Admin',
+                UserRole::GESTOR => 'Gestor',
+                UserRole::TECNICO => 'Técnico',
+                UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+                UserRole::INATIVO => 'Inativo',
+                default => $role,
+            })->implode(', ') ?: '—',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('roles');
     }
 
     private static function rolesIncluemNS(Forms\Get $get): bool
@@ -211,11 +245,16 @@ class UserResource extends Resource
                     ->label('Enviar Email de Redefinição')
                     ->icon('heroicon-o-envelope')
                     ->color('info')
+                    // canEdit() bloqueia editar admins, mas estas duas ações não
+                    // passavam por lá: o gestor via-as nas linhas dos admins.
+                    ->visible(fn (User $record): bool => static::canEdit($record))
                     ->requiresConfirmation()
                     ->modalHeading('Enviar email de redefinição')
                     ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
                     ->modalSubmitActionLabel('Sim, enviar e-mail')
                     ->action(function (User $record): void {
+                        abort_unless(static::canEdit($record), 403);
+
                         Password::broker()->sendResetLink(['email' => $record->email]);
                         Notification::make()
                             ->title('E-mail enviado')
@@ -227,6 +266,7 @@ class UserResource extends Resource
                     ->label('Forçar Pass / PIN')
                     ->icon('heroicon-o-lock-closed')
                     ->color('danger')
+                    ->visible(fn (User $record): bool => static::canEdit($record))
                     ->form([
                         Forms\Components\TextInput::make('password')
                             ->label('Nova Palavra-passe')
@@ -243,6 +283,8 @@ class UserResource extends Resource
                             ->required(),
                     ])
                     ->action(function (User $record, array $data): void {
+                        abort_unless(static::canEdit($record), 403);
+
                         if (! empty($data['password'])) {
                             $record->password = Hash::make($data['password']);
                         }

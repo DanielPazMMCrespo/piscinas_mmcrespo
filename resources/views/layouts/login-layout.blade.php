@@ -5,14 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - M.Marques Crespo</title>
     
-    <!-- Google Fonts (Allowed by CSP) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-    
-    <!-- GSAP via jsDelivr (Allowed by CSP) -->
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
-    
+    {{-- Fontes e GSAP vêm do bundle Vite: zero pedidos a terceiros no arranque. --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     @livewireStyles
     
     <style>

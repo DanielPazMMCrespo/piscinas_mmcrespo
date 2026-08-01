@@ -291,6 +291,8 @@
                                     && $registo->cloro_livre_efetivo !== null
                                     && ! $registo->cloroCombinadoConforme();
                                 $tempFora = $registo->temperatura_efetivo !== null && ! $registo->temperaturaConforme();
+                                $turbidezFora = $registo->transparencia !== null
+                                    && (float) $registo->transparencia > \App\Models\DailyRecord::getTransparenciaMax();
                                 // Ação corretiva vem das adições de químicos (modo média usa o
                                 // atributo do mock; modo "todos" concatena as adições do registo).
                                 $acaoCorretiva = $registo->acao_corretiva
@@ -345,20 +347,20 @@
                                     </td>
                                 @endif
                                 @if (in_array('transparencia', $colunasVisiveis))
-                                    <td>{{ in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']) ? 'Conforme' : ($registo->transparencia ?? '—') }}</td>
+                                    <td>
+                                        @if ($registo->transparencia !== null)
+                                            <span @class(['fora-gama' => $turbidezFora])>{{ $registo->transparencia }}</span>
+                                        @else — @endif
+                                    </td>
                                 @endif
                                 @if (in_array('contador_valor', $colunasVisiveis))
                                     <td>{{ $registo->contador_valor !== null ? number_format((float) $registo->contador_valor, 2, ',', ' ') : '—' }}</td>
                                 @endif
                                 @if (in_array('bomba_tanque', $colunasVisiveis))
                                     <td>
-                                        @if (in_array($piscina->name, ['Lazer', 'Competição', 'Infantil']))
-                                            Conforme
-                                        @else
-                                            {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
-                                            /
-                                            {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
-                                        @endif
+                                        {{ $registo->bomba_ferrada === null ? '—' : ($registo->bomba_ferrada ? '✓' : '✗') }}
+                                        /
+                                        {{ $registo->tanque_ok === null ? '—' : ($registo->tanque_ok ? '✓' : '✗') }}
                                     </td>
                                 @endif
                                 @if (in_array('renovacao_agua', $colunasVisiveis))

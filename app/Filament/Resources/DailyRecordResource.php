@@ -13,6 +13,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * [AI_CONTEXT]
@@ -84,6 +85,35 @@ class DailyRecordResource extends Resource
     public static function canEdit($record): bool
     {
         return false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['observacoes', 'piscina.name', 'utilizador.name'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->piscina->name.' — '.$record->registado_em->format('d/m/Y H:i');
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Instalação' => $record->piscina->instalacao->name,
+            'Técnico' => $record->utilizador->name,
+        ];
+    }
+
+    /**
+     * Não há página de vista/edição (registo append-only) — sem isto o
+     * resultado seria filtrado por getGlobalSearchResultUrl() default (null).
+     */
+    public static function getGlobalSearchResultUrl(Model $record): string
+    {
+        return static::getUrl('index');
     }
 
     public static function canDelete($record): bool

@@ -14,7 +14,7 @@ class StockWarehouseLog extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['stock_warehouse_id', 'user_id', 'tipo_movimento', 'quantity', 'fornecedor', 'created_at'];
+    protected $fillable = ['stock_warehouse_id', 'product_id', 'user_id', 'tipo_movimento', 'quantity', 'fornecedor', 'created_at'];
 
     protected $casts = [
         'quantity' => 'decimal:3',
@@ -29,5 +29,14 @@ class StockWarehouseLog extends Model
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Redundante com `armazem->produto`, mas guardar o produto no próprio
+     * movimento preserva o histórico se a linha de armazém for removida.
+     */
+    public function produto(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

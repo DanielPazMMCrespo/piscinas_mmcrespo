@@ -34,11 +34,20 @@ class QuadroOperacionalWidget extends Widget
     protected static string $view = 'filament.widgets.quadro-operacional';
 
     /** O estado muda ao longo da manhã (regra das 12h) — refresca a cada 30s. */
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '60s';
 
     public static function canView(): bool
     {
         return ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR);
+    }
+
+    /**
+     * Só as violações legais exigem confirmação antes de sair do quadro — usado
+     * pelo wire:confirm da vista.
+     */
+    public static function exigeConfirmacao(array $alerta): bool
+    {
+        return ($alerta['nivel'] ?? null) === AlertLevel::VERMELHO;
     }
 
     /**
@@ -92,6 +101,15 @@ class QuadroOperacionalWidget extends Widget
             $resolvido = $estado && in_array($estado->status, ['resolvido', 'resolvido_auto'], true);
 
             if ($resolvido) {
+                if ($estado->moved_at?->isToday()) {
+                    $listaResolvidos[] = $alerta + [
+                        'key' => $key,
+                        'auto' => $estado->status === 'resolvido_auto',
+                        'movido_em' => $estado->moved_at->format('H:i'),
+                        'condicao_persiste' => true,
+                    ];
+                }
+
                 continue;
             }
 

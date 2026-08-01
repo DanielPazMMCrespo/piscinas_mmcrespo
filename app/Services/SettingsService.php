@@ -39,9 +39,16 @@ class SettingsService
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $settings = $this->all();
+        $value = $this->all()[$key] ?? null;
 
-        return $settings[$key] ?? $default;
+        // Um valor vazio guardado na BD não pode substituir o default: era assim
+        // que um Guardar em Definições com campos em branco punha os limites
+        // regulamentares a zero ('' não dispara o ?? do default).
+        if ($value === null || $value === '' || $value === []) {
+            return $default;
+        }
+
+        return $value;
     }
 
     public function getFloat(string $key, float $default = 0.0): float

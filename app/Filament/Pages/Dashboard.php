@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\CloroPhChartWidget;
+use App\Filament\Widgets\EstabilidadeMedicoesWidget;
 use App\Filament\Widgets\PainelPiscinasWidget;
 use App\Filament\Widgets\QuadroOperacionalWidget;
 use App\Filament\Widgets\StockBaixoWidget;
-use App\Filament\Widgets\EstabilidadeMedicoesWidget;
 
 /**
  * [AI_CONTEXT]
@@ -36,13 +36,20 @@ class Dashboard extends \Filament\Pages\Dashboard
         return '';
     }
 
+    /**
+     * A ordem deste array é a ordem no ecrã (getVisibleWidgets não ordena pelo
+     * $sort dos widgets). Operacional primeiro: com os gráficos antes do quadro
+     * de alertas, "o que tenho de fazer a seguir" ficava a 5,4 ecrãs de scroll
+     * no telemóvel. O gráfico e a estabilidade também existem, com controlos,
+     * na página Análise de Parâmetros.
+     */
     public function getWidgets(): array
     {
         return [
             PainelPiscinasWidget::class,
-            CloroPhChartWidget::class,
             QuadroOperacionalWidget::class,
             StockBaixoWidget::class,
+            CloroPhChartWidget::class,
             EstabilidadeMedicoesWidget::class,
         ];
     }

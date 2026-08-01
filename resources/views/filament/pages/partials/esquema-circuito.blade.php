@@ -245,7 +245,7 @@
                     @elseif ($torneira['estado'] === 'fechada')
                         <span class="mmc-esq__tag">{{ $torneira['agua_modo'] }}</span>
                     @else
-                        <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                        <span class="mmc-esq__tag">Desconhecido (registo com mais de 8h)</span>
                     @endif
                 </dd></div>
                 <div><dt>Última leitura do contador</dt><dd>{{ $torneira['contador'] ?? '—' }}</dd></div>
@@ -318,7 +318,7 @@
                     @elseif ($bomba['estado'] === 'parada')
                         <span class="mmc-esq__tag mmc-esq__tag--amarelo">Não ferrada</span>
                     @else
-                        <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                        <span class="mmc-esq__tag">Desconhecido (registo com mais de 8h)</span>
                     @endif
                 </dd></div>
                 @if ($bomba['fonte'])
@@ -379,7 +379,7 @@
                         @elseif ($tanque['estado'] === 'verificar')
                             <span class="mmc-esq__tag mmc-esq__tag--amarelo">Verificar</span>
                         @else
-                            <span class="mmc-esq__tag">Desconhecido (registo com mais de 24h)</span>
+                            <span class="mmc-esq__tag">Desconhecido (registo com mais de 8h)</span>
                         @endif
                     </dd></div>
                     @if ($tanque['fonte'])

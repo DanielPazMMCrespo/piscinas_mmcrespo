@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\HannaDeviceResource\Pages;
 use App\Models\HannaDevice;
+use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -14,6 +15,8 @@ use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 
 /**
@@ -37,6 +40,23 @@ class HannaDeviceResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->check() && auth()->user()->hasRole('admin');
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'hanna_device_id', 'piscina.name'];
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return ['Piscina' => $record->piscina?->name ?? '—'];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('piscina');
     }
 
     public static function form(Form $form): Form
@@ -69,7 +89,7 @@ class HannaDeviceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->recordAction('ver_detalhes')
             ->columns([
                 Tables\Columns\TextColumn::make('hanna_device_id')
@@ -81,7 +101,33 @@ class HannaDeviceResource extends Resource
                 Tables\Columns\TextColumn::make('ultima_leitura')
                     ->label('Última leitura')
                     ->dateTime('d/m/Y H:i')
-                    ->color('gray')
+                    // "31/07 23:29" obrigava a subtrair de cabeça para saber se a
+                    // sonda está a falhar; o estado vem do timeout configurado.
+                    ->description(function (HannaDevice $r): string {
+                        $leitura = $r->ultimaLeitura();
+
+                        if ($leitura === null) {
+                            return 'sem leituras';
+                        }
+
+                        $timeout = app(SettingsService::class)->getInt('sensor_timeout_minutos', 60);
+                        $minutos = (int) abs($leitura->lida_em->diffInMinutes(now()));
+
+                        return $leitura->lida_em->locale('pt')->diffForHumans()
+                            .($minutos > $timeout ? ' — sonda em falha' : ' — online');
+                    })
+                    ->badge()
+                    ->color(function (HannaDevice $r): string {
+                        $leitura = $r->ultimaLeitura();
+
+                        if ($leitura === null) {
+                            return 'danger';
+                        }
+
+                        $timeout = app(SettingsService::class)->getInt('sensor_timeout_minutos', 60);
+
+                        return abs($leitura->lida_em->diffInMinutes(now())) > $timeout ? 'danger' : 'success';
+                    })
                     ->state(fn (HannaDevice $r) => $r->ultimaLeitura()?->lida_em),
                 Tables\Columns\TextColumn::make('ultima_ph')
                     ->label('pH')
@@ -148,6 +194,20 @@ class HannaDeviceResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Descobrir dispositivos Hanna Cloud')
                     ->modalDescription('Liga à Hanna Cloud e lista todos os dispositivos BL12x/BL13x associados à conta. Necessita de HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD no .env.'),
+            ])
+            ->filters([
+                Tables\Filters\Filter::make('em_falha')
+                    ->label('Só sondas em falha')
+                    ->toggle()
+                    ->query(function ($query) {
+                        $timeout = app(SettingsService::class)->getInt('sensor_timeout_minutos', 60);
+                        $limite = now()->subMinutes($timeout);
+
+                        return $query->where(function ($q) use ($limite) {
+                            $q->whereDoesntHave('leituras')
+                                ->orWhereDoesntHave('leituras', fn ($sub) => $sub->where('lida_em', '>=', $limite));
+                        });
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

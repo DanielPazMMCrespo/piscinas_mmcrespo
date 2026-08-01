@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Constants\UserRole;
 use App\Notifications\DosingContainerLowAlert;
 use App\Services\HannaCloudService;
+use App\Services\StockService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -32,7 +33,7 @@ class DosingContainer extends Model
     ];
 
     protected $fillable = [
-        'pool_id', 'tipo', 'capacidade_ml', 'restante_ml',
+        'pool_id', 'product_id', 'tipo', 'capacidade_ml', 'restante_ml',
         'alerta_percent', 'reabastecido_em', 'reabastecido_por', 'alerta_notificado_em',
     ];
 
@@ -157,6 +158,54 @@ class DosingContainer extends Model
         });
     }
 
+    public function produto(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Debita do stock da instalação o químico que entrou fisicamente no bidão.
+     * Best-effort: o reabastecimento é um facto e nunca é bloqueado por falta de
+     * stock registado — nesse caso o stock fica a zero e o admin é avisado pelo
+     * próprio StockService.
+     */
+    private function debitarStockInstalacao(float $ml, ?int $userId): void
+    {
+        if ($this->product_id === null) {
+            return;
+        }
+
+        $installationId = $this->piscina?->installation_id;
+        if ($installationId === null) {
+            return;
+        }
+
+        $stock = StockInstallation::query()
+            ->where('installation_id', $installationId)
+            ->where('product_id', $this->product_id)
+            ->first();
+
+        if ($stock === null) {
+            return;
+        }
+
+        // A dose é medida em ml; o produto é vendido em L/kg (densidade ≈ 1 para
+        // hipoclorito e redutor de pH — suficiente para gestão de stock).
+        $quantidade = match (strtolower((string) $stock->produto?->unidade)) {
+            'l', 'litro', 'litros', 'kg' => $ml / 1000,
+            default => $ml,
+        };
+
+        try {
+            app(StockService::class)->consumeInstallationStock($stock->id, round($quantidade, 3), $userId);
+        } catch (\Throwable $e) {
+            Log::warning('Reabastecimento de bidão sem stock suficiente na instalação', [
+                'dosing_container_id' => $this->id,
+                'erro' => $e->getMessage(),
+            ]);
+        }
+    }
+
     /** Repõe o nível do bidão (reabastecimento manual) e limpa o alerta. */
     public function reabastecer(float $ml, ?int $userId = null, ?string $nota = null, ?Carbon $timestamp = null): void
     {
@@ -177,6 +226,9 @@ class DosingContainer extends Model
                 'registado_em' => $timestamp ?? now(),
             ]);
         });
+
+        // Fora da transação: o débito de stock tem a sua própria transação com lock.
+        $this->debitarStockInstalacao($ml, $userId);
 
         // Run retroactive consumption catch-up outside the transaction to prevent database lockups during API HTTP requests
         $this->recalcularConsumoAposReabastecimento();

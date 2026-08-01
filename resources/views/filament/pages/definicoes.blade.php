@@ -28,7 +28,8 @@
     </x-filament::tabs>
 
     {{-- ================= Minhas Notificações ================= --}}
-    <div @if($tab !== 'notificacoes') style="display:none" @endif>
+    @if($tab === 'notificacoes')
+    <div>
         <div
             x-data="{
                 estado: 'a-verificar',
@@ -191,13 +192,17 @@
         </form>
     </div>
 
+    @endif
+
     {{-- ================= Sistema ================= --}}
-    @if($this->podeGerir())
-        <div @if($tab !== 'sistema') style="display:none" @endif>
+    @if($this->podeGerir() && $tab === 'sistema')
+        <div>
             <form wire:submit="save">
                 {{ $this->form }}
 
-                <div class="mt-6 flex items-center justify-between gap-x-6">
+                {{-- Barra de ações fixa: com o dropdown do último select aberto, o
+                     toque em Guardar não disparava nada e nada avisava o utilizador. --}}
+                <div class="mt-6 flex items-center justify-between gap-x-6 sticky bottom-0 z-20 bg-white/95 dark:bg-gray-900/95 py-3 -mx-2 px-2 rounded-lg backdrop-blur">
                     <button
                         type="button"
                         wire:click="$set('mostrarAvancado', {{ $mostrarAvancado ? 'false' : 'true' }})"
@@ -213,8 +218,11 @@
             </form>
         </div>
 
+    @endif
+
         {{-- ================= Avisos ================= --}}
-        <div @if($tab !== 'avisos') style="display:none" @endif class="space-y-6">
+        @if($this->podeGerir() && $tab === 'avisos')
+        <div class="space-y-6">
             <div>
                 <h2 class="text-lg font-semibold text-gray-950 dark:text-white mb-4">Gestão de Avisos</h2>
                 {{ $this->table }}
