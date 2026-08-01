@@ -219,8 +219,10 @@ class PDFIntegrationTest extends TestCase
         $params = [
             'installation_id' => $installation->id,
             'pool_id' => $pool->id,
-            'data_inicio' => now()->startOfMonth()->toDateString(),
-            'data_fim' => now()->toDateString(),
+            // Janela relativa aos registos criados acima (now()->subDays(0..4)):
+            // com startOfMonth/hoje o teste ficava vazio no início do mês.
+            'data_inicio' => now()->subDays(7)->toDateString(),
+            'data_fim' => now()->addDay()->toDateString(),
         ];
 
         // Query records as PDF would

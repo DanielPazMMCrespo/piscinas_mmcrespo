@@ -370,7 +370,21 @@ class CloroPhChartWidget extends Widget implements HasForms
         ];
     }
 
+    /** @var array<string, mixed>|null */
+    private ?array $payloadMemo = null;
+
     public function getChartPayload(): array
+    {
+        if ($this->payloadMemo !== null) {
+            return $this->payloadMemo;
+        }
+
+        $this->payloadMemo = $this->calcularChartPayload();
+
+        return $this->payloadMemo;
+    }
+
+    private function calcularChartPayload(): array
     {
         if ($this->poolSelecionada === null) {
             return [];

@@ -275,14 +275,22 @@ class Definicoes extends Page implements HasForms, HasTable
         $data = $this->form->getState();
 
         foreach ($data as $key => $value) {
-            $val = $value !== null ? $value : '';
+            // Campo deixado em branco significa "usar o valor padrão", não "gravar
+            // vazio": apagar a linha faz o SettingsService cair no default do
+            // código. Gravar '' punha os limites regulamentares a zero.
+            if ($value === null || $value === '' || $value === []) {
+                AppSetting::where('key', $key)->delete();
+
+                continue;
+            }
+
             $setting = AppSetting::find($key);
             if ($setting) {
-                $setting->update(['value' => $val]);
+                $setting->update(['value' => $value]);
             } else {
                 AppSetting::create([
                     'key' => $key,
-                    'value' => $val,
+                    'value' => $value,
                     'group' => 'geral',
                     'label' => ucwords(str_replace('_', ' ', $key)),
                     'type' => 'string',
@@ -410,7 +418,7 @@ class Definicoes extends Page implements HasForms, HasTable
             return;
         }
 
-        $user->notify(new TesteNotificacaoPush());
+        $user->notify(new TesteNotificacaoPush);
 
         Notification::make()
             ->title('Teste enviado')
@@ -491,7 +499,7 @@ class Definicoes extends Page implements HasForms, HasTable
         $user = User::find($userId);
 
         if ($user && ! $user->hasPushActive()) {
-            $user->notify(new PedidoAtivacaoPushNotification());
+            $user->notify(new PedidoAtivacaoPushNotification);
 
             Notification::make()
                 ->title('Pedido enviado')

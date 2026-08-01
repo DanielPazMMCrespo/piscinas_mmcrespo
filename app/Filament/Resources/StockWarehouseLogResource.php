@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
+use App\Filament\Concerns\HasPeriodoFilter;
 use App\Filament\Resources\StockWarehouseLogResource\Pages;
 use App\Models\StockWarehouseLog;
 use Filament\Resources\Resource;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StockWarehouseLogResource extends Resource
 {
+    use HasPeriodoFilter;
+
     protected static ?string $model = StockWarehouseLog::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-down';
@@ -27,14 +31,17 @@ class StockWarehouseLogResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
+        // Gestor é leitura/relatórios: vê o histórico, não o altera.
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('produto', 'utilizador')->orderByDesc('created_at'))
+            // O produto chega por `armazem`: o modelo não tem relação `produto()` e
+            // o StockService não preenche `product_id` — usar 'produto' aqui fazia
+            // a página inteira devolver 500.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('armazem.produto', 'utilizador')->orderByDesc('created_at'))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Data/Hora')
@@ -52,13 +59,14 @@ class StockWarehouseLogResource extends Resource
                         'saida' => 'warning',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('produto.name')
+                Tables\Columns\TextColumn::make('armazem.produto.name')
                     ->label('Produto')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade')
-                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, '.', '').' '.($record->produto?->unidade ?? ''))
-                    ->sortable(),
+                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->armazem?->produto?->unidade ?? ''))
+                    ->sortable()
+                    ->summarize(Tables\Columns\Summarizers\Sum::make()->label('Total')->numeric(decimalPlaces: 3)),
                 Tables\Columns\TextColumn::make('fornecedor')
                     ->label('Fornecedor')
                     ->default('—'),
@@ -73,11 +81,12 @@ class StockWarehouseLogResource extends Resource
                         'entrada' => 'Entrada',
                         'saida' => 'Saída',
                     ]),
-                Tables\Filters\SelectFilter::make('product_id')
+                Tables\Filters\SelectFilter::make('armazem.product_id')
                     ->label('Produto')
-                    ->relationship('produto', 'name')
+                    ->relationship('armazem.produto', 'name')
                     ->searchable()
                     ->preload(),
+                self::filtroPeriodo('created_at'),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100]);

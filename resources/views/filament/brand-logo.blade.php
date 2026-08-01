@@ -9,8 +9,9 @@
     style="display: block; background-color: transparent !important;"
 />
 <img
-    src="{{ asset('images/logo_mmcrespo_branco.png') }}"
+    src="{{ asset('images/logo_mmcrespo_branco.webp') }}"
     alt="Piscinas MMCrespo"
+    loading="lazy"
     class="mmcrespo-brand-logo-dark h-full w-auto object-contain"
     style="display: none; background-color: transparent !important;"
 />

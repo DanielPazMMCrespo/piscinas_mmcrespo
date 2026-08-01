@@ -1,7 +1,7 @@
 <div>
     <!-- Preloader -->
     <div id="loader">
-        <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="loader-logo" alt="Logo">
+        <img src="{{ asset('images/logo_mmcrespo_branco.webp') }}" id="loader-logo" alt="Logo">
     </div>
 
     <!-- Main Content (Initially hidden via visibility to prevent iOS Safari/FaceID from triggering prematurely during preloader) -->
@@ -14,7 +14,7 @@
             <div class="absolute inset-0 z-10 bg-black-10"></div>
             
             <div class="relative z-20 text-center flex flex-col items-center justify-center logo-container" style="padding: 3rem;">
-                <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" alt="M.Marques Crespo Logo" style="height: 100px; width: auto; margin-bottom: 2rem; object-fit: contain;">
+                <img src="{{ asset('images/logo_mmcrespo_branco.webp') }}" alt="M.Marques Crespo Logo" style="height: 100px; width: auto; margin-bottom: 2rem; object-fit: contain;">
                 <h2 class="font-logo-match text-white font-bold" style="font-size: 2.5rem; line-height: 1.2; margin-bottom: 1.5rem;">Manutenção de <br><span class="text-cyan-400 font-extrabold">Piscinas.</span></h2>
                 <p class="font-sans text-white uppercase font-bold" style="font-size: 0.75rem; letter-spacing: 0.2em; opacity: 0.7; max-width: 300px;">Plataforma exclusiva para administração e controlo de qualidade.</p>
             </div>

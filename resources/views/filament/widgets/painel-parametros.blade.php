@@ -76,6 +76,7 @@
 
             <div
                 x-data="mmcChart({{ Illuminate\Support\Js::from($payload ?: null) }})"
+                wire:key="mmc-painel-grafico"
                 wire:ignore
             >
                 <div x-show="!_hasData" class="mmc-grafico-vazio" x-cloak>Seleciona uma piscina.</div>
@@ -98,6 +99,7 @@
             </div>
         @else
             @php($tableData = $this->getTableRows())
+            <div wire:key="mmc-painel-tabela">
 
             <div class="space-y-5">
                 {{-- Registos Manuais --}}
@@ -165,6 +167,7 @@
                         </div>
                     @endif
                 </div>
+            </div>
             </div>
         @endif
     </x-filament::section>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
+use App\Filament\Concerns\HasPeriodoFilter;
 use App\Filament\Resources\StockInstallationLogResource\Pages;
 use App\Models\StockInstallationLog;
 use Filament\Resources\Resource;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StockInstallationLogResource extends Resource
 {
+    use HasPeriodoFilter;
+
     protected static ?string $model = StockInstallationLog::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-down';
@@ -27,13 +31,13 @@ class StockInstallationLogResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
+        // Gestor é leitura/relatórios: vê o histórico, não o altera.
+        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('stockInstalacao.instalacao', 'stockInstalacao.produto', 'utilizador')->orderByDesc('created_at'))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
@@ -60,8 +64,9 @@ class StockInstallationLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade')
-                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, '.', '').' '.($record->stockInstalacao?->produto?->unidade ?? ''))
-                    ->sortable(),
+                    ->formatStateUsing(fn ($state, $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->stockInstalacao?->produto?->unidade ?? ''))
+                    ->sortable()
+                    ->summarize(Tables\Columns\Summarizers\Sum::make()->label('Total')->numeric(decimalPlaces: 3)),
                 Tables\Columns\TextColumn::make('utilizador.name')
                     ->label('Utilizador')
                     ->sortable(),
@@ -83,6 +88,7 @@ class StockInstallationLogResource extends Resource
                     ->relationship('stockInstalacao.produto', 'name')
                     ->searchable()
                     ->preload(),
+                self::filtroPeriodo(),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100]);

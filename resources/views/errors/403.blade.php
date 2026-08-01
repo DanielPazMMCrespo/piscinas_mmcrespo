@@ -43,8 +43,15 @@
 <body>
     <div class="card">
         <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCrespo">
-        <h1>Ficou sem acesso</h1>
-        <p>A sua conta foi encerrada por inatividade. Se acha que isto é um engano, contacte o administrador.</p>
+        {{-- Falta de permissão numa página é o caso comum; a conta encerrada por
+             inatividade é a exceção e traz a flag na sessão. --}}
+        @if (session('mmc_inativo'))
+            <h1>Ficou sem acesso</h1>
+            <p>A sua conta foi encerrada por inatividade. Se acha que isto é um engano, contacte o administrador.</p>
+        @else
+            <h1>Sem permissão</h1>
+            <p>A sua conta está ativa, mas não tem acesso a esta página. Se precisa dela para trabalhar, peça ao administrador.</p>
+        @endif
         <a class="btn" href="{{ url('/admin') }}">Voltar ao Painel</a>
     </div>
 </body>

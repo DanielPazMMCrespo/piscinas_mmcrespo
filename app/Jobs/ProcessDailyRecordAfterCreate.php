@@ -177,14 +177,22 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             return;
         }
 
+        // Quem submeteu tem de saber que o stock não cobriu o consumo: só os
+        // admins eram avisados e o técnico via apenas "Registo guardado!".
         $destinatarios = User::role('admin')->get();
+
+        if ($registo->utilizador !== null && ! $destinatarios->contains('id', $registo->user_id)) {
+            $destinatarios->push($registo->utilizador);
+        }
+
         if ($destinatarios->isEmpty()) {
             return;
         }
 
         $corpo = 'Stock insuficiente na instalação '
             .($registo->piscina?->instalacao?->name ?? '')
-            .' para: '.implode(', ', array_unique($insuficientes)).'.';
+            .' para: '.implode(', ', array_unique($insuficientes)).'.'
+            .' O consumo foi registado até esgotar o stock disponível.';
 
         Notification::make()
             ->warning()

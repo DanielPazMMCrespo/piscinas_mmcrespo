@@ -472,3 +472,115 @@ Não há pesquisa global nem atalhos (nenhum resource define `getGloballySearcha
 1. Cortar os pedidos a terceiros do `<head>` e pôr timeout no service worker — diferença medida entre **380ms e 25,7s** por navegação.
 2. Logo de 1,27 MB → ~20 kB e gzip para JS/CSS no nginx: de ~2,6–3,1 MB para <600 kB por página.
 3. Fechar a sidebar em <1024px e dar piscina ao FAB: o registo da manhã passa de ~4 interações e 3 esperas para 1 toque e 1 espera.
+
+---
+
+# Implementação (2026-08-01)
+
+Tudo o que segue foi implementado e verificado neste branch. Verificação: 380 testes
+a passar (os 2 que estavam vermelhos antes eram o próprio bug do dia 1 do mês nos
+testes do PDF), 23 rotas do painel abertas em browser real nos quatro papéis sem
+qualquer erro 500/JS, e os fluxos principais executados de ponta a ponta (registo
+diário submetido pelo atalho, definições gravadas, PDF gerado).
+
+## Os oito P0
+
+| # | O que mudou | Ficheiros |
+|---|-------------|-----------|
+| P0-1 | `Definicoes::save()` deixa de gravar strings vazias — apaga a linha e o `SettingsService` cai no default do código; `get()` trata `''`/`[]` como ausente. Verificado: com a tabela vazia e com `ph_max=''`, `getPhMax()` continua 8,0 e um pH de 7,4 continua "Conforme" | `Definicoes.php`, `SettingsService.php` |
+| P0-2 | A dose passa a ser formatada no serviço (`dose_formatada`), convertendo ml/g → L/kg. O hint mostra agora "+24,44 kg" em vez de "+24.438 kg" | `DosageCalculatorService.php`, `DailyRecordFormBuilder.php` |
+| P0-3 | Fontes auto-hospedadas (`@fontsource/lato` + `montserrat`) e GLightbox empacotado — zero pedidos a terceiros no `<head>`; o Google Fonts duplicado (link + `@import`) desapareceu. O service worker ganhou timeout (4 s em navegações, 8 s em assets) e deixa de interceptar outras origens | `AdminPanelProvider.php`, `app.css`, `app.js`, `login-layout.blade.php`, `public/sw.js` |
+| P0-4 | O log de armazém lê o produto por `armazem.produto` (a relação que existe) e o `StockService` passa a preencher `product_id`. A página devolve 200, com unidade e total | `StockWarehouseLogResource.php`, `StockWarehouseLog.php`, `StockService.php` |
+| P0-5 | `defaultItems(0)` no repeater de químicos e o modo rápido guardado numa propriedade da página (`aplicarContexto`), que sobrevive aos POSTs do Livewire. Verificado: 2 passos antes e depois do roundtrip, 0 linhas de químicos, registo submetido em 5 toques | `DailyRecordFormBuilder.php`, `CreateDailyRecord.php` |
+| P0-6 | O auto-save trava enquanto o modal de recuperação está aberto e não grava formulários vazios; o payload é serializado antes de ir para o IndexedDB (fim do `DataCloneError`); intervalo de 2 s → 10 s | `app.js` |
+| P0-7 | "Enviar Email de Redefinição" e "Forçar Pass / PIN" ganham `visible(canEdit)` e revalidam com `abort_unless` na ação | `UserResource.php` |
+| P0-8 | Um alerta marcado como tratado cuja condição persiste fica em "Resolvidos hoje" com a marca "a condição continua ativa" e botão de reabrir; violações legais pedem confirmação; nos incidentes o botão passa a levar à página do incidente (a resolução real) | `QuadroOperacionalWidget.php`, `quadro-operacional.blade.php` |
+
+## Bug adicional encontrado durante a implementação
+
+**O conteúdo estava debaixo do menu em desktop.** `.fi-sidebar` era forçada a
+`position: fixed !important` em todos os tamanhos, mas em desktop o Filament usa
+`lg:sticky` (barra em fluxo, conteúdo ao lado). Resultado: `.fi-main-ctn` começava em
+x=0 com a barra de 320 px por cima — a primeira coluna de cartões ficava tapada. O
+`fixed` passou a aplicar-se só abaixo de 1024 px, onde é mesmo uma gaveta.
+Medido depois: sidebar 0–320, conteúdo 320–1440.
+
+## Velocidade e peso
+
+- Logótipo de **1 274 KB → 31 KB** (WebP a 600 px, PNG reduzido para 120 KB como
+  fallback), com `width`/`height` e `loading`. A variante escura deixa de ser
+  descarregada quando não é usada.
+- `gzip` ligado no nginx para CSS/JS/JSON/SVG/woff2, `expires 30d` para `/images/` e
+  `/fonts/`, e `no-cache` para `/sw.js` (uma versão antiga do service worker ficava
+  presa no dispositivo).
+- Preloader sem espera artificial: esconde no `DOMContentLoaded` e no
+  `livewire:navigated`, com `pointer-events: none` — eram ~750 ms por navegação.
+- Polling: nove tabelas de 10 s → 60 s; painel e quadro de 30 s → 60 s; stock baixo
+  30 s → 120 s; esquema 30 s → 60 s.
+- Queries: painel do dashboard 51 → 43 (fonte de dados reutilizada + ORP de todas as
+  piscinas numa query), esquema deixa de calcular a fonte duas vezes por piscina,
+  `HannaDevice::ultimaLeitura()` memoizada, `Pool::pluck` do `<head>` cacheada com
+  invalidação no observer, payload do gráfico memoizado por pedido.
+- Medido no fim, em mobile e nas 23 rotas: **0 problemas**, load médio 414 ms,
+  22 pedidos por página.
+
+## Dia-a-dia
+
+- **Dashboard**: alertas antes dos gráficos (o "que fazer a seguir" passou do 6.º para
+  o 2.º ecrã; a página encurtou de 8,4 para 5 ecrãs), cartões recolhidos em mobile com
+  badge do parâmetro em falha e "Falta registar", linha do estado da sonda sempre
+  visível, KPIs com a base explicada, cloro combinado negativo tratado como medição
+  inválida em vez de "OK".
+- **Registo diário**: instalação/piscina pré-selecionadas, contador com a última
+  leitura visível antes de falhar, `agua_modo`/bomba/tanque herdados do último registo,
+  hora reposta ao mudar de instalação, foto do quadro NS opcional para o técnico,
+  "Início" colapsado após escolher a instalação, campo "Responsável" removido, aviso
+  quando já existe registo de hoje, e a notificação de stock insuficiente passa
+  também para quem submeteu.
+- **Incidentes**: a linha da lista abre a página do incidente (com conversa e
+  resolução), descrição e idade no cartão, pesquisa por descrição e piscina, filtros de
+  instalação/piscina/tipo/data, fotos anexáveis (nova coluna `fotos`), contexto vindo
+  de `?pool=`/`?installation=`, data em formato pt-PT, chat com polling de 30 s e sem
+  lazy, notificações em fila, "Criar e adicionar outro".
+- **Esquema**: acessível a técnico, gestor e NS (era admin-only), no grupo "Registo
+  Diário", detalhe que rola para o ecrã em mobile e textos alinhados com as 8 h reais.
+- **Ações operacionais**: técnico corrige as suas ações nas primeiras 24 h, botão
+  "Editar" na vista, piscina pré-preenchida, resumo debaixo do tipo em vez de uma
+  coluna fora do ecrã, chaves do JSON traduzidas.
+- **Stock**: gestor com leitura (as Policies já o autorizavam), modais com produto no
+  título, disponível e unidade, `maxValue` e `halt()` para não perder o formulário no
+  erro, filtro "só abaixo do mínimo", filtro de período com soma nos dois logs,
+  unidades em todas as listas, widget de stock baixo com duas colunas e ação
+  "Repor do armazém", e o reabastecimento de bidão passa a debitar o stock da
+  instalação (nova coluna `product_id` em `dosing_containers`).
+- **Dados**: separador "Tabela" da Análise corrigido (`wire:key` por ramo), nova lista
+  "Violações dos limites no período", score de conformidade por piscina com 7/30 dias,
+  Relatório PDF com default do mês anterior no dia 1, atalhos de período, contagem
+  prévia ("X registos, Y fora dos limites"), acesso ao gestor, opções colapsadas, e o
+  livro sanitário avalia a turbidez em vez de imprimir "Conforme" por nome de piscina
+  (a turbidez passou também a entrar em `listarViolacoes()`).
+- **Sistema**: ações de piscina visíveis na lista (o `contentGrid` matava-as), badge de
+  convites pendentes, estado vazio dos convites com ação, saúde da sonda na lista de
+  sensores com filtro "só em falha", separadores das Definições condicionais em vez de
+  `display:none`, e barra de gravação fixa (o dropdown tapava o botão).
+- **Navegação e mobile**: grupos por frequência de uso (Estrutura e Logs colapsados),
+  gaveta fechada abaixo de 1024 px, barra inferior sem interceptar cliques e com folga
+  no fim da página, FAB com a última piscina do utilizador e "Esquema" no terceiro
+  lugar, e a página 403 deixa de dizer que a conta foi encerrada por inatividade.
+- **Offline**: fila separada por tipo (registo diário vs ação operacional) com lock —
+  um registo diário podia ser enviado para o endpoint das ações operacionais e duas
+  sincronizações simultâneas podiam duplicar registos.
+
+## O que ficou de fora, e porquê
+
+- **`echo.js` (90 KB) continua a ser carregado.** É registado pelo próprio Filament;
+  removê-lo exige mexer no registo de assets do painel e o ganho (≈25 KB depois de
+  gzip) não justifica o risco de partir o bootstrap do JS.
+- **`CustomActivitylogResource` continua sem efeito** (as páginas do pacote
+  `rmsramos/activitylog` sobrepõem-se às nossas). A decisão — assumir o pacote e
+  apagar o resource, ou registar páginas próprias — é de produto, não de correção.
+- **Ecrã único de stock** (uma linha por produto com armazém + instalações + bidões):
+  é uma página nova, não uma correção. Os filtros, unidades, somas e a ação de reposição
+  no widget cobrem entretanto as perguntas do dia-a-dia.
+- **Pesquisa global (`Ctrl+K`)**: exige definir atributos pesquisáveis em cada resource
+  e decidir o que entra; fica para uma iteração própria.

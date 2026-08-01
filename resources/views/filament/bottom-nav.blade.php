@@ -1,6 +1,21 @@
-<!-- Premium Floating Mobile Navigation -->
-<div class="fixed bottom-4 left-4 right-4 z-50 md:hidden pb-safe" id="mmc-bottom-nav">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)] px-3 py-2 flex justify-around items-end relative" style="border-radius: 2rem; min-height: 64px;">
+{{-- Navegação inferior (telemóvel). O FAB leva a última piscina do utilizador:
+     sem isso o atalho mais visível era o caminho mais lento (escolher instalação
+     antes do primeiro campo). --}}
+@php
+    $ultimaPiscinaId = \Illuminate\Support\Facades\Cache::remember(
+        'ultima_piscina_utilizador_'.auth()->id(),
+        now()->addMinutes(10),
+        fn () => \App\Models\DailyRecord::query()
+            ->where('user_id', auth()->id())
+            ->orderByDesc('registado_em')
+            ->value('pool_id')
+    );
+    $urlRegistar = '/admin/daily-records/create'.($ultimaPiscinaId ? '?pool='.$ultimaPiscinaId.'&quick=1' : '');
+    $podeVerEsquema = \App\Filament\Pages\EsquemaPiscina::canAccess();
+@endphp
+
+<div class="fixed bottom-4 left-4 right-4 z-50 md:hidden pb-safe" id="mmc-bottom-nav" style="pointer-events: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)] px-3 py-2 flex justify-around items-end relative" style="border-radius: 2rem; min-height: 64px; pointer-events: auto;">
         
         <!-- Subtle gradient glow behind icons -->
         <div class="absolute inset-0 bg-gradient-to-r from-sky-500/5 via-transparent to-sky-500/5 pointer-events-none overflow-hidden" style="border-radius: 2rem;"></div>
@@ -13,7 +28,7 @@
 
         <!-- Center Item: Registar (Floating Action Button) -->
         @can('create', \App\Models\DailyRecord::class)
-            <a href="/admin/daily-records/create" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-95 z-10 py-1">
+            <a href="{{ $urlRegistar }}" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-95 z-10 py-1">
                 <div class="flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105" 
                      style="width: 52px; height: 52px; background-color: #004c8c; border-radius: 50%; box-shadow: 0 8px 20px rgba(0, 76, 140, 0.4); margin-top: -28px; margin-bottom: 2px; border: 3px solid #ffffff;"
                      id="mmc-fab-circle">
@@ -28,11 +43,18 @@
             </a>
         @endcan
 
-        <!-- Right Item: Análise -->
-        <a href="/admin/analise-parametros" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
-            <x-heroicon-o-chart-bar class="w-6 h-6 mb-1 transition-colors" />
-            <span class="text-[10px] font-medium tracking-wide">Análise</span>
-        </a>
+        <!-- Right Item: Esquema (ou Análise, se não tiver acesso) -->
+        @if ($podeVerEsquema)
+            <a href="/admin/esquema" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
+                <x-heroicon-o-share class="w-6 h-6 mb-1 transition-colors" />
+                <span class="text-[10px] font-medium tracking-wide">Esquema</span>
+            </a>
+        @else
+            <a href="/admin/analise-parametros" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
+                <x-heroicon-o-chart-bar class="w-6 h-6 mb-1 transition-colors" />
+                <span class="text-[10px] font-medium tracking-wide">Análise</span>
+            </a>
+        @endif
     </div>
 </div>
 

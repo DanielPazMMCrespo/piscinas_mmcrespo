@@ -211,11 +211,16 @@ class UserResource extends Resource
                     ->label('Enviar Email de Redefinição')
                     ->icon('heroicon-o-envelope')
                     ->color('info')
+                    // canEdit() bloqueia editar admins, mas estas duas ações não
+                    // passavam por lá: o gestor via-as nas linhas dos admins.
+                    ->visible(fn (User $record): bool => static::canEdit($record))
                     ->requiresConfirmation()
                     ->modalHeading('Enviar email de redefinição')
                     ->modalDescription('Tem a certeza que deseja enviar um e-mail com instruções para redefinir a palavra-passe para este utilizador?')
                     ->modalSubmitActionLabel('Sim, enviar e-mail')
                     ->action(function (User $record): void {
+                        abort_unless(static::canEdit($record), 403);
+
                         Password::broker()->sendResetLink(['email' => $record->email]);
                         Notification::make()
                             ->title('E-mail enviado')
@@ -227,6 +232,7 @@ class UserResource extends Resource
                     ->label('Forçar Pass / PIN')
                     ->icon('heroicon-o-lock-closed')
                     ->color('danger')
+                    ->visible(fn (User $record): bool => static::canEdit($record))
                     ->form([
                         Forms\Components\TextInput::make('password')
                             ->label('Nova Palavra-passe')
@@ -243,6 +249,8 @@ class UserResource extends Resource
                             ->required(),
                     ])
                     ->action(function (User $record, array $data): void {
+                        abort_unless(static::canEdit($record), 403);
+
                         if (! empty($data['password'])) {
                             $record->password = Hash::make($data['password']);
                         }

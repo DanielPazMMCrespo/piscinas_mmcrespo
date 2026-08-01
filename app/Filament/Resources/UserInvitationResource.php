@@ -11,6 +11,7 @@ use App\Services\InvitationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -43,6 +44,17 @@ class UserInvitationResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('invitedBy'))
+            // O estado vazio era um beco sem saída (ícone X e zero ações): o
+            // convite cria-se em Utilizadores e não havia como chegar lá daqui.
+            ->emptyStateIcon('heroicon-o-envelope')
+            ->emptyStateHeading('Sem convites pendentes')
+            ->emptyStateDescription('Os convites são enviados a partir da página Utilizadores.')
+            ->emptyStateActions([
+                Action::make('irParaUtilizadores')
+                    ->label('Ir para Utilizadores')
+                    ->icon('heroicon-o-users')
+                    ->url(UserResource::getUrl('index')),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
@@ -75,7 +87,7 @@ class UserInvitationResource extends Resource
                     ->query(fn (Builder $query): Builder => $query->whereNull('accepted_at')->where('expires_at', '>', now())),
             ])
             ->actions([
-                Tables\Actions\Action::make('reenviar')
+                Action::make('reenviar')
                     ->label('Reenviar')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
@@ -105,6 +117,22 @@ class UserInvitationResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100]);
+    }
+
+    /** Pendentes por aceitar — sem isto o admin ia a Convites só para confirmar. */
+    public static function getNavigationBadge(): ?string
+    {
+        $pendentes = UserInvitation::query()
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->count();
+
+        return $pendentes > 0 ? (string) $pendentes : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public static function getPages(): array

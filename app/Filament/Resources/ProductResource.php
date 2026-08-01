@@ -29,7 +29,7 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico']) ?? false;
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
     }
 
     public static function form(Form $form): Form

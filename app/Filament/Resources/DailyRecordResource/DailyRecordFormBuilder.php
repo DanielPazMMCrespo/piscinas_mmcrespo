@@ -25,6 +25,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 
@@ -69,10 +70,10 @@ class DailyRecordFormBuilder
      * Momento da colheita: data de hoje + hora escolhida (a data está fixa a
      * hoje no formulário). Sem hora escolhida, é "agora".
      */
-    private static function momentoColheita(?string $horaColheita): \Illuminate\Support\Carbon
+    private static function momentoColheita(?string $horaColheita): Carbon
     {
         if (filled($horaColheita)) {
-            $hora = \Illuminate\Support\Carbon::parse($horaColheita);
+            $hora = Carbon::parse($horaColheita);
 
             return now()->setTime($hora->hour, $hora->minute, 0);
         }
@@ -205,6 +206,76 @@ class DailyRecordFormBuilder
         return auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
     }
 
+    private static bool $modoRapido = false;
+
+    private static ?int $poolFixo = null;
+
+    /** @var array<int, ?DailyRecord> */
+    private static array $ultimoRegistoMemo = [];
+
+    /**
+     * O contexto do atalho "Registo Rápido" vem da query string, mas os POSTs do
+     * Livewire não a incluem — sem isto o modo rápido desfazia-se no primeiro
+     * roundtrip e o wizard voltava aos 6 passos. A página aplica-o em cada pedido.
+     */
+    public static function aplicarContexto(bool $modoRapido, ?int $poolFixo): void
+    {
+        self::$modoRapido = $modoRapido;
+        self::$poolFixo = $poolFixo;
+    }
+
+    private static function modoRapido(): bool
+    {
+        return self::$modoRapido || request()->query('quick') == '1';
+    }
+
+    private static function poolFixo(): ?int
+    {
+        return self::$poolFixo ?: (request()->integer('pool') ?: null);
+    }
+
+    /**
+     * Último registo não corrigido da piscina, memoizado por pedido: é lido pela
+     * validação do contador e pelos helpers de "último valor" de vários campos.
+     */
+    /**
+     * Nomes das piscinas da instalação que já têm registo de hoje, para avisar
+     * antes de duplicar (a correção append-only é o caminho certo nesse caso).
+     */
+    private static function piscinasJaRegistadasHoje(int|string|null $installationId): ?string
+    {
+        if (blank($installationId)) {
+            return null;
+        }
+
+        $nomes = DailyRecord::query()
+            ->whereDate('registado_em', today())
+            ->where('e_correcao', false)
+            ->whereHas('piscina', fn (Builder $q) => $q->where('installation_id', $installationId))
+            ->with('piscina:id,name')
+            ->get()
+            ->pluck('piscina.name')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        return $nomes ?: null;
+    }
+
+    private static function ultimoRegisto(int $poolId): ?DailyRecord
+    {
+        if (! array_key_exists($poolId, self::$ultimoRegistoMemo)) {
+            self::$ultimoRegistoMemo[$poolId] = DailyRecord::query()
+                ->where('pool_id', $poolId)
+                ->whereDoesntHave('correcoes')
+                ->orderByDesc('registado_em')
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        return self::$ultimoRegistoMemo[$poolId];
+    }
+
     /**
      * Piscinas permitidas para o utilizador atual: todas para Admin/Técnico,
      * apenas as atribuídas via user_pools para Nadador-Salvador.
@@ -215,8 +286,8 @@ class DailyRecordFormBuilder
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
-        if (request()->query('quick') == '1' && request()->query('pool')) {
-            $query->where('id', (int) request()->query('pool'));
+        if (self::modoRapido() && self::poolFixo()) {
+            $query->where('id', self::poolFixo());
         }
 
         return $query;
@@ -257,9 +328,19 @@ class DailyRecordFormBuilder
             'observacoes' => null,
         ];
 
+        // Herdar o último estado conhecido da piscina (bomba, água, tanque) em vez
+        // de pedir ao técnico que reintroduza o que não mudou desde ontem.
         return self::piscinasPermitidas($installation->piscinas())
             ->pluck('id')
-            ->mapWithKeys(fn ($id) => [(string) $id => $base])
+            ->mapWithKeys(function ($id) use ($base) {
+                $ultimo = self::ultimoRegisto((int) $id);
+
+                return [(string) $id => array_merge($base, [
+                    'bomba_ferrada' => $ultimo?->bomba_ferrada ?? true,
+                    'agua_modo' => $ultimo?->agua_modo,
+                    'tanque_ok' => $ultimo?->tanque_ok ?? true,
+                ])];
+            })
             ->toArray();
     }
 
@@ -269,6 +350,9 @@ class DailyRecordFormBuilder
 
         $set('pools', $installation ? self::estadoInicialPiscinas($installation) : []);
         $set('ns_foto', null);
+        // A hora da colheita perde-se quando o schema é remontado; sem isto o
+        // técnico tem de a reintroduzir sempre que muda de instalação.
+        $set('hora_colheita', now()->format('H:i'));
     }
 
     private static function fotoField(string $field, string $label, string $directory, bool $required = false, ?string $uniqueId = null): array
@@ -354,9 +438,7 @@ class DailyRecordFormBuilder
                         $dosagem = app(DosageCalculatorService::class)->calcularDose($pool, $param, (float) $val);
                         if ($dosagem && ($dosagem['dose_com_fator_ml'] ?? 0) > 0 && isset($dosagem['produto'])) {
                             $prodNome = $dosagem['produto']->name;
-                            $doseFmt = number_format($dosagem['dose_com_fator_ml'], 0, ',', '.');
-                            $unidade = $dosagem['unidade'];
-                            $msg .= " | ⚡ Sugestão: +{$doseFmt} {$unidade} de {$prodNome}";
+                            $msg .= " | ⚡ Sugestão: +{$dosagem['dose_formatada']} de {$prodNome}";
                         }
                     }
                 }
@@ -405,6 +487,11 @@ class DailyRecordFormBuilder
 
         return $form->schema([
             Forms\Components\Section::make('Início')
+                // Depois de escolher a instalação esta secção é peso morto no topo
+                // de todos os passos do wizard (372 px em telemóvel).
+                ->collapsible()
+                ->collapsed(fn (Get $get) => filled($get('installation_id')))
+                ->compact()
                 ->schema([
                     Forms\Components\Select::make('installation_id')
                         ->label('Instalação')
@@ -421,16 +508,25 @@ class DailyRecordFormBuilder
                         ->required()
                         ->live()
                         ->default(function () {
-                            $poolParam = request()->query('pool');
-                            if ($poolParam) {
-                                $p = Pool::find((int) $poolParam);
-                                if ($p) {
+                            if ($poolFixo = self::poolFixo()) {
+                                if ($p = Pool::find($poolFixo)) {
                                     return $p->installation_id;
                                 }
                             }
-                            $pool = Pool::whereHas('users', fn ($q) => $q->where('users.id', auth()->id()))->first();
 
-                            return $pool?->installation_id;
+                            $pool = Pool::whereHas('users', fn ($q) => $q->where('users.id', auth()->id()))->first();
+                            if ($pool) {
+                                return $pool->installation_id;
+                            }
+
+                            // Técnico/admin sem piscinas atribuídas: usar a instalação do
+                            // último registo que ele próprio fez (o lookback documentado).
+                            return DailyRecord::query()
+                                ->where('user_id', auth()->id())
+                                ->orderByDesc('registado_em')
+                                ->with('piscina')
+                                ->first()?->piscina?->installation_id
+                                ?? Installation::query()->where('active', true)->value('id');
                         })
                         ->afterStateHydrated(function (Set $set, Get $get, $state) {
                             if (filled($state) && blank($get('pools'))) {
@@ -438,12 +534,10 @@ class DailyRecordFormBuilder
                             }
                         })
                         ->afterStateUpdated(fn (Set $set, $state) => self::semearEstadoPiscinas($set, $state)),
-                    Forms\Components\Select::make('user_id')
-                        ->label('Responsável')
-                        ->relationship('utilizador', 'name')
+                    // Responsável é sempre quem está autenticado: um select desativado
+                    // só repetia o nome, gastava uma query e 96 px de ecrã.
+                    Forms\Components\Hidden::make('user_id')
                         ->default(auth()->id())
-                        ->required()
-                        ->disabled()
                         ->dehydrated(),
                     Forms\Components\DatePicker::make('registado_em')
                         ->label('Data do Registo')
@@ -451,6 +545,25 @@ class DailyRecordFormBuilder
                         ->required()
                         ->disabled(fn () => self::isNS())
                         ->dehydrated(),
+                    // Registar duas vezes a mesma piscina no mesmo dia não é
+                    // bloqueado (pode ser legítimo), mas deixa de ser silencioso.
+                    Forms\Components\Placeholder::make('aviso_registo_hoje')
+                        ->hiddenLabel()
+                        ->columnSpanFull()
+                        ->visible(fn (Get $get) => filled(self::piscinasJaRegistadasHoje($get('installation_id'))))
+                        ->content(function (Get $get): ?HtmlString {
+                            $nomes = self::piscinasJaRegistadasHoje($get('installation_id'));
+                            if (blank($nomes)) {
+                                return null;
+                            }
+
+                            return new HtmlString(
+                                '<div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 text-sm">'
+                                .'⚠️ Já existe registo de hoje para: <strong>'.e($nomes).'</strong>. '
+                                .'Para alterar um valor use a ação <em>Corrigir</em> na lista de registos.'
+                                .'</div>'
+                            );
+                        }),
                 ])->columns(3),
 
             Forms\Components\Section::make('Registo Diário')
@@ -465,7 +578,7 @@ class DailyRecordFormBuilder
                         return [];
                     }
 
-                    $modoRapido = ! self::isNS() && request()->query('quick') == '1';
+                    $modoRapido = ! self::isNS() && self::modoRapido();
 
                     $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
@@ -485,14 +598,20 @@ class DailyRecordFormBuilder
                                         ->id("contador_valor_{$pool->id}")
                                         ->label('Contador (m³)')
                                         ->numeric()->step(0.01)->minValue(0)
+                                        // A última leitura só aparecia na mensagem de erro, depois de
+                                        // falhar a validação e voltar 5 passos atrás no wizard.
+                                        ->helperText(function () use ($pool): ?string {
+                                            $ultimo = self::ultimoRegisto($pool->id);
+                                            if (! $ultimo || $ultimo->contador_valor === null) {
+                                                return null;
+                                            }
+
+                                            return 'Última: '.number_format((float) $ultimo->contador_valor, 2, ',', ' ')
+                                                .' m³ ('.$ultimo->registado_em->format('d/m H:i').')';
+                                        })
                                         ->rules([
                                             fn (): Closure => function (string $attribute, $value, Closure $fail) use ($pool) {
-                                                $ultimo = DailyRecord::query()
-                                                    ->where('pool_id', $pool->id)
-                                                    ->whereDoesntHave('correcoes')
-                                                    ->orderByDesc('registado_em')
-                                                    ->orderByDesc('id')
-                                                    ->first();
+                                                $ultimo = self::ultimoRegisto($pool->id);
                                                 if (filled($value) && $ultimo && $ultimo->contador_valor !== null
                                                     && (float) $value < (float) $ultimo->contador_valor) {
                                                     $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
@@ -647,7 +766,9 @@ class DailyRecordFormBuilder
                                 ->seconds(false)
                                 ->default(now())
                                 ->live(onBlur: true),
-                            ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', true, 'ns_foto_global'),
+                            // A foto do quadro é a evidência do NS; para o técnico é
+                            // opcional (custa 1 toque + upload em 4G por nada).
+                            ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', self::isNS(), 'ns_foto_global'),
                             ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
                                 ->statePath("pools.{$pool->id}")
                                 ->extraAttributes(['data-pools-fieldset' => $pool->id])
@@ -740,8 +861,7 @@ class DailyRecordFormBuilder
                                                 $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
                                                 if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
                                                     $prod = $dosePh['produto']?->name ?? 'Produto pH';
-                                                    $doseFmt = number_format($dosePh['dose_com_fator_ml'], 0, ',', '.');
-                                                    $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$doseFmt} {$dosePh['unidade']}</strong> de <em>{$prod}</em>";
+                                                    $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$dosePh['dose_formatada']}</strong> de <em>{$prod}</em>";
                                                 }
                                             }
 
@@ -749,8 +869,7 @@ class DailyRecordFormBuilder
                                                 $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
                                                 if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
                                                     $prod = $doseCl['produto']?->name ?? 'Cloro';
-                                                    $doseFmt = number_format($doseCl['dose_com_fator_ml'], 0, ',', '.');
-                                                    $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseFmt} {$doseCl['unidade']}</strong> de <em>{$prod}</em>";
+                                                    $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseCl['dose_formatada']}</strong> de <em>{$prod}</em>";
                                                 }
                                             }
 
@@ -856,28 +975,30 @@ class DailyRecordFormBuilder
 
                                                                 if (! $armazem || (float) $armazem->quantity < $pedido) {
                                                                     $insuficiente = true;
+
                                                                     return;
                                                                 }
 
                                                                 $armazem->quantity -= $pedido;
                                                                 $armazem->save();
 
-                                                                \App\Models\StockWarehouseLog::create([
+                                                                StockWarehouseLog::create([
                                                                     'stock_warehouse_id' => $armazem->id,
+                                                                    'product_id' => $armazem->product_id,
                                                                     'user_id' => auth()->id(),
                                                                     'tipo_movimento' => 'saida',
                                                                     'quantity' => $pedido,
                                                                 ]);
 
-                                                                $stockInstalacao = \App\Models\StockInstallation::firstOrCreate(
+                                                                $stockInstalacao = StockInstallation::firstOrCreate(
                                                                     ['installation_id' => $installation->id, 'product_id' => $productId],
                                                                     ['quantity' => 0, 'limite_minimo' => 0],
                                                                 );
-                                                                $stockInstalacao = \App\Models\StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
+                                                                $stockInstalacao = StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
                                                                 $stockInstalacao->quantity += $pedido;
                                                                 $stockInstalacao->save();
 
-                                                                \App\Models\StockInstallationLog::create([
+                                                                StockInstallationLog::create([
                                                                     'stock_installation_id' => $stockInstalacao->id,
                                                                     'user_id' => auth()->id(),
                                                                     'tipo_movimento' => 'entrada',
@@ -906,7 +1027,12 @@ class DailyRecordFormBuilder
                                                 ->label('Ação corretiva')
                                                 ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
                                                 ->columnSpanFull(),
-                                        ])->columns(['default' => 1, 'sm' => 2]),
+                                        ])
+                                        // Sem isto, entrar pelo atalho da piscina abria uma linha
+                                        // vazia cujos campos obrigatórios bloqueavam a submissão.
+                                        ->defaultItems(0)
+                                        ->addActionLabel('Adicionar químico')
+                                        ->columns(['default' => 1, 'sm' => 2]),
                                     Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                                 ])
                             )->toArray()

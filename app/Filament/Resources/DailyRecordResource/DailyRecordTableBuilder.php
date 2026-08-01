@@ -9,7 +9,6 @@ use App\Enums\EstadoConformidade;
 use App\Models\DailyRecord;
 use Closure;
 use Filament\Forms;
-use Filament\Forms\Get;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -31,7 +30,7 @@ class DailyRecordTableBuilder
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->with(['piscina.instalacao', 'utilizador', 'adicoes.produto', 'fotos'])
                 ->withCount('correcoes')
@@ -286,7 +285,7 @@ class DailyRecordTableBuilder
                                     continue;
                                 }
                                 $estado = DailyRecord::avaliarConformidade($isNS ? "ns_{$campo}" : $campo, $valor, $pool);
-                                if ($estado['estado'] === \App\Enums\EstadoConformidade::VERMELHO) {
+                                if ($estado['estado'] === EstadoConformidade::VERMELHO) {
                                     $violacoes[] = $estado['mensagem'];
                                 }
                             }
@@ -330,6 +329,13 @@ class DailyRecordTableBuilder
             ->formatStateUsing(function ($state, DailyRecord $record) use ($field, $label, $conforme): HtmlString {
                 if ($state === null) {
                     return new HtmlString('<span class="text-gray-400">'.$label.':</span> <span class="mmc-metric-na">—</span>');
+                }
+
+                if ($field === 'cloro_combinado' && (float) $state < 0) {
+                    return new HtmlString(
+                        '<span class="text-gray-400">'.$label.':</span> '
+                        .'<span class="text-amber-600 dark:text-amber-400" title="Cloro total inferior ao livre — medição inválida">verificar medição</span>'
+                    );
                 }
 
                 $prefix = '<span class="text-gray-400 mr-1">'.$label.':</span>';
@@ -421,6 +427,9 @@ class DailyRecordTableBuilder
                 // Full Infolist Tabs (for Technician/Admin)
                 Tabs::make('Registo')
                     ->visible(fn (?DailyRecord $record): bool => ! $viewerIsNS && ! $isSwimmerRecord($record))
+                    // Abrir nas Análises: é o que se vem consultar (o separador
+                    // Geral tem bomba/contador/água, úteis mas secundários).
+                    ->activeTab(2)
                     ->tabs([
                         Tab::make('Geral')
                             ->schema([
