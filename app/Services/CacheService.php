@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\PoolClosure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -23,36 +24,6 @@ use Illuminate\Support\Facades\DB;
  */
 class CacheService
 {
-    /**
-     * Cache dados de gráfico (14 dias de histórico por piscina).
-     * Chave: cache_graph_{pool_id}_{metricas_hash}
-     *
-     * @param  int  $poolId  ID da piscina
-     * @param  array<string, mixed>  $data  Dados do gráfico (series, labels, etc.)
-     * @param  int  $ttlMinutos  Time-to-live em minutos (padrão 30)
-     */
-    public function cacheGraphData(int $poolId, array $data, int $ttlMinutos = 30): void
-    {
-        $metricsHash = md5(json_encode($data['series'] ?? [], JSON_THROW_ON_ERROR) ?: '');
-        $key = "cache_graph_{$poolId}_{$metricsHash}";
-
-        Cache::put($key, $data, now()->addMinutes($ttlMinutos));
-    }
-
-    /**
-     * Obtém dados de gráfico do cache, ou null se expirado/inexistente.
-     *
-     * @param  int  $poolId  ID da piscina
-     * @param  string  $metricsHash  Hash das métricas (normalizado em getGraficos)
-     * @return array<string, mixed>|null
-     */
-    public function getGraphData(int $poolId, string $metricsHash): ?array
-    {
-        $key = "cache_graph_{$poolId}_{$metricsHash}";
-
-        return Cache::get($key);
-    }
-
     /**
      * Cache do resultado completo de AlertasService::calcular().
      * Chave: cache_alertas_{scope} — o resultado só varia por role (ns/full),
@@ -121,11 +92,9 @@ class CacheService
      */
     public function invalidateGraphCache(int $poolId): void
     {
-        // Remove todas as variações do cache_graph_*_* para esta piscina
-        // Alternativa: usar tagging de cache (mais eficiente em Redis).
-        // Por agora, padrão simples: prefixo + wildcard.
-        $pattern = "cache_graph_{$poolId}_*";
-        $this->invalidateByPattern($pattern);
+        // Apaga todas as combinações eixo/período do CloroPhChartWidget desta
+        // piscina (chave "cache_graph_{pool}_v3_...").
+        $this->invalidateByPattern("cache_graph_{$poolId}_*");
     }
 
     /**
@@ -165,6 +134,38 @@ class CacheService
     }
 
     /**
+     * Chave única do mapa de encerramentos de piscinas. Chave fixa (sem
+     * wildcard) de propósito: o Cache::forget() funciona em todos os drivers,
+     * incluindo 'file' em dev, onde a invalidação por padrão não funciona.
+     */
+    public const CLOSURES_KEY = 'cache_pool_closures_v1';
+
+    /**
+     * Encerramentos vigentes hoje, indexados por pool_id. São 5 piscinas e
+     * poucos períodos por ano — cabe todo em memória e evita uma query em cada
+     * pedido do dashboard, dos alertas e dos formulários.
+     *
+     * @return array<int, PoolClosure>|null
+     */
+    public function getClosureMap(): ?array
+    {
+        return Cache::get(self::CLOSURES_KEY);
+    }
+
+    /**
+     * @param  array<int, PoolClosure>  $map
+     */
+    public function cacheClosureMap(array $map, int $ttlMinutos = 60): void
+    {
+        Cache::put(self::CLOSURES_KEY, $map, now()->addMinutes($ttlMinutos));
+    }
+
+    public function invalidateClosures(): void
+    {
+        Cache::forget(self::CLOSURES_KEY);
+    }
+
+    /**
      * Invalida todos os alertas (para todos os utilizadores).
      * Útil em operações críticas (resolução de incidente, reset de BD).
      */
@@ -174,15 +175,6 @@ class CacheService
         // Se usar tagging em Redis, seria mais eficiente.
         // Por agora, padrão simples.
         $this->invalidateByPattern('cache_alertas_*');
-    }
-
-    /**
-     * Invalida todos os gráficos (todas as piscinas).
-     * Útil se houver mudança estrutural (ex: piscinas adicionadas/removidas).
-     */
-    public function invalidateAllGraphs(): void
-    {
-        $this->invalidateByPattern('cache_graph_*');
     }
 
     /**

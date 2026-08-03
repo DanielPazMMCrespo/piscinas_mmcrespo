@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Services\CacheService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
@@ -17,6 +19,15 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Pool extends Model
 {
+    /** Piscina a operar normalmente. */
+    public const ESTADO_ATIVA = 'ativa';
+
+    /** Encerramento temporário datado (PoolClosure vigente). */
+    public const ESTADO_ENCERRADA = 'encerrada';
+
+    /** active = false — desativada estruturalmente, não é um encerramento. */
+    public const ESTADO_DESATIVADA = 'desativada';
+
     use HasFactory;
     use LogsActivity;
 
@@ -106,8 +117,69 @@ class Pool extends Model
         return $this->hasMany(DosingContainer::class);
     }
 
+    /** Nadadores-salvadores atribuídos. Usada por nome em whereHas('users', ...). */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_pools');
+    }
+
+    public function encerramentos(): HasMany
+    {
+        return $this->hasMany(PoolClosure::class)->orderByDesc('inicio');
+    }
+
+    /**
+     * Encerramento que cobre o dia indicado (hoje, por omissão).
+     *
+     * Se a relação 'encerramentos' já estiver carregada, resolve em memória —
+     * os ecrãs que listam piscinas fazem eager loading e não devem disparar
+     * uma query por piscina.
+     */
+    public function encerramentoEm(?Carbon $data = null): ?PoolClosure
+    {
+        $dia = ($data ?? Carbon::now())->copy()->startOfDay();
+
+        if ($this->relationLoaded('encerramentos')) {
+            return $this->encerramentos->first(fn (PoolClosure $e) => $e->cobreDia($dia));
+        }
+
+        return $this->encerramentos()->vigenteEm($dia)->first();
+    }
+
+    public function estaEncerradaEm(?Carbon $data = null): bool
+    {
+        return $this->encerramentoEm($data) !== null;
+    }
+
+    public function getEstadoOperacionalAttribute(): string
+    {
+        if (! $this->active) {
+            return self::ESTADO_DESATIVADA;
+        }
+
+        return $this->estaEncerradaEm() ? self::ESTADO_ENCERRADA : self::ESTADO_ATIVA;
+    }
+
+    /**
+     * Piscinas a operar hoje: existentes no sistema E sem encerramento vigente.
+     *
+     * Substitui o ->where('active', true) na maioria dos call sites. Atenção:
+     * NÃO usar onde as piscinas encerradas têm de continuar listadas — Relatório
+     * PDF (é sobre elas que se declara o encerramento), Esquema do circuito e
+     * atribuição de piscinas a um nadador-salvador.
+     */
+    public function scopeOperacionais(Builder $query): Builder
+    {
+        return $query->where('active', true)->naoEncerradasEm(Carbon::now());
+    }
+
+    public function scopeNaoEncerradasEm(Builder $query, Carbon $data): Builder
+    {
+        return $query->whereDoesntHave('encerramentos', fn ($q) => $q->vigenteEm($data));
+    }
+
+    public function scopeEncerradasEm(Builder $query, Carbon $data): Builder
+    {
+        return $query->whereHas('encerramentos', fn ($q) => $q->vigenteEm($data));
     }
 }
