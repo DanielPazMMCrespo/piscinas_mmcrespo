@@ -4,13 +4,13 @@ use App\Filament\Resources\CustomActivitylogResource;
 
 return [
     'resources' => [
-        'label' => 'Activity Log',
-        'plural_label' => 'Activity Logs',
+        'label' => 'Registo de Auditoria',
+        'plural_label' => 'Auditoria',
         'hide_restore_action' => false,
-        'restore_action_label' => 'Restore',
+        'restore_action_label' => 'Restaurar',
         'hide_resource_action' => false,
         'hide_restore_model_action' => true,
-        'resource_action_label' => 'View',
+        'resource_action_label' => 'Ver',
         'navigation_item' => true,
         'navigation_group' => null,
         'navigation_icon' => 'heroicon-o-shield-check',
