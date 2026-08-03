@@ -121,7 +121,9 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        @if (! empty($item['sem_hoje']))
+                        @if (! empty($item['encerramento']))
+                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 whitespace-nowrap">Encerrada</span>
+                        @elseif (! empty($item['sem_hoje']))
                             <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 whitespace-nowrap">Falta registar</span>
                         @else
                             <span class="text-xs uppercase tracking-wide {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
@@ -134,6 +136,22 @@
 
                 <!-- Collapsible Content -->
                 <div x-show="open" x-collapse x-cloak class="flex flex-col gap-4 mt-2">
+                    @if (! empty($item['encerramento']))
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2.5 text-xs text-slate-600 dark:text-slate-300">
+                            <div class="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200">
+                                <x-filament::icon icon="heroicon-m-lock-closed" class="w-4 h-4" />
+                                Encerrada {{ $item['encerramento']['periodo'] }}
+                            </div>
+                            <div class="mt-1">
+                                {{ $item['encerramento']['motivo'] }} ·
+                                {{ $item['encerramento']['agua_em_tratamento']
+                                    ? 'água em tratamento, registos ainda possíveis'
+                                    : 'piscina parada, sem registos esperados' }}
+                            </div>
+                            <div class="mt-1 text-slate-500 dark:text-slate-400">Os valores abaixo são os últimos conhecidos.</div>
+                        </div>
+                    @endif
+
                     <!-- Metrics Grid 2x2 -->
                     <div class="neo-metrics-grid">
                         @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)

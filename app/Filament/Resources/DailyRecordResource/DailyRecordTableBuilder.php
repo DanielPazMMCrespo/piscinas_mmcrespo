@@ -56,6 +56,12 @@ class DailyRecordTableBuilder
                                     $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Corrigido</span>';
                                 }
 
+                                // Avaliado contra a data do registo, não contra hoje:
+                                // é a auditoria retroativa que interessa aqui.
+                                if ($record->piscina?->estaEncerradaEm($record->registado_em)) {
+                                    $nome .= ' <span class="mmc-record-tag mmc-record-tag--muted">Piscina encerrada</span>';
+                                }
+
                                 return new HtmlString($nome);
                             })
                             ->html()

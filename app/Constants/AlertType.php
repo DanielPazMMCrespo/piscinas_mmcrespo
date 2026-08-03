@@ -20,6 +20,8 @@ final class AlertType
 
     public const PH_OVERTIME = 'ph_overtime';
 
+    public const ENCERRADA = 'encerrada';
+
     private function __construct()
     {
         // This class cannot be instantiated

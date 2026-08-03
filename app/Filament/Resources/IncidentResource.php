@@ -67,7 +67,7 @@ class IncidentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with('piscina.encerramentos');
 
         if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->where('user_id', auth()->id());
@@ -333,7 +333,10 @@ class IncidentResource extends Resource
                         Tables\Columns\TextColumn::make('ocorreu_em')
                             ->label('Data/Hora')
                             ->dateTime('d/m/Y H:i')
-                            ->description(fn (Incident $record): string => $record->ocorreu_em->locale('pt')->diffForHumans())
+                            ->description(fn (Incident $record): string => $record->ocorreu_em->locale('pt')->diffForHumans()
+                                // Contexto para quem lê o incidente meses depois:
+                                // a piscina estava fechada quando isto aconteceu.
+                                .($record->piscina?->estaEncerradaEm($record->ocorreu_em) ? ' · piscina encerrada' : ''))
                             ->color('gray')
                             ->size('sm')
                             ->sortable(),

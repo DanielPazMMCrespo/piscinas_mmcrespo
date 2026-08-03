@@ -290,6 +290,13 @@ class DailyRecordFormBuilder
             $query->where('id', self::poolFixo());
         }
 
+        // Piscina encerrada e parada não tem registo diário para fazer. Com a
+        // água em tratamento (fechada ao público, química mantida) continua a
+        // ter — daí o filtro ser pelo regime e não pelo encerramento em si.
+        $query->whereDoesntHave('encerramentos', fn ($q) => $q
+            ->vigenteEm(Carbon::now())
+            ->where('agua_em_tratamento', false));
+
         return $query;
     }
 

@@ -9,6 +9,7 @@ use App\Constants\AlertType;
 use App\Constants\IncidentStatus;
 use App\Constants\IncidentType;
 use App\Constants\UserRole;
+use App\Filament\Pages\EncerramentoPiscinas;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\StockInstallationResource;
@@ -116,10 +117,15 @@ class AlertasService
 
         $piscinas = Pool::query()
             ->where('active', true)
-            ->with('instalacao')
+            ->with(['instalacao', 'encerramentos'])
             ->orderBy('installation_id')
             ->orderBy('name')
             ->get();
+
+        // Piscinas encerradas hoje não geram alertas operacionais e saem dos
+        // denominadores: com elas dentro, "3/5 conformes" ficava errado todos os
+        // dias enquanto durasse o encerramento.
+        [$encerradas, $abertas] = $piscinas->partition(fn (Pool $piscina) => $piscina->estaEncerradaEm());
 
         $conformesHoje = 0;
 
@@ -131,11 +137,11 @@ class AlertasService
 
         // Otimização: obter apenas o último registo válido de cada piscina numa só query.
         $ultimosRegistos = DailyRecord::latestPerPool()
-            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->whereIn('pool_id', $abertas->pluck('id'))
             ->get()
             ->keyBy('pool_id');
 
-        foreach ($piscinas as $piscina) {
+        foreach ($abertas as $piscina) {
             $nome = $piscina->nome_completo;
 
             $registo = $ultimosRegistos->get($piscina->id);
@@ -151,6 +157,47 @@ class AlertasService
             // Alertas de torneiras
             $alertasTorneiras = $this->gerarAlertasTorneiras($piscina, $nome, $taps);
             $alertas = array_merge($alertas, $alertasTorneiras);
+        }
+
+        // Uma piscina encerrada com a água em tratamento continua a ter química
+        // para cumprir — só deixa de ter registos obrigatórios. Mantém-se o
+        // alerta de violação legal, sem entrar nos denominadores.
+        foreach ($encerradas as $piscina) {
+            $registo = DailyRecord::latestPerPool()
+                ->where('pool_id', $piscina->id)
+                ->first();
+
+            if ($piscina->encerramentoEm()?->agua_em_tratamento && $registo?->registado_em->isToday()) {
+                $registo->setRelation('piscina', $piscina);
+                $violacoes = $this->violacoesLegais($registo);
+
+                if ($violacoes !== []) {
+                    $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
+                        'nivel' => AlertLevel::VERMELHO,
+                        'icone' => 'heroicon-o-beaker',
+                        'titulo' => "{$piscina->nome_completo}: parâmetros fora dos limites CN 14/DA",
+                        'detalhe' => implode(' · ', $violacoes)
+                            .' (piscina encerrada, água em tratamento)',
+                        'url' => DailyRecordResource::getUrl('index'),
+                        'acao' => 'Ver registo',
+                    ];
+                }
+            }
+        }
+
+        if ($encerradas->isNotEmpty()) {
+            $nomes = $encerradas->map(fn (Pool $p) => $p->nome_completo)->implode(', ');
+
+            $alertas[AlertType::ENCERRADA."|{$hoje}"] = [
+                'nivel' => AlertLevel::NEUTRO,
+                'icone' => 'heroicon-o-lock-closed',
+                'titulo' => $encerradas->count() === 1
+                    ? '1 piscina encerrada'
+                    : $encerradas->count().' piscinas encerradas',
+                'detalhe' => $nomes.' — sem registos diários esperados.',
+                'url' => EncerramentoPiscinas::getUrl(),
+                'acao' => 'Ver encerramentos',
+            ];
         }
 
         if (! $soPiscinas) {
@@ -202,8 +249,9 @@ class AlertasService
 
         $resultado = [
             'alertas' => $alertas,
-            'totalPiscinas' => $piscinas->count(),
+            'totalPiscinas' => $abertas->count(),
             'conformesHoje' => $conformesHoje,
+            'encerradas' => $encerradas->count(),
         ];
 
         // Guarda em cache (5 min TTL — crítico para dashboard).

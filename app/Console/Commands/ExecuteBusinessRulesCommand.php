@@ -60,7 +60,7 @@ class ExecuteBusinessRulesCommand extends Command
         $violacoesMinimas = $this->settings->getInt('auto_incidente_violacoes_minimas', 3);
 
         // Get today's DailyRecord entries grouped by pool_id (exclude corrections)
-        $records = DailyRecord::with('piscina.instalacao')
+        $records = DailyRecord::with('piscina.instalacao', 'piscina.encerramentos')
             ->whereDate('registado_em', $today)
             ->whereDoesntHave('correcoes')
             ->get()
@@ -71,6 +71,13 @@ class ExecuteBusinessRulesCommand extends Command
             $pool = $poolRecords->first()->piscina;
 
             if (! $pool) {
+                continue;
+            }
+
+            // Abrir um incidente automático numa piscina encerrada seria criar
+            // trabalho para uma piscina que não está a funcionar. Um incidente
+            // real durante o encerramento (fuga, vandalismo) cria-se à mão.
+            if ($pool->estaEncerradaEm($today)) {
                 continue;
             }
 
@@ -98,6 +105,10 @@ class ExecuteBusinessRulesCommand extends Command
                         Incident::create([
                             'installation_id' => $instalacaoId,
                             'pool_id' => $poolId,
+                            // incidents.user_id é NOT NULL: sem isto a regra
+                            // rebentava sempre que disparava. O incidente fica
+                            // atribuído a quem fez a última medição em violação.
+                            'user_id' => $poolRecords->last()->user_id,
                             'ocorreu_em' => now(),
                             'type' => IncidentType::QUALIDADE_AGUA,
                             'status' => IncidentStatus::ABERTO,

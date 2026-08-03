@@ -7,9 +7,11 @@ namespace App\Services;
 use App\Constants\UserRole;
 use App\Jobs\ProcessDailyRecordAfterCreate;
 use App\Models\DailyRecord;
+use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class DailyRecordService
@@ -53,6 +55,8 @@ class DailyRecordService
             }
         }
 
+        $this->recusarPiscinasParadas(array_keys($poolsData), $registadoEm);
+
         DB::transaction(function () use ($poolsData, $commonData, $userId, &$lastRecord): void {
             foreach ($poolsData as $poolId => $poolData) {
                 $adicoes = $poolData['adicoes'] ?? [];
@@ -83,5 +87,44 @@ class DailyRecordService
         });
 
         return $lastRecord;
+    }
+
+    /**
+     * Uma piscina encerrada e parada não aceita registos diários. A validação é
+     * contra a DATA DO REGISTO e não contra hoje: o formulário permite datas
+     * retroativas, e o que importa é se a piscina estava a funcionar nesse dia.
+     *
+     * O Select já não oferece estas piscinas — isto fecha o caminho de um
+     * deep-link antigo, de um rascunho restaurado ou de um POST forjado.
+     *
+     * @param  array<int, int|string>  $poolIds
+     *
+     * @throws ValidationException
+     */
+    private function recusarPiscinasParadas(array $poolIds, Carbon $registadoEm): void
+    {
+        if ($poolIds === []) {
+            return;
+        }
+
+        $paradas = Pool::query()
+            ->whereIn('id', array_map('intval', $poolIds))
+            ->whereHas('encerramentos', fn ($q) => $q
+                ->vigenteEm($registadoEm)
+                ->where('agua_em_tratamento', false))
+            ->get();
+
+        if ($paradas->isEmpty()) {
+            return;
+        }
+
+        $dia = $registadoEm->format('d/m/Y');
+        $nomes = $paradas->map(fn (Pool $p) => $p->nome_completo)->implode(', ');
+
+        throw ValidationException::withMessages([
+            'data.pools' => $paradas->count() === 1
+                ? "{$nomes} estava encerrada em {$dia}, sem tratamento de água — não há registo diário a fazer."
+                : "Estas piscinas estavam encerradas em {$dia}, sem tratamento de água: {$nomes}.",
+        ]);
     }
 }

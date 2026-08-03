@@ -184,13 +184,18 @@ class OperationalActionResource extends Resource
 
     private static function piscinasOptions(): array
     {
+        // Piscinas encerradas ficam na lista de propósito: é durante o
+        // encerramento que se faz a drenagem, a obra e a lavagem dos filtros.
+        // Só se marcam, para o técnico saber onde está a registar.
         return Pool::query()
             ->where('active', true)
-            ->with('instalacao')
+            ->with(['instalacao', 'encerramentos'])
             ->orderBy('installation_id')
             ->orderBy('name')
             ->get()
-            ->mapWithKeys(fn (Pool $p) => [$p->id => $p->nome_completo])
+            ->mapWithKeys(fn (Pool $p) => [
+                $p->id => $p->nome_completo.($p->estaEncerradaEm() ? ' (encerrada)' : ''),
+            ])
             ->toArray();
     }
 

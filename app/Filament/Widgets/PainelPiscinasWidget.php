@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
+use App\Filament\Pages\EncerramentoPiscinas;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
@@ -89,8 +90,15 @@ class PainelPiscinasWidget extends Widget
         $viewData['piscinas'] = $viewData['piscinas']->map(function (array $item) {
             $piscinaId = $item['piscina']->id;
 
+            $encerrada = $item['encerramento'] !== null;
+            // Piscina parada não aceita registos (o formulário bloqueia); com a
+            // água em tratamento o registo continua a fazer sentido.
+            $podeRegistar = ! $encerrada || ($item['encerramento']['agua_em_tratamento'] ?? false);
+            $podeReabrir = $encerrada && EncerramentoPiscinas::canAccess();
+
             $item['acoes_rapidas'] = collect([
-                [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', true, true],
+                [EncerramentoPiscinas::getUrl(), 'Reabrir', 'heroicon-m-lock-open', true, $podeReabrir],
+                [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', ! $encerrada, $podeRegistar],
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
                 [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
@@ -114,7 +122,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 3;
+    private const CACHE_SHAPE_VERSION = 4;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -141,7 +149,7 @@ class PainelPiscinasWidget extends Widget
 
         $query = Pool::query()
             ->where('active', true)
-            ->with('instalacao');
+            ->with(['instalacao', 'encerramentos']);
 
         if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
@@ -534,10 +542,21 @@ class PainelPiscinasWidget extends Widget
             $metricas4['temp']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['temp']['origem'], 'temperatura'));
             $metricas4['turbidez']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['turbidez']['origem'], 'transparencia'));
 
+            $encerramento = $piscina->encerramentoEm();
+
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
-                'sem_hoje' => ! $registo || ! $registo->registado_em->isToday(),
+                // Encerrada não é "sem registo": o cartão fica na grelha (o
+                // técnico tem de ver que existe e que está fechada), mas sem o
+                // aviso de falta e fora das percentagens abaixo.
+                'sem_hoje' => $encerramento === null && (! $registo || ! $registo->registado_em->isToday()),
+                'encerramento' => $encerramento === null ? null : [
+                    'motivo' => $encerramento->motivo_label,
+                    'periodo' => $encerramento->descricao_periodo,
+                    'agua_em_tratamento' => $encerramento->agua_em_tratamento,
+                    'url' => EncerramentoPiscinas::getUrl(),
+                ],
                 // Estado da sonda independente da fonte escolhida: com um registo
                 // manual fresco a cascata escolhia 'manual' e a sonda desaparecia
                 // do cartão — o técnico não tinha como saber que estava offline.
@@ -552,9 +571,14 @@ class PainelPiscinasWidget extends Widget
             ];
         });
 
-        $totalPiscinas = $piscinasMapped->count();
-        $registadasHoje = $piscinasMapped->filter(fn ($p) => ! $p['sem_hoje'])->count();
-        $conformes = $piscinasMapped->filter(fn ($p) => $p['tem_dados_conformes'] && collect($p['parametros_conformes'])->every(fn ($ok) => $ok !== false))->count();
+        // Percentagens só sobre piscinas abertas: com as encerradas no
+        // denominador, "registos de hoje" nunca voltaria a 100% enquanto a época
+        // estivesse fechada.
+        $abertasMapped = $piscinasMapped->filter(fn ($p) => $p['encerramento'] === null);
+
+        $totalPiscinas = $abertasMapped->count();
+        $registadasHoje = $abertasMapped->filter(fn ($p) => ! $p['sem_hoje'])->count();
+        $conformes = $abertasMapped->filter(fn ($p) => $p['tem_dados_conformes'] && collect($p['parametros_conformes'])->every(fn ($ok) => $ok !== false))->count();
 
         $percentagemRegisto = $totalPiscinas > 0 ? (int) (($registadasHoje / $totalPiscinas) * 100) : 0;
         $percentagemConforme = $totalPiscinas > 0 ? (int) (($conformes / $totalPiscinas) * 100) : 0;
@@ -562,6 +586,7 @@ class PainelPiscinasWidget extends Widget
         return [
             'piscinas' => $piscinasMapped,
             'urlRegistar' => DailyRecordResource::getUrl('create'),
+            'encerradas' => $piscinasMapped->count() - $totalPiscinas,
             'totalPiscinas' => $totalPiscinas,
             'registadasHoje' => $registadasHoje,
             'conformes' => $conformes,
