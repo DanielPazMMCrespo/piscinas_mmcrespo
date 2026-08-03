@@ -7,6 +7,8 @@ namespace App\Notifications;
 use App\Filament\Resources\IncidentResource;
 use App\Models\Incident;
 use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -17,8 +19,10 @@ use NotificationChannels\WebPush\WebPushMessage;
  * Disparado a cada mensagem nova na thread de um incidente — mensagem de
  * chat ou mudança de estado gerada pelo sistema (ex: resolução).
  */
-class IncidentMessageNotification extends Notification
+class IncidentMessageNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         private readonly Incident $incident,
         private readonly User $autor,

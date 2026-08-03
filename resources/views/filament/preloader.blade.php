@@ -1,5 +1,5 @@
-<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 250ms ease-in-out; pointer-events: auto;">
-    <img src="{{ asset('images/logo_mmcrespo_branco.png') }}" id="global-loader-logo" alt="Piscinas MMCrespo" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.95) translateY(10px); transition: opacity 50ms ease-out, transform 50ms ease-out;">
+<div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 120ms ease-in-out; pointer-events: none;">
+    <img src="{{ asset('images/logo_mmcrespo_branco.webp') }}" id="global-loader-logo" alt="Piscinas MMCrespo" width="300" height="100" fetchpriority="high" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.98); transition: opacity 50ms ease-out, transform 50ms ease-out;">
 </div>
 
 <script>
@@ -15,7 +15,6 @@
         if (!loader || !logo) return;
 
         loader.style.display = 'flex';
-        loader.style.pointerEvents = 'auto';
         
         // Força reflow
         void loader.offsetWidth;
@@ -30,7 +29,7 @@
         clearTimeout(fallbackTimeout);
         fallbackTimeout = setTimeout(() => {
             hidePreloader();
-        }, 3500);
+        }, 2000);
     }
 
     function hidePreloader() {
@@ -46,20 +45,12 @@
 
         setTimeout(() => {
             loader.style.display = 'none';
-            loader.style.pointerEvents = 'none';
-        }, 250);
+        }, 120);
     }
 
-    // 1. Revelação no Carregamento Inicial (Mantido a 500ms)
+    // 1. Carregamento inicial: esconder no DOMContentLoaded, sem espera artificial.
     document.addEventListener('DOMContentLoaded', () => {
-        const logo = getLogo();
-        if (logo) {
-            requestAnimationFrame(() => {
-                logo.style.opacity = '1';
-                logo.style.transform = 'scale(1) translateY(0)';
-            });
-        }
-        setTimeout(hidePreloader, 500);
+        hidePreloader();
     });
 
     // 2. Transições SPA do Livewire (Aparecer: 50ms | Destaque: 250ms | Fade-out: 250ms)
@@ -68,7 +59,7 @@
     });
 
     document.addEventListener('livewire:navigated', () => {
-        setTimeout(hidePreloader, 250);
+        hidePreloader();
     });
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida

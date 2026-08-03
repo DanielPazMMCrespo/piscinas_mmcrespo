@@ -26,6 +26,11 @@ class IncidentChatWidget extends Widget
 
     protected static bool $shouldRegister = false;
 
+    /** A conversa é o sítio onde se espera resposta — sem poll era preciso recarregar. */
+    protected static ?string $pollingInterval = '30s';
+
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     public ?Incident $record = null;

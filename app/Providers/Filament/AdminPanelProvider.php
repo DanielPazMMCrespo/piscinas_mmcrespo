@@ -8,7 +8,9 @@ use App\Filament\AvatarProviders\GenericAvatarProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\RequirePasswordChange;
+use App\Models\Pool;
 use Filament\Enums\ThemeMode;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Forms\Components\TextInput;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -26,6 +28,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 
@@ -49,7 +52,9 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->font('Lato')
+            // LocalFontProvider sem URL: mantém a família Lato (--font-family) e
+            // não injeta nenhum <link> — os ficheiros vêm do bundle (@fontsource).
+            ->font('Lato', provider: LocalFontProvider::class)
             ->login(Login::class)
             ->brandName('Piscinas MMCrespo')
             ->brandLogo(fn () => view('filament.brand-logo'))
@@ -69,13 +74,15 @@ class AdminPanelProvider extends PanelProvider
             ->defaultThemeMode(ThemeMode::Light)
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth(MaxWidth::ScreenTwoExtraLarge)
+            // Ordem pela frequência real de uso: o trabalho diário primeiro,
+            // a estrutura (piscinas/instalações, configuradas uma vez) no fim.
             ->navigationGroups([
                 'Registo Diário',
                 'Operação',
-                'Dados',
                 'Stock',
-                'Estrutura',
+                'Dados',
                 'Sistema',
+                NavigationGroup::make('Estrutura')->collapsed(),
                 NavigationGroup::make('Logs')->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
@@ -102,13 +109,19 @@ class AdminPanelProvider extends PanelProvider
                     '<meta name="csrf-token" content="'.csrf_token().'">'.
                     '<script>window.__userId = '.(auth()->id() ?? 'null').';'.
                     'window.__vapidPublicKey = '.json_encode(config('webpush.vapid.public_key')).';'.
-                    'window.__poolNomes = '.json_encode(\App\Models\Pool::pluck('name', 'id')).';</script>',
+                    // Cacheado: era uma query por render de cada página para dados
+                    // que mudam uma vez por ano.
+                    'window.__poolNomes = '.json_encode(Cache::remember(
+                        'pool_nomes',
+                        now()->addDay(),
+                        fn () => Pool::pluck('name', 'id')
+                    )).';</script>',
             )
             // Barra global fixa com os timers de retrolavagem/enxaguamento ativos
             // (visível em qualquer página/passo do wizard, não só no fieldset de origem)
             ->renderHook(
                 PanelsRenderHook::BODY_START,
-                fn (): string => (auth()->check() ? view('filament.timer-bar')->render() : '') . (view()->exists('filament.preloader') ? view('filament.preloader')->render() : '')
+                fn (): string => (auth()->check() ? view('filament.timer-bar')->render() : '').(view()->exists('filament.preloader') ? view('filament.preloader')->render() : '')
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(
@@ -126,17 +139,9 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => auth()->check() ? view('filament.notification-prompt')->render() : '',
             )
 
-
-            ->renderHook(
-                PanelsRenderHook::HEAD_END,
-                fn (): string => <<<'HTML'
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css"/>
-<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" defer></script>
-HTML,
-            )
+            // As fontes e o GLightbox eram 4 pedidos a terceiros render-blocking em
+            // todas as páginas (a mesma família Lato vinha de dois CDNs). Agora as
+            // fontes vêm do bundle (fontes.css) e o GLightbox vem do app.js.
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -338,6 +338,20 @@ class DailyRecord extends Model
             ];
         }
 
+        // A turbidez é um parâmetro legal CN 14/DA e não estava a ser avaliada
+        // em sítio nenhum (no PDF saía "Conforme" fixo para três das piscinas).
+        if ($this->transparencia !== null) {
+            $turbidezMax = $settings->getFloat('transparencia_max', self::TRANSPARENCIA_MAX);
+
+            if ((float) $this->transparencia > $turbidezMax) {
+                $violacoes[] = [
+                    'parametro' => 'transparencia',
+                    'mensagem' => 'turbidez '.$fmt((float) $this->transparencia, 1)
+                        .' FNU acima do máximo ('.$fmt($turbidezMax, 1).')',
+                ];
+            }
+        }
+
         return $violacoes;
     }
 

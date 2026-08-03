@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Constants\UserRole;
+use App\Filament\Resources\StockWarehouseResource;
 use App\Models\Pool;
 use App\Models\StockInstallation;
+use App\Models\StockWarehouse;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -38,27 +40,39 @@ class StockBaixoWidget extends BaseWidget
         });
 
         return $table
-            ->poll('30s')
+            ->poll('120s')
             ->query(
                 StockInstallation::query()
                     ->whereIn('id', $ids)
                     ->with(['instalacao', 'produto'])
                     ->orderBy('quantity')
             )
+            // Duas colunas em vez de quatro: a tabela tinha 602 px num contentor de
+            // 356 px e o "Limite Mínimo" ficava fora do ecrã no telemóvel.
             ->columns([
-                Tables\Columns\TextColumn::make('instalacao.name')
-                    ->label('Instalação')
-                    ->weight('bold'),
                 Tables\Columns\TextColumn::make('produto.name')
-                    ->label('Produto'),
+                    ->label('Produto')
+                    ->weight('bold')
+                    ->description(fn (StockInstallation $record): string => $record->instalacao?->name ?? ''),
                 Tables\Columns\TextColumn::make('quantity')
-                    ->label('Quantidade Atual')
-                    ->numeric(3)
+                    ->label('Em stock / mínimo')
+                    ->formatStateUsing(fn ($state, StockInstallation $record): string => number_format((float) $state, 3, ',', ' ')
+                        .' / '.number_format((float) $record->limite_minimo, 3, ',', ' ')
+                        .' '.($record->produto?->unidade ?? ''))
+                    ->badge()
                     ->color('danger'),
-                Tables\Columns\TextColumn::make('limite_minimo')
-                    ->label('Limite Mínimo')
-                    ->numeric(3)
-                    ->color('warning'),
+            ])
+            // Dava para ver o problema e não para o resolver: obrigava a ir ao
+            // armazém e procurar o produto à mão.
+            ->actions([
+                Tables\Actions\Action::make('repor')
+                    ->label('Repor do armazém')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->button()
+                    ->visible(fn (StockInstallation $record): bool => auth()->user()?->can('transferStock', $record->produto?->stockArmazem ?? new StockWarehouse) ?? false)
+                    ->url(fn (StockInstallation $record): string => StockWarehouseResource::getUrl('index', [
+                        'tableSearch' => $record->produto?->name,
+                    ])),
             ])
             ->emptyStateHeading('Sem alertas de stock')
             ->emptyStateDescription('Todos os produtos estão acima do limite mínimo.')

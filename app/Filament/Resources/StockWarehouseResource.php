@@ -48,7 +48,7 @@ class StockWarehouseResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'tecnico']);
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
     }
 
     public static function canDelete($record): bool
@@ -96,19 +96,26 @@ class StockWarehouseResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
+            ->modifyQueryUsing(fn ($query) => $query->with('produto'))
             ->columns([
                 Tables\Columns\TextColumn::make('produto.name')
                     ->label('Produto')
+                    ->description(fn (StockWarehouse $record): ?string => $record->produto?->categoria)
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade em Stock')
-                    ->numeric(3)
+                    // Sem unidade, "2,000" não diz se são 2 kg ou 2 L.
+                    ->formatStateUsing(fn ($state, StockWarehouse $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->produto?->unidade ?? ''))
                     ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('product_id')
+                    ->label('Produto')
+                    ->relationship('produto', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -119,9 +126,12 @@ class StockWarehouseResource extends Resource
                     ->color('success')
                     ->authorize(fn ($record) => auth()->user()->can('updateStock', $record))
                     ->visible(fn ($record) => auth()->user()->can('updateStock', $record))
+                    ->modalHeading(fn (StockWarehouse $record): string => 'Entrada de '.($record->produto?->name ?? 'produto'))
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade a adicionar')
+                            ->suffix(fn (StockWarehouse $record) => $record->produto?->unidade)
+                            ->helperText(fn (StockWarehouse $record): string => 'Em armazém: '.number_format((float) $record->quantity, 3, ',', ' ').' '.($record->produto?->unidade ?? ''))
                             ->numeric()
                             ->minValue(0.001)
                             ->rules(['gt:0'])
@@ -149,6 +159,9 @@ class StockWarehouseResource extends Resource
                     ->color('primary')
                     ->authorize(fn ($record) => auth()->user()->can('transferStock', $record))
                     ->visible(fn ($record) => auth()->user()->can('transferStock', $record))
+                    // Em telemóvel o modal cobre a linha da tabela: sem o nome do
+                    // produto no título não há como confirmar em que linha se tocou.
+                    ->modalHeading(fn (StockWarehouse $record): string => 'Transferir '.($record->produto?->name ?? 'produto'))
                     ->form([
                         Forms\Components\Select::make('installation_id')
                             ->label('Instalação de Destino')
@@ -157,15 +170,19 @@ class StockWarehouseResource extends Resource
                             ->searchable(),
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade a transferir')
+                            ->suffix(fn (StockWarehouse $record) => $record->produto?->unidade)
+                            ->helperText(fn (StockWarehouse $record): string => 'Disponível em armazém: '.number_format((float) $record->quantity, 3, ',', ' ').' '.($record->produto?->unidade ?? ''))
                             ->numeric()
                             ->minValue(0.001)
+                            // Valida antes de submeter, em vez de falhar e fechar o modal.
+                            ->maxValue(fn (StockWarehouse $record) => (float) $record->quantity)
                             ->rules(['gt:0'])
                             ->required(),
                         Forms\Components\Textarea::make('observacoes')
                             ->label('Observações (ex: Nº da Guia)')
                             ->maxLength(255),
                     ])
-                    ->action(function (StockWarehouse $record, array $data): void {
+                    ->action(function (StockWarehouse $record, array $data, Tables\Actions\Action $action): void {
                         try {
                             app(StockService::class)->transferToInstallation(
                                 $record->id,
@@ -185,6 +202,9 @@ class StockWarehouseResource extends Resource
                                 ->title('Erro na transferência')
                                 ->body($e->getMessage())
                                 ->send();
+
+                            // halt() mantém o modal aberto com os dados escritos.
+                            $action->halt();
                         }
                     }),
             ])

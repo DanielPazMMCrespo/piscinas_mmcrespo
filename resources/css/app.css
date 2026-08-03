@@ -1,5 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Lato:wght@300;400;700&display=swap');
+@import '@fontsource/lato/300.css';
+@import '@fontsource/lato/400.css';
+@import '@fontsource/lato/700.css';
+@import '@fontsource/montserrat/400.css';
+@import '@fontsource/montserrat/600.css';
+@import '@fontsource/montserrat/700.css';
+@import '@fontsource/montserrat/800.css';
 @import 'tailwindcss';
+@import 'glightbox/dist/css/glightbox.min.css';
 @import 'widgets.css';
 @import 'esquema.css';
 @import 'login.css';
@@ -189,15 +196,32 @@ body {
 .fi-sidebar {
     background: #ffffff !important;
     border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
-    position: fixed !important;
-    top: 0;
-    bottom: 0;
-    height: 100dvh !important;
+}
+
+/* Abaixo de lg a barra lateral é uma gaveta sobreposta — é o comportamento do
+   Filament e aqui o fixed é o que se quer. Em desktop o Filament usa lg:sticky
+   (barra em fluxo, conteúdo ao lado); forçar fixed em todos os tamanhos tirava-a
+   do fluxo e a primeira coluna do conteúdo ficava debaixo do menu. */
+@media (max-width: 1023px) {
+    .fi-sidebar {
+        position: fixed !important;
+        top: 0;
+        bottom: 0;
+        height: 100dvh !important;
+    }
 }
 
 .fi-sidebar-nav {
     overflow-y: auto !important;
     height: 100%;
+}
+
+/* A barra de navegação inferior é fixa: sem folga no fim, tapava o último
+   cartão/botão de cada página no telemóvel. */
+@media (max-width: 767px) {
+    .fi-main {
+        padding-bottom: 6rem !important;
+    }
 }
 
 /* Cards & Sections - Native feel */

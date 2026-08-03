@@ -11,6 +11,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class PoolResource extends Resource
 {
@@ -27,6 +29,23 @@ class PoolResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'instalacao.name'];
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return ['Instalação' => $record->instalacao->name];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('instalacao');
     }
 
     public static function form(Form $form): Form
@@ -48,7 +67,7 @@ class PoolResource extends Resource
                     ->required()
                     ->maxLength(50),
                 Forms\Components\TextInput::make('temp_min')
-                    ->label('Temperatura Mi­nima (ºC)')
+                    ->label('Temperatura Mínima (ºC)')
                     ->required()
                     ->numeric(),
                 Forms\Components\TextInput::make('temp_max')
@@ -84,10 +103,6 @@ class PoolResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->contentGrid([
-                'md' => 2,
-                'xl' => 3,
-            ])
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
                     ->label('Instalação')

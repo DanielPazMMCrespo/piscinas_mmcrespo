@@ -27,7 +27,7 @@
             @endforeach
         </div>
 
-        <div wire:poll.30s wire:key="esquema-instalacao-{{ $instalacaoAtiva }}" x-data="{ destaque: null }">
+        <div wire:poll.60s wire:key="esquema-instalacao-{{ $instalacaoAtiva }}" x-data="{ destaque: null }">
             {{-- 1. Visão geral da instalação --}}
             <x-filament::section>
                 <x-slot name="heading">Visão geral</x-slot>

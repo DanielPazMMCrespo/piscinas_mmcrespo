@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
 use App\Filament\Resources\DailyRecordResource;
+use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
 use App\Models\Pool;
 use App\Services\CacheService;
 use App\Services\DailyRecordService;
@@ -22,6 +23,30 @@ class CreateDailyRecord extends CreateRecord
     protected static string $resource = DailyRecordResource::class;
 
     public bool $isCreating = false;
+
+    /**
+     * Contexto do atalho "Registo Rápido". Vive em propriedades do componente
+     * porque os POSTs do Livewire não levam query string: lido de `request()` no
+     * mount e reaplicado ao form builder em cada pedido seguinte.
+     */
+    public bool $modoRapido = false;
+
+    public ?int $poolFixo = null;
+
+    public function mount(): void
+    {
+        $this->modoRapido = request()->query('quick') == '1';
+        $this->poolFixo = request()->integer('pool') ?: null;
+
+        DailyRecordFormBuilder::aplicarContexto($this->modoRapido, $this->poolFixo);
+
+        parent::mount();
+    }
+
+    public function hydrate(): void
+    {
+        DailyRecordFormBuilder::aplicarContexto($this->modoRapido, $this->poolFixo);
+    }
 
     protected function handleRecordCreation(array $data): Model
     {

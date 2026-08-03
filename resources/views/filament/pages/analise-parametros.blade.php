@@ -6,6 +6,8 @@
 
     @unless (auth()->user()?->hasRole(\App\Constants\UserRole::NADADOR_SALVADOR))
         <div class="grid grid-cols-1 gap-6 mt-6">
+            {{-- Resposta direta à pergunta de auditoria, antes dos gráficos de apoio. --}}
+            @livewire(\App\Filament\Widgets\ViolacoesPeriodoWidget::class)
             @livewire(\App\Filament\Widgets\ScoreConformidadeWidget::class)
             @livewire(\App\Filament\Widgets\HeatmapConformidadeWidget::class)
             @livewire(\App\Filament\Widgets\EstabilidadeMedicoesWidget::class)

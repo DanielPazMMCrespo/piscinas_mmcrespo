@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -58,6 +59,11 @@ class Pool extends Model
         static::saved(function (Pool $pool): void {
             app(CacheService::class)->invalidatePoolData();
             app(CacheService::class)->invalidateGraphCache($pool->id);
+            Cache::forget('pool_nomes');
+        });
+
+        static::deleted(function (): void {
+            Cache::forget('pool_nomes');
         });
     }
 

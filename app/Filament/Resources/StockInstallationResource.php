@@ -50,7 +50,7 @@ class StockInstallationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'tecnico']);
+        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
     }
 
     public static function canDelete($record): bool
@@ -85,6 +85,13 @@ class StockInstallationResource extends Resource
                     ->validationMessages([
                         'unique' => 'Este produto já tem stock registado nesta instalação. Edite o registo existente.',
                     ]),
+                Forms\Components\TextInput::make('quantity')
+                    ->label('Quantidade em Stock')
+                    ->helperText('Quantidade já existente na instalação (pode ser 0).')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    ->required(),
                 Forms\Components\TextInput::make('limite_minimo')
                     ->label('Alerta de Stock Baixo (Mínimo)')
                     ->numeric()
@@ -96,7 +103,7 @@ class StockInstallationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
+            ->poll('60s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['instalacao', 'produto']))
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
@@ -109,15 +116,26 @@ class StockInstallationResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Quantidade Atual')
-                    ->numeric(3)
+                    ->formatStateUsing(fn ($state, StockInstallation $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->produto?->unidade ?? ''))
+                    ->description(fn (StockInstallation $record): string => 'mín. '.number_format((float) $record->limite_minimo, 3, ',', ' '))
+                    ->badge()
+                    ->color(fn (StockInstallation $record): string => (float) $record->quantity <= (float) $record->limite_minimo ? 'danger' : 'gray')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('limite_minimo')
-                    ->label('Alerta Mín.')
-                    ->numeric(3)
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\Filter::make('abaixo_minimo')
+                    ->label('Só abaixo do mínimo')
+                    ->query(fn (Builder $query): Builder => $query->whereColumn('quantity', '<=', 'limite_minimo'))
+                    ->toggle(),
+                Tables\Filters\SelectFilter::make('installation_id')
+                    ->label('Instalação')
+                    ->relationship('instalacao', 'name')
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('product_id')
+                    ->label('Produto')
+                    ->relationship('produto', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -126,16 +144,18 @@ class StockInstallationResource extends Resource
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
                     ->visible(fn ($record) => auth()->user()->can('update', $record))
+                    ->modalHeading(fn (StockInstallation $record): string => 'Entrada de '.($record->produto?->name ?? 'produto'))
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade recebida')
+                            ->suffix(fn (StockInstallation $record) => $record->produto?->unidade)
                             ->helperText('Entrega direta na instalação (fora do fluxo do armazém central).')
                             ->numeric()
                             ->minValue(0.001)
                             ->rules(['gt:0'])
                             ->required(),
                     ])
-                    ->action(function (StockInstallation $record, array $data): void {
+                    ->action(function (StockInstallation $record, array $data, Tables\Actions\Action $action): void {
                         try {
                             app(StockService::class)->addInstallationStock(
                                 $record->id,
@@ -153,6 +173,8 @@ class StockInstallationResource extends Resource
                                 ->title('Não foi possível registar a entrada')
                                 ->body($e->getMessage())
                                 ->send();
+
+                            $action->halt();
                         }
                     }),
                 Tables\Actions\Action::make('consumo_stock')
@@ -163,12 +185,16 @@ class StockInstallationResource extends Resource
                     ->form([
                         Forms\Components\TextInput::make('quantidade')
                             ->label('Quantidade consumida (Ajuste Manual)')
+                            ->suffix(fn (StockInstallation $record) => $record->produto?->unidade)
+                            ->helperText(fn (StockInstallation $record): string => 'Disponível: '.number_format((float) $record->quantity, 3, ',', ' ').' '.($record->produto?->unidade ?? ''))
                             ->numeric()
                             ->minValue(0.001)
+                            ->maxValue(fn (StockInstallation $record) => (float) $record->quantity)
                             ->rules(['gt:0'])
                             ->required(),
                     ])
-                    ->action(function (StockInstallation $record, array $data): void {
+                    ->modalHeading(fn (StockInstallation $record): string => 'Consumo de '.($record->produto?->name ?? 'produto'))
+                    ->action(function (StockInstallation $record, array $data, Tables\Actions\Action $action): void {
                         try {
                             app(StockService::class)->consumeInstallationStock(
                                 $record->id,
@@ -186,6 +212,8 @@ class StockInstallationResource extends Resource
                                 ->title('Stock insuficiente')
                                 ->body($e->getMessage())
                                 ->send();
+
+                            $action->halt();
                         }
                     }),
             ])
