@@ -527,7 +527,7 @@ class OperationalActionResource extends Resource
                     Infolists\Components\ImageEntry::make('foto')
                         ->hiddenLabel()
                         ->disk(DailyRecord::getStorageDisk())
-                        ->imageSize(320)
+                        ->size(320)
                         ->columnSpanFull(),
                 ]),
         ]);

@@ -285,7 +285,7 @@ class IncidentResource extends Resource
                     Infolists\Components\ImageEntry::make('fotos')
                         ->hiddenLabel()
                         ->disk(DailyRecord::getStorageDisk())
-                        ->imageSize(320)
+                        ->size(320)
                         ->columnSpanFull(),
                 ]),
 
