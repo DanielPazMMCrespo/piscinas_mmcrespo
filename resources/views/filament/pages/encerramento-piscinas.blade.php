@@ -1,4 +1,6 @@
-@php($resumo = $this->getResumo())
+@php
+    $resumo = $this->getResumo();
+@endphp
 
 <x-filament-panels::page>
     <div class="flex flex-wrap items-center gap-3 -mt-2 text-sm">

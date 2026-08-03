@@ -39,6 +39,7 @@
                 <span><span class="mmc-heatmap-celula" style="background-color:#f59e0b;"></span> Ligeiro desvio</span>
                 <span><span class="mmc-heatmap-celula" style="background-color:#dc2626;"></span> Não conforme</span>
                 <span><span class="mmc-heatmap-celula" style="background-color:#e5e7eb;"></span> Sem registos</span>
+                <span><span class="mmc-heatmap-celula" style="background-color:#94a3b8;"></span> Encerrada</span>
             </div>
         @endif
     </x-filament::section>

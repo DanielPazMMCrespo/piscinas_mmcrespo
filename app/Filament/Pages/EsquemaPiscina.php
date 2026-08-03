@@ -138,9 +138,11 @@ class EsquemaPiscina extends Page
 
     private function piscinasPermitidas(): Collection
     {
+        // Piscinas encerradas mantêm-se listadas de propósito: o circuito é
+        // consultado precisamente durante a manutenção e a obra.
         $query = Pool::query()
             ->where('active', true)
-            ->with('instalacao')
+            ->with(['instalacao', 'encerramentos'])
             ->orderBy('installation_id')
             ->orderBy('name');
 
@@ -190,10 +192,20 @@ class EsquemaPiscina extends Page
         $tanque = $this->estadoTanque($piscina, $registo, $ultimaAcao->get(OperationalAction::TIPO_TANQUE));
         $bidoes = $this->bidoes($piscina);
 
+        $encerramento = $piscina->encerramentoEm();
+
         return [
             'piscina' => $piscina,
             'registo' => $registo,
-            'stale' => $stale,
+            // O circuito continua navegável durante a obra — é justamente quando
+            // se trabalha nele. Só se marca o estado.
+            'encerramento' => $encerramento === null ? null : [
+                'motivo' => $encerramento->motivo_label,
+                'periodo' => $encerramento->descricao_periodo,
+                'agua_em_tratamento' => $encerramento->agua_em_tratamento,
+            ],
+            // Sonda "stale" numa piscina parada é o estado esperado, não um aviso.
+            'stale' => $encerramento !== null && ! $encerramento->agua_em_tratamento ? false : $stale,
             'torneira' => $torneira,
             'bomba' => $bomba,
             'filtro' => $filtro,

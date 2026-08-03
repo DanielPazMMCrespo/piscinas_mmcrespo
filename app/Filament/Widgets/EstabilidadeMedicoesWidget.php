@@ -54,6 +54,7 @@ class EstabilidadeMedicoesWidget extends Widget
 
         $piscinas = Pool::query()
             ->where('active', true)
+            ->with('encerramentos')
             ->orderBy('installation_id')
             ->orderBy('name')
             ->get();
@@ -100,7 +101,7 @@ class EstabilidadeMedicoesWidget extends Widget
             [$leitura, $cor] = self::interpretar($phManual->count(), $racio, $deltas);
 
             return [
-                'nome' => $piscina->nomeCompleto(' — '),
+                'nome' => $piscina->nomeCompleto(' — ').($piscina->estaEncerradaEm() ? ' (encerrada)' : ''),
                 'n_manual' => $phManual->count(),
                 'sigma_ph_manual' => $sigmaPhManual,
                 'sigma_ph_sonda' => $sigmaPhSonda,

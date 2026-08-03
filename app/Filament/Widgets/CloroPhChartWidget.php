@@ -155,11 +155,14 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     protected function getFormSchema(): array
     {
-        $opcoesPiscinas = $this->poolsQuery()->with('instalacao')
+        // Encerradas continuam selecionáveis: é sobre o histórico delas que se
+        // consulta o gráfico. A linha já quebra nos dias sem dados (spanGaps
+        // false), por isso o período fechado lê-se como interrupção.
+        $opcoesPiscinas = $this->poolsQuery()->with(['instalacao', 'encerramentos'])
             ->orderBy('installation_id')->orderBy('name')
             ->get()
             ->mapWithKeys(fn (Pool $p) => [
-                (string) $p->id => $p->nomeCompleto(' — '),
+                (string) $p->id => $p->nomeCompleto(' — ').($p->estaEncerradaEm() ? ' (encerrada)' : ''),
             ])->toArray();
 
         $opcoesMetricas = collect(self::getMetricas())

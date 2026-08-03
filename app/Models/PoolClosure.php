@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Constants\MotivoEncerramento;
 use App\Services\CacheService;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -82,7 +83,7 @@ class PoolClosure extends Model
     }
 
     /** Encerramentos que intersetam o dia indicado ('fim' inclusivo). */
-    public function scopeVigenteEm(Builder $query, Carbon $data): Builder
+    public function scopeVigenteEm(Builder $query, CarbonInterface $data): Builder
     {
         $dia = $data->copy()->startOfDay();
 
@@ -94,7 +95,7 @@ class PoolClosure extends Model
     }
 
     /** Encerramentos que intersetam a janela [inicio, fim]. */
-    public function scopeQueIntersetam(Builder $query, Carbon $inicio, Carbon $fim): Builder
+    public function scopeQueIntersetam(Builder $query, CarbonInterface $inicio, CarbonInterface $fim): Builder
     {
         return $query
             ->whereDate('inicio', '<=', $fim->copy()->endOfDay())
@@ -103,7 +104,7 @@ class PoolClosure extends Model
             });
     }
 
-    public function cobreDia(Carbon $data): bool
+    public function cobreDia(CarbonInterface $data): bool
     {
         $dia = $data->copy()->startOfDay();
 

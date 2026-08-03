@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Constants\MotivoEncerramento;
 use App\Constants\UserRole;
 use App\Enums\EstadoConformidade;
 use App\Models\DailyRecord;
 use App\Models\Pool;
+use App\Services\PoolClosureService;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
 
@@ -45,6 +47,15 @@ class HeatmapConformidadeWidget extends Widget
 
         $piscinas = Pool::query()->where('active', true)->orderBy('installation_id')->orderBy('name')->get();
 
+        // Um dia encerrado não é "sem dados": tem um estado próprio, senão o
+        // heatmap acusa falha do operador num período em que a piscina estava
+        // legitimamente fechada.
+        $encerramentos = app(PoolClosureService::class)->mapa(
+            $piscinas->pluck('id'),
+            $inicio,
+            $inicio->copy()->addDays(self::DIAS - 1),
+        );
+
         $registos = DailyRecord::query()
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->whereDoesntHave('correcoes')
@@ -53,10 +64,20 @@ class HeatmapConformidadeWidget extends Widget
             ->get()
             ->groupBy(fn (DailyRecord $r) => $r->pool_id.'_'.$r->registado_em->toDateString());
 
-        $linhas = $piscinas->map(function (Pool $piscina) use ($dias, $registos) {
-            $celulas = $dias->map(function (Carbon $dia) use ($piscina, $registos) {
+        $linhas = $piscinas->map(function (Pool $piscina) use ($dias, $registos, $encerramentos) {
+            $celulas = $dias->map(function (Carbon $dia) use ($piscina, $registos, $encerramentos) {
                 $chave = $piscina->id.'_'.$dia->toDateString();
                 $registosDoDia = $registos->get($chave);
+
+                $encerramento = PoolClosureService::encerramentoNoMapa($encerramentos, $piscina->id, $dia);
+
+                if ($encerramento !== null && ($registosDoDia === null || $registosDoDia->isEmpty())) {
+                    return [
+                        'estado' => 'encerrada',
+                        'cor' => '#94a3b8',
+                        'titulo' => 'Encerrada — '.MotivoEncerramento::label($encerramento['motivo']),
+                    ];
+                }
 
                 if ($registosDoDia === null || $registosDoDia->isEmpty()) {
                     return ['estado' => 'sem_dados', 'cor' => '#e5e7eb', 'titulo' => 'Sem registos'];

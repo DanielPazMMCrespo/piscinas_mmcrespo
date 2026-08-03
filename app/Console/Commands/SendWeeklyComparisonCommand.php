@@ -42,7 +42,7 @@ class SendWeeklyComparisonCommand extends Command
         $lastWeekEnd = now()->startOfWeek();
 
         $linhas = [];
-        $pools = Pool::where('active', true)->get();
+        $pools = Pool::operacionais()->get();
 
         foreach ($pools as $pool) {
             $thisWeekRecords = DailyRecord::where('pool_id', $pool->id)

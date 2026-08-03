@@ -41,7 +41,10 @@ class ConsumoQuimicosWidget extends Widget
         $meses = collect(range(0, self::MESES - 1))
             ->map(fn (int $i) => $inicio->copy()->addMonths($i));
 
-        $piscinas = Pool::query()->where('active', true)->orderBy('installation_id')->orderBy('name')->get();
+        // Encerradas ficam no gráfico: o consumo histórico delas continua a
+        // interessar. Só se marcam, para um consumo a zero se ler como piscina
+        // fechada e não como falta de registo de químicos.
+        $piscinas = Pool::query()->where('active', true)->with('encerramentos')->orderBy('installation_id')->orderBy('name')->get();
 
         $linhas = RecordAddition::query()
             ->whereHas('registoDiario', fn ($q) => $q->whereDoesntHave('correcoes')->where('registado_em', '>=', $inicio))
@@ -56,7 +59,7 @@ class ConsumoQuimicosWidget extends Widget
             $dadosPorMes = $porPiscinaMes->get($piscina->id, collect());
 
             return [
-                'label' => $piscina->nomeCompleto(' — '),
+                'label' => $piscina->nomeCompleto(' — ').($piscina->estaEncerradaEm() ? ' (encerrada)' : ''),
                 'data' => $meses->map(fn (Carbon $mes) => round($dadosPorMes->get($mes->format('Y-m'), 0.0), 2))->values()->all(),
                 'backgroundColor' => self::CORES[$i % count(self::CORES)],
             ];

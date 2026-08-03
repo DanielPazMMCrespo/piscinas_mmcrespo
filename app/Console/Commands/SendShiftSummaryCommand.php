@@ -41,7 +41,9 @@ class SendShiftSummaryCommand extends Command
 
         Cache::put($cacheKey, true, now()->endOfDay());
 
-        $totalPiscinas = Pool::where('active', true)->count();
+        // Só piscinas a operar: senão o resumo de turno reportava "2/5 piscinas
+        // com registo" todos os dias durante o encerramento da época.
+        $totalPiscinas = Pool::operacionais()->count();
         $registosHoje = DailyRecord::whereDate('registado_em', today())->whereDoesntHave('correcoes')->count();
         $piscinasComRegisto = DailyRecord::whereDate('registado_em', today())->whereDoesntHave('correcoes')->distinct('pool_id')->count('pool_id');
 

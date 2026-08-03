@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Services\CacheService;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -135,7 +136,7 @@ class Pool extends Model
      * os ecrãs que listam piscinas fazem eager loading e não devem disparar
      * uma query por piscina.
      */
-    public function encerramentoEm(?Carbon $data = null): ?PoolClosure
+    public function encerramentoEm(?CarbonInterface $data = null): ?PoolClosure
     {
         $dia = ($data ?? Carbon::now())->copy()->startOfDay();
 
@@ -146,7 +147,7 @@ class Pool extends Model
         return $this->encerramentos()->vigenteEm($dia)->first();
     }
 
-    public function estaEncerradaEm(?Carbon $data = null): bool
+    public function estaEncerradaEm(?CarbonInterface $data = null): bool
     {
         return $this->encerramentoEm($data) !== null;
     }
@@ -173,12 +174,12 @@ class Pool extends Model
         return $query->where('active', true)->naoEncerradasEm(Carbon::now());
     }
 
-    public function scopeNaoEncerradasEm(Builder $query, Carbon $data): Builder
+    public function scopeNaoEncerradasEm(Builder $query, CarbonInterface $data): Builder
     {
         return $query->whereDoesntHave('encerramentos', fn ($q) => $q->vigenteEm($data));
     }
 
-    public function scopeEncerradasEm(Builder $query, Carbon $data): Builder
+    public function scopeEncerradasEm(Builder $query, CarbonInterface $data): Builder
     {
         return $query->whereHas('encerramentos', fn ($q) => $q->vigenteEm($data));
     }

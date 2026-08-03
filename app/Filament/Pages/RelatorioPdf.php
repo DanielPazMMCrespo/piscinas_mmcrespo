@@ -9,6 +9,7 @@ use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\PoolClosure;
 use App\Models\SensorReading;
 use App\Models\User;
 use App\Services\LeituraArtefactoService;
@@ -581,9 +582,20 @@ class RelatorioPdf extends Page implements HasForms
 
         $artefactoService = app(LeituraArtefactoService::class);
 
+        // Encerramentos que intersetam o período, numa query para todas as
+        // piscinas — a declaração de encerramento é o que justifica os dias sem
+        // registos perante a DGS.
+        $encerramentos = PoolClosure::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->queIntersetam($inicio, $fim)
+            ->with('encerradaPor')
+            ->orderBy('inicio')
+            ->get()
+            ->groupBy('pool_id');
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $modo, $modoControlador): array {
+        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $encerramentos, $modo, $modoControlador): array {
             $registos = $piscina->registosDiarios()
                 ->with(['utilizador', 'piscina', 'adicoes'])
                 ->whereBetween('registado_em', [$inicio, $fim])
@@ -843,6 +855,10 @@ class RelatorioPdf extends Page implements HasForms
                 'acoes_operacionais' => ($acoesOperacionais->get($piscina->id) ?? collect())
                     ->where('tipo', '!=', OperationalAction::TIPO_ANALISE_PONTUAL)
                     ->values(),
+                // Sem isto, um período encerrado imprime como uma sequência de dias
+                // em falta — que um auditor da DGS lê como omissão do dever legal
+                // de registo, e não como uma piscina legitimamente fechada.
+                'encerramentos' => $encerramentos->get($piscina->id) ?? collect(),
             ];
         })->all();
     }

@@ -26,6 +26,19 @@
         <span class="mmc-esq-detalhe-piscina__vol">{{ $piscina->volume !== null ? number_format((float) $piscina->volume, 0, ',', ' ') . ' m³' : '' }}</span>
     </div>
 
+    @if (! empty($esquema['encerramento']))
+        <div class="mmc-esq__encerrada">
+            <x-filament::icon icon="heroicon-s-lock-closed" class="mmc-esq__alerta-icone" />
+            <span>
+                <strong>Piscina encerrada</strong> {{ $esquema['encerramento']['periodo'] }} —
+                {{ $esquema['encerramento']['motivo'] }}.
+                {{ $esquema['encerramento']['agua_em_tratamento']
+                    ? 'Água em tratamento.'
+                    : 'Instalação parada — os valores abaixo são os últimos conhecidos.' }}
+            </span>
+        </div>
+    @endif
+
     @if ($torneiraAberta)
         <div class="mmc-esq__alerta" role="alert">
             <x-filament::icon icon="heroicon-s-exclamation-triangle" class="mmc-esq__alerta-icone" />

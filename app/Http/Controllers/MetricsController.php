@@ -26,7 +26,12 @@ class MetricsController extends Controller
             return response()->json(['message' => 'Não autorizado.'], 401);
         }
 
-        $piscinasAtivas = Pool::query()->where('active', true)->get();
+        $piscinasAtivas = Pool::query()->where('active', true)->with('encerramentos')->get();
+
+        // Separadas para o alerta externo não disparar por "piscina sem registo
+        // hoje" numa piscina legitimamente encerrada.
+        [$piscinasEncerradas, $piscinasOperacionais] = $piscinasAtivas
+            ->partition(fn (Pool $piscina) => $piscina->estaEncerradaEm());
 
         $resolvidos30 = Incident::query()
             ->where('status', 'resolvido')
@@ -50,15 +55,17 @@ class MetricsController extends Controller
                 'nome' => $piscina->nomeCompleto(' — '),
                 'ultimo_registo_em' => $ultimoRegisto?->registado_em?->toIso8601String(),
                 'conforme' => $ultimoRegisto ? empty($ultimoRegisto->listarViolacoes()) : null,
+                'encerrada' => $piscina->estaEncerradaEm(),
             ];
         })->values();
 
         return response()->json([
             'timestamp' => now()->toIso8601String(),
             'piscinas' => [
-                'total_ativas' => $piscinasAtivas->count(),
+                'total_ativas' => $piscinasOperacionais->count(),
+                'total_encerradas' => $piscinasEncerradas->count(),
                 'com_registo_hoje' => DailyRecord::query()
-                    ->whereIn('pool_id', $piscinasAtivas->pluck('id'))
+                    ->whereIn('pool_id', $piscinasOperacionais->pluck('id'))
                     ->whereDate('registado_em', now()->toDateString())
                     ->distinct('pool_id')
                     ->count('pool_id'),

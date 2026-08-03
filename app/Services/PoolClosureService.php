@@ -12,6 +12,7 @@ use App\Models\PoolClosure;
 use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\PiscinaEncerradaNotification;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +113,7 @@ class PoolClosureService
      *
      * @throws \DomainException Se a piscina não tiver encerramento vigente.
      */
-    public function reabrir(Pool $piscina, User $utilizador, ?Carbon $dataReabertura = null): ?PoolClosure
+    public function reabrir(Pool $piscina, User $utilizador, ?CarbonInterface $dataReabertura = null): ?PoolClosure
     {
         $reabertura = ($dataReabertura ?? Carbon::now())->copy()->startOfDay();
         $encerramento = $piscina->encerramentoEm($reabertura);
@@ -149,7 +150,7 @@ class PoolClosureService
      * @param  array<int, int>|Collection<int, int>  $poolIds
      * @return array<int, array<int, array{inicio: Carbon, fim: ?Carbon, motivo: string, agua_em_tratamento: bool}>>
      */
-    public function mapa(array|Collection $poolIds, Carbon $inicio, Carbon $fim): array
+    public function mapa(array|Collection $poolIds, CarbonInterface $inicio, CarbonInterface $fim): array
     {
         $ids = collect($poolIds)->map(fn ($id) => (int) $id)->unique()->values();
 
@@ -178,7 +179,7 @@ class PoolClosureService
      * @param  array<int, array<int, array<string, mixed>>>  $mapa
      * @return array{inicio: Carbon, fim: ?Carbon, motivo: string, agua_em_tratamento: bool}|null
      */
-    public static function encerramentoNoMapa(array $mapa, int $poolId, Carbon $dia): ?array
+    public static function encerramentoNoMapa(array $mapa, int $poolId, CarbonInterface $dia): ?array
     {
         $alvo = $dia->copy()->startOfDay();
 
@@ -198,7 +199,7 @@ class PoolClosureService
     /**
      * @param  array<int, array<int, array<string, mixed>>>  $mapa
      */
-    public static function encerradaNoMapa(array $mapa, int $poolId, Carbon $dia): bool
+    public static function encerradaNoMapa(array $mapa, int $poolId, CarbonInterface $dia): bool
     {
         return self::encerramentoNoMapa($mapa, $poolId, $dia) !== null;
     }
@@ -229,7 +230,7 @@ class PoolClosureService
         return $vigentes;
     }
 
-    private function temSobreposicao(Pool $piscina, Carbon $inicio, ?Carbon $fim): bool
+    private function temSobreposicao(Pool $piscina, CarbonInterface $inicio, ?CarbonInterface $fim): bool
     {
         return $piscina->encerramentos()
             ->where(function ($query) use ($inicio, $fim): void {

@@ -114,6 +114,26 @@
     height: 1.375rem;
     flex-shrink: 0;
 }
+
+/* Piscina encerrada: informativo, não alarme — cinzento e sem a pulsação do
+   alerta vermelho (a disciplina de cor anti alarm-fatigue do projeto). */
+.mmc-esq__encerrada {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.75rem;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.9375rem;
+    font-weight: 500;
+}
+.dark .mmc-esq__encerrada {
+    background: #334155;
+    color: #e2e8f0;
+}
 .mmc-esq__alerta-cta {
     margin-left: auto;
     min-height: 40px;

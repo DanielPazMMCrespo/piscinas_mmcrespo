@@ -130,6 +130,21 @@
             font-style: italic;
         }
 
+        /* Declaração de encerramento: é o que justifica perante a DGS os dias sem
+           registos. Impressa a preto e branco, como o resto do livro. */
+        .encerramento-declaracao {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            margin-bottom: 6px;
+            font-size: 8px;
+        }
+
+        table.registos tr.linha-encerramento td {
+            text-align: left;
+            font-style: italic;
+            background-color: #e8e8e8;
+        }
+
         /* Secção do controlador Hanna */
         .controlador-titulo {
             font-size: 8px;
@@ -234,6 +249,37 @@
                 ? round((($totalRegistos - $naoConformes) / $totalRegistos) * 100, 1)
                 : null;
 
+            /** @var \Illuminate\Support\Collection<int, \App\Models\PoolClosure> $encerramentos */
+            $encerramentos = $seccao['encerramentos'] ?? collect();
+
+            // Dias encerrados dentro do período pedido: é este número que explica
+            // a diferença entre os dias do período e os dias com registo.
+            $diasEncerrados = $encerramentos->sum(function ($e) use ($inicio, $fim) {
+                $de = $e->inicio->copy()->startOfDay()->max($inicio->copy()->startOfDay());
+                $ate = ($e->fim?->copy()->startOfDay() ?? $fim->copy()->startOfDay())->min($fim->copy()->startOfDay());
+
+                return $ate->lessThan($de) ? 0 : (int) $de->diffInDays($ate) + 1;
+            });
+
+            // "Data" é sempre impressa; as restantes vêm de $colunasVisiveis, e a
+            // hora só sai em modo "todos" (na média diária não há hora única).
+            $numColunas = 1 + collect($colunasVisiveis)
+                ->reject(fn ($coluna) => $coluna === 'hora' && $modo !== 'todos')
+                ->count();
+
+            // Linhas da tabela em ordem cronológica: os registos mais uma linha
+            // por período encerrado, para a justificação aparecer exactamente
+            // onde faltam os dados e não só num aviso no topo.
+            $linhas = $registos
+                ->map(fn ($registo) => ['tipo' => 'registo', 'data' => $registo->registado_em, 'registo' => $registo])
+                ->concat($encerramentos->map(fn ($e) => [
+                    'tipo' => 'encerramento',
+                    'data' => $e->inicio->copy()->startOfDay(),
+                    'encerramento' => $e,
+                ]))
+                ->sortBy('data')
+                ->values();
+
             $phMin = \App\Models\DailyRecord::getPhMin();
             $phMax = \App\Models\DailyRecord::getPhMax();
         @endphp
@@ -250,10 +296,39 @@
                 </span>
             </p>
 
+            @if ($encerramentos->isNotEmpty())
+                <div class="encerramento-declaracao">
+                    <strong>Declaração de encerramento</strong>
+                    @foreach ($encerramentos as $encerramento)
+                        <div>
+                            Piscina encerrada {{ $encerramento->descricao_periodo }} —
+                            motivo: {{ $encerramento->motivo_label }}.
+                            {{ $encerramento->agua_em_tratamento
+                                ? 'Fechada ao público com tratamento de água mantido.'
+                                : 'Instalação parada, sem tratamento de água.' }}
+                            @if ($encerramento->observacoes)
+                                {{ $encerramento->observacoes }}
+                            @endif
+                            <span class="detalhe">
+                                (registado por {{ $encerramento->encerradaPor?->name ?? 'utilizador removido' }}
+                                em {{ $encerramento->created_at->format('d/m/Y') }})
+                            </span>
+                        </div>
+                    @endforeach
+                    <div class="detalhe">
+                        Não são devidos registos diários nos dias abrangidos por esta declaração.
+                    </div>
+                </div>
+            @endif
+
             @if ($registos->isEmpty())
                 <div class="sem-registos">
                     Sem registos diários no período de {{ $inicio->format('d/m/Y') }} a {{ $fim->format('d/m/Y') }}
                     para a piscina "{{ $piscina->name }}".
+                    @if ($diasEncerrados > 0)
+                        A piscina esteve encerrada {{ $diasEncerrados }}
+                        {{ $diasEncerrados === 1 ? 'dia' : 'dias' }} deste período, conforme declaração acima.
+                    @endif
                 </div>
             @else
                 <table class="registos">
@@ -281,8 +356,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($registos as $registo)
+                        @foreach ($linhas as $linha)
+                            @if ($linha['tipo'] === 'encerramento')
+                                @php
+                                    $encerramentoLinha = $linha['encerramento'];
+                                @endphp
+                                <tr class="linha-encerramento">
+                                    <td colspan="{{ $numColunas }}">
+                                        Piscina encerrada {{ $encerramentoLinha->descricao_periodo }} —
+                                        {{ $encerramentoLinha->motivo_label }}.
+                                        {{ $encerramentoLinha->agua_em_tratamento
+                                            ? 'Tratamento de água mantido.'
+                                            : 'Sem registos diários devidos neste período.' }}
+                                    </td>
+                                </tr>
+                            @else
                             @php
+                                $registo = $linha['registo'];
                                 $conforme = $conformidade[spl_object_id($registo)] ?? true;
                                 // Negrito apenas quando o valor existe E está fora de gama.
                                 $phFora = $registo->ph_efetivo !== null && ! $registo->phConforme();
@@ -402,6 +492,7 @@
                                     </td>
                                 @endif
                             </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
@@ -412,6 +503,10 @@
                     {{ $totalRegistos }} {{ $totalRegistos === 1 ? 'registo' : 'registos' }} no período
                     | Não conformidades: <strong>{{ $naoConformes }}</strong>
                     | Conformidade: <strong>{{ number_format((float) $percentagem, 1, ',', '') }}%</strong>
+                    @if ($diasEncerrados > 0)
+                        | Piscina encerrada: <strong>{{ $diasEncerrados }}</strong>
+                        {{ $diasEncerrados === 1 ? 'dia' : 'dias' }} (sem registos devidos)
+                    @endif
                 </p>
                 @endif
             @endif

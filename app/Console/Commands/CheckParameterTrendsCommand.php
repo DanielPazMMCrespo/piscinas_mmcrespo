@@ -40,7 +40,8 @@ class CheckParameterTrendsCommand extends Command
      */
     public function handle(): int
     {
-        $pools = Pool::where('active', true)->with('instalacao')->get();
+        // Uma tendência degradante numa piscina encerrada não é accionável.
+        $pools = Pool::operacionais()->with('instalacao')->get();
         $adminAndTecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
         $registosMinimos = $this->settings->getInt('tendencia_registos_minimos', 3);
 
