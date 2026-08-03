@@ -7,12 +7,14 @@ namespace App\Services;
 use App\Models\DailyRecord;
 use App\Models\FilterCheck;
 use App\Models\OperationalAction;
+use App\Models\SensorOutage;
 use Carbon\Carbon;
 
 /**
  * Determina janelas temporais em que as leituras do controlador Hanna são
  * artefacto (inválidas) porque a água não circula normalmente no sensor:
- * durante uma lavagem/enxaguamento de filtro, ou com a bomba parada.
+ * durante uma lavagem/enxaguamento de filtro, ou com a bomba parada — e ainda
+ * os períodos em que a própria sonda foi declarada indisponível (SensorOutage).
  *
  * Uma leitura dentro destas janelas não deve contar como não-conformidade —
  * é uma causa conhecida, não um problema de qualidade da água. Fonte única
@@ -43,6 +45,7 @@ class LeituraArtefactoService
         $todas = array_merge(
             $this->janelasLavagem($poolId, $de, $ate),
             $this->janelasBombaParada($poolId, $de, $ate),
+            $this->janelasSondaIndisponivel($poolId, $de, $ate),
         );
 
         $resultado = [];
@@ -118,6 +121,29 @@ class LeituraArtefactoService
         }
 
         return $janelas;
+    }
+
+    /**
+     * Períodos em que a sonda foi declarada indisponível por ação operacional
+     * (peça partida, calibração, leituras não fiáveis...). Enquanto a avaria está
+     * em aberto a janela estende-se até ao fim do período consultado: o que o
+     * controlador manda nesse intervalo não conta para a conformidade.
+     *
+     * @return array<int, array{inicio: Carbon, fim: Carbon, motivo: string}>
+     */
+    private function janelasSondaIndisponivel(int $poolId, Carbon $de, Carbon $ate): array
+    {
+        return SensorOutage::query()
+            ->where('pool_id', $poolId)
+            ->where('aberta_em', '<=', $ate)
+            ->where(fn ($q) => $q->whereNull('resolvida_em')->orWhere('resolvida_em', '>=', $de))
+            ->get()
+            ->map(fn (SensorOutage $avaria) => [
+                'inicio' => $avaria->aberta_em->copy(),
+                'fim' => ($avaria->resolvida_em ?? $ate)->copy(),
+                'motivo' => $avaria->resumo(),
+            ])
+            ->all();
     }
 
     /** @return array{inicio: Carbon, fim: Carbon, motivo: string} */

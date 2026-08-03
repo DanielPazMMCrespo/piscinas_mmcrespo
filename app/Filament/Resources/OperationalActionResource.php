@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\UserRole;
+use App\Services\LeituraArtefactoService;
 use App\Filament\Resources\OperationalActionResource\Pages;
 use App\Models\DailyRecord;
 use App\Models\DosingContainer;
 use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\SensorOutage;
 use App\Models\SensorReading;
 use App\Services\SettingsService;
 use Filament\Forms;
@@ -132,6 +134,9 @@ class OperationalActionResource extends Resource
                 $momento->clone()->addMinutes($janelaMinutos),
             ])
             ->get()
+            // Com a sonda declarada em avaria (ou durante uma lavagem) o ORP dela
+            // não representa a água: melhor campo vazio para input manual.
+            ->reject(fn (SensorReading $r) => app(LeituraArtefactoService::class)->motivoEm((int) $poolId, $r->lida_em) !== null)
             ->sortBy(fn (SensorReading $r) => abs($r->lida_em->diffInSeconds($momento)))
             ->first();
 
@@ -368,6 +373,28 @@ class OperationalActionResource extends Resource
                     ? 'Deixe em branco para encher ambos os bidões até às respetivas capacidades totais.'
                     : 'Por defeito, assume o tamanho total (capacidade) configurado para o bidão desta piscina.'),
 
+            // Sonda: avaria / indisponibilidade.
+            Forms\Components\Select::make('dados.sonda_estado')
+                ->label('Situação da sonda')
+                ->options(SensorOutage::MOTIVOS + [
+                    SensorOutage::ESTADO_RESOLVIDO => 'Resolvido — sonda a dar valores fiáveis',
+                ])
+                ->visible(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_AVARIA_SONDA)
+                ->required(fn (Get $get) => $get('tipo') === OperationalAction::TIPO_AVARIA_SONDA)
+                ->live()
+                ->helperText(function (Get $get) {
+                    if ((int) $get('pool_id') === 0) {
+                        return 'Escolha a piscina para ver o estado atual da sonda.';
+                    }
+
+                    $aberta = SensorOutage::abertaPara((int) $get('pool_id'));
+
+                    return $aberta === null
+                        ? 'Sem avaria reportada nesta sonda. Ao guardar, os valores do controlador deixam de contar para a conformidade até a situação ser dada como resolvida.'
+                        : 'Já existe uma avaria em aberto ('.mb_strtolower($aberta->motivoLabel()).', desde '
+                            .$aberta->aberta_em->format('d/m/Y H:i').'). Guardar atualiza o motivo; escolha "Resolvido" para a fechar.';
+                }),
+
             // Tratamento de choque.
             Forms\Components\TextInput::make('dados.produto')
                 ->label('Produto utilizado')
@@ -424,8 +451,13 @@ class OperationalActionResource extends Resource
                     OperationalAction::TIPO_LIMPEZA_PRAIAS,
                     OperationalAction::TIPO_ASPIRACAO_FUNDO,
                     OperationalAction::TIPO_MANUTENCAO_EQUIPAMENTO,
-                ], true))
+                ], true)
+                    // "Outro motivo" sem descrição deixaria a sonda marcada como
+                    // indisponível em todos os ecrãs sem dizer porquê.
+                    || ($get('tipo') === OperationalAction::TIPO_AVARIA_SONDA
+                        && $get('dados.sonda_estado') === SensorOutage::MOTIVO_OUTRO))
                 ->helperText(fn (Get $get) => match ($get('tipo')) {
+                    OperationalAction::TIPO_AVARIA_SONDA => 'Descreva a situação (ex.: sensor de pH partido, assistência pedida ao fornecedor). Aparece em todos os ecrãs que mostram a sonda.',
                     OperationalAction::TIPO_OUTRO => 'Descreva detalhadamente a ação realizada.',
                     OperationalAction::TIPO_LIMPEZA_PRAIAS => 'Especifique as zonas limpas ou desinfetadas.',
                     OperationalAction::TIPO_ASPIRACAO_FUNDO => 'Indique se usou robô ou aspiração manual.',
@@ -462,6 +494,7 @@ class OperationalActionResource extends Resource
             OperationalAction::TIPO_ASPIRACAO_FUNDO => 'heroicon-o-arrow-down-circle',
             OperationalAction::TIPO_TRATAMENTO_CHOQUE => 'heroicon-o-bolt',
             OperationalAction::TIPO_MANUTENCAO_EQUIPAMENTO => 'heroicon-o-wrench-screwdriver',
+            OperationalAction::TIPO_AVARIA_SONDA => 'heroicon-o-signal-slash',
             default => 'heroicon-o-ellipsis-horizontal-circle',
         };
     }
@@ -471,6 +504,7 @@ class OperationalActionResource extends Resource
         return match ($tipo) {
             OperationalAction::TIPO_TORNEIRA => 'warning',
             OperationalAction::TIPO_TRATAMENTO_CHOQUE => 'danger',
+            OperationalAction::TIPO_AVARIA_SONDA => 'warning',
             OperationalAction::TIPO_ANALISE_PONTUAL => 'success',
             OperationalAction::TIPO_REABASTECIMENTO_BIDAO => 'info',
             default => 'gray',

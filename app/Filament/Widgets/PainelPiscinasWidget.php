@@ -12,6 +12,7 @@ use App\Models\DailyRecord;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\SensorOutage;
 use App\Models\SensorReading;
 use App\Services\CacheService;
 use App\Services\SourceSelectionService;
@@ -96,6 +97,14 @@ class PainelPiscinasWidget extends Widget
             $podeRegistar = ! $encerrada || ($item['encerramento']['agua_em_tratamento'] ?? false);
             $podeReabrir = $encerrada && EncerramentoPiscinas::canAccess();
 
+            // Fora do payload cacheado: a chave 'full' é partilhada por admin,
+            // gestor e técnico, e o gestor não pode criar ações operacionais.
+            $podeAcaoOperacional = auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+
+            $item['sonda']['url_reportar'] = $podeAcaoOperacional
+                ? OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_AVARIA_SONDA])
+                : null;
+
             $item['acoes_rapidas'] = collect([
                 [EncerramentoPiscinas::getUrl(), 'Reabrir', 'heroicon-m-lock-open', true, $podeReabrir],
                 [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', ! $encerrada, $podeRegistar],
@@ -122,7 +131,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 4;
+    private const CACHE_SHAPE_VERSION = 5;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -159,6 +168,14 @@ class PainelPiscinasWidget extends Widget
             ->orderBy('installation_id')
             ->orderBy('name')
             ->get();
+
+        // Avarias de sonda em aberto, em batch: uma por piscina no máximo.
+        $avarias = SensorOutage::query()
+            ->abertas()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->orderBy('aberta_em')
+            ->get()
+            ->keyBy('pool_id');
 
         // Otimização: obter as últimas leituras das sondas em batch (evita N+1).
         $ultimasLeituras = SensorReading::query()
@@ -319,7 +336,7 @@ class PainelPiscinasWidget extends Widget
             }
         }
 
-        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento, $historicoManualArray, $historicoSensoresArray): array {
+        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento, $historicoManualArray, $historicoSensoresArray, $avarias): array {
             $registo = $registosUnificados[$piscina->id] ?? null;
 
             // Garante que a avaliação de temperatura conhece os limites da piscina.
@@ -330,12 +347,15 @@ class PainelPiscinasWidget extends Widget
 
             // Reutiliza o que já foi carregado em lote acima (sondas, últimas
             // leituras e registos): sem isto eram ~8 queries por piscina.
+            $avaria = $avarias->get($piscina->id);
+
             $source = app(SourceSelectionService::class)->selectSource(
                 $piscina,
                 $device,
                 $leitura,
                 $registo,
                 usarCarregados: true,
+                avariaCarregada: $avaria,
             );
 
             $idadeMin = $source['age_minutes'];
@@ -343,7 +363,9 @@ class PainelPiscinasWidget extends Widget
             $orp = $leitura?->orp !== null ? (float) $leitura->orp : null;
             $tempAgua = $leitura?->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null;
 
-            $artefacto = $source['is_artifact'];
+            // Motivo legível, não o booleano: `is_artifact` a false passava o teste
+            // `!== null` e o cartão dizia "artefacto" com a idade a false.
+            $artefacto = $source['artifact_reason'];
             $controladorOnline = $source['source'] === 'hanna_online';
             $usarRegistoManual = $source['source'] === 'manual';
 
@@ -563,6 +585,14 @@ class PainelPiscinasWidget extends Widget
                 'sonda' => [
                     'instalada' => $device !== null,
                     'idade_min' => $leitura !== null ? (int) abs($leitura->lida_em->diffInMinutes(now())) : null,
+                    // Avaria reportada: substitui o diagnóstico automático ("sem
+                    // leituras há Xh — verificar controlador") pela causa conhecida.
+                    'avaria' => $avaria === null ? null : [
+                        'motivo' => $avaria->motivoLabel(),
+                        'detalhe' => $avaria->detalhe,
+                        'desde' => $avaria->aberta_em->format('d/m/Y H:i'),
+                        'desde_humano' => $avaria->desdeHumano(),
+                    ],
                 ],
                 'metricas4' => $metricas4,
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],

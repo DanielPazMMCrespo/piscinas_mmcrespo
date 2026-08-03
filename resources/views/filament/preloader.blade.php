@@ -64,9 +64,16 @@
 
     // 3. Disparo imediato nos cliques de links internos para transição fluida
     document.addEventListener('click', (e) => {
+        // Este script é inline, logo o listener fica registado antes do app.js
+        // (módulo Vite) — em igualdade de fase de captura corre primeiro, e o
+        // stopImmediatePropagation do guard do registo diário já não o apanha.
+        // Sem isto, sair de um registo a meio mostrava o ecrã azul antes do
+        // modal "Guardar/Descartar", que depois cancela a navegação.
+        if (window.mmcFormDirty) return;
+
         const anchor = e.target.closest('a[href]');
         if (!anchor) return;
-        
+
         const href = anchor.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:') || anchor.target === '_blank') return;
 

@@ -174,8 +174,10 @@ class EsquemaPiscina extends Page
         $source = $sourceSelection->selectSource($piscina);
 
         $stale = $source['source'] === 'none'
-            || ($source['source'] === 'hanna_stale')
+            || in_array($source['source'], ['hanna_stale', 'hanna_avaria'], true)
             || ($source['source'] === 'manual' && $registo?->registado_em->lt(now()->subHours(8)));
+
+        $avariaSonda = $source['outage'];
 
         $tapAberta = TapAlert::query()
             ->where('pool_id', $piscina->id)
@@ -212,10 +214,23 @@ class EsquemaPiscina extends Page
             'tanque' => $tanque,
             'agua' => $agua,
             'bidoes' => $bidoes,
-            'estado_geral' => $this->estadoGeral($agua, $torneira, $bomba, $tanque, $bidoes),
+            // Estado da sonda independente da fonte escolhida: com registo manual
+            // fresco a cascata escolhe 'manual' e a avaria continua a ter de
+            // aparecer no circuito (é ela que justifica a falta de leituras).
+            'sonda_avaria' => $avariaSonda === null ? null : [
+                'motivo' => $avariaSonda->motivoLabel(),
+                'detalhe' => $avariaSonda->detalhe,
+                'desde' => $avariaSonda->aberta_em->format('d/m/Y H:i'),
+                'desde_humano' => $avariaSonda->desdeHumano(),
+                'por' => $avariaSonda->abertaPor?->name,
+            ],
+            'estado_geral' => $this->estadoGeral($agua, $torneira, $bomba, $tanque, $bidoes, $avariaSonda !== null),
             'justificacoes' => $agua['algum_mau'] ? $this->justificacoes($acoes) : [],
             'url_registar' => DailyRecordResource::getUrl('create', ['pool' => $piscina->id]),
             'url_bidoes' => DosingContainerResource::getUrl('index'),
+            'url_sonda' => OperationalActionResource::canCreate()
+                ? OperationalActionResource::getUrl('create', ['pool' => $piscina->id, 'tipo' => OperationalAction::TIPO_AVARIA_SONDA])
+                : null,
             'url_acoes_rapidas' => $this->urlsAcoesRapidas($piscina),
         ];
     }
@@ -264,8 +279,9 @@ class EsquemaPiscina extends Page
      * @param  array<string, mixed>  $bomba
      * @param  array<string, mixed>|null  $tanque
      * @param  array<int, array<string, mixed>>  $bidoes
+     * @param  bool  $sondaEmAvaria  sonda declarada indisponível por ação operacional
      */
-    private function estadoGeral(array $agua, array $torneira, array $bomba, ?array $tanque, array $bidoes): string
+    private function estadoGeral(array $agua, array $torneira, array $bomba, ?array $tanque, array $bidoes, bool $sondaEmAvaria = false): string
     {
         $niveisBidoes = array_column($bidoes, 'nivel');
 
@@ -275,6 +291,7 @@ class EsquemaPiscina extends Page
 
         if (
             $agua['stale']
+            || $sondaEmAvaria
             || $bomba['estado'] === 'parada'
             || ($tanque !== null && $tanque['estado'] === 'verificar')
             || in_array('aviso', $niveisBidoes, true)
@@ -598,9 +615,10 @@ class EsquemaPiscina extends Page
             ];
         }
 
-        // Só resta a leitura do controlador em artefacto: mostra os valores em
-        // tom neutro (não conta como não-conformidade) com o motivo.
-        if ($source['source'] === 'hanna_stale' && $source['is_artifact']) {
+        // Só resta a leitura do controlador em artefacto (lavagem, bomba parada ou
+        // sonda declarada em avaria): mostra os valores em tom neutro (não conta
+        // como não-conformidade) com o motivo.
+        if (in_array($source['source'], ['hanna_stale', 'hanna_avaria'], true) && $source['is_artifact']) {
             $leitura = $source['reading'];
             $valores = [
                 $this->valor('pH', $leitura->ph !== null ? (float) $leitura->ph : null, 2, '', null),
@@ -608,10 +626,13 @@ class EsquemaPiscina extends Page
                 $this->valor('Temp.', $leitura->temperatura_agua !== null ? (float) $leitura->temperatura_agua : null, 1, ' °C', null),
             ];
 
-            $artefacto = app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em);
+            $artefacto = $source['artifact_reason']
+                ?? app(LeituraArtefactoService::class)->motivoEm($piscina->id, $leitura->lida_em);
 
             return [
-                'origem' => 'Controlador em artefacto',
+                'origem' => $source['source'] === 'hanna_avaria'
+                    ? 'Controlador (sonda em avaria)'
+                    : 'Controlador em artefacto',
                 'stale' => true,
                 'artefacto' => $artefacto,
                 'combinado' => null,

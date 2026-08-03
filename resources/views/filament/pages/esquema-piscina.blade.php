@@ -78,6 +78,15 @@
                                 @endforeach
                             </div>
 
+                            @if (! empty($e['sonda_avaria']))
+                                <div class="mmc-vg-card__chips">
+                                    <span class="mmc-vg-chip mmc-vg-chip--neutro">
+                                        <span class="mmc-vg-chip__k">Sonda</span>
+                                        <span class="mmc-vg-chip__v">{{ $e['sonda_avaria']['motivo'] }}</span>
+                                    </span>
+                                </div>
+                            @endif
+
                             <div class="mmc-vg-card__dots">
                                 @foreach ($dots as [$nome, $cor])
                                     <span class="mmc-vg-dot"><span class="mmc-vg-dot__c mmc-vg-dot__c--{{ $cor }}"></span>{{ $nome }}</span>

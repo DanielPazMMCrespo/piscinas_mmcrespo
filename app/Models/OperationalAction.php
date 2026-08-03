@@ -45,6 +45,8 @@ class OperationalAction extends Model
 
     public const TIPO_MANUTENCAO_EQUIPAMENTO = 'manutencao_equipamento';
 
+    public const TIPO_AVARIA_SONDA = 'avaria_sonda';
+
     public const TIPO_OUTRO = 'outro';
 
     public const TIPOS = [
@@ -60,6 +62,7 @@ class OperationalAction extends Model
         self::TIPO_ASPIRACAO_FUNDO => 'Aspiração de fundo / robô',
         self::TIPO_TRATAMENTO_CHOQUE => 'Tratamento de choque / hipercloração',
         self::TIPO_MANUTENCAO_EQUIPAMENTO => 'Manutenção / calibração',
+        self::TIPO_AVARIA_SONDA => 'Sonda: avaria / indisponibilidade',
         self::TIPO_OUTRO => 'Outro',
     ];
 
@@ -208,6 +211,15 @@ class OperationalAction extends Model
                     $partes[] = "Quantidade: {$quantidade} L";
                 } elseif (isset($this->dados['bidao_tipo']) && $this->dados['bidao_tipo'] === 'ambos') {
                     $partes[] = 'Quantidade: Capacidade total';
+                }
+                break;
+
+            case self::TIPO_AVARIA_SONDA:
+                $estado = $this->dados['sonda_estado'] ?? null;
+                if (filled($estado)) {
+                    $partes[] = $estado === SensorOutage::ESTADO_RESOLVIDO
+                        ? 'Sonda reposta em serviço'
+                        : 'Sonda indisponível: '.(SensorOutage::MOTIVOS[$estado] ?? $estado);
                 }
                 break;
 

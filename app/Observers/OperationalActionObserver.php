@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\DosingContainer;
+use App\Models\HannaDevice;
 use App\Models\OperationalAction;
+use App\Models\SensorOutage;
 use App\Models\TapAlert;
 use App\Services\CacheService;
 use Filament\Notifications\Notification;
@@ -56,6 +58,10 @@ class OperationalActionObserver
 
         if ($acao->tipo === OperationalAction::TIPO_REABASTECIMENTO_BIDAO) {
             $this->comEfeitoResiliente('reabastecimento do bidão', fn () => $this->reabastecerBidao($acao));
+        }
+
+        if ($acao->tipo === OperationalAction::TIPO_AVARIA_SONDA) {
+            $this->comEfeitoResiliente('estado da sonda', fn () => $this->gerirAvariaSonda($acao));
         }
     }
 
@@ -139,6 +145,54 @@ class OperationalActionObserver
                 $container->reabastecer($ml, $acao->user_id, $acao->observacoes, $acao->registado_em);
             }
         }
+    }
+
+    /**
+     * Abre, atualiza ou fecha a indisponibilidade da sonda da piscina. Só existe
+     * uma avaria em aberto por piscina: reportar de novo com outro motivo (ex.:
+     * "peça partida" passou a "em reparação") atualiza a mesma linha, para o
+     * histórico não ficar com avarias sobrepostas da mesma sonda.
+     */
+    private function gerirAvariaSonda(OperationalAction $acao): void
+    {
+        $estado = $acao->dados['sonda_estado'] ?? null;
+
+        if ($estado === null || $estado === '') {
+            return;
+        }
+
+        $aberta = SensorOutage::abertaPara((int) $acao->pool_id);
+
+        if ($estado === SensorOutage::ESTADO_RESOLVIDO) {
+            $aberta?->update([
+                'resolvida_em' => $acao->registado_em,
+                'resolvida_por' => $acao->user_id,
+                'resolved_action_id' => $acao->id,
+            ]);
+
+            return;
+        }
+
+        $dados = [
+            'motivo' => $estado,
+            'detalhe' => $acao->observacoes,
+            'hanna_device_id' => HannaDevice::query()
+                ->where('pool_id', $acao->pool_id)
+                ->value('hanna_device_id'),
+        ];
+
+        if ($aberta !== null) {
+            $aberta->update($dados);
+
+            return;
+        }
+
+        SensorOutage::create($dados + [
+            'pool_id' => $acao->pool_id,
+            'aberta_em' => $acao->registado_em,
+            'aberta_por' => $acao->user_id,
+            'opened_action_id' => $acao->id,
+        ]);
     }
 
     private function gerirTorneira(OperationalAction $acao): void

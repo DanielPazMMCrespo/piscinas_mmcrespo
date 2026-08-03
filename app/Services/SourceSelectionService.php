@@ -7,11 +7,12 @@ namespace App\Services;
 use App\Models\DailyRecord;
 use App\Models\HannaDevice;
 use App\Models\Pool;
+use App\Models\SensorOutage;
 use App\Models\SensorReading;
 
 /**
  * Cascata de fontes centralizada: sonda fresca (≤60 min) → leitura manual
- * mais recente (≤8h) → sonda stale → sem dados.
+ * mais recente (≤8h) → sonda em avaria declarada → sonda stale → sem dados.
  *
  * Usada por EsquemaPiscina e PainelPiscinasWidget para decisão unificada
  * sobre qual fonte de verdade usar para cada piscina.
@@ -24,18 +25,21 @@ class SourceSelectionService
      * Determina qual fonte (sonda/manual/stale/nenhuma) usar para uma piscina.
      *
      * Retorna um array com:
-     * - 'source': 'hanna_online' | 'hanna_stale' | 'manual' | 'none'
+     * - 'source': 'hanna_online' | 'hanna_avaria' | 'hanna_stale' | 'manual' | 'none'
      * - 'reading': ?SensorReading (se Hanna)
      * - 'record': ?DailyRecord (se manual)
      * - 'age_minutes': ?int (minutos desde a leitura, só Hanna online)
-     * - 'is_artifact': ?bool (se Hanna em artefacto)
+     * - 'is_artifact': bool (se a leitura é artefacto e não conta para conformidade)
+     * - 'artifact_reason': ?string (motivo legível do artefacto)
+     * - 'outage': ?SensorOutage (avaria da sonda em aberto, se houver)
      *
-     * @return array{source: string, reading: ?SensorReading, record: ?DailyRecord, age_minutes: ?int, is_artifact: ?bool}
+     * @return array{source: string, reading: ?SensorReading, record: ?DailyRecord, age_minutes: ?int, is_artifact: bool, artifact_reason: ?string, outage: ?SensorOutage}
      */
     /**
      * @param  HannaDevice|null  $deviceCarregado  sonda já carregada pelo chamador
      * @param  SensorReading|null  $leituraCarregada  última leitura já carregada
      * @param  DailyRecord|null  $registoCarregado  último registo já carregado
+     * @param  SensorOutage|null  $avariaCarregada  avaria da sonda em aberto já carregada
      */
     public function selectSource(
         Pool $pool,
@@ -43,11 +47,17 @@ class SourceSelectionService
         ?SensorReading $leituraCarregada = null,
         ?DailyRecord $registoCarregado = null,
         bool $usarCarregados = false,
+        ?SensorOutage $avariaCarregada = null,
     ): array {
         $device = $usarCarregados ? $deviceCarregado : HannaDevice::query()
             ->where('active', true)
             ->where('pool_id', $pool->id)
             ->first();
+
+        // Avaria declarada por ação operacional: a sonda deixa de ser fonte de
+        // verdade mesmo que continue a mandar leituras frescas (uma peça partida
+        // manda valores, só não são dela).
+        $avaria = $usarCarregados ? $avariaCarregada : SensorOutage::abertaPara($pool->id);
 
         $leitura = null;
         $idadeMin = null;
@@ -61,7 +71,9 @@ class SourceSelectionService
 
             if ($leitura !== null) {
                 $idadeMin = (int) $leitura->lida_em->diffInMinutes(now());
-                $artefacto = app(LeituraArtefactoService::class)->motivoEm($pool->id, $leitura->lida_em);
+                $artefacto = $avaria !== null
+                    ? $avaria->resumo()
+                    : app(LeituraArtefactoService::class)->motivoEm($pool->id, $leitura->lida_em);
             }
         }
 
@@ -78,6 +90,8 @@ class SourceSelectionService
                 'record' => null,
                 'age_minutes' => $idadeMin,
                 'is_artifact' => false,
+                'artifact_reason' => null,
+                'outage' => null,
             ];
         }
 
@@ -98,6 +112,24 @@ class SourceSelectionService
                 'record' => $manual,
                 'age_minutes' => null,
                 'is_artifact' => false,
+                'artifact_reason' => null,
+                // Vai preenchido de propósito mesmo com fonte manual: o estado da
+                // sonda tem de continuar visível quando há registo manual fresco.
+                'outage' => $avaria,
+            ];
+        }
+
+        // Sonda declarada em avaria: estado próprio, para a UI dizer o motivo em
+        // vez de "controlador desatualizado" (que soa a problema de rede).
+        if ($avaria !== null) {
+            return [
+                'source' => 'hanna_avaria',
+                'reading' => $leitura,
+                'record' => null,
+                'age_minutes' => $idadeMin,
+                'is_artifact' => $leitura !== null,
+                'artifact_reason' => $leitura !== null ? $avaria->resumo() : null,
+                'outage' => $avaria,
             ];
         }
 
@@ -109,6 +141,8 @@ class SourceSelectionService
                 'record' => null,
                 'age_minutes' => $idadeMin,
                 'is_artifact' => $artefacto !== null,
+                'artifact_reason' => $artefacto,
+                'outage' => null,
             ];
         }
 
@@ -118,6 +152,8 @@ class SourceSelectionService
             'record' => null,
             'age_minutes' => null,
             'is_artifact' => false,
+            'artifact_reason' => null,
+            'outage' => null,
         ];
     }
 

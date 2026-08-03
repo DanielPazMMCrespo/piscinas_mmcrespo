@@ -16,6 +16,7 @@ use App\Models\StockInstallationLog;
 use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use App\Services\DosageCalculatorService;
+use App\Services\LeituraArtefactoService;
 use App\Services\SourceSelectionService;
 use App\Support\Auditoria;
 use Closure;
@@ -98,7 +99,7 @@ class DailyRecordFormBuilder
             if (abs($momento->diffInMinutes(now())) <= self::TOLERANCIA_SONDA_MIN) {
                 self::$sondaMomentoMemo[$chave] = self::sondaFresca($pool);
             } else {
-                self::$sondaMomentoMemo[$chave] = SensorReading::query()
+                $leitura = SensorReading::query()
                     ->where('pool_id', $pool->id)
                     ->whereBetween('lida_em', [
                         $momento->copy()->subMinutes(self::TOLERANCIA_SONDA_MIN),
@@ -107,6 +108,15 @@ class DailyRecordFormBuilder
                     ->get()
                     ->sortBy(fn (SensorReading $r): int => abs((int) $r->lida_em->diffInSeconds($momento)))
                     ->first();
+
+                // O caminho retroativo não passa pela cascata de fontes: sem este
+                // filtro cruzava a amostra com uma leitura de sonda avariada (ou
+                // tirada durante uma lavagem) e acusava divergência do técnico.
+                if ($leitura !== null && app(LeituraArtefactoService::class)->motivoEm($pool->id, $leitura->lida_em) !== null) {
+                    $leitura = null;
+                }
+
+                self::$sondaMomentoMemo[$chave] = $leitura;
             }
         }
 

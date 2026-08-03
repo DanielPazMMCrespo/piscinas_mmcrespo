@@ -10,13 +10,17 @@ use App\Constants\IncidentStatus;
 use App\Constants\IncidentType;
 use App\Constants\UserRole;
 use App\Filament\Pages\EncerramentoPiscinas;
+use App\Filament\Pages\EsquemaPiscina;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
+use App\Filament\Resources\OperationalActionResource;
 use App\Filament\Resources\StockInstallationResource;
 use App\Models\AlertState;
 use App\Models\DailyRecord;
 use App\Models\Incident;
+use App\Models\OperationalAction;
 use App\Models\Pool;
+use App\Models\SensorOutage;
 use App\Models\StockInstallation;
 use App\Models\TapAlert;
 use App\Models\User;
@@ -140,6 +144,34 @@ class AlertasService
             ->whereIn('pool_id', $abertas->pluck('id'))
             ->get()
             ->keyBy('pool_id');
+
+        // Sondas declaradas indisponíveis: informativo (a causa já é conhecida e
+        // está a ser tratada), mas tem de estar à vista de quem lê os valores.
+        $avariasSonda = SensorOutage::query()
+            ->abertas()
+            ->whereIn('pool_id', $abertas->pluck('id'))
+            ->with('piscina.instalacao')
+            ->get();
+
+        foreach ($avariasSonda as $avaria) {
+            $alertas[AlertType::SONDA_AVARIA."|{$avaria->id}"] = [
+                'nivel' => AlertLevel::NEUTRO,
+                'icone' => 'heroicon-o-signal-slash',
+                'titulo' => ($avaria->piscina?->nome_completo ?? 'Piscina').': sonda indisponível — '.mb_strtolower($avaria->motivoLabel()),
+                'detalhe' => 'Desde '.$avaria->aberta_em->format('d/m H:i')
+                    .($avaria->detalhe !== null ? ' · '.Str::limit($avaria->detalhe, 80) : '')
+                    .' · os valores do controlador não contam para a conformidade.',
+                // Quem não cria ações operacionais (NS, gestor) tem de saber da
+                // avaria, mas o link tem de o levar a algo que possa abrir.
+                'url' => OperationalActionResource::canCreate()
+                    ? OperationalActionResource::getUrl('create', [
+                        'pool' => $avaria->pool_id,
+                        'tipo' => OperationalAction::TIPO_AVARIA_SONDA,
+                    ])
+                    : EsquemaPiscina::getUrl(['pool' => $avaria->pool_id]),
+                'acao' => OperationalActionResource::canCreate() ? 'Atualizar estado' : 'Ver esquema',
+            ];
+        }
 
         foreach ($abertas as $piscina) {
             $nome = $piscina->nome_completo;

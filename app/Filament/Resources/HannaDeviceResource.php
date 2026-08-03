@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\HannaDeviceResource\Pages;
+use App\Filament\Resources\OperationalActionResource;
 use App\Models\HannaDevice;
+use App\Models\OperationalAction;
+use App\Models\SensorOutage;
 use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -62,6 +65,25 @@ class HannaDeviceResource extends Resource
         return parent::getGlobalSearchEloquentQuery()->with('piscina');
     }
 
+    /**
+     * Avaria em aberto da sonda desta linha, memoizada por piscina: a coluna de
+     * estado, a cor e a descrição perguntam todas pela mesma linha, e a tabela
+     * refaz-nas a cada poll.
+     *
+     * @var array<int, SensorOutage|null>
+     */
+    private static array $avariasMemo = [];
+
+    private static function avaria(HannaDevice $device): ?SensorOutage
+    {
+        if ($device->pool_id === null) {
+            return null;
+        }
+
+        return self::$avariasMemo[$device->pool_id]
+            ??= SensorOutage::abertaPara((int) $device->pool_id);
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -101,6 +123,28 @@ class HannaDeviceResource extends Resource
                     ->label('Nome')->searchable(),
                 Tables\Columns\TextColumn::make('piscina.name')
                     ->label('Piscina')->sortable(),
+                Tables\Columns\TextColumn::make('estado_sonda')
+                    ->label('Estado')
+                    ->badge()
+                    // Uma avaria reportada por ação operacional é uma causa
+                    // conhecida: vale mais que o diagnóstico automático "em falha".
+                    ->state(function (HannaDevice $r): string {
+                        $avaria = self::avaria($r);
+
+                        return $avaria !== null ? $avaria->motivoLabel() : 'Em serviço';
+                    })
+                    ->color(fn (HannaDevice $r): string => self::avaria($r) !== null ? 'warning' : 'success')
+                    ->icon(fn (HannaDevice $r): string => self::avaria($r) !== null ? 'heroicon-o-signal-slash' : 'heroicon-o-signal')
+                    ->description(function (HannaDevice $r): ?string {
+                        $avaria = self::avaria($r);
+
+                        if ($avaria === null) {
+                            return null;
+                        }
+
+                        return 'desde '.$avaria->aberta_em->format('d/m/Y H:i')
+                            .($avaria->detalhe !== null ? ' — '.\Illuminate\Support\Str::limit($avaria->detalhe, 60) : '');
+                    }),
                 Tables\Columns\TextColumn::make('ultima_leitura')
                     ->label('Última leitura')
                     ->dateTime('d/m/Y H:i')
@@ -108,20 +152,30 @@ class HannaDeviceResource extends Resource
                     // sonda está a falhar; o estado vem do timeout configurado.
                     ->description(function (HannaDevice $r): string {
                         $leitura = $r->ultimaLeitura();
+                        $avaria = self::avaria($r);
 
                         if ($leitura === null) {
-                            return 'sem leituras';
+                            return $avaria !== null ? 'sem leituras — '.mb_strtolower($avaria->motivoLabel()) : 'sem leituras';
                         }
 
                         $timeout = app(SettingsService::class)->getInt('sensor_timeout_minutos', 60);
                         $minutos = (int) abs($leitura->lida_em->diffInMinutes(now()));
 
-                        return $leitura->lida_em->locale('pt')->diffForHumans()
-                            .($minutos > $timeout ? ' — sonda em falha' : ' — online');
+                        $estado = match (true) {
+                            $avaria !== null => ' — leituras não fiáveis ('.mb_strtolower($avaria->motivoLabel()).')',
+                            $minutos > $timeout => ' — sonda em falha',
+                            default => ' — online',
+                        };
+
+                        return $leitura->lida_em->locale('pt')->diffForHumans().$estado;
                     })
                     ->badge()
                     ->color(function (HannaDevice $r): string {
                         $leitura = $r->ultimaLeitura();
+
+                        if (self::avaria($r) !== null) {
+                            return 'warning';
+                        }
 
                         if ($leitura === null) {
                             return 'danger';
@@ -211,6 +265,13 @@ class HannaDeviceResource extends Resource
                                 ->orWhereDoesntHave('leituras', fn ($sub) => $sub->where('lida_em', '>=', $limite));
                         });
                     }),
+                Tables\Filters\Filter::make('com_avaria')
+                    ->label('Só sondas com avaria reportada')
+                    ->toggle()
+                    ->query(fn ($query) => $query->whereIn(
+                        'pool_id',
+                        SensorOutage::query()->abertas()->select('pool_id')
+                    )),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -223,6 +284,21 @@ class HannaDeviceResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Fechar')
                     ->modalWidth(MaxWidth::ThreeExtraLarge),
+
+                Tables\Actions\Action::make('estado_sonda')
+                    ->label(fn (HannaDevice $record): string => self::avaria($record) !== null
+                        ? 'Atualizar / dar baixa'
+                        : 'Reportar avaria')
+                    ->icon('heroicon-o-signal-slash')
+                    ->color('warning')
+                    // A avaria vive numa ação operacional (é o registo do que se
+                    // passou, com autor e hora); aqui é só o atalho para a criar.
+                    ->visible(fn (HannaDevice $record): bool => $record->pool_id !== null
+                        && OperationalActionResource::canCreate())
+                    ->url(fn (HannaDevice $record): string => OperationalActionResource::getUrl('create', [
+                        'pool' => $record->pool_id,
+                        'tipo' => OperationalAction::TIPO_AVARIA_SONDA,
+                    ])),
 
                 Tables\Actions\Action::make('hanna_settings')
                     ->label('Configurar (site Hanna)')

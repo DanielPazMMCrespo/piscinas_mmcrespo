@@ -39,6 +39,26 @@
         </div>
     @endif
 
+    @if (! empty($esquema['sonda_avaria']))
+        {{-- Justificação declarada para a sonda não dar (ou dar mal) valores. --}}
+        <div class="mmc-esq__encerrada">
+            <x-filament::icon icon="heroicon-s-signal-slash" class="mmc-esq__alerta-icone" />
+            <span>
+                <strong>Sonda indisponível — {{ $esquema['sonda_avaria']['motivo'] }}</strong>
+                desde {{ $esquema['sonda_avaria']['desde'] }} ({{ $esquema['sonda_avaria']['desde_humano'] }})@if ($esquema['sonda_avaria']['por']) — reportado por {{ $esquema['sonda_avaria']['por'] }}@endif.
+                @if (filled($esquema['sonda_avaria']['detalhe'])) {{ $esquema['sonda_avaria']['detalhe'] }} @endif
+                Os valores do controlador não contam para a conformidade enquanto a situação estiver aberta.
+            </span>
+            @if (! empty($esquema['url_sonda']))
+                <a href="{{ $esquema['url_sonda'] }}" class="mmc-esq__alerta-cta">Atualizar / dar baixa</a>
+            @endif
+        </div>
+    @elseif (! empty($esquema['url_sonda']) && $agua['stale'])
+        <div class="mmc-esq__ctas">
+            <a href="{{ $esquema['url_sonda'] }}" class="mmc-esq__cta mmc-esq__cta--secundario">Reportar avaria da sonda</a>
+        </div>
+    @endif
+
     @if ($torneiraAberta)
         <div class="mmc-esq__alerta" role="alert">
             <x-filament::icon icon="heroicon-s-exclamation-triangle" class="mmc-esq__alerta-icone" />

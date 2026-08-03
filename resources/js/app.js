@@ -1319,13 +1319,17 @@ const setupVoiceInput = () => {
 };
 
 
+// Chave de armazenamento da foto de um campo, no IndexedDB.
+//
+// NÃO usar o input do FilePond: a biblioteca dá sempre name="filepond" (uma
+// constante dela), pelo que os quatro campos de foto do formulário partilhavam
+// a chave "filepond" e cada foto nova apagava a anterior — nenhuma era
+// restaurada no campo certo. O id do wrapper do Filament é o id do campo
+// (Field::getId(): o ->id() explícito, ex. "bomba_foto_4", ou o statePath),
+// estável entre carregamentos e único por campo.
 const getFieldKey = (filepondRoot) => {
-    const input = filepondRoot.querySelector('input[name]');
-    if (input) {
-        return input.getAttribute('name') || input.id || null;
-    }
-    const wrapper = filepondRoot.closest('[id]');
-    return wrapper ? wrapper.id : null;
+    const wrapper = filepondRoot.closest('.fi-fo-file-upload');
+    return wrapper?.id || null;
 };
 
 const setupFormDraftPhotos = () => {
@@ -1344,6 +1348,11 @@ const setupFormDraftPhotos = () => {
 
     document.addEventListener('FilePond:removefile', async (e) => {
         if (!window.location.pathname.includes('/daily-records/create')) return;
+        // restorePhotos() chama pond.removeFiles() antes de pond.addFile(): sem
+        // este guard o removefile apagava do IndexedDB a foto que estava a ser
+        // restaurada, e a corrida entre o delete e o save deixava o restauro
+        // a funcionar ou não conforme a ordem em que caíam.
+        if (window.__mmcRestaurandoFotos) return;
 
         const filepondRoot = e.target;
         const fieldKey = getFieldKey(filepondRoot);
@@ -1380,24 +1389,31 @@ const restorePhotos = async () => {
             return;
         }
 
-        for (const el of filepondElements) {
-            const pond = window.FilePond?.find(el);
-            if (!pond) continue;
+        window.__mmcRestaurandoFotos = true;
+        try {
+            for (const el of filepondElements) {
+                const pond = window.FilePond?.find(el);
+                if (!pond) continue;
 
-            const fieldKey = getFieldKey(el);
-            if (!fieldKey) continue;
+                const fieldKey = getFieldKey(el);
+                if (!fieldKey) continue;
 
-            const storedFile = await getPhotoFromDB(fieldKey);
-            if (storedFile) {
-                try {
-                    const filename = storedFile.name || 'restored_image.jpg';
-                    const fileToUpload = new File([storedFile], filename, { type: storedFile.type });
-                    pond.removeFiles();
-                    pond.addFile(fileToUpload);
-                } catch (err) {
-                    console.error('Error adding restored file to FilePond:', err, fieldKey);
+                const storedFile = await getPhotoFromDB(fieldKey);
+                if (storedFile) {
+                    try {
+                        const filename = storedFile.name || 'restored_image.jpg';
+                        const fileToUpload = new File([storedFile], filename, { type: storedFile.type });
+                        pond.removeFiles();
+                        pond.addFile(fileToUpload);
+                    } catch (err) {
+                        console.error('Error adding restored file to FilePond:', err, fieldKey);
+                    }
                 }
             }
+        } finally {
+            // Os eventos do FilePond disparados por removeFiles/addFile ainda
+            // estão em voo neste tick; largar o guard só depois deles.
+            setTimeout(() => { window.__mmcRestaurandoFotos = false; }, 500);
         }
     };
 
@@ -1420,29 +1436,39 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
 
     const formattedTime = new Date(savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 
+    // Fixo e pendurado no body, não dentro do <form>: o morph do Livewire que
+    // vem do $refresh e do re-upload das fotos apaga qualquer elemento estranho
+    // que esteja dentro da árvore que ele gere — o banner desaparecia sempre.
     const banner = document.createElement('div');
     banner.id = 'mmc-draft-banner';
-    banner.className = 'w-full mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm transition-all animate-fade-in z-30';
+    banner.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] bg-amber-50 dark:bg-gray-900 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg';
     banner.innerHTML = `
         <div class="flex items-center gap-2.5 text-sm font-medium">
             <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Rascunho de registo restaurado (guardado às ${formattedTime}).</span>
+            <span>Rascunho restaurado (guardado às ${formattedTime}).</span>
         </div>
-        <button id="discard-draft-banner-btn" type="button" class="text-xs font-semibold px-2.5 py-1 bg-amber-600/10 hover:bg-amber-600/20 text-amber-800 dark:text-amber-200 border border-amber-600/20 hover:border-amber-600/40 rounded-md transition-colors duration-150">
-            Descartar rascunho
+        <button id="discard-draft-banner-btn" type="button" class="shrink-0 text-xs font-semibold px-2.5 py-1 bg-amber-600/10 hover:bg-amber-600/20 text-amber-800 dark:text-amber-200 border border-amber-600/20 hover:border-amber-600/40 rounded-md transition-colors duration-150 cursor-pointer">
+            Descartar
+        </button>
+        <button id="close-draft-banner-btn" type="button" aria-label="Fechar aviso" class="shrink-0 text-amber-800/60 hover:text-amber-900 dark:text-amber-200/60 dark:hover:text-amber-100 transition-colors duration-150 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
         </button>
     `;
 
-    const formEl = document.querySelector('.fi-main form') || document.querySelector('form');
-    if (formEl) {
-        formEl.insertBefore(banner, formEl.firstChild);
-    }
+    document.body.appendChild(banner);
+
+    document.getElementById('close-draft-banner-btn')?.addEventListener('click', () => {
+        banner.remove();
+    });
 
     document.getElementById('discard-draft-banner-btn')?.addEventListener('click', async () => {
         await clearDraftState(formKey);
         banner.remove();
+        window.mmcFormDirty = false;
         window.location.reload();
     });
 };

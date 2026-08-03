@@ -203,9 +203,17 @@
                          de aparecer em qualquer sítio a que o técnico tenha acesso. --}}
                     @if (! empty($item['sonda']['instalada']))
                         @php($idadeSonda = $item['sonda']['idade_min'])
+                        @php($avariaSonda = $item['sonda']['avaria'] ?? null)
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full {{ $idadeSonda === null ? 'bg-rose-500' : ($idadeSonda <= 60 ? 'bg-emerald-500' : 'bg-amber-500') }}"></span>
-                            @if ($idadeSonda === null)
+                            <span class="w-1.5 h-1.5 rounded-full {{ $avariaSonda ? 'bg-amber-500' : ($idadeSonda === null ? 'bg-rose-500' : ($idadeSonda <= 60 ? 'bg-emerald-500' : 'bg-amber-500')) }}"></span>
+                            @if ($avariaSonda)
+                                {{-- Causa conhecida e reportada: substitui o diagnóstico
+                                     automático, que aqui só diria "verificar controlador". --}}
+                                <span class="font-medium text-amber-700 dark:text-amber-400">
+                                    Sonda indisponível: {{ $avariaSonda['motivo'] }}
+                                </span>
+                                <span>· desde {{ $avariaSonda['desde_humano'] }}</span>
+                            @elseif ($idadeSonda === null)
                                 Sonda instalada, sem leituras
                             @elseif ($idadeSonda < 1)
                                 Sonda: leitura agora
@@ -215,6 +223,14 @@
                                 Sonda sem leituras há {{ (int) floor($idadeSonda / 60) }}h — verificar controlador
                             @endif
                         </div>
+                        @if ($avariaSonda && filled($avariaSonda['detalhe']))
+                            <div class="text-[11px] text-slate-400 dark:text-slate-500 pl-3">{{ $avariaSonda['detalhe'] }}</div>
+                        @endif
+                        @if (! empty($item['sonda']['url_reportar']))
+                            <a href="{{ $item['sonda']['url_reportar'] }}" class="text-[11px] text-primary-600 dark:text-primary-400 underline pl-3">
+                                {{ $avariaSonda ? 'Atualizar / dar baixa' : 'Reportar avaria da sonda' }}
+                            </a>
+                        @endif
                     @endif
 
                 <!-- Actions Footer -->

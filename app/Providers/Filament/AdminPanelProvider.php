@@ -72,7 +72,6 @@ class AdminPanelProvider extends PanelProvider
             // Resources) e anuncia o atalho no campo.
             ->globalSearch(PaginasGlobalSearchProvider::class)
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->globalSearchFieldKeyBindingSuffix()
             // Light mode por defeito: legibilidade à beira da piscina, ao sol direto
             // (o utilizador pode na mesma alternar para escuro).
             ->defaultThemeMode(ThemeMode::Light)

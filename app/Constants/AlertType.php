@@ -22,6 +22,8 @@ final class AlertType
 
     public const ENCERRADA = 'encerrada';
 
+    public const SONDA_AVARIA = 'sonda_avaria';
+
     private function __construct()
     {
         // This class cannot be instantiated

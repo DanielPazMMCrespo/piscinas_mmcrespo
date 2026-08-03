@@ -7,9 +7,25 @@
     $firmware = isset($sy[2], $sy[3]) ? trim(str_replace('&#47;', '/', $sy[2] . $sy[3])) : null;
     $dinfo    = $raw['DINFO'] ?? [];
     $extras   = array_filter($reported, fn ($k) => $k !== 'SY', ARRAY_FILTER_USE_KEY);
+    $avaria   = $device->pool_id !== null ? \App\Models\SensorOutage::abertaPara((int) $device->pool_id) : null;
 @endphp
 
 <div class="space-y-5 px-1 py-2">
+
+    @if ($avaria)
+        <div class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-500/40 dark:bg-amber-500/10">
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Sonda indisponível — {{ $avaria->motivoLabel() }}
+            </p>
+            <p class="text-xs text-amber-700 dark:text-amber-200/80 mt-0.5">
+                Desde {{ $avaria->aberta_em->format('d/m/Y H:i') }} ({{ $avaria->desdeHumano() }})@if ($avaria->abertaPor?->name) — reportado por {{ $avaria->abertaPor->name }}@endif.
+                As leituras abaixo não contam para a conformidade enquanto a situação estiver em aberto.
+            </p>
+            @if (filled($avaria->detalhe))
+                <p class="text-xs text-amber-700 dark:text-amber-200/80 mt-1">{{ $avaria->detalhe }}</p>
+            @endif
+        </div>
+    @endif
 
     {{-- Última Leitura --}}
     <div>
