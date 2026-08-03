@@ -13,6 +13,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,6 +39,33 @@ class DosingContainerResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['tipo', 'piscina.name', 'produto.name'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return ($record->piscina?->name ?? 'Piscina').' — '.$record->tipoLabel();
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        $percentagem = $record->percentagem();
+
+        return [
+            'Nível' => $percentagem !== null ? number_format($percentagem, 1, ',', '').' %' : '—',
+            'Capacidade' => $record->capacidade_ml !== null ? number_format($record->capacidade_ml / 1000, 1, ',', '').' L' : '—',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('piscina');
     }
 
     public static function form(Form $form): Form

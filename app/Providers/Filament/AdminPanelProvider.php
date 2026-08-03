@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\GlobalSearch\PaginasGlobalSearchProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\RequirePasswordChange;
@@ -67,6 +68,11 @@ class AdminPanelProvider extends PanelProvider
                 'gray' => Color::Zinc,
             ])
             ->databaseNotifications()
+            // Acrescenta o grupo "Páginas" aos resultados (o Filament só pesquisa
+            // Resources) e anuncia o atalho no campo.
+            ->globalSearch(PaginasGlobalSearchProvider::class)
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->globalSearchFieldKeyBindingSuffix()
             // Light mode por defeito: legibilidade à beira da piscina, ao sol direto
             // (o utilizador pode na mesma alternar para escuro).
             ->defaultThemeMode(ThemeMode::Light)

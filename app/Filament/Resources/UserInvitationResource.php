@@ -14,6 +14,7 @@ use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Listagem e gestão dos convites de utilizador (pendentes, expirados, aceites).
@@ -38,6 +39,39 @@ class UserInvitationResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['email', 'role'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->email;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Cargo' => UserRole::LABELS[$record->role] ?? $record->role,
+            'Estado' => match (true) {
+                $record->accepted_at !== null => 'Aceite',
+                $record->expires_at?->isPast() => 'Expirado',
+                default => 'Pendente',
+            },
+        ];
+    }
+
+    /**
+     * Não há página de vista/edição (só Reenviar/Revogar na tabela) — sem isto o
+     * resultado seria descartado por getGlobalSearchResultUrl() default (null).
+     */
+    public static function getGlobalSearchResultUrl(Model $record): string
+    {
+        return static::getUrl('index');
     }
 
     public static function table(Table $table): Table

@@ -31,6 +31,9 @@ class HannaDeviceResource extends Resource
 
     protected static ?string $navigationGroup = 'Sistema';
 
+    /** Sem isto o título do resultado na pesquisa global era o nome do modelo, não o registo. */
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static ?string $modelLabel = 'Sensor Hanna';
 
     protected static ?string $pluralModelLabel = 'Sensores Hanna';

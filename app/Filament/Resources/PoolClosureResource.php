@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 /**
@@ -46,6 +47,31 @@ class PoolClosureResource extends Resource
         // Encerrar passa sempre pelo serviço, na página de Encerramentos —
         // criar uma linha à mão aqui saltaria as validações de sobreposição.
         return false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['motivo', 'observacoes', 'piscina.name'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return ($record->piscina?->name ?? 'Piscina').' — '.$record->motivo_label;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Período' => $record->descricao_periodo,
+            'Estado' => $record->esta_vigente ? 'Encerrada' : 'Reaberta',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('piscina');
     }
 
     public static function form(Form $form): Form

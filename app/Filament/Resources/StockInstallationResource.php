@@ -18,6 +18,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
@@ -63,6 +64,31 @@ class StockInstallationResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['produto.name', 'produto.categoria', 'instalacao.name'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return ($record->produto?->name ?? 'Produto').' — '.($record->instalacao?->name ?? '—');
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Disponível' => number_format((float) $record->quantity, 3, ',', ' ').' '.($record->produto?->unidade ?? ''),
+            'Mínimo' => number_format((float) $record->limite_minimo, 3, ',', ' ').' '.($record->produto?->unidade ?? ''),
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['produto', 'instalacao']);
     }
 
     public static function form(Form $form): Form

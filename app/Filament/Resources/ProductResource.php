@@ -26,6 +26,9 @@ class ProductResource extends Resource
 
     protected static ?string $navigationGroup = 'Stock';
 
+    /** Sem isto o título do resultado na pesquisa global era o nome do modelo, não o registo. */
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static ?string $modelLabel = 'Produto Químico';
 
     protected static ?string $pluralModelLabel = 'Produtos Químicos';

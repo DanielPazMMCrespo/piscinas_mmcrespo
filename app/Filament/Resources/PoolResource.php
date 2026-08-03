@@ -24,6 +24,9 @@ class PoolResource extends Resource
 
     protected static ?string $navigationGroup = 'Estrutura';
 
+    /** Sem isto o título do resultado na pesquisa global era o nome do modelo, não o registo. */
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static ?string $modelLabel = 'Piscina';
 
     protected static ?string $pluralModelLabel = 'Piscinas';

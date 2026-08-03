@@ -13,6 +13,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class InstallationResource extends Resource
 {
@@ -21,6 +22,9 @@ class InstallationResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
     protected static ?string $navigationGroup = 'Estrutura';
+
+    /** Sem isto o título do resultado na pesquisa global era o nome do modelo, não o registo. */
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static ?string $modelLabel = 'Instalação';
 
@@ -35,6 +39,12 @@ class InstallationResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'morada'];
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return ['Morada' => $record->morada ?? '—'];
     }
 
     public static function form(Form $form): Form

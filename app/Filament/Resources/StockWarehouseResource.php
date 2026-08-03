@@ -18,6 +18,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,6 +63,31 @@ class StockWarehouseResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    /** @return array<string> */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['produto.name', 'produto.categoria'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->produto?->name ?? 'Produto';
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Categoria' => $record->produto?->categoria ?? '—',
+            'Em armazém' => number_format((float) $record->quantity, 3, ',', ' ').' '.($record->produto?->unidade ?? ''),
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('produto');
     }
 
     public static function form(Form $form): Form
