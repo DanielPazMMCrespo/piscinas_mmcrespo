@@ -94,7 +94,7 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 
 ## Logs
 - **Movimentos Armazém/Instalação** (`StockWarehouseLogResource` / `StockInstallationLogResource`): histórico auditável de todas as transações de stock.
-- **Activity Log** (`CustomActivitylogResource`): trilho genérico do `rmsramos/activitylog`, visível só a admin.
+- **Activity Log** (`CustomActivitylogResource`): trilho de auditoria **único** da app, visível só a admin. Junta CRUD dos models, autenticação (incl. login falhado), alterações de definições, movimentos de stock/bidões e falhas de sistema. Escrita centralizada em `App\Support\Auditoria`; retenção de 730 dias.
 
 ---
 
@@ -139,7 +139,23 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-08-01 (Sessão 20 — Auditoria de velocidade de uso e correções)
+> Última atualização: 2026-08-03 (Sessão 21 — Trilho de auditoria único)
+
+## Sessão 21 — Trilho de auditoria único no Activity Log (resumo)
+- **Diagnóstico**: existiam quatro trilhos separados e sem ponto de entrada comum — Spatie Activitylog (11 models), logs de stock, logs de bidões e `Log::` em `storage/logs` (invisível ao admin e efémero no Railway). Sem IP, sem registo de login falhado, sem retenção.
+- **Bug estrutural encontrado e corrigido**: `/admin/activitylogs` era servida pela `ListActivitylog` do pacote `rmsramos`, cuja `$resource` aponta em duro para o Resource do pacote. O `CustomActivitylogResource::table()` **nunca era chamado** — nem as colunas novas, nem as traduções PT das sessões anteriores. Criadas `CustomActivitylogResource/Pages/ListActivitylog` e `ViewActivitylog` + `getPages()` no Resource. Confirmado no `route:list`.
+- **`App\Support\Auditoria`** é agora o ponto único de escrita para eventos que não são CRUD (canais `auth`, `definicoes`, `stock`, `sistema`, `operacao`). Anexa IP e user-agent, exceto em consola — o scheduler não tem pedido e um IP ali seria inventado.
+- **Autenticação**: passam a ser registados `Failed` (login falhado), `Lockout` e `PasswordReset`, além de login/logout. A password nunca entra nas propriedades, só o identificador — coberto por teste.
+- **Models novos no trilho**: `IncidentMessage`, `UserInvitation` (exclui `token`), `DosingContainer` (só configuração — `restante_ml` desceria a cada sync da Hanna), `FilterCheck`, `CustomBroadcast`. `RecordAddition`/`RecordPhoto` deliberadamente fora.
+- **`AppSetting` não usa o trait**: a PK é string e `activity_log.subject_id` é inteira. O diff das definições é escrito à mão em `Definicoes::save()`, no formato `old`/`attributes` para o renderizador o tratar como qualquer alteração de model. Comparação frouxa de propósito ('6.9' vs 6.9).
+- **Eventos de negócio**: sync Hanna falhado (só o ciclo com falhas — um sync bom de 15 em 15 min seria ruído), arquivamento de registos (sucesso e falha), stock insuficiente nos dois caminhos (transferência no form e job assíncrono).
+- **Espelho de stock**: `MovimentoStockObserver` replica `StockWarehouseLog`, `StockInstallationLog` e `DosingContainerLog` no trilho, dentro da transação do `StockService` (se ela abortar, a auditoria desaparece com ela). Os Resources de movimentos continuam a ser a vista operacional.
+- **Leitura**: coluna "Alterações" mostra `Campo: antigo → novo` traduzido por `App\Constants\AuditLabels`, em vez do JSON cru do Spatie. Filtro por autor e IP como descrição sob o nome.
+- **Retenção**: `config/activitylog.php` com 730 dias + `activitylog:clean` agendado às segundas 04:30. Antes nada era podado e a tabela crescia sem limite em PostgreSQL.
+- **Migração nova**: `2026_08_03_000002_ensure_batch_uuid_on_activity_log` — garante `batch_uuid` (a migração original de 06/09 criou a tabela sem essa coluna) e índice `log_name + created_at`. Idempotente.
+- **Verificação**: 436 testes a passar. Os 7 novos (`AuditoriaTest`) incluem render real da tabela via Livewire com assert sobre o texto do diff — é o que prova que o Resource certo está a servir a página. Falha 1 teste pré-existente e ambiental (`PersistenceTest`: `.env` local tem `SESSION_LIFETIME=120`, `.env.example` tem `43200`).
+- **Commits**: `47682fb` (auditoria), `5ee3d59` (Pint sobre ficheiros fora do âmbito, apanhados por uma corrida sem `--dirty`). Ambos em `main`.
+- **Nota de ambiente**: houve outra sessão a escrever no mesmo repositório em paralelo (commit `ddd57e8` entrou a meio). O index do git é partilhado — para commits parciais usar `git commit --only <lista>`, não `git add`. Ficou por commitar dessa sessão: `resources/js/app.js` e a inversão `dose_ph_ml` ↔ `dose_cloro_ml` em `HannaCloudService::parseHistoryEntry`.
 
 ## Sessão 20 — Auditoria de velocidade de uso e correções (resumo)
 - **Auditoria com 8 agentes em paralelo** sobre a app a correr (browser real, mobile 390x844 e desktop, quatro papéis), com contagem de toques e medição de tempos/peso/queries por página. Resultado em `docs/auditoria-velocidade-app.md` (+ PDF de 29 páginas). Produção não estava alcançável da sessão (política de rede bloqueia o domínio Railway), pelo que a app foi montada localmente a partir do branch.
