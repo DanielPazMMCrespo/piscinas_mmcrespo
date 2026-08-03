@@ -1494,10 +1494,9 @@ const setupDirtyStateWarning = () => {
         }
     };
 
-    // livewire:navigate é cancelável e síncrono (forwarded de alpine:navigate):
-    // o preventDefault tem de correr já aqui dentro, antes de mostrar o modal —
-    // decidir "guardar ou descartar" é assíncrono, por isso a navegação real só
-    // acontece depois, disparada à mão a partir do próprio modal.
+    // livewire:navigate só dispara com SPA mode ativo (Panel::spa()) — este
+    // painel não tem. Mantido por segurança/futuro: é cancelável e síncrono
+    // (forwarded de alpine:navigate), preventDefault corre já aqui dentro.
     const onLivewireNavigate = (e) => {
         if (!window.mmcFormDirty) return;
 
@@ -1508,12 +1507,44 @@ const setupDirtyStateWarning = () => {
         mostrarModalSairRegisto(destino);
     };
 
+    // Mecanismo real neste painel (sem SPA mode, a sidebar/breadcrumbs/menu são
+    // <a href> normais): intercetar o clique em fase de captura, antes do
+    // browser seguir o link, e decidir aí se mostra o modal.
+    const onLinkClick = (e) => {
+        if (!window.mmcFormDirty) return;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        if (link.target && link.target !== '_self') return;
+        if (link.hasAttribute('download')) return;
+
+        const href = link.getAttribute('href');
+        if (!href || /^(#|mailto:|tel:|javascript:)/.test(href)) return;
+
+        let destino;
+        try {
+            destino = new URL(href, window.location.href);
+        } catch (err) {
+            return;
+        }
+        // Só muda a query string/hash da mesma página (ex: filtros de tabela):
+        // não perde o registo, deixa navegar normalmente.
+        if (destino.origin === window.location.origin && destino.pathname === window.location.pathname) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        mostrarModalSairRegisto(destino.href);
+    };
+
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('livewire:navigate', onLivewireNavigate);
+    document.addEventListener('click', onLinkClick, true);
 
     dirtyWarningCleanup = () => {
         window.removeEventListener('beforeunload', onBeforeUnload);
         document.removeEventListener('livewire:navigate', onLivewireNavigate);
+        document.removeEventListener('click', onLinkClick, true);
     };
 };
 
@@ -1596,15 +1627,11 @@ const mostrarModalSairRegisto = (destino) => {
 
     const sairAgora = () => {
         modal.remove();
-        // mmcFormDirty a false antes de navegar: o livewire:navigate desta
-        // navegação (disparada por nós) volta a correr, mas o guard acima
-        // devolve-se logo por não haver alterações por guardar.
+        // Sem SPA mode neste painel, a navegação real do resto da app já é
+        // sempre um load completo — usar Alpine.navigate só aqui seria
+        // inconsistente (a página de destino não está pensada para um morph).
         window.mmcFormDirty = false;
-        if (window.Alpine?.navigate) {
-            window.Alpine.navigate(destino);
-        } else {
-            window.location.href = destino;
-        }
+        window.location.href = destino;
     };
 
     document.getElementById('mmc-sair-cancelar').addEventListener('click', () => {
