@@ -168,7 +168,7 @@ class IncidentChatTest extends TestCase
 
         $this->actingAs($tecnico);
 
-        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+        Livewire::test(IncidentChatWidget::class, ['record' => $incidente])
             ->set('texto', 'Voltou a haver fuga.')
             ->call('enviarMensagem');
 
@@ -208,7 +208,7 @@ class IncidentChatTest extends TestCase
 
         $this->actingAs($ns);
 
-        Livewire::test(\App\Filament\Widgets\IncidentChatWidget::class, ['record' => $incidente])
+        Livewire::test(IncidentChatWidget::class, ['record' => $incidente])
             ->set('texto', 'Fica só a confirmar que ficou bem.')
             ->call('enviarMensagem');
 

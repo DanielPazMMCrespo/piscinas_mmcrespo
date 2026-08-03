@@ -7,6 +7,7 @@ namespace App\Filament\Concerns;
 use Filament\Forms;
 use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 trait HasPeriodoFilter
 {
@@ -36,16 +37,16 @@ trait HasPeriodoFilter
                 // Normalizar para 'Y-m-d': um valor com hora ("2026-08-01 03:24:00")
                 // comparado por whereDate faz comparação de strings e exclui o dia.
                 return $query
-                    ->when($data['de'] ?? null, fn (Builder $q, $de) => $q->whereDate($coluna, '>=', \Illuminate\Support\Carbon::parse($de)->toDateString()))
-                    ->when($data['ate'] ?? null, fn (Builder $q, $ate) => $q->whereDate($coluna, '<=', \Illuminate\Support\Carbon::parse($ate)->toDateString()));
+                    ->when($data['de'] ?? null, fn (Builder $q, $de) => $q->whereDate($coluna, '>=', Carbon::parse($de)->toDateString()))
+                    ->when($data['ate'] ?? null, fn (Builder $q, $ate) => $q->whereDate($coluna, '<=', Carbon::parse($ate)->toDateString()));
             })
             ->indicateUsing(function (array $data): ?string {
                 if (blank($data['de'] ?? null) && blank($data['ate'] ?? null)) {
                     return null;
                 }
 
-                $de = filled($data['de'] ?? null) ? \Illuminate\Support\Carbon::parse($data['de'])->format('d/m/Y') : '…';
-                $ate = filled($data['ate'] ?? null) ? \Illuminate\Support\Carbon::parse($data['ate'])->format('d/m/Y') : '…';
+                $de = filled($data['de'] ?? null) ? Carbon::parse($data['de'])->format('d/m/Y') : '…';
+                $ate = filled($data['ate'] ?? null) ? Carbon::parse($data['ate'])->format('d/m/Y') : '…';
 
                 return "Período: {$de} — {$ate}";
             });

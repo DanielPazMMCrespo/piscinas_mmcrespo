@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\DailyRecord;
+use App\Models\FilterCheck;
 use App\Models\OperationalAction;
 use Carbon\Carbon;
 
@@ -105,7 +106,7 @@ class LeituraArtefactoService
             $janelas[] = $this->janela($registo->registado_em, 0, 'Lavagem de filtro');
         }
 
-        $filterChecks = \App\Models\FilterCheck::query()
+        $filterChecks = FilterCheck::query()
             ->where('pool_id', $poolId)
             ->whereIn('tipo_operacao', ['lavagem', 'enxaguamento'])
             ->whereBetween('verificado_em', [$inicioQuery, $ate])

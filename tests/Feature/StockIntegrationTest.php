@@ -297,7 +297,7 @@ class StockIntegrationTest extends TestCase
         $initial_qty = $stock_warehouse->quantity;
         $entry_qty = 50.000;
 
-        DB::transaction(function () use ($stock_warehouse, $entry_qty, $chlorine) {
+        DB::transaction(function () use ($stock_warehouse, $entry_qty) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += $entry_qty;
             $fresh->save();
@@ -331,7 +331,7 @@ class StockIntegrationTest extends TestCase
 
         $test_time = now();
 
-        DB::transaction(function () use ($stock_warehouse, $chlorine, $technician) {
+        DB::transaction(function () use ($stock_warehouse, $technician) {
             $fresh = StockWarehouse::lockForUpdate()->find($stock_warehouse->id);
             $fresh->quantity += 10.000;
             $fresh->save();

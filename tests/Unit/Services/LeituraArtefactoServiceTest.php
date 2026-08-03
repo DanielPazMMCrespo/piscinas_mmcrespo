@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Models\DailyRecord;
+use App\Models\FilterCheck;
 use App\Models\Installation;
 use App\Models\OperationalAction;
 use App\Models\Pool;
@@ -210,6 +211,7 @@ class LeituraArtefactoServiceTest extends TestCase
         $checkTimeOutside = Carbon::parse('2026-07-19 11:30:00');
         $this->assertNull($this->service->motivoEm($this->pool->id, $checkTimeOutside));
     }
+
     public function test_creates_artifact_window_for_filter_check_action(): void
     {
         $start = Carbon::parse('2026-07-19 10:00:00');
@@ -218,7 +220,7 @@ class LeituraArtefactoServiceTest extends TestCase
 
         $user = User::factory()->create();
 
-        \App\Models\FilterCheck::create([
+        FilterCheck::create([
             'pool_id' => $this->pool->id,
             'user_id' => $user->id,
             'tipo_operacao' => 'lavagem',

@@ -10,6 +10,7 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -630,7 +631,7 @@ class RelatorioPdfFineCombTest extends TestCase
             ->get();
 
         foreach ($leiturasLavagem as $leitura) {
-            $diaKey = \Carbon\Carbon::parse($leitura->lida_em)->format('Y-m-d');
+            $diaKey = Carbon::parse($leitura->lida_em)->format('Y-m-d');
             $diasArtefacto[$diaKey]['Lavagem de filtro'] = true;
         }
 

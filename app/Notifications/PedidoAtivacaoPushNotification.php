@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
-use NotificationChannels\WebPush\WebPushMessage;
 use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class PedidoAtivacaoPushNotification extends Notification
 {
@@ -26,7 +26,7 @@ class PedidoAtivacaoPushNotification extends Notification
 
     public function toWebPush(object $notifiable): WebPushMessage
     {
-        return (new WebPushMessage())
+        return (new WebPushMessage)
             ->title('Ativar notificações')
             ->body('O administrador pediu que ative as notificações push. Isto é essencial para comunicação e resolução de incidentes.')
             ->action('Ativar', '/admin/notificacoes')
