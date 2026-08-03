@@ -148,8 +148,8 @@ class HannaCloudService
             'orp' => self::paramValue($params, ['ORP', 'orp']),
             'temperatura_agua' => self::paramValue($params, ['WT', 'waterTemp', 'waterTemperature', 'TEMP', 'temp']),
             'temperatura_ar' => self::paramValue($params, ['AT', 'airTemp', 'airTemperature']),
-            'caudal_ph' => self::paramValue($params, ['PHF', 'pHFlow', 'pH_flow']),
-            'caudal_cloro' => self::paramValue($params, ['CLF', 'chlorineFlow', 'cl_flow']),
+            'caudal_ph' => self::paramValue($params, ['acidBase', 'PHF', 'pHFlow', 'pH_flow']),
+            'caudal_cloro' => self::paramValue($params, ['cl', 'CLF', 'chlorineFlow', 'cl_flow']),
             'raw_parameters' => $params,
             'alarms' => $messages['alarms'] ?? [],
             'warnings' => $messages['warnings'] ?? [],
@@ -247,8 +247,8 @@ class HannaCloudService
             'orp' => $rd[1] ?? null,
             'temperatura_agua' => $rd[2] ?? null,
             'temperatura_ar' => $rd[3] ?? null,
-            'dose_ph_ml' => $dv[1] ?? null,
-            'dose_cloro_ml' => $dv[0] ?? null,
+            'dose_ph_ml' => $dv[0] ?? null,
+            'dose_cloro_ml' => $dv[1] ?? null,
             'no_flow' => (bool) ($entry['noFlow'] ?? false),
         ];
     }

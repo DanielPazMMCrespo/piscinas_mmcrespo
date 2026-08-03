@@ -218,8 +218,8 @@ class HannaCloudServiceTest extends TestCase
         $this->assertSame(767.0, $parsed['orp']);
         $this->assertSame(29.82, $parsed['temperatura_agua']);
         $this->assertSame(-44.5, $parsed['temperatura_ar']);
-        $this->assertSame(74.76, $parsed['dose_ph_ml']);
-        $this->assertSame(0.0, $parsed['dose_cloro_ml']);
+        $this->assertSame(0.0, $parsed['dose_ph_ml']);
+        $this->assertSame(74.76, $parsed['dose_cloro_ml']);
         $this->assertFalse($parsed['no_flow']);
     }
 
@@ -259,7 +259,7 @@ class HannaCloudServiceTest extends TestCase
         $this->assertCount(2, $leituras);
         $this->assertSame('2026-07-21 07:39:27', $leituras[0]['dt']);
         $this->assertSame('2026-07-21 07:55:57', $leituras[1]['dt']);
-        $this->assertSame(75.34, $leituras[0]['dose_ph_ml']);
-        $this->assertSame(0.0, $leituras[0]['dose_cloro_ml']);
+        $this->assertSame(0.0, $leituras[0]['dose_ph_ml']);
+        $this->assertSame(75.34, $leituras[0]['dose_cloro_ml']);
     }
 }
