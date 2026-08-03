@@ -95,7 +95,7 @@ class DailyRecord extends Model
         'cloro_livre', 'cloro_total',
         'ph', 'temperatura', 'transparencia',
         'caleira_feita', 'renovacao_agua',
-        'bomba_com_bolhas', 'pressao_filtro', 'estado_valvulas_filtro',
+        'pressao_filtro',
         'observacoes', 'e_correcao',
         'corrige_registo_id', 'razao_correcao',
         // Leituras do Nadador-Salvador
@@ -125,7 +125,6 @@ class DailyRecord extends Model
         'contador_valor' => 'decimal:2',
         'caleira_feita' => 'boolean',
         'renovacao_agua' => 'boolean',
-        'bomba_com_bolhas' => 'boolean',
         'bomba_ferrada' => 'boolean',
         'tanque_ok' => 'boolean',
         'filtro_faz_retrolavagem' => 'boolean',

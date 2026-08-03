@@ -36,5 +36,5 @@ Livro de registo sanitário legal (CN 14/DA) — página núcleo, uso diário. A
 
 ## Coisas a rever (encontradas no código, não confirmadas contigo)
 - `analises_fotos` está no `$fillable`/usado no job, mas não existe nenhum campo de upload correspondente no wizard atual — ou é preenchido por outra via (API/import) ou é código morto.
-- `bomba_com_bolhas`, `estado_valvulas_filtro` estão no `$fillable`/casts mas sem campo em nenhum form (nem no wizard, nem na correção) — a decidir se devem ser removidos ou capturados algures.
+- `bomba_com_bolhas`, `estado_valvulas_filtro` saíram do `$fillable`/casts (nunca foram lidos nem escritos por nenhum form/PDF/comando). As colunas continuam na BD, sem migração de drop — se houver dados antigos, decidir se se arquivam antes de as largar.
 - Lógica de "cloro total ≥ cloro livre" e "gestão de torneira" duplicada entre form builder, table builder e job — candidato a extrair para serviço/Rule partilhado.

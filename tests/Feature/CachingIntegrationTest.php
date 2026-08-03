@@ -62,25 +62,28 @@ class CachingIntegrationTest extends TestCase
         $this->assertLessThan($tempo1, $tempo2 * 2); // Margem generosa para variação
     }
 
-    public function test_graph_cache_for_single_pool(): void
+    /**
+     * A chave que o CloroPhChartWidget escreve tem de cair no padrão que o
+     * invalidateGraphCache() apaga. Já estiveram desalinhadas (chart_v3_* vs
+     * cache_graph_*) e o gráfico ficava desatualizado até expirar o TTL.
+     */
+    public function test_graph_cache_key_matches_invalidation_pattern(): void
     {
+        config(['cache.default' => 'database']);
+
         $pool = Pool::factory()->create();
-        DailyRecord::factory()->create(['pool_id' => $pool->id]);
+        $outra = Pool::factory()->create();
 
-        $data = [
-            'modo' => 'multi-metrica',
-            'series' => [['label' => 'pH', 'data' => [7.2, 7.3, 7.4]]],
-        ];
+        $chave = "cache_graph_{$pool->id}_v3_ph_controlador_orp_7d__";
+        $chaveOutra = "cache_graph_{$outra->id}_v3_ph_controlador_orp_7d__";
 
-        // Guardar em cache
-        $this->cacheService->cacheGraphData($pool->id, $data, 30);
+        Cache::put($chave, ['titulo' => 'x'], now()->addMinutes(10));
+        Cache::put($chaveOutra, ['titulo' => 'y'], now()->addMinutes(10));
 
-        // Recuperar
-        $hash = md5(json_encode($data['series']) ?: '');
-        $cached = $this->cacheService->getGraphData($pool->id, $hash);
+        $this->cacheService->invalidateGraphCache($pool->id);
 
-        $this->assertNotNull($cached);
-        $this->assertEquals($data, $cached);
+        $this->assertNull(Cache::get($chave));
+        $this->assertNotNull(Cache::get($chaveOutra), 'A invalidação é por piscina, não global.');
     }
 
     public function test_pool_data_cache(): void
@@ -106,13 +109,10 @@ class CachingIntegrationTest extends TestCase
 
         // Setup cache inicial
         $this->cacheService->cacheAlerts(1, ['alertas' => [], 'totalPiscinas' => 1, 'conformesHoje' => 0], 5);
-        $this->cacheService->cacheGraphData($pool->id, ['modo' => 'mono'], 30);
         $this->cacheService->cachePoolData('full', ['piscinas' => []], 10);
 
         // Verificar que estão em cache
         $this->assertNotNull($this->cacheService->getAlerts(1));
-        // O gráfico foi guardado sem 'series' → hash de [] (igual ao usado por cacheGraphData).
-        $this->assertNotNull($this->cacheService->getGraphData($pool->id, md5(json_encode([])) ?: ''));
         $this->assertNotNull($this->cacheService->getPoolData('full'));
 
         // Criar novo DailyRecord (observer deve invalidar cache)
@@ -134,26 +134,6 @@ class CachingIntegrationTest extends TestCase
         // (implementação completa requer tabela stock_installations)
 
         $this->assertTrue(true);
-    }
-
-    public function test_cache_pattern_invalidation(): void
-    {
-        $pool1 = Pool::factory()->create();
-        $pool2 = Pool::factory()->create();
-
-        // Guardar gráficos de ambas as piscinas
-        $this->cacheService->cacheGraphData($pool1->id, ['modo' => 'mono'], 30);
-        $this->cacheService->cacheGraphData($pool2->id, ['modo' => 'mono'], 30);
-
-        // Verificar que estão em cache
-        $hash = md5(json_encode([]) ?: '');
-        $this->assertNotNull($this->cacheService->getGraphData($pool1->id, $hash));
-        $this->assertNotNull($this->cacheService->getGraphData($pool2->id, $hash));
-
-        // Invalidar todas as piscinas (não funciona com array cache, mas verifica API)
-        $this->cacheService->invalidateAllGraphs();
-
-        $this->assertTrue(true); // Test passed if no exceptions
     }
 
     public function test_database_cache_pattern_invalidation_clears_all_alerts(): void

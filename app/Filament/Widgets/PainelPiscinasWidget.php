@@ -45,11 +45,6 @@ class PainelPiscinasWidget extends Widget
 
     private const ORP_MAX = 750;
 
-    /** Proxy de cloro conforme via ORP, usado só no cálculo agregado de "conformes" (não no cartão). */
-    private const ORP_CLORO_MIN = 680;
-
-    private const ORP_CLORO_MAX = 820;
-
     protected function getViewData(): array
     {
         // Cache: 10 min TTL para dados do painel (valores + estado).

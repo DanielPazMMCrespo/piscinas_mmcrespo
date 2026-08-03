@@ -35,23 +35,8 @@ class TapAlert extends Model
         return $this->belongsTo(Pool::class, 'pool_id');
     }
 
-    public function openedRecord(): BelongsTo
-    {
-        return $this->belongsTo(DailyRecord::class, 'opened_record_id');
-    }
-
-    public function resolvedRecord(): BelongsTo
-    {
-        return $this->belongsTo(DailyRecord::class, 'resolved_record_id');
-    }
-
     public function openedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'opened_by');
-    }
-
-    public function resolvedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'resolved_by');
     }
 }

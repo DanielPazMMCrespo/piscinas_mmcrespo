@@ -399,7 +399,11 @@ class CloroPhChartWidget extends Widget implements HasForms
         $rightIsSensor = isset($metricas[$rightKey]['sensor_campo']);
         $canCache = ! $this->isShortPeriod() && ! $leftIsSensor && ! $rightIsSensor;
 
-        $cacheKey = "chart_v3_{$this->poolSelecionada}_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
+        // Prefixo cache_graph_{pool_id}_ obrigatório: é o padrão que o
+        // CacheService::invalidateGraphCache() apaga quando entra um registo novo
+        // (DailyRecordObserver) ou a piscina muda. Com a chave antiga (chart_v3_*)
+        // a invalidação não acertava em nada e o gráfico ficava 10 min desatualizado.
+        $cacheKey = "cache_graph_{$this->poolSelecionada}_v3_{$leftKey}_{$rightKey}_{$this->period}_{$this->customStartDate}_{$this->customEndDate}";
 
         if ($canCache) {
             $cached = Cache::get($cacheKey);

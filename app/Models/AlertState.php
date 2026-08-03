@@ -12,8 +12,6 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AlertState extends Model
 {
-    public const STATUS = ['pendente', 'em_curso', 'resolvido', 'resolvido_auto'];
-
     protected $fillable = ['alert_key', 'status', 'payload', 'moved_by', 'moved_at'];
 
     protected $casts = [

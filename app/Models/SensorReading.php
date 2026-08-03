@@ -30,9 +30,4 @@ class SensorReading extends Model
     {
         return $this->belongsTo(Pool::class, 'pool_id');
     }
-
-    public function hannaDevice(): BelongsTo
-    {
-        return $this->belongsTo(HannaDevice::class, 'hanna_device_id', 'hanna_device_id');
-    }
 }

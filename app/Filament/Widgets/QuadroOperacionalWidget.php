@@ -14,16 +14,17 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Quadro Kanban operacional (topo do dashboard): os alertas exception-first
- * organizados em três colunas — Para tratar / Em tratamento / Resolvido hoje.
+ * Quadro de alertas operacionais (dashboard): lista exception-first dos alertas
+ * ativos + secção colapsável "Resolvidos hoje". Dois estados por alerta,
+ * pendente e resolvido — o Kanban de três colunas com drag-and-drop (SortableJS)
+ * e GSAP foi substituído por esta lista com botões Resolver/Reabrir.
  *
  * Os alertas são calculados (AlertasService); só o estado de tratamento é
  * persistido (AlertState), com chave estável. Quando a condição de um alerta
  * desaparece (ex: o registo em falta foi criado), o cartão passa sozinho
- * para "Resolvido hoje" com a marca "automático".
+ * para "Resolvidos hoje" com a marca "automático".
  *
- * Drag-and-drop (SortableJS) + botões de movimento (fallback mobile);
- * animações GSAP. Visível a todos os roles (o NS só vê alertas de piscinas).
+ * Visível a todos os roles exceto Nadador-Salvador.
  */
 class QuadroOperacionalWidget extends Widget
 {

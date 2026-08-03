@@ -528,25 +528,6 @@ class Definicoes extends Page implements HasForms, HasTable
         }
     }
 
-    public function limparSolicitacao(int $userId): void
-    {
-        if (! $this->podeGerir()) {
-            return;
-        }
-
-        $user = User::find($userId);
-
-        if ($user) {
-            $user->clearPushNotificationRequest();
-
-            Notification::make()
-                ->title('Pedido de ativação limpo')
-                ->body("Solicitação de {$user->name} foi removida.")
-                ->success()
-                ->send();
-        }
-    }
-
     public function enviarManual(): void
     {
         if (! $this->podeGerir()) {

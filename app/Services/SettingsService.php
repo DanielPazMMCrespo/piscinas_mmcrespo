@@ -61,11 +61,6 @@ class SettingsService
         return (int) $this->get($key, $default);
     }
 
-    public function getBool(string $key, bool $default = false): bool
-    {
-        return (bool) $this->get($key, $default);
-    }
-
     public function getArray(string $key, array $default = []): array
     {
         $value = $this->get($key, $default);

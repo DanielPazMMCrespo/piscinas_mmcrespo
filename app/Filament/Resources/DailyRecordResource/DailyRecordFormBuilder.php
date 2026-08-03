@@ -250,7 +250,7 @@ class DailyRecordFormBuilder
 
         $nomes = DailyRecord::query()
             ->whereDate('registado_em', today())
-            ->where('e_correcao', false)
+            ->whereDoesntHave('correcoes')
             ->whereHas('piscina', fn (Builder $q) => $q->where('installation_id', $installationId))
             ->with('piscina:id,name')
             ->get()

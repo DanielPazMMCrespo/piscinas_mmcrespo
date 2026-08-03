@@ -39,8 +39,6 @@ Route::middleware('auth')->group(function (): void {
     // Web Push: subscrição do dispositivo e timers de retrolavagem.
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])
         ->name('push.subscribe');
-    Route::delete('/push/subscribe', [PushSubscriptionController::class, 'destroy'])
-        ->name('push.unsubscribe');
     Route::delete('/push/subscriptions', [PushSubscriptionController::class, 'destroyAll'])
         ->name('push.unsubscribe.all');
     Route::post('/push/timer', [TimerPushController::class, 'store'])

@@ -84,11 +84,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         $this->attributes['name'] = trim("{$firstName} {$lastName}");
     }
 
-    public function hasPin(): bool
-    {
-        return $this->pin !== null;
-    }
-
     public function piscinas(): BelongsToMany
     {
         return $this->belongsToMany(Pool::class, 'user_pools');
@@ -114,11 +109,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         if (! $this->push_notifications_requested_at) {
             $this->update(['push_notifications_requested_at' => now()]);
         }
-    }
-
-    public function clearPushNotificationRequest(): void
-    {
-        $this->update(['push_notifications_requested_at' => null]);
     }
 
     /**

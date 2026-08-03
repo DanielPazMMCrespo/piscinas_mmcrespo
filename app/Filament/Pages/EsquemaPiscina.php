@@ -428,7 +428,7 @@ class EsquemaPiscina extends Page
         $doRegisto = DailyRecord::query()
             ->where('pool_id', $piscina->id)
             ->where('filtro_faz_retrolavagem', true)
-            ->where('e_correcao', false)
+            ->whereDoesntHave('correcoes')
             ->with('utilizador')
             ->latest('registado_em')
             ->limit(5)

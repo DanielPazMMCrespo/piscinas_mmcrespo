@@ -18,18 +18,6 @@ final class AlertLevel
     }
 
     /**
-     * Get all available alert levels as array.
-     */
-    public static function all(): array
-    {
-        return [
-            self::VERMELHO,
-            self::AMARELO,
-            self::NEUTRO,
-        ];
-    }
-
-    /**
      * Get priority weight for sorting (lower = higher priority).
      */
     public static function weight(string $level): int
@@ -40,13 +28,5 @@ final class AlertLevel
             self::NEUTRO => 2,
             default => 99,
         };
-    }
-
-    /**
-     * Check if a level is valid.
-     */
-    public static function isValid(string $level): bool
-    {
-        return in_array($level, self::all(), true);
     }
 }

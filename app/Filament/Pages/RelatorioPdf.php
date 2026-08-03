@@ -139,7 +139,6 @@ class RelatorioPdf extends Page implements HasForms
         }
 
         $registos = DailyRecord::query()
-            ->where('e_correcao', false)
             ->whereDoesntHave('correcoes')
             ->whereBetween('registado_em', [$inicioDt, $fimDt])
             ->whereHas('piscina', function ($q) use ($installationId, $get): void {

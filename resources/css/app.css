@@ -32,8 +32,7 @@
 h1, h2, h3, h4, h5, h6, 
 .fi-header-heading, 
 .fi-ta-header-heading, 
-.fi-section-header-heading,
-.mmc-pool-name {
+.fi-section-header-heading {
     font-family: var(--font-heading) !important;
     letter-spacing: -0.02em;
 }

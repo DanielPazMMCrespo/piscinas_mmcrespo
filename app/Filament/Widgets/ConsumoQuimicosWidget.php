@@ -44,7 +44,7 @@ class ConsumoQuimicosWidget extends Widget
         $piscinas = Pool::query()->where('active', true)->orderBy('installation_id')->orderBy('name')->get();
 
         $linhas = RecordAddition::query()
-            ->whereHas('registoDiario', fn ($q) => $q->where('e_correcao', false)->where('registado_em', '>=', $inicio))
+            ->whereHas('registoDiario', fn ($q) => $q->whereDoesntHave('correcoes')->where('registado_em', '>=', $inicio))
             ->with(['registoDiario:id,pool_id,registado_em'])
             ->get();
 

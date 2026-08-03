@@ -1,31 +1,22 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 namespace App\Constants;
 
 final class IncidentType
 {
     public const AVARIA_EQUIPAMENTO = 'avaria_equipamento';
+
     public const FUGA_AGUA = 'fuga_agua';
+
     public const QUALIDADE_AGUA = 'qualidade_agua';
+
     public const OUTRO = 'outro';
 
     private function __construct()
     {
         // This class cannot be instantiated
-    }
-
-    public static function all(): array
-    {
-        return [
-            self::AVARIA_EQUIPAMENTO,
-            self::FUGA_AGUA,
-            self::QUALIDADE_AGUA,
-            self::OUTRO,
-        ];
-    }
-
-    public static function isValid(string $type): bool
-    {
-        return in_array($type, self::all(), true);
     }
 
     /** @return array<string, string> */

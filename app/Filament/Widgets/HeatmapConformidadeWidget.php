@@ -47,7 +47,7 @@ class HeatmapConformidadeWidget extends Widget
 
         $registos = DailyRecord::query()
             ->whereIn('pool_id', $piscinas->pluck('id'))
-            ->where('e_correcao', false)
+            ->whereDoesntHave('correcoes')
             ->where('registado_em', '>=', $inicio)
             ->with('piscina')
             ->get()

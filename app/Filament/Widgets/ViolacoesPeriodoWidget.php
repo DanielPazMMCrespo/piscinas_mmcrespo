@@ -97,7 +97,6 @@ class ViolacoesPeriodoWidget extends BaseWidget
     private function consulta(): Builder
     {
         $ids = DailyRecord::query()
-            ->where('e_correcao', false)
             ->whereDoesntHave('correcoes')
             ->where('registado_em', '>=', now()->subDays(30))
             ->with('piscina')

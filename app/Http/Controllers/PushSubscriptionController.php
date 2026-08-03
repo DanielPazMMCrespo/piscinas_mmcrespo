@@ -35,17 +35,6 @@ class PushSubscriptionController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function destroy(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'endpoint' => ['required', 'string', 'max:500'],
-        ]);
-
-        $request->user()->deletePushSubscription($data['endpoint']);
-
-        return response()->json(['ok' => true]);
-    }
-
     /**
      * Remove todas as subscrições do utilizador autenticado, mesmo sem o
      * endpoint local (útil quando o browser perdeu a permissão e o JS já não

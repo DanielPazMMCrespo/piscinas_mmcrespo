@@ -7,8 +7,10 @@ import GLightbox from 'glightbox';
 // terceiros carregados em todas as páginas, mesmo nas que não têm fotos.
 window.GLightbox = GLightbox;
 
-// Listener para notificações de timers expirados
-if (typeof Livewire !== 'undefined') {
+// Notificação de timers de retrolavagem expirados. Registado em livewire:init:
+// no momento do import o Livewire ainda não existe, e o guard silencioso que
+// aqui estava fazia com que o listener nunca chegasse a ser registado.
+document.addEventListener('livewire:init', () => {
     Livewire.on('timerExpirou', (event) => {
         const { poolNome, fase, tempoExcedido } = event;
 
@@ -35,7 +37,7 @@ if (typeof Livewire !== 'undefined') {
             setTimeout(() => div.remove(), 8000);
         }
     });
-}
+});
 
 const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -691,7 +693,7 @@ document.addEventListener('alpine:init', () => {
 
             // Envia notificação Filament via Livewire (se disponível)
             if (typeof Livewire !== 'undefined') {
-                Livewire.emit('timerExpirou', {
+                Livewire.dispatch('timerExpirou', {
                     poolNome,
                     fase,
                     tempoExcedido: tempoFormatado,

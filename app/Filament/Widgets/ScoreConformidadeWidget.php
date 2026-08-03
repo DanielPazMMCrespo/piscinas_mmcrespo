@@ -40,7 +40,6 @@ class ScoreConformidadeWidget extends BaseWidget
     protected function getStats(): array
     {
         $registos = DailyRecord::query()
-            ->where('e_correcao', false)
             ->where('registado_em', '>=', now()->subDays($this->dias))
             ->whereDoesntHave('correcoes')
             ->with('piscina')

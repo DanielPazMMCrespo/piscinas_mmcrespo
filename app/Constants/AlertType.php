@@ -24,28 +24,4 @@ final class AlertType
     {
         // This class cannot be instantiated
     }
-
-    /**
-     * Get all available alert types as array.
-     */
-    public static function all(): array
-    {
-        return [
-            self::SEM_REGISTO,
-            self::FORA_LIMITES,
-            self::TEMPERATURA,
-            self::TORNEIRA,
-            self::INCIDENTE,
-            self::STOCK,
-            self::PH_OVERTIME,
-        ];
-    }
-
-    /**
-     * Check if a type is valid.
-     */
-    public static function isValid(string $type): bool
-    {
-        return in_array($type, self::all(), true);
-    }
 }

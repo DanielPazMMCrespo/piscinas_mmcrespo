@@ -41,12 +41,4 @@ final class UserRole
             self::NADADOR_SALVADOR,
         ];
     }
-
-    /**
-     * Check if a role is valid.
-     */
-    public static function isValid(string $role): bool
-    {
-        return in_array($role, self::all(), true);
-    }
 }

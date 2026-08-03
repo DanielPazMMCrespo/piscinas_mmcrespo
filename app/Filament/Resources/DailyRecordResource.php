@@ -49,11 +49,6 @@ class DailyRecordResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
-
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['piscina.instalacao']);
