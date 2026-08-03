@@ -404,30 +404,88 @@ class OperationalActionResource extends Resource
         ])->columns(2);
     }
 
+    private static function tipoIcone(string $tipo): string
+    {
+        return match ($tipo) {
+            OperationalAction::TIPO_LAVAGEM_FILTRO, OperationalAction::TIPO_ENXAGUAMENTO_FILTRO => 'heroicon-o-arrow-path',
+            OperationalAction::TIPO_TORNEIRA => 'heroicon-o-cloud',
+            OperationalAction::TIPO_BOMBA => 'heroicon-o-cog-6-tooth',
+            OperationalAction::TIPO_CONTADOR => 'heroicon-o-calculator',
+            OperationalAction::TIPO_TANQUE => 'heroicon-o-beaker',
+            OperationalAction::TIPO_ANALISE_PONTUAL => 'heroicon-o-clipboard-document-check',
+            OperationalAction::TIPO_REABASTECIMENTO_BIDAO => 'heroicon-o-archive-box',
+            OperationalAction::TIPO_LIMPEZA_PRAIAS => 'heroicon-o-sparkles',
+            OperationalAction::TIPO_ASPIRACAO_FUNDO => 'heroicon-o-arrow-down-circle',
+            OperationalAction::TIPO_TRATAMENTO_CHOQUE => 'heroicon-o-bolt',
+            OperationalAction::TIPO_MANUTENCAO_EQUIPAMENTO => 'heroicon-o-wrench-screwdriver',
+            default => 'heroicon-o-ellipsis-horizontal-circle',
+        };
+    }
+
+    private static function tipoCor(string $tipo): string
+    {
+        return match ($tipo) {
+            OperationalAction::TIPO_TORNEIRA => 'warning',
+            OperationalAction::TIPO_TRATAMENTO_CHOQUE => 'danger',
+            OperationalAction::TIPO_ANALISE_PONTUAL => 'success',
+            OperationalAction::TIPO_REABASTECIMENTO_BIDAO => 'info',
+            default => 'gray',
+        };
+    }
+
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Infolists\Components\TextEntry::make('piscina.nome_completo')->label('Piscina'),
-            Infolists\Components\TextEntry::make('tipo')
-                ->label('Ação')
-                ->badge()
-                ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state),
-            Infolists\Components\TextEntry::make('registado_em')->label('Data e hora')->dateTime('d/m/Y H:i'),
-            Infolists\Components\TextEntry::make('utilizador.name')->label('Responsável'),
-            Infolists\Components\TextEntry::make('valores')
-                ->label('Valores')
-                ->getStateUsing(fn (OperationalAction $record) => $record->dadosFormatados())
-                ->columnSpanFull(),
-            Infolists\Components\TextEntry::make('observacoes')
-                ->label('Observações')
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('tipo')
+                        ->label('Ação')
+                        ->badge()
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large)
+                        ->icon(fn (OperationalAction $record) => self::tipoIcone($record->tipo))
+                        ->color(fn (OperationalAction $record) => self::tipoCor($record->tipo))
+                        ->formatStateUsing(fn (string $state) => OperationalAction::TIPOS[$state] ?? $state),
+                    Infolists\Components\TextEntry::make('registado_em')
+                        ->label('Data e hora')
+                        ->icon('heroicon-o-clock')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('piscina.nome_completo')
+                        ->label('Piscina')
+                        ->icon('heroicon-o-map-pin'),
+                    Infolists\Components\TextEntry::make('utilizador.name')
+                        ->label('Responsável')
+                        ->icon('heroicon-o-user'),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Valores registados')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->schema([
+                    Infolists\Components\TextEntry::make('valores')
+                        ->hiddenLabel()
+                        ->getStateUsing(fn (OperationalAction $record) => $record->dadosFormatados())
+                        ->columnSpanFull(),
+                ]),
+
+            Infolists\Components\Section::make('Observações')
+                ->icon('heroicon-o-chat-bubble-left-right')
                 ->visible(fn ($record) => filled($record->observacoes))
-                ->columnSpanFull(),
-            Infolists\Components\ImageEntry::make('foto')
-                ->label('Foto')
-                ->disk(DailyRecord::getStorageDisk())
+                ->schema([
+                    Infolists\Components\TextEntry::make('observacoes')
+                        ->hiddenLabel()
+                        ->columnSpanFull(),
+                ]),
+
+            Infolists\Components\Section::make('Foto')
+                ->icon('heroicon-o-camera')
                 ->visible(fn ($record) => filled($record->foto))
-                ->columnSpanFull(),
-        ])->columns(2);
+                ->schema([
+                    Infolists\Components\ImageEntry::make('foto')
+                        ->hiddenLabel()
+                        ->disk(DailyRecord::getStorageDisk())
+                        ->columnSpanFull(),
+                ]),
+        ]);
     }
 
     public static function table(Table $table): Table
