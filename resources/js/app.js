@@ -1447,76 +1447,27 @@ const autoRestoreDraftAndShowBanner = async (formKey, component, draftData, save
     });
 };
 
-const askUserToRestoreDraft = (formKey, component, stored) => {
-    if (document.getElementById('mmc-draft-modal')) return;
-
-    // Trava o auto-save enquanto o utilizador decide: sem isto o intervalo
-    // gravava o formulário vazio por cima do rascunho e "Sim, recuperar"
-    // devolvia campos em branco.
-    window.__mmcDraftPromptPending = true;
-
-    const draftData = stored.data;
-    const savedAt = stored.savedAt ?? 0;
-    const savedStep = stored.step;
-    const formattedTime = new Date(savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-
-    const modal = document.createElement('div');
-    modal.id = 'mmc-draft-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300';
-    modal.innerHTML = `
-        <div class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl p-6 transition-all transform scale-100 duration-200">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="p-3 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Recuperar registo anterior?</h3>
-            </div>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                Foi encontrado um rascunho de registo diário preenchido anteriormente às <span class="font-semibold text-gray-700 dark:text-gray-300">${formattedTime}</span>. Deseja recuperar as medições e fotografias para continuar a preencher?
-            </p>
-            <div class="flex items-center justify-end gap-3">
-                <button id="mmc-draft-modal-discard-btn" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer">
-                    Não, descartar
-                </button>
-                <button id="mmc-draft-modal-recover-btn" type="button" style="background-color:#d97706;color:#fff;" class="px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-colors duration-150 cursor-pointer hover:opacity-90">
-                    Sim, recuperar
-                </button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    document.getElementById('mmc-draft-modal-recover-btn').addEventListener('click', async () => {
-        modal.remove();
-        window.__mmcDraftPromptPending = false;
-        const urlParams = new URLSearchParams(window.location.search);
-        if (savedStep && urlParams.get('step') !== savedStep) {
-            localStorage.setItem('mmc_restore_draft_on_load', 'true');
-            urlParams.set('step', savedStep);
-            window.location.href = window.location.pathname + '?' + urlParams.toString();
-        } else {
-            await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
-            if (typeof FilamentNotification !== 'undefined') {
-                new FilamentNotification()
-                    .title('Rascunho recuperado com sucesso!')
-                    .success()
-                    .send();
-            }
-        }
-    });
-
-    document.getElementById('mmc-draft-modal-discard-btn').addEventListener('click', async () => {
-        window.__mmcDraftPromptPending = false;
-        await clearDraftState(formKey);
-        modal.remove();
-        window.location.reload();
-    });
-};
+// Pergunta-se ao SAIR (setupDirtyStateWarning/mostrarModalSairRegisto), não ao
+// voltar: encontrar um rascunho aqui já significa "o utilizador pediu para o
+// guardar", por isso restaura-se sempre em silêncio — sem modal a perguntar
+// outra vez a mesma decisão que já foi tomada.
+//
+// Nota: livewire:navigate só cobre navegação dentro da app (wire:navigate —
+// menu, breadcrumbs, avançar/recuar do browser). Fechar o separador, escrever
+// outro URL ou dar refresh são navegação real do browser: aí só o alerta
+// genérico do beforeunload é possível (limitação do browser), com o autosave
+// contínuo como rede de segurança.
+let dirtyWarningCleanup = null;
 
 const setupDirtyStateWarning = () => {
+    // Sem isto, cada visita SPA a esta página empilhava mais um listener em
+    // window/document (nunca removidos pelo morph do Alpine.navigate) — ao
+    // fim de algumas visitas o modal de saída abriria/fecharia várias vezes.
+    if (dirtyWarningCleanup) {
+        dirtyWarningCleanup();
+        dirtyWarningCleanup = null;
+    }
+
     if (!window.location.pathname.includes('/daily-records/create')) return;
 
     const formEl = document.querySelector('.fi-main form') || document.querySelector('form');
@@ -1535,24 +1486,35 @@ const setupDirtyStateWarning = () => {
         });
     }
 
-    window.addEventListener('beforeunload', (e) => {
+    const onBeforeUnload = (e) => {
         if (window.mmcFormDirty) {
             e.preventDefault();
             e.returnValue = 'Tem alterações não guardadas no registo diário. Tem a certeza que deseja sair?';
             return e.returnValue;
         }
-    });
+    };
 
-    document.addEventListener('livewire:navigate', (e) => {
-        if (window.mmcFormDirty) {
-            const confirmLeave = confirm('Tem alterações não guardadas no registo diário. Tem a certeza que deseja sair?');
-            if (!confirmLeave) {
-                e.preventDefault();
-            } else {
-                window.mmcFormDirty = false;
-            }
-        }
-    });
+    // livewire:navigate é cancelável e síncrono (forwarded de alpine:navigate):
+    // o preventDefault tem de correr já aqui dentro, antes de mostrar o modal —
+    // decidir "guardar ou descartar" é assíncrono, por isso a navegação real só
+    // acontece depois, disparada à mão a partir do próprio modal.
+    const onLivewireNavigate = (e) => {
+        if (!window.mmcFormDirty) return;
+
+        const destino = e.detail?.url ? String(e.detail.url) : null;
+        if (!destino) return;
+
+        e.preventDefault();
+        mostrarModalSairRegisto(destino);
+    };
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('livewire:navigate', onLivewireNavigate);
+
+    dirtyWarningCleanup = () => {
+        window.removeEventListener('beforeunload', onBeforeUnload);
+        document.removeEventListener('livewire:navigate', onLivewireNavigate);
+    };
 };
 
 // Auto-save form draft in localStorage & IndexedDB for Daily Record creation
@@ -1573,6 +1535,95 @@ const clearDraftState = async (formKey) => {
     await clearAllPhotosFromDB();
 };
 
+// Grava imediatamente o estado atual do formulário (não espera pelo debounce de
+// 400ms nem pelo intervalo de 10s do autosave normal) — chamado no instante em
+// que o utilizador escolhe "Guardar e sair", para garantir que o último valor
+// escrito não se perde entre esse clique e a navegação real.
+const forcarGuardarRascunhoAgora = () => {
+    const mainComponentEl = Array.from(document.querySelectorAll('[wire\\:id]'))
+        .find(el => el.querySelector('form') !== null);
+    if (!mainComponentEl || !window.Livewire) return;
+
+    const component = window.Livewire.find(mainComponentEl.getAttribute('wire:id'));
+    const currentData = component?.get('data');
+    if (!currentData) return;
+
+    const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+    const urlParams = new URLSearchParams(window.location.search);
+    const payload = { data: currentData, step: urlParams.get('step'), savedAt: Date.now() };
+    localStorage.setItem(formKey, JSON.stringify(payload));
+    saveDraftToDB(formKey, payload);
+};
+
+// Modal de saída: mostrado quando se tenta navegar para fora de
+// /daily-records/create com o registo a meio. As fotos já vão sendo gravadas
+// ao vivo no IndexedDB pelos listeners do FilePond (setupFormDraftPhotos) —
+// "Guardar" só precisa de persistir os valores; "Descartar" limpa tudo.
+const mostrarModalSairRegisto = (destino) => {
+    if (document.getElementById('mmc-sair-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'mmc-sair-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300';
+    modal.innerHTML = `
+        <div class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl p-6 transition-all transform scale-100 duration-200">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-3 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Sair do registo em preenchimento?</h3>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Este registo diário ainda não foi guardado. Pode guardar o rascunho (valores e fotografias) para continuar mais tarde, ou descartar tudo.
+            </p>
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                <button id="mmc-sair-cancelar" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer">
+                    Cancelar
+                </button>
+                <button id="mmc-sair-descartar" type="button" class="px-4 py-2 text-sm font-semibold rounded-xl text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 border border-red-200 dark:border-red-500/20 transition-colors duration-150 cursor-pointer">
+                    Descartar e sair
+                </button>
+                <button id="mmc-sair-guardar" type="button" style="background-color:#d97706;color:#fff;" class="px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-colors duration-150 cursor-pointer hover:opacity-90">
+                    Guardar rascunho e sair
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const sairAgora = () => {
+        modal.remove();
+        // mmcFormDirty a false antes de navegar: o livewire:navigate desta
+        // navegação (disparada por nós) volta a correr, mas o guard acima
+        // devolve-se logo por não haver alterações por guardar.
+        window.mmcFormDirty = false;
+        if (window.Alpine?.navigate) {
+            window.Alpine.navigate(destino);
+        } else {
+            window.location.href = destino;
+        }
+    };
+
+    document.getElementById('mmc-sair-cancelar').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    document.getElementById('mmc-sair-descartar').addEventListener('click', async () => {
+        const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
+        await clearDraftState(formKey);
+        window.mmcPush?.cancelarTodosTimers();
+        sairAgora();
+    });
+
+    document.getElementById('mmc-sair-guardar').addEventListener('click', () => {
+        forcarGuardarRascunhoAgora();
+        sairAgora();
+    });
+};
+
 // Tracks the listeners/interval from the previous setupFormDraft() call so
 // re-entering this page via Livewire SPA navigation (each wizard step) doesn't
 // stack duplicate document-level listeners and save intervals forever.
@@ -1585,6 +1636,11 @@ const setupFormDraft = () => {
         formDraftCleanup();
         formDraftCleanup = null;
     }
+
+    // Nunca é reposto sozinho: sem isto, restaurar uma vez numa aba (sem F5)
+    // desliga o restore para sempre nas visitas seguintes a esta página nessa
+    // aba — inclui voltar depois de "Guardar e sair" na mesma sessão.
+    window.__mmcDraftRestored = false;
 
     const findAndRestore = async () => {
         // Find the main Livewire component container that actually contains the form
@@ -1616,35 +1672,32 @@ const setupFormDraft = () => {
             stored = await getDraftFromDB(formKey);
         }
 
-        const forceRestore = localStorage.getItem('mmc_restore_draft_on_load') === 'true';
-
         if (stored && stored.data) {
             const draftData = stored.data;
             const savedAt = stored.savedAt ?? 0;
+            const savedStep = stored.step;
             const expired = Date.now() - savedAt > DRAFT_TTL_MS;
 
             if (expired) {
-                localStorage.removeItem(formKey);
-                await deleteDraftFromDB(formKey);
+                await clearDraftState(formKey);
             } else if (draftData && Object.keys(draftData).length > 0 && !window.__mmcDraftRestored) {
-                if (forceRestore) {
-                    localStorage.removeItem('mmc_restore_draft_on_load');
+                const urlParams = new URLSearchParams(window.location.search);
+                if (savedStep && urlParams.get('step') !== savedStep) {
+                    // O passo do wizard vem da query string (persistStepInQueryString);
+                    // sem estar no passo certo o Alpine monta o wizard no passo 1 e o
+                    // restore cai em campos escondidos. Navega para lá primeiro; o
+                    // findAndRestore volta a correr no load seguinte e já restaura direto.
                     window.__mmcDraftRestored = true;
-                    await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
+                    urlParams.set('step', savedStep);
+                    window.location.href = window.location.pathname + '?' + urlParams.toString();
                 } else {
                     window.__mmcDraftRestored = true;
-                    askUserToRestoreDraft(formKey, component, stored);
+                    await autoRestoreDraftAndShowBanner(formKey, component, draftData, savedAt);
                 }
             }
         }
 
         const saveDraft = async () => {
-            // Enquanto o modal "Recuperar registo anterior?" está aberto, gravar
-            // apagava o rascunho que o utilizador está a decidir se quer.
-            if (window.__mmcDraftPromptPending) {
-                return;
-            }
-
             const currentData = component.get('data');
             if (currentData && Object.keys(currentData).length > 0 && temAlgumValorPreenchido(currentData)) {
                 const urlParams = new URLSearchParams(window.location.search);

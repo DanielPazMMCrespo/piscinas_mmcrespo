@@ -166,7 +166,11 @@ self.addEventListener('notificationclick', (event) => {
             for (const aba of abas) {
                 if ('focus' in aba) {
                     await aba.focus();
-                    if ('navigate' in aba && destino) {
+                    // Só navega se o separador não estiver já no destino — navegar
+                    // para o mesmo URL ainda recarrega a página e apaga um registo
+                    // diário a meio de preenchimento (era o próprio bug reportado).
+                    const jaNoDestino = new URL(aba.url).pathname === new URL(destino, self.location.origin).pathname;
+                    if (!jaNoDestino && 'navigate' in aba && destino) {
                         try { await aba.navigate(destino); } catch (e) { /* origem diferente: ignora */ }
                     }
                     return;
