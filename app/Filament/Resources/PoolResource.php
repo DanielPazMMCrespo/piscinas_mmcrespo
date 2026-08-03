@@ -8,6 +8,8 @@ use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -98,6 +100,69 @@ class PoolResource extends Resource
                     ->default(true)
                     ->required(),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('name')
+                        ->label('Piscina')
+                        ->icon('heroicon-o-view-columns')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\IconEntry::make('active')
+                        ->label('Ativo')
+                        ->boolean(),
+                    Infolists\Components\TextEntry::make('instalacao.name')
+                        ->label('Instalação')
+                        ->icon('heroicon-o-building-office-2'),
+                    Infolists\Components\TextEntry::make('type')
+                        ->label('Tipo')
+                        ->badge(),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Parâmetros')
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->schema([
+                    Infolists\Components\TextEntry::make('volume')
+                        ->label('Volume')
+                        ->icon('heroicon-o-cube')
+                        ->suffix(' m³')
+                        ->placeholder('—'),
+                    Infolists\Components\TextEntry::make('temp_min')
+                        ->label('Temp. mínima')
+                        ->icon('heroicon-o-fire')
+                        ->suffix(' ºC'),
+                    Infolists\Components\TextEntry::make('temp_max')
+                        ->label('Temp. máxima')
+                        ->icon('heroicon-o-fire')
+                        ->suffix(' ºC'),
+                    Infolists\Components\TextEntry::make('orp_min')
+                        ->label('ORP mínimo')
+                        ->suffix(' mV')
+                        ->placeholder('660 (padrão)'),
+                    Infolists\Components\TextEntry::make('orp_max')
+                        ->label('ORP máximo')
+                        ->suffix(' mV')
+                        ->placeholder('750 (padrão)'),
+                ])
+                ->columns(3),
+
+            Infolists\Components\Section::make('Registo')
+                ->icon('heroicon-o-clock')
+                ->collapsed()
+                ->schema([
+                    Infolists\Components\TextEntry::make('created_at')
+                        ->label('Criado em')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('updated_at')
+                        ->label('Atualizado em')
+                        ->dateTime('d/m/Y H:i'),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

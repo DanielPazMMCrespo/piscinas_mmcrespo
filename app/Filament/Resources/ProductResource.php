@@ -11,6 +11,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -97,6 +99,46 @@ class ProductResource extends Resource
                     ->default(true)
                     ->required(),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('name')
+                        ->label('Produto')
+                        ->icon('heroicon-o-beaker')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\IconEntry::make('active')
+                        ->label('Ativo')
+                        ->boolean(),
+                    Infolists\Components\TextEntry::make('categoria')
+                        ->label('Categoria')
+                        ->badge()
+                        ->placeholder('—'),
+                    Infolists\Components\TextEntry::make('unidade')
+                        ->label('Unidade de medida'),
+                    Infolists\Components\TextEntry::make('concentracao_cl')
+                        ->label('Concentração de cloro ativo')
+                        ->suffix('%')
+                        ->placeholder('—'),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Registo')
+                ->icon('heroicon-o-clock')
+                ->collapsed()
+                ->schema([
+                    Infolists\Components\TextEntry::make('created_at')
+                        ->label('Criado em')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('updated_at')
+                        ->label('Atualizado em')
+                        ->dateTime('d/m/Y H:i'),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

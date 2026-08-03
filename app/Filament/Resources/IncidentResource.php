@@ -20,6 +20,8 @@ use Filament\Forms;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -62,11 +64,6 @@ class IncidentResource extends Resource
     protected static ?string $pluralModelLabel = 'Incidentes';
 
     protected static ?int $navigationSort = 2;
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -223,6 +220,92 @@ class IncidentResource extends Resource
                             ->columnSpanFull(),
                     ]),
             ]);
+    }
+
+    private static function tipoIcone(?string $type): string
+    {
+        return match ($type) {
+            IncidentType::AVARIA_EQUIPAMENTO => 'heroicon-o-wrench-screwdriver',
+            IncidentType::FUGA_AGUA => 'heroicon-o-cloud',
+            IncidentType::QUALIDADE_AGUA => 'heroicon-o-beaker',
+            default => 'heroicon-o-ellipsis-horizontal-circle',
+        };
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('type')
+                        ->label('Tipo')
+                        ->badge()
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large)
+                        ->icon(fn (?string $state) => self::tipoIcone($state))
+                        ->formatStateUsing(fn (?string $state): string => IncidentType::label($state)),
+                    Infolists\Components\TextEntry::make('status')
+                        ->label('Estado')
+                        ->badge()
+                        ->formatStateUsing(fn (?string $state): string => $state === IncidentStatus::RESOLVIDO ? 'Resolvido' : 'Aberto')
+                        ->color(fn (?string $state): string => $state === IncidentStatus::RESOLVIDO ? 'success' : 'danger')
+                        ->icon(fn (?string $state): string => $state === IncidentStatus::RESOLVIDO ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-circle'),
+                    Infolists\Components\TextEntry::make('ocorreu_em')
+                        ->label('Ocorreu em')
+                        ->icon('heroicon-o-clock')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('utilizador.name')
+                        ->label('Reportado por')
+                        ->icon('heroicon-o-user'),
+                    Infolists\Components\TextEntry::make('instalacao.name')
+                        ->label('Instalação')
+                        ->icon('heroicon-o-building-office-2'),
+                    Infolists\Components\TextEntry::make('piscina.name')
+                        ->label('Piscina')
+                        ->icon('heroicon-o-map-pin')
+                        ->visible(fn (?Incident $record) => filled($record?->pool_id)),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Descrição')
+                ->icon('heroicon-o-document-text')
+                ->schema([
+                    Infolists\Components\TextEntry::make('descricao')
+                        ->hiddenLabel()
+                        ->columnSpanFull(),
+                    Infolists\Components\TextEntry::make('observacoes')
+                        ->label('Observações')
+                        ->visible(fn (?Incident $record) => filled($record?->observacoes))
+                        ->columnSpanFull(),
+                ]),
+
+            Infolists\Components\Section::make('Fotos')
+                ->icon('heroicon-o-camera')
+                ->visible(fn (?Incident $record) => filled($record?->fotos))
+                ->schema([
+                    Infolists\Components\ImageEntry::make('fotos')
+                        ->hiddenLabel()
+                        ->disk(DailyRecord::getStorageDisk())
+                        ->imageSize(320)
+                        ->columnSpanFull(),
+                ]),
+
+            Infolists\Components\Section::make('Resolução')
+                ->icon('heroicon-o-check-circle')
+                ->visible(fn (?Incident $record): bool => $record?->status === IncidentStatus::RESOLVIDO)
+                ->schema([
+                    Infolists\Components\TextEntry::make('resolvido_em')
+                        ->label('Resolvido em')
+                        ->icon('heroicon-o-clock')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('resolvidoPor.name')
+                        ->label('Resolvido por')
+                        ->icon('heroicon-o-user'),
+                    Infolists\Components\TextEntry::make('resolucao')
+                        ->label('Resolução aplicada')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

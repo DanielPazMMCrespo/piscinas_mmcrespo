@@ -11,6 +11,8 @@ use App\Models\User;
 use Filament\Actions\StaticAction;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -192,6 +194,75 @@ class UserResource extends Resource
                         || self::rolesIncluemNS($get))
                     ->helperText('Secções visíveis para este nadador salvador. Sem seleção, não vê nada.'),
             ]);
+    }
+
+    private static function roleLabel(string $role): string
+    {
+        return match ($role) {
+            UserRole::ADMIN => 'Admin',
+            UserRole::GESTOR => 'Gestor',
+            UserRole::TECNICO => 'Técnico',
+            UserRole::NADADOR_SALVADOR => 'Nadador-Salvador',
+            UserRole::INATIVO => 'Inativo',
+            default => $role,
+        };
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('full_name')
+                        ->label('Nome')
+                        ->icon('heroicon-o-user')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\TextEntry::make('roles.name')
+                        ->label('Cargo')
+                        ->badge()
+                        ->formatStateUsing(fn (string $state): string => self::roleLabel($state)),
+                    Infolists\Components\TextEntry::make('email')
+                        ->label('E-mail')
+                        ->icon('heroicon-o-envelope'),
+                    Infolists\Components\TextEntry::make('phone')
+                        ->label('Telefone')
+                        ->icon('heroicon-o-phone')
+                        ->placeholder('—'),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Piscinas atribuídas')
+                ->icon('heroicon-o-view-columns')
+                ->visible(fn (User $record) => $record->piscinas->isNotEmpty())
+                ->schema([
+                    Infolists\Components\TextEntry::make('piscinas.name')
+                        ->hiddenLabel()
+                        ->badge(),
+                ]),
+
+            Infolists\Components\Section::make('O que este utilizador consegue ver')
+                ->icon('heroicon-o-eye')
+                ->visible(fn (User $record) => $record->hasRole(UserRole::NADADOR_SALVADOR))
+                ->schema([
+                    Infolists\Components\TextEntry::make('ns_permissions')
+                        ->hiddenLabel()
+                        ->badge()
+                        ->formatStateUsing(fn (string $state): string => NSPermission::labels()[$state] ?? $state),
+                ]),
+
+            Infolists\Components\Section::make('Registo')
+                ->icon('heroicon-o-clock')
+                ->collapsed()
+                ->schema([
+                    Infolists\Components\TextEntry::make('created_at')
+                        ->label('Criado em')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('updated_at')
+                        ->label('Atualizado em')
+                        ->dateTime('d/m/Y H:i'),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

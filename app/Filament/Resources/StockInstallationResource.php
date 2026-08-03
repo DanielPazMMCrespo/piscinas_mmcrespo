@@ -11,6 +11,8 @@ use App\Services\StockService;
 use DomainException;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -98,6 +100,31 @@ class StockInstallationResource extends Resource
                     ->minValue(0)
                     ->default(0),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('produto.name')
+                        ->label('Produto')
+                        ->icon('heroicon-o-beaker')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\TextEntry::make('instalacao.name')
+                        ->label('Instalação')
+                        ->icon('heroicon-o-building-office-2'),
+                    Infolists\Components\TextEntry::make('quantity')
+                        ->label('Quantidade atual')
+                        ->badge()
+                        ->color(fn (StockInstallation $record): string => (float) $record->quantity <= (float) $record->limite_minimo ? 'danger' : 'success')
+                        ->formatStateUsing(fn ($state, StockInstallation $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->produto?->unidade ?? '')),
+                    Infolists\Components\TextEntry::make('limite_minimo')
+                        ->label('Alerta de stock baixo')
+                        ->formatStateUsing(fn ($state, StockInstallation $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->produto?->unidade ?? '')),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

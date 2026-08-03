@@ -12,6 +12,8 @@ use App\Services\StockService;
 use DomainException;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -91,6 +93,29 @@ class StockWarehouseResource extends Resource
                     ->minValue(0)
                     ->default(0),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('produto.name')
+                        ->label('Produto')
+                        ->icon('heroicon-o-beaker')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\TextEntry::make('produto.categoria')
+                        ->label('Categoria')
+                        ->badge()
+                        ->placeholder('—'),
+                    Infolists\Components\TextEntry::make('quantity')
+                        ->label('Quantidade em armazém')
+                        ->badge()
+                        ->color('info')
+                        ->formatStateUsing(fn ($state, StockWarehouse $record): string => number_format((float) $state, 3, ',', ' ').' '.($record->produto?->unidade ?? '')),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table

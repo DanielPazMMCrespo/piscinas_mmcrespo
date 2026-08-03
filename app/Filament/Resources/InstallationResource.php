@@ -8,6 +8,8 @@ use App\Filament\Resources\InstallationResource\Pages;
 use App\Models\Installation;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -51,6 +53,41 @@ class InstallationResource extends Resource
                     ->default(true)
                     ->required(),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make()
+                ->schema([
+                    Infolists\Components\TextEntry::make('name')
+                        ->label('Nome')
+                        ->icon('heroicon-o-building-office-2')
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\IconEntry::make('active')
+                        ->label('Ativo')
+                        ->boolean(),
+                    Infolists\Components\TextEntry::make('morada')
+                        ->label('Morada')
+                        ->icon('heroicon-o-map-pin')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+
+            Infolists\Components\Section::make('Registo')
+                ->icon('heroicon-o-clock')
+                ->collapsed()
+                ->schema([
+                    Infolists\Components\TextEntry::make('created_at')
+                        ->label('Criado em')
+                        ->dateTime('d/m/Y H:i'),
+                    Infolists\Components\TextEntry::make('updated_at')
+                        ->label('Atualizado em')
+                        ->dateTime('d/m/Y H:i'),
+                ])
+                ->columns(2),
+        ]);
     }
 
     public static function table(Table $table): Table
