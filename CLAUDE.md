@@ -65,7 +65,7 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 - `app/Filament/Resources/DailyRecordResource/CLAUDE.md`, `IncidentResource/CLAUDE.md`, `OperationalActionResource/CLAUDE.md`
 - `app/Filament/Resources/StockWarehouseResource/CLAUDE.md` (+ StockService), `StockInstallationResource/CLAUDE.md`, `ProductResource/CLAUDE.md`, `DosingContainerResource/CLAUDE.md`, `StockWarehouseLogResource/CLAUDE.md`, `StockInstallationLogResource/CLAUDE.md`
 - `app/Filament/Resources/UserResource/CLAUDE.md`, `UserInvitationResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
-- `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `esquema-piscina.md`, `notificacoes.md`, `relatorio-pdf.md`, `auth-login.md`
+- `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `encerramentos.md`, `esquema-piscina.md`, `notificacoes.md`, `relatorio-pdf.md`, `auth-login.md`
 
 ## Operação
 - **Registo Diário** (`DailyRecordResource`): página núcleo, uso diário. Registos Diários e Incidentes estão os dois na sidebar (o `OperacaoHub` que servia de ecrã de escolha foi apagado — estava escondido da navegação e sem nenhum link a apontar-lhe). Semáforo de conformidade em tempo real por campo, smart defaults (última piscina/bomba/água/tanque), adições de químicos descontam stock da instalação.
