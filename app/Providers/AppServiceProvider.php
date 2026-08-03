@@ -7,15 +7,22 @@ namespace App\Providers;
 use App\Http\Responses\LoginResponse;
 use App\Listeners\LogUserAuthentication;
 use App\Models\DailyRecord;
+use App\Models\DosingContainerLog;
 use App\Models\Incident;
 use App\Models\OperationalAction;
 use App\Models\StockInstallation;
+use App\Models\StockInstallationLog;
+use App\Models\StockWarehouseLog;
 use App\Observers\DailyRecordObserver;
 use App\Observers\IncidentObserver;
+use App\Observers\MovimentoStockObserver;
 use App\Observers\OperationalActionObserver;
 use App\Observers\StockInstallationObserver;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -56,8 +63,17 @@ class AppServiceProvider extends ServiceProvider
         Incident::observe(IncidentObserver::class);
         OperationalAction::observe(OperationalActionObserver::class);
 
+        // Espelha os movimentos de stock/bidões no activity_log, para a página
+        // de auditoria ser a linha do tempo completa.
+        StockWarehouseLog::observe(MovimentoStockObserver::class);
+        StockInstallationLog::observe(MovimentoStockObserver::class);
+        DosingContainerLog::observe(MovimentoStockObserver::class);
+
         Event::listen(Login::class, [LogUserAuthentication::class, 'handleLogin']);
         Event::listen(Logout::class, [LogUserAuthentication::class, 'handleLogout']);
+        Event::listen(Failed::class, [LogUserAuthentication::class, 'handleFailed']);
+        Event::listen(Lockout::class, [LogUserAuthentication::class, 'handleLockout']);
+        Event::listen(PasswordReset::class, [LogUserAuthentication::class, 'handlePasswordReset']);
 
         // Sem isto, uma falha de envio WebPush (endpoint inválido, encoding
         // errado, etc.) não deixava rasto nenhum — nem log, nem admin visível.

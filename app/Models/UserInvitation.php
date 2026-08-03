@@ -6,9 +6,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class UserInvitation extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'email',
         'role',
@@ -24,6 +28,15 @@ class UserInvitation extends Model
         'accepted_at' => 'datetime',
         'expires_at' => 'datetime',
     ];
+
+    /** `token` fica de fora de propósito: o hash não tem valor de auditoria e não deve circular. */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['email', 'role', 'pool_ids', 'invited_by_id', 'accepted_at', 'expires_at'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     public function invitedBy(): BelongsTo
     {

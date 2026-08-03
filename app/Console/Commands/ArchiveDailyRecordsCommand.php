@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\Auditoria;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -161,12 +162,23 @@ class ArchiveDailyRecordsCommand extends Command
                 'executed_at' => now()->toDateTimeString(),
             ]);
 
+            // Registos saem da tabela principal: o auditor tem de ver quando e
+            // quantos, senão um buraco no livro sanitário fica inexplicável.
+            Auditoria::sistema("Arquivamento de registos diários: {$archivedCount} registo(s) movidos para o arquivo.", [
+                'arquivados' => $archivedCount,
+                'data_corte' => $cutoffDate->toDateString(),
+                'older_than_days' => (int) $this->option('older-than'),
+            ]);
+
             return 0;
         } catch (\Exception $e) {
             $this->error("Archival failed: {$e->getMessage()}");
             Log::error('Daily records archival failed', [
                 'error' => $e->getMessage(),
                 'executed_at' => now()->toDateTimeString(),
+            ]);
+            Auditoria::sistema('Arquivamento de registos diários falhou.', [
+                'erro' => $e->getMessage(),
             ]);
 
             return 1;

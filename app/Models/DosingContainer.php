@@ -15,6 +15,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * Bidão de reagente (cloro ou pH-) do controlador de uma piscina.
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\Notification;
  */
 class DosingContainer extends Model
 {
+    use LogsActivity;
+
     public const TIPO_CLORO = 'cloro';
 
     public const TIPO_PH_MENOS = 'ph_menos';
@@ -44,6 +48,19 @@ class DosingContainer extends Model
         'reabastecido_em' => 'datetime',
         'alerta_notificado_em' => 'datetime',
     ];
+
+    /**
+     * Só configuração. `restante_ml` desce a cada sync da Hanna (15 min) e
+     * inundaria o trilho de auditoria — o consumo real vive em
+     * `dosing_container_logs`, espelhado no activity log pelo observer.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['pool_id', 'product_id', 'tipo', 'capacidade_ml', 'alerta_percent'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     public function piscina(): BelongsTo
     {

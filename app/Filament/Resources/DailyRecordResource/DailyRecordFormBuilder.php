@@ -17,6 +17,7 @@ use App\Models\StockWarehouse;
 use App\Models\StockWarehouseLog;
 use App\Services\DosageCalculatorService;
 use App\Services\SourceSelectionService;
+use App\Support\Auditoria;
 use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -1015,6 +1016,16 @@ class DailyRecordFormBuilder
                                                             });
 
                                                             if ($insuficiente) {
+                                                                Auditoria::registar(
+                                                                    Auditoria::CANAL_STOCK,
+                                                                    'Transferência de stock recusada: quantidade insuficiente no armazém.',
+                                                                    [
+                                                                        'produto_id' => $productId,
+                                                                        'instalacao' => $installation->name,
+                                                                        'pedido' => $pedido,
+                                                                    ],
+                                                                );
+
                                                                 Notification::make()
                                                                     ->danger()
                                                                     ->title('Stock insuficiente no armazém')

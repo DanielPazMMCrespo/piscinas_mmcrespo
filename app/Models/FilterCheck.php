@@ -7,10 +7,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class FilterCheck extends Model
 {
     use HasFactory;
+    use LogsActivity;
 
     protected $fillable = [
         'pool_id', 'user_id', 'verificado_em', 'tipo_operacao',
@@ -27,5 +30,13 @@ class FilterCheck extends Model
     public function utilizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

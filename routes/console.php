@@ -23,6 +23,13 @@ Schedule::command('archive:daily-records --older-than=365')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Poda do trilho de auditoria. A retenção (730 dias) está em config/activitylog.php.
+// Sem isto a tabela activity_log cresce sem limite — nada lá é apagado de outra forma.
+Schedule::command('activitylog:clean')
+    ->weeklyOn(1, '04:30')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Processamento da fila 'daily-records', 'sensor-sync' e 'default' a cada minuto.
 // Não existe um serviço Railway dedicado a queue:work — isto aproveita o scheduler já ativo
 // para processar as filas. Se o volume crescer, considerar um worker dedicado.

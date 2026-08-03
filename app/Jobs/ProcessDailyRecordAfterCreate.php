@@ -11,6 +11,7 @@ use App\Models\StockInstallationLog;
 use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\NaoConformidadeNotification;
+use App\Support\Auditoria;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -176,6 +177,17 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
         if ($insuficientes === []) {
             return;
         }
+
+        Auditoria::registar(
+            Auditoria::CANAL_STOCK,
+            'Consumo registado com stock insuficiente na instalação.',
+            [
+                'instalacao' => $registo->piscina?->instalacao?->name,
+                'produtos' => array_values(array_unique($insuficientes)),
+            ],
+            alvo: $registo,
+            autor: $registo->utilizador,
+        );
 
         // Quem submeteu tem de saber que o stock não cobriu o consumo: só os
         // admins eram avisados e o técnico via apenas "Registo guardado!".

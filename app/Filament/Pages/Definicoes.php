@@ -13,6 +13,7 @@ use App\Notifications\PedidoAtivacaoPushNotification;
 use App\Notifications\TesteNotificacaoPush;
 use App\Services\CacheService;
 use App\Services\SettingsService;
+use App\Support\Auditoria;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -274,11 +275,27 @@ class Definicoes extends Page implements HasForms, HasTable
 
         $data = $this->form->getState();
 
+        // Estado anterior capturado antes do loop: os limites regulamentares
+        // CN 14/DA mudam aqui e uma alteração destas tem de ficar auditável.
+        // AppSetting não entra no trilho por trait — a PK é uma string e a
+        // coluna `subject_id` do activity_log é inteira.
+        $antes = AppSetting::all()->pluck('value', 'key')->all();
+        $alteracoes = [];
+
         foreach ($data as $key => $value) {
+            $anterior = $antes[$key] ?? null;
+            $novo = ($value === null || $value === '' || $value === []) ? null : $value;
+
+            // Comparação frouxa de propósito: o form devolve '6.9' onde a BD
+            // tem 6.9 — com === todo o Guardar apareceria como alteração.
+            if ($anterior != $novo) {
+                $alteracoes[$key] = ['de' => $anterior, 'para' => $novo];
+            }
+
             // Campo deixado em branco significa "usar o valor padrão", não "gravar
             // vazio": apagar a linha faz o SettingsService cair no default do
             // código. Gravar '' punha os limites regulamentares a zero.
-            if ($value === null || $value === '' || $value === []) {
+            if ($novo === null) {
                 AppSetting::where('key', $key)->delete();
 
                 continue;
@@ -302,6 +319,15 @@ class Definicoes extends Page implements HasForms, HasTable
 
         app(CacheService::class)->invalidatePoolData();
         app(CacheService::class)->invalidateAllAlerts();
+
+        if ($alteracoes !== []) {
+            Auditoria::registar(
+                Auditoria::CANAL_DEFINICOES,
+                'Alterou as definições do sistema ('.count($alteracoes).' '.(count($alteracoes) === 1 ? 'campo' : 'campos').').',
+                ['old' => array_map(fn (array $d) => $d['de'], $alteracoes),
+                    'attributes' => array_map(fn (array $d) => $d['para'], $alteracoes)],
+            );
+        }
 
         Notification::make()
             ->title('Definições atualizadas')

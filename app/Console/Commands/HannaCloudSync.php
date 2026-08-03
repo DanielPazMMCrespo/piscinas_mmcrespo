@@ -16,6 +16,7 @@ use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
+use App\Support\Auditoria;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -53,6 +54,9 @@ class HannaCloudSync extends Command
         } catch (\Throwable $e) {
             $this->error('Falha na autenticação: '.$e->getMessage());
             Log::error('HannaCloudSync auth: '.$e->getMessage());
+            Auditoria::sistema('Sincronização Hanna falhou: autenticação recusada.', [
+                'erro' => $e->getMessage(),
+            ]);
 
             return self::FAILURE;
         }
@@ -86,6 +90,7 @@ class HannaCloudSync extends Command
         }
 
         $sincronizados = 0;
+        $falhas = [];
 
         foreach ($devices as $device) {
             try {
@@ -153,6 +158,7 @@ class HannaCloudSync extends Command
             } catch (\Throwable $e) {
                 $this->error("  ✗ {$device->name}: ".$e->getMessage());
                 Log::error("HannaCloudSync [{$device->hanna_device_id}]: ".$e->getMessage());
+                $falhas[$device->name] = $e->getMessage();
             }
 
             // Desconto do volume doseado nos bidões (independente da leitura acima).
@@ -163,6 +169,15 @@ class HannaCloudSync extends Command
                     Log::warning("HannaCloudSync dosagem [{$device->hanna_device_id}]: ".$e->getMessage());
                 }
             }
+        }
+
+        // Só o ciclo com falhas entra no trilho: um sync bem-sucedido a cada
+        // 15 min encheria a auditoria de ruído sem valor nenhum.
+        if ($falhas !== []) {
+            Auditoria::sistema(
+                'Sincronização Hanna com falhas em '.count($falhas).' de '.$devices->count().' sonda(s).',
+                ['sondas' => $falhas],
+            );
         }
 
         $this->info("Sync concluído: {$sincronizados} leitura(s) novas.");
