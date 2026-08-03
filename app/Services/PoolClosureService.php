@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Constants\MotivoEncerramento;
+use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Models\Pool;
 use App\Models\PoolClosure;
 use App\Models\TapAlert;
 use App\Models\User;
+use App\Notifications\PiscinaEncerradaNotification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Encerrar e reabrir piscinas, e responder à pergunta "esta piscina estava
@@ -73,6 +76,8 @@ class PoolClosureService
                 $this->resolverPendentes($piscina, $utilizador);
             }
 
+            $this->notificar($encerramento, $piscina);
+
             return $encerramento;
         });
     }
@@ -130,6 +135,8 @@ class PoolClosureService
                 'reaberta_por' => $utilizador->id,
                 'reaberta_em' => Carbon::now(),
             ]);
+
+            $this->notificar($encerramento, $encerramento->piscina, reaberta: true);
 
             return $encerramento;
         });
@@ -238,6 +245,39 @@ class PoolClosureService
                 });
             })
             ->exists();
+    }
+
+    /**
+     * Admin, gestor e técnico, mais os nadadores-salvadores desta piscina — que
+     * são quem deixa (ou volta) a ter registos diários para fazer.
+     */
+    private function notificar(PoolClosure $encerramento, ?Pool $piscina, bool $reaberta = false): void
+    {
+        if ($piscina === null) {
+            return;
+        }
+
+        // whereHas em vez do scope role() do spatie: esse lança RoleDoesNotExist
+        // se o cargo não existir na BD, e encerrar uma piscina não deve falhar
+        // por causa de quem havia para notificar.
+        $destinatarios = User::query()
+            ->where(function ($query) use ($piscina): void {
+                $query
+                    ->whereHas('roles', fn ($q) => $q->whereIn('name', [
+                        UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO,
+                    ]))
+                    ->orWhereHas('piscinas', fn ($q) => $q->where('pools.id', $piscina->id));
+            })
+            ->get();
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        Notification::send(
+            $destinatarios,
+            new PiscinaEncerradaNotification($encerramento, $piscina->nome_completo, $reaberta),
+        );
     }
 
     private function resolverPendentes(Pool $piscina, User $utilizador): void

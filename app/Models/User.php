@@ -156,6 +156,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'comparacao_semanal' => ['push' => true, 'mail' => false],
             'relatorio_mensal' => ['push' => true, 'mail' => false],
             'escalacao_incidente' => ['push' => true, 'mail' => false],
+            'piscina_encerrada' => ['push' => true, 'mail' => false],
         ];
 
         return $prefs[$key][$canal] ?? $defaults[$key][$canal] ?? false;

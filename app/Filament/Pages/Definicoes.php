@@ -337,6 +337,7 @@ class Definicoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Torneira Aberta', 'torneira_aberta', 'Alerta quando uma torneira de reposição se mantém aberta além do limite.'),
                             $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
                             $this->getSingleNotificationItemSchema('Resumo de Fim de Turno', 'resumo_turno', 'Resumo operacional do turno, nos horários configurados.'),
+                            $this->getSingleNotificationItemSchema('Piscina Encerrada ou Reaberta', 'piscina_encerrada', 'Aviso quando uma piscina é encerrada (fim de época, obra, avaria) ou volta à operação.'),
                         ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),

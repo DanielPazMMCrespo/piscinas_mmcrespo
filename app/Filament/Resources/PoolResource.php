@@ -168,6 +168,7 @@ class PoolResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('encerramentos'))
             ->columns([
                 Tables\Columns\TextColumn::make('instalacao.name')
                     ->label('Instalação')
@@ -195,6 +196,26 @@ class PoolResource extends Resource
                 Tables\Columns\IconColumn::make('active')
                     ->label('Ativo')
                     ->boolean(),
+                Tables\Columns\TextColumn::make('estado_operacional')
+                    ->label('Estado')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        Pool::ESTADO_ENCERRADA => 'Encerrada',
+                        Pool::ESTADO_DESATIVADA => 'Desativada',
+                        default => 'Aberta',
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        Pool::ESTADO_ENCERRADA => 'warning',
+                        Pool::ESTADO_DESATIVADA => 'gray',
+                        default => 'success',
+                    })
+                    ->description(fn (Pool $record): ?string => $record->encerramentoEm()?->motivo_label)
+                    // 'active = false' sem encerramento datado é um estado legado:
+                    // esconde a piscina de tudo, incluindo do passado, o que o
+                    // livro sanitário não pode ter.
+                    ->tooltip(fn (Pool $record): ?string => ! $record->active && ! $record->estaEncerradaEm()
+                        ? 'Desativada sem período datado. Para um fecho temporário, use Operação → Encerramentos: mantém o histórico e justifica os dias sem registos no livro sanitário.'
+                        : null),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime('d/m/Y H:i')
