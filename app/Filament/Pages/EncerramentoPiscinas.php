@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Constants\MotivoEncerramento;
 use App\Constants\UserRole;
+use App\Filament\Widgets\HistoricoEncerramentosWidget;
 use App\Models\Pool;
 use App\Models\PoolClosure;
 use App\Services\PoolClosureService;
@@ -63,6 +64,19 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
     private static function podeEncerrar(): bool
     {
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]) ?? false;
+    }
+
+    /**
+     * A tabela de cima mostra o estado atual por piscina; o histórico completo
+     * (o log dos encerramentos) fica por baixo, no mesmo ecrã.
+     *
+     * @return array<int, class-string>
+     */
+    protected function getFooterWidgets(): array
+    {
+        return [
+            HistoricoEncerramentosWidget::class,
+        ];
     }
 
     public function table(Table $table): Table
