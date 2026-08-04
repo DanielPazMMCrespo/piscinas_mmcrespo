@@ -202,6 +202,7 @@ class PainelPiscinasWidget extends Widget
 
         // Histórico para os gráficos (Sparklines)
         $historicoSensores = SensorReading::query()
+            ->select('hanna_device_id', 'lida_em', 'ph', 'orp', 'temperatura_agua')
             ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
             ->where('lida_em', '>=', now()->subHours(24))
             ->orderByDesc('lida_em')
@@ -209,6 +210,7 @@ class PainelPiscinasWidget extends Widget
             ->groupBy('hanna_device_id');
 
         $historicoRegistos = DailyRecord::query()
+            ->select('id', 'pool_id', 'registado_em', 'ph_efetivo', 'cloro_livre_efetivo', 'cloro_combinado', 'temperatura_efetivo', 'transparencia')
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->where('registado_em', '>=', now()->subDays(14))
             ->orderByDesc('registado_em')

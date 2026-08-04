@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Constants\PaginaGestor;
 use App\Constants\WaterQualityThresholds;
 use App\Models\DailyRecord;
 use App\Models\Installation;
@@ -86,7 +87,11 @@ class RelatorioPdf extends Page implements HasForms
     /** Admin, técnico e gestor: o gestor é destinatário do relatório mensal. */
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']);
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole(['admin', 'tecnico', 'gestor'])
+            && $user->podeVerPagina(PaginaGestor::RELATORIO_PDF);
     }
 
     public function mount(): void
@@ -344,11 +349,8 @@ class RelatorioPdf extends Page implements HasForms
      * renderiza o PDF (A4 landscape), numera as páginas via canvas dompdf
      * e devolve o ficheiro por streamDownload.
      */
-    public function exportar(): ?StreamedResponse
+    public function exportar(): void
     {
-        ini_set('memory_limit', '1024M');
-        set_time_limit(240);
-
         $estado = $this->form->getState();
 
         $inicio = Carbon::parse((string) $estado['data_inicio'])->startOfDay();
@@ -361,7 +363,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->danger()
                 ->send();
 
-            return null;
+            return;
         }
 
         if ($inicio->isFuture() || $fim->isFuture()) {
@@ -371,7 +373,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->danger()
                 ->send();
 
-            return null;
+            return;
         }
 
         $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
@@ -408,68 +410,16 @@ class RelatorioPdf extends Page implements HasForms
                 ->warning()
                 ->send();
 
-            return null;
+            return;
         }
 
-        $modo = $estado['registo_modo'] ?? 'todos';
-        $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
-        $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
+        \App\Jobs\GerarLivroSanitarioJob::dispatch(auth()->user(), $estado);
 
-        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $modo, $modoControlador);
-
-        $pdf = Pdf::loadView('pdf.livro-sanitario', [
-            'instalacao' => $instalacao,
-            'seccoes' => $seccoes,
-            'inicio' => $inicio,
-            'fim' => $fim,
-            'emitidoEm' => now(),
-            'emitidoPor' => auth()->user()?->name,
-            'colunasVisiveis' => $colunasVisiveis,
-            'seccoesVisiveis' => $seccoesVisiveis,
-            'modo' => $modo,
-            'controladorModo' => $estado['controlador_modo'] ?? 'media_diaria',
-        ])->setPaper('a4', 'landscape');
-
-        // Numeração "Página X de Y": render explícito no objeto Dompdf e
-        // page_text no canvas ANTES de extrair o output (script PHP inline
-        // do dompdf está desativado por omissão — esta é a via suportada).
-        $domPdf = $pdf->getDomPDF();
-        $domPdf->render();
-
-        $canvas = $domPdf->getCanvas();
-        $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
-        $canvas->page_text(
-            $canvas->get_width() - 130,
-            $canvas->get_height() - 26,
-            'Página {PAGE_NUM} de {PAGE_COUNT}',
-            $fonte,
-            7.0,
-            [0, 0, 0],
-        );
-
-        $conteudo = (string) $domPdf->output();
-
-        $nomePiscina = $todas
-            ? 'todas'
-            : Str::slug((string) $piscinas->first()?->name);
-
-        $nomeFicheiro = sprintf(
-            'livro-sanitario_%s_%s_%s_%s.pdf',
-            Str::slug($instalacao->name),
-            $nomePiscina,
-            $inicio->format('Y-m-d'),
-            $fim->format('Y-m-d'),
-        );
-
-        activity('relatorio')
-            ->causedBy(auth()->user())
-            ->log("Gerou relatório PDF: {$nomeFicheiro}");
-
-        return response()->streamDownload(
-            fn () => print ($conteudo),
-            $nomeFicheiro,
-            ['Content-Type' => 'application/pdf'],
-        );
+        Notification::make()
+            ->title('Relatório em processamento')
+            ->body('O documento está a ser gerado em segundo plano. Receberá uma notificação (no ícone do sino) quando estiver pronto.')
+            ->success()
+            ->send();
     }
 
     /**

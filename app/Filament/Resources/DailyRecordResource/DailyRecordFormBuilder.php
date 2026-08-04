@@ -152,6 +152,7 @@ class DailyRecordFormBuilder
                 'mensagem' => 'Sonda: pH '.$fmt((float) $sonda->ph).' (Δ '.($delta >= 0 ? '+' : '−').$fmt(abs($delta)).')'
                     .($aviso ? ' — diverge da sonda, confirme a medição' : ''),
                 'aviso' => $aviso,
+                'delta' => $delta,
             ];
         }
 
@@ -163,6 +164,7 @@ class DailyRecordFormBuilder
                 'mensagem' => 'Sonda: '.$fmt((float) $sonda->temperatura_agua, 1).' °C (Δ '.($delta >= 0 ? '+' : '−').$fmt(abs($delta), 1).')'
                     .($aviso ? ' — diverge da sonda, confirme a medição' : ''),
                 'aviso' => $aviso,
+                'delta' => $delta,
             ];
         }
 
@@ -177,6 +179,7 @@ class DailyRecordFormBuilder
                 'mensagem' => 'Sonda: ORP '.$fmt($orp, 0).' mV'
                     .($aviso ? ' — desinfeção na gama da piscina; confirme a medição antes de corrigir' : ''),
                 'aviso' => $aviso,
+                'delta' => null,
             ];
         }
 
@@ -435,8 +438,29 @@ class DailyRecordFormBuilder
     private static function comSemaforo(Forms\Components\TextInput $campo, string $metrica, Pool $pool): Forms\Components\TextInput
     {
         return $campo
-            ->live()
+            ->live(onBlur: true)
             ->extraInputAttributes(['inputmode' => 'decimal'])
+            ->suffix(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?HtmlString {
+                $val = $get($campo->getName());
+                if (! filled($val)) {
+                    return null;
+                }
+
+                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
+                if ($sonda === null || !array_key_exists('delta', $sonda) || $sonda['delta'] === null) {
+                    return null;
+                }
+
+                $corBg = $sonda['aviso'] ? 'bg-danger-100 text-danger-700 dark:bg-danger-900/50 dark:text-danger-300 ring-1 ring-danger-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700';
+                $icon = $sonda['delta'] > 0 ? '↑' : '↓';
+                
+                return new HtmlString("
+                    <span class='inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md {$corBg} shadow-sm' title='Diferença face à sonda'>
+                        <span>{$icon}</span>
+                        <span>" . number_format(abs($sonda['delta']), 2, ',', '') . "</span>
+                    </span>
+                ");
+            })
             ->hint(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?string {
                 $val = $get($campo->getName());
                 if (! filled($val)) {
@@ -462,7 +486,7 @@ class DailyRecordFormBuilder
                 }
 
                 $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
-                if ($sonda !== null) {
+                if ($sonda !== null && (!array_key_exists('delta', $sonda) || $sonda['delta'] === null)) {
                     $msg = ($msg ? $msg.' | ' : '').$sonda['mensagem'];
                 }
 
@@ -601,13 +625,7 @@ class DailyRecordFormBuilder
                     $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
 
-                    $stepBombas = Forms\Components\Wizard\Step::make('Bombas e contadores')
-                        ->icon('heroicon-o-bolt')
-                        ->schema(
-                            $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->schema([
+                    $bombasSchema = fn (Pool $pool) => [
                                     Forms\Components\Toggle::make('bomba_ferrada')
                                         ->id("bomba_ferrada_{$pool->id}")
                                         ->label('Bomba ferrada')
@@ -651,18 +669,9 @@ class DailyRecordFormBuilder
                                         self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
                                         self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
                                     ]),
-                                ])->columns(['default' => 2, 'sm' => 3, 'lg' => 4])
-                            )->toArray()
-                        );
+                                ];
 
-                    $stepTanques = Forms\Components\Wizard\Step::make('Tanques')
-                        ->icon('heroicon-o-beaker')
-                        ->visible((bool) $installation->tanques_verificaveis)
-                        ->schema(
-                            $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->schema([
+                    $tanquesSchema = fn (Pool $pool) => [
                                     Forms\Components\Toggle::make('tanque_ok')
                                         ->id("tanque_ok_{$pool->id}")
                                         ->label('Tanque OK')->default(true),
@@ -672,17 +681,9 @@ class DailyRecordFormBuilder
                                     self::fotosSection([
                                         self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
                                     ]),
-                                ])
-                            )->toArray()
-                        );
+                                ];
 
-                    $stepLavagem = Forms\Components\Wizard\Step::make('Lavagem filtros')
-                        ->icon('heroicon-o-funnel')
-                        ->schema(
-                            $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->schema([
+                    $lavagemSchema = fn (Pool $pool) => [
                                     Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
                                         ->label('Histórico de Retrolavagens')
                                         ->content(function () use ($pool): HtmlString {
@@ -706,7 +707,7 @@ class DailyRecordFormBuilder
                                         ->label('Pressão do Filtro (bar)')
                                         ->numeric()
                                         ->step(0.05)
-                                        ->live(debounce: 500)
+                                        ->live(onBlur: true)
                                         ->helperText(function (Get $get): ?string {
                                             $val = $get('pressao_filtro');
                                             if (blank($val)) {
@@ -739,18 +740,9 @@ class DailyRecordFormBuilder
                                     self::fotosSection([
                                         self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
                                     ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                                ])
-                            )->toArray()
-                        );
+                                ];
 
-                    $stepEnxaguamento = Forms\Components\Wizard\Step::make('Enxaguamento')
-                        ->icon('heroicon-o-funnel')
-                        ->schema(
-                            $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
-                                ->schema([
+                    $enxaguamentoSchema = fn (Pool $pool) => [
                                     Forms\Components\ViewField::make('timer_enxaguamento')
                                         ->id("timer_enxaguamento_{$pool->id}")
                                         ->view('filament.timer-retrolavagem')
@@ -758,39 +750,23 @@ class DailyRecordFormBuilder
                                     self::fotosSection([
                                         self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
                                     ]),
-                                ])
-                            )->toArray()
-                        );
+                                ];
 
-                    $stepPosicaoNormal = Forms\Components\Wizard\Step::make('Posição normal')
-                        ->icon('heroicon-o-funnel')
-                        ->schema(
-                            $poolsByFiltros->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"))
-                                ->schema([
+                    $posicaoNormalSchema = fn (Pool $pool) => [
                                     ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
-                                ])
-                            )->toArray()
-                        );
+                                ];
 
-                    $stepNS = Forms\Components\Wizard\Step::make($modoRapido ? 'Registo Rápido' : 'Nadadores-salvadores')
-                        ->icon($modoRapido ? 'heroicon-o-bolt' : 'heroicon-o-users')
-                        ->schema([
-                            Forms\Components\TimePicker::make('hora_colheita')
-                                ->label('Hora da colheita')
-                                ->helperText('Hora oficial do registo. Recue-a se a colheita foi mais cedo — a comparação com a sonda usa a leitura mais próxima desta hora.')
-                                ->seconds(false)
-                                ->default(now())
-                                ->live(onBlur: true),
-                            // A foto do quadro é a evidência do NS; para o técnico é
-                            // opcional (custa 1 toque + upload em 4G por nada).
-                            ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', self::isNS(), 'ns_foto_global'),
-                            ...$poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->schema([
+                    $globaisSchema = [
+                        Forms\Components\TimePicker::make('hora_colheita')
+                            ->label('Hora da colheita')
+                            ->helperText('Hora oficial do registo. Recue-a se a colheita foi mais cedo — a comparação com a sonda usa a leitura mais próxima desta hora.')
+                            ->seconds(false)
+                            ->default(now())
+                            ->live(onBlur: true),
+                        ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', self::isNS(), 'ns_foto_global'),
+                    ];
+
+                    $nsSchema = fn (Pool $pool) => [
                                     Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
                                         ->hiddenLabel()
                                         ->columnSpanFull()
@@ -855,17 +831,9 @@ class DailyRecordFormBuilder
                                         ->required(fn (Get $get) => self::algumValorZero($get))
                                         ->visible(fn (Get $get) => self::algumValorZero($get))
                                         ->columnSpanFull(),
-                                ])->columns(['default' => 2, 'sm' => 4])
-                            )->toArray(),
-                        ]);
+                                ];
 
-                    $stepObservacoes = Forms\Components\Wizard\Step::make('Observações')
-                        ->icon('heroicon-o-chat-bubble-bottom-center-text')
-                        ->schema(
-                            $poolsByBombas->map(fn (Pool $pool) => Forms\Components\Fieldset::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->extraAttributes(['data-pools-fieldset' => $pool->id])
-                                ->schema([
+                    $observacoesSchema = fn (Pool $pool, $installation) => [
                                     Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
                                         ->hiddenLabel()
                                         ->content(function (Get $get) use ($pool) {
@@ -886,7 +854,7 @@ class DailyRecordFormBuilder
                                             if (filled($cl)) {
                                                 $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
                                                 if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
-                                                    $prod = $doseCl['produto']?->name ?? 'Cloro';
+                                                    $prod = e($doseCl['produto']?->name ?? 'Cloro');
                                                     $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseCl['dose_formatada']}</strong> de <em>{$prod}</em>";
                                                 }
                                             }
@@ -1062,27 +1030,55 @@ class DailyRecordFormBuilder
                                         ->addActionLabel('Adicionar químico')
                                         ->columns(['default' => 1, 'sm' => 2]),
                                     Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
-                                ])
-                            )->toArray()
-                        );
+                                ];
 
-                    $steps = match (true) {
-                        self::isNS() => [$stepNS],
-                        $modoRapido => [$stepNS, $stepObservacoes],
-                        default => [
-                            $stepBombas,
-                            $stepTanques,
-                            $stepLavagem,
-                            $stepEnxaguamento,
-                            $stepPosicaoNormal,
-                            $stepNS,
-                            $stepObservacoes,
-                        ],
-                    };
+                    $tabs = Forms\Components\Tabs::make('Piscinas')->tabs(
+                        $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $posicaoNormalSchema, $nsSchema, $observacoesSchema) {
+                            $sections = [];
 
-                    return [
-                        Forms\Components\Wizard::make($steps)->skippable()->persistStepInQueryString(),
-                    ];
+                            if (!self::isNS() && !$modoRapido) {
+                                $sections[] = Forms\Components\Section::make('Bombas e contadores')
+                                    ->schema($bombasSchema($pool))
+                                    ->columns(['default' => 2, 'sm' => 3, 'lg' => 4]);
+                                
+                                if ((bool) $installation->tanques_verificaveis) {
+                                    $sections[] = Forms\Components\Section::make('Tanques')
+                                        ->schema($tanquesSchema($pool));
+                                }
+                                
+                                if ($poolsByFiltros->contains('id', $pool->id)) {
+                                    $sections[] = Forms\Components\Section::make('Lavagem filtros')
+                                        ->schema($lavagemSchema($pool));
+                                    
+                                    $sections[] = Forms\Components\Section::make('Enxaguamento')
+                                        ->schema($enxaguamentoSchema($pool))
+                                        ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
+                                    
+                                    $sections[] = Forms\Components\Section::make('Posição normal')
+                                        ->schema($posicaoNormalSchema($pool))
+                                        ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
+                                }
+                            }
+
+                            $sections[] = Forms\Components\Section::make($modoRapido ? 'Registo Rápido' : 'Análises')
+                                ->schema($nsSchema($pool))
+                                ->columns(['default' => 2, 'sm' => 4]);
+                            
+                            if (!self::isNS()) {
+                                $sections[] = Forms\Components\Section::make('Químicos e Observações')
+                                    ->schema($observacoesSchema($pool, $installation));
+                            }
+
+                            return Forms\Components\Tabs\Tab::make($pool->name)
+                                ->statePath("pools.{$pool->id}")
+                                ->schema($sections);
+                        })->toArray()
+                    )->columnSpanFull();
+
+                    return array_merge(
+                        [Forms\Components\Section::make('Dados Globais')->schema($globaisSchema)->columns(['default' => 1, 'sm' => 2])],
+                        [$tabs]
+                    );
                 }),
         ])->columns(1);
     }
