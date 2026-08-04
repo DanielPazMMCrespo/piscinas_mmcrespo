@@ -134,8 +134,9 @@ class DailyRecordResource extends Resource
         // Normalizar termo para inteiro se for numérico (aceita "02" ou "2")
         $termoInt = is_numeric($termo) ? (int) $termo : null;
 
-        $recordsData = static::getModel()
-            ->query()
+        $modelClass = static::getModel();
+
+        $recordsData = $modelClass::query()
             ->with(['piscina.instalacao', 'utilizador'])
             ->latest('registado_em')
             ->limit(500)
