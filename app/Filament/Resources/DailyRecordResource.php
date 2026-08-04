@@ -134,6 +134,11 @@ class DailyRecordResource extends Resource
         // Normalizar termo para inteiro se for numérico (aceita "02" ou "2")
         $termoInt = is_numeric($termo) ? (int) $termo : null;
 
+        // Extrai o dia de "dia 2", "dia 02", "registo dia 2" — \b evita que "dia 2"
+        // dê falso positivo em "dia 21".
+        preg_match('/\bdia\s+0*(\d{1,2})\b/', $termo, $matches);
+        $diaDoTermo = isset($matches[1]) ? (int) $matches[1] : null;
+
         $modelClass = static::getModel();
 
         $recordsData = $modelClass::query()
@@ -141,13 +146,13 @@ class DailyRecordResource extends Resource
             ->latest('registado_em')
             ->limit(500)
             ->get()
-            ->filter(function (DailyRecord $record) use ($termo, $termoInt): bool {
+            ->filter(function (DailyRecord $record) use ($termo, $termoInt, $diaDoTermo): bool {
                 $diaInt = (int) $record->registado_em->format('j');
 
-                // Match: "2", "02" (ambos normalizam para int), "dia 2", "2-08"
+                // Match: "2", "02" (ambos normalizam para int), "registo dia 2", "2-08"
                 return ($termoInt !== null && $termoInt === $diaInt)
-                    || $termo === 'dia '.((string) $diaInt)
-                    || str_starts_with($record->registado_em->format('j-m'), $termo);
+                    || $diaDoTermo === $diaInt
+                    || str_contains($termo, $record->registado_em->format('j-m'));
             })
             ->take($space)
             ->map(fn (DailyRecord $record): GlobalSearchResult => new GlobalSearchResult(
@@ -160,7 +165,9 @@ class DailyRecordResource extends Resource
             ))
             ->values();
 
-        return $results->merge($recordsData);
+        // $results é uma Eloquent Collection (herdada do ->get() do parent) e o seu
+        // merge() assume Models com getKey() — quebra com GlobalSearchResult.
+        return collect($results)->merge($recordsData);
     }
 
     public static function canDelete($record): bool
