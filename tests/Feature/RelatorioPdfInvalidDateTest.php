@@ -106,7 +106,9 @@ class RelatorioPdfInvalidDateTest extends TestCase
 
         // O período é ajustado para 7 dias e o relatório é gerado no mesmo clique
         // (antes o 1º clique só reescrevia a data e não gerava nada).
-        $this->assertNotNull($component->instance()->exportar());
+        \Illuminate\Support\Facades\Bus::fake();
+        $component->instance()->exportar();
+        \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\GerarLivroSanitarioJob::class);
         $this->assertEquals($expectedEndDate, $component->get('data.data_fim'));
     }
 }
