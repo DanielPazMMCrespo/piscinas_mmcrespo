@@ -182,9 +182,7 @@ class RelatorioPdfFineCombTest extends TestCase
             'e_correcao' => false,
         ]);
 
-        \Illuminate\Support\Facades\Bus::fake();
-
-        Livewire::actingAs($this->admin)
+        $instance = Livewire::actingAs($this->admin)
             ->test(RelatorioPdf::class)
             ->fillForm([
                 'installation_id' => $this->installation->id,
@@ -192,9 +190,17 @@ class RelatorioPdfFineCombTest extends TestCase
                 'data_inicio' => now()->subDays(5)->toDateString(),
                 'data_fim' => now()->subDays(1)->toDateString(),
             ])
-            ->call('exportar');
+            ->instance();
 
-        \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\GerarLivroSanitarioJob::class);
+        // Let's call exportar manually on the component instance to assert the file response headers.
+        $streamResponse = $instance->exportar();
+        $this->assertNotNull($streamResponse);
+
+        $contentDisposition = $streamResponse->headers->get('Content-Disposition');
+        $this->assertStringContainsString('attachment;', $contentDisposition);
+        // Slug check: complexo-aquatico-de-teste-leiria-at-2026 (due to '@' in name)
+        $this->assertStringContainsString('complexo-aquatico-de-teste-leiria-at-2026', $contentDisposition);
+        $this->assertStringContainsString('lazer', $contentDisposition);
     }
 
     /**
@@ -320,10 +326,11 @@ class RelatorioPdfFineCombTest extends TestCase
             ->call('exportar');
 
         $response->assertHasNoFormErrors();
+        $streamResponse = $response->instance()->exportar();
+        $this->assertNotNull($streamResponse);
 
-        \Illuminate\Support\Facades\Bus::fake();
-        $response->instance()->exportar();
-        \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\GerarLivroSanitarioJob::class);
+        // Let's render the view to inspect output in media_diaria mode
+        $seccoes = $response->instance()->exportar()->original ?? null;
         // Wait, streamDownload returns a StreamedResponse which doesn't directly return the view parameters easily.
         // We can mimic the mapping logic inside exportar() and render it:
         $registos = $this->poolLazer->registosDiarios()

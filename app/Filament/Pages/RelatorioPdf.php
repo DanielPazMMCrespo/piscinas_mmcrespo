@@ -349,7 +349,7 @@ class RelatorioPdf extends Page implements HasForms
      * renderiza o PDF (A4 landscape), numera as páginas via canvas dompdf
      * e devolve o ficheiro por streamDownload.
      */
-    public function exportar(): void
+    public function exportar(): ?StreamedResponse
     {
         $estado = $this->form->getState();
 
@@ -363,7 +363,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->danger()
                 ->send();
 
-            return;
+            return null;
         }
 
         if ($inicio->isFuture() || $fim->isFuture()) {
@@ -373,7 +373,7 @@ class RelatorioPdf extends Page implements HasForms
                 ->danger()
                 ->send();
 
-            return;
+            return null;
         }
 
         $instalacao = Installation::query()->findOrFail((int) $estado['installation_id']);
@@ -410,16 +410,61 @@ class RelatorioPdf extends Page implements HasForms
                 ->warning()
                 ->send();
 
-            return;
+            return null;
         }
 
-        \App\Jobs\GerarLivroSanitarioJob::dispatch(auth()->user(), $estado);
+        ini_set('memory_limit', '1024M');
 
-        Notification::make()
-            ->title('Relatório em processamento')
-            ->body('O documento está a ser gerado em segundo plano. Receberá uma notificação (no ícone do sino) quando estiver pronto.')
-            ->success()
-            ->send();
+        $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
+        $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
+
+        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $estado['registo_modo'] ?? 'todos', $modoControlador);
+
+        $pdf = Pdf::loadView('pdf.livro-sanitario', [
+            'instalacao' => $instalacao,
+            'seccoes' => $seccoes,
+            'inicio' => $inicio,
+            'fim' => $fim,
+            'emitidoEm' => now(),
+            'emitidoPor' => auth()->user()->name,
+            'colunasVisiveis' => $colunasVisiveis,
+            'seccoesVisiveis' => $seccoesVisiveis,
+            'modo' => $estado['registo_modo'] ?? 'todos',
+            'controladorModo' => $modoControlador,
+        ])->setPaper('a4', 'landscape');
+
+        $domPdf = $pdf->getDomPDF();
+        $domPdf->render();
+
+        $canvas = $domPdf->getCanvas();
+        $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
+        $canvas->page_text(
+            $canvas->get_width() - 130,
+            $canvas->get_height() - 26,
+            'Página {PAGE_NUM} de {PAGE_COUNT}',
+            $fonte,
+            7.0,
+            [0, 0, 0],
+        );
+
+        $nomePiscina = $todas ? 'todas' : Str::slug((string) $piscinas->first()?->name);
+        $nomeFicheiro = sprintf(
+            'livro-sanitario_%s_%s_%s_%s.pdf',
+            Str::slug($instalacao->name),
+            $nomePiscina,
+            $inicio->format('Y-m-d'),
+            $fim->format('Y-m-d')
+        );
+
+        activity('relatorio')
+            ->causedBy(auth()->user())
+            ->log("Exportou relatório PDF: {$nomeFicheiro}");
+
+        return response()->streamDownload(
+            fn () => print($domPdf->output()),
+            $nomeFicheiro,
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     /**
