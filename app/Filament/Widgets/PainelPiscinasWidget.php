@@ -202,6 +202,7 @@ class PainelPiscinasWidget extends Widget
 
         // Histórico para os gráficos (Sparklines)
         $historicoSensores = SensorReading::query()
+            ->select('hanna_device_id', 'lida_em', 'ph', 'orp', 'temperatura_agua')
             ->whereIn('hanna_device_id', $sondas->pluck('hanna_device_id'))
             ->where('lida_em', '>=', now()->subHours(24))
             ->orderByDesc('lida_em')
@@ -209,6 +210,15 @@ class PainelPiscinasWidget extends Widget
             ->groupBy('hanna_device_id');
 
         $historicoRegistos = DailyRecord::query()
+            // Colunas reais: *_efetivo e cloro_combinado são accessors (manual ?? NS),
+            // não colunas — pô-los num select() rebenta a query em PostgreSQL.
+            ->select(
+                'id', 'pool_id', 'registado_em', 'transparencia',
+                'ph', 'ns_ph',
+                'cloro_livre', 'ns_cloro_livre',
+                'cloro_total', 'ns_cloro_total',
+                'temperatura', 'ns_temperatura',
+            )
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->where('registado_em', '>=', now()->subDays(14))
             ->orderByDesc('registado_em')
