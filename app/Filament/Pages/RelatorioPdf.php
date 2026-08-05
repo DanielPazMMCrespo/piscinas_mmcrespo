@@ -489,7 +489,7 @@ class RelatorioPdf extends Page implements HasForms
             fputcsv($saida, ['Piscina', 'Data/Hora', 'Técnico', 'pH', 'Cloro livre', 'Cloro total', 'Cloro combinado', 'Temperatura', 'Turbidez', 'Contador (m³)', 'Banhistas', 'Conforme'], ';');
 
             foreach ($registos as $registo) {
-                fputcsv($saida, [
+                fputcsv($saida, array_map(self::sanitizarCelulaCsv(...), [
                     $registo->piscina?->name,
                     $registo->registado_em->format('d/m/Y H:i'),
                     $registo->utilizador?->name,
@@ -502,11 +502,30 @@ class RelatorioPdf extends Page implements HasForms
                     $registo->contador_valor,
                     $registo->banhistas,
                     empty($registo->listarViolacoes()) ? 'Sim' : 'Não',
-                ], ';');
+                ]), ';');
             }
 
             fclose($saida);
         }, $nomeFicheiro, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Prefixa aspa simples em células que comecem por = + - @ ou TAB/CR — sem
+     * isto, Excel/LibreOffice interpretam o valor como fórmula (CSV injection),
+     * e um nome de utilizador ou piscina controlado por quem tem convite pode
+     * levar a execução de comandos em quem abrir o export.
+     */
+    private static function sanitizarCelulaCsv(mixed $valor): mixed
+    {
+        if (! is_string($valor) || $valor === '') {
+            return $valor;
+        }
+
+        if (preg_match('/^[=+\-@\t\r]/', $valor) === 1) {
+            return "'".$valor;
+        }
+
+        return $valor;
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\PaginaGestor;
 use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
@@ -53,7 +54,11 @@ class StockInstallationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole(['admin', 'tecnico', 'gestor'])
+            && $user->podeVerPagina(PaginaGestor::STOCK_INSTALACAO);
     }
 
     public static function canDelete($record): bool

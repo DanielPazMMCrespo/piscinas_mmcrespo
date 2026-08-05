@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\PaginaGestor;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
 use Filament\Forms;
@@ -35,7 +36,11 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole(['admin', 'tecnico', 'gestor'])
+            && $user->podeVerPagina(PaginaGestor::PRODUTOS);
     }
 
     /** @return array<string> */

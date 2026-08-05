@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OfflineSyncController;
 use App\Http\Controllers\PasswordChangeController;
+use App\Http\Controllers\PoolAccessController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TimerPushController;
+use App\Http\Middleware\RequirePasswordChange;
 use Illuminate\Support\Facades\Route;
 
 // A app é o painel Filament — a raiz vai direta para lá.
@@ -29,11 +31,17 @@ Route::post('/convite/accept', [InvitationController::class, 'store'])
     ->name('invitation.store')
     ->middleware('throttle:10,1');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', RequirePasswordChange::class])->group(function (): void {
     Route::get('/primeiro-acesso', [PasswordChangeController::class, 'show'])
         ->name('password-change.show');
     Route::post('/primeiro-acesso', [PasswordChangeController::class, 'store'])
         ->name('password-change.store')
+        ->middleware('throttle:5,1');
+
+    Route::get('/piscinas-encerradas', [PoolAccessController::class, 'show'])
+        ->name('pool-access.show');
+    Route::post('/piscinas-encerradas/pedir-acesso', [PoolAccessController::class, 'store'])
+        ->name('pool-access.store')
         ->middleware('throttle:5,1');
 
     // Web Push: subscrição do dispositivo e timers de retrolavagem.

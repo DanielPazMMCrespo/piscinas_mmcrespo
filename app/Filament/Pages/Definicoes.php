@@ -364,6 +364,7 @@ class Definicoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Nível Baixo nos Bidões', 'dosing_low', 'Aviso quando o nível estimado de produto químico no bidão está baixo.'),
                             $this->getSingleNotificationItemSchema('Resumo de Fim de Turno', 'resumo_turno', 'Resumo operacional do turno, nos horários configurados.'),
                             $this->getSingleNotificationItemSchema('Piscina Encerrada ou Reaberta', 'piscina_encerrada', 'Aviso quando uma piscina é encerrada (fim de época, obra, avaria) ou volta à operação.'),
+                            $this->getSingleNotificationItemSchema('Pedido de Acesso (piscina encerrada)', 'pedido_acesso', 'Aviso quando um nadador-salvador bloqueado pede acesso à app.'),
                         ])
                         ->collapsible()
                         ->visible(fn () => ! auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)),
@@ -493,6 +494,10 @@ class Definicoes extends Page implements HasForms, HasTable
 
     public function getUsuariosNotificacoes(): Collection
     {
+        if (! $this->podeGerir()) {
+            return collect();
+        }
+
         return User::query()
             ->with('roles')
             ->withCount('pushSubscriptions')
@@ -511,6 +516,10 @@ class Definicoes extends Page implements HasForms, HasTable
 
     public function getUsuariosLista(): array
     {
+        if (! $this->podeGerir()) {
+            return [];
+        }
+
         return User::query()
             ->orderBy('name')
             ->pluck('name', 'id')

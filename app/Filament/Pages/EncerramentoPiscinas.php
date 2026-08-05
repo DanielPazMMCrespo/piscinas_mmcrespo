@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Constants\MotivoEncerramento;
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Filament\Widgets\HistoricoEncerramentosWidget;
 use App\Models\Pool;
@@ -58,7 +59,11 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO])
+            && $user->podeVerPagina(PaginaGestor::ENCERRAMENTOS);
     }
 
     private static function podeEncerrar(): bool

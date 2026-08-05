@@ -7,6 +7,7 @@ namespace App\Providers\Filament;
 use App\Filament\GlobalSearch\PaginasGlobalSearchProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\BlockClosedPoolAccess;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Models\Pool;
 use Filament\Enums\ThemeMode;
@@ -156,6 +157,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 RequirePasswordChange::class,
+                BlockClosedPoolAccess::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

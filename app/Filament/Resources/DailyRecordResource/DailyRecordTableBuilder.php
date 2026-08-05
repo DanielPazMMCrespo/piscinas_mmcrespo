@@ -380,6 +380,7 @@ class DailyRecordTableBuilder
                     if (! $url) {
                         continue;
                     }
+                    $url = e($url);
                     $html .= "<a href='{$url}' class='glightbox-trigger block overflow-hidden rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-primary-500 hover:shadow-md transition-all duration-200'>"
                            ."<img src='{$url}' class='object-cover h-40 w-56 cursor-zoom-in' alt='Foto' />"
                            .'</a>';

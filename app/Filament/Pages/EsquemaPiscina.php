@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\DosingContainerResource;
@@ -67,12 +68,16 @@ class EsquemaPiscina extends Page
     {
         // É o técnico que trabalha no circuito de água; o NS entra mas só vê as
         // piscinas atribuídas (filtrado em piscinasPermitidas()).
-        return auth()->user()?->hasAnyRole([
-            UserRole::ADMIN,
-            UserRole::GESTOR,
-            UserRole::TECNICO,
-            UserRole::NADADOR_SALVADOR,
-        ]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([
+                UserRole::ADMIN,
+                UserRole::GESTOR,
+                UserRole::TECNICO,
+                UserRole::NADADOR_SALVADOR,
+            ])
+            && $user->podeVerPagina(PaginaGestor::ESQUEMA);
     }
 
     public function mount(): void

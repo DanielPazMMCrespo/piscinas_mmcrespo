@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Filament\Resources\DosingContainerResource\Pages;
 use App\Models\DosingContainer;
@@ -38,7 +39,11 @@ class DosingContainerResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR])
+            && $user->podeVerPagina(PaginaGestor::BIDOES_DOSAGEM);
     }
 
     /** @return array<string> */

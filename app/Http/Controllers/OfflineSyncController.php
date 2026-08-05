@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Constants\UserRole;
+use App\Models\DailyRecord;
 use App\Models\OperationalAction;
 use App\Services\DailyRecordService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,8 @@ class OfflineSyncController extends Controller
         if ($user === null) {
             return response()->json(['success' => false, 'message' => 'Não autenticado.'], 401);
         }
+
+        abort_unless($user->can('create', DailyRecord::class), 403, 'Sem permissão para criar registos diários.');
 
         $recordsPayload = $request->input('records', []);
         if (! is_array($recordsPayload) || empty($recordsPayload)) {

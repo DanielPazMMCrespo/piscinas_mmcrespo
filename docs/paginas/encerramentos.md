@@ -64,6 +64,12 @@ segunda implementação divergiria do livro sanitário.
   `Pool::operacionais()`.
 - **Esquema** e **Relatório PDF** continuam a **listar** piscinas encerradas de propósito: o circuito
   consulta-se durante a obra, e é sobre as encerradas que se emite a declaração.
+- **Conta do Nadador-Salvador** — bloqueada por completo (`BlockClosedPoolAccess` middleware +
+  `PoolAccessRequestService::estaBloqueado()`) quando **todas** as piscinas atribuídas ao NS estão
+  encerradas. Redirige para `/piscinas-encerradas`: mostra piscina(s), motivo e período, e permite
+  pedir acesso ao administrador (`PoolAccessRequestResource`, grupo Operação, admin only). Uma
+  aprovação só cobre o encerramento vigente no momento da decisão — se a piscina reabrir e voltar a
+  encerrar depois, é um `PoolClosure` novo e o NS tem de pedir outra vez.
 
 ## Notas de manutenção
 

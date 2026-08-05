@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Constants\NSPermission;
+use App\Constants\PaginaGestor;
 use Filament\Pages\Page;
 
 /**
@@ -28,7 +29,11 @@ class AnaliseParametros extends Page
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->podeVer(NSPermission::ANALISE_PARAMETROS);
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->podeVer(NSPermission::ANALISE_PARAMETROS)
+            && $user->podeVerPagina(PaginaGestor::ANALISE_PARAMETROS);
     }
 
     public function mount(): void

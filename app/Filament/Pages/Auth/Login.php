@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Pages\Auth;
 
 use App\Models\User;
-use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Forms\Components\Component;
 use Filament\Http\Responses\Auth\Contracts\LoginResponse;
 use Filament\Pages\Auth\Login as BaseLogin;
@@ -20,6 +19,14 @@ class Login extends BaseLogin
     protected static string $layout = 'layouts.login-layout';
 
     protected static string $view = 'filament.pages.auth.login';
+
+    /**
+     * Hash bcrypt fixo (não corresponde a nenhuma password real) usado para
+     * gastar um Hash::check "a sério" quando o email não existe — sem isto,
+     * a resposta é mais rápida para um email inexistente do que para uma
+     * password errada, o que permite enumerar contas por timing.
+     */
+    private const DUMMY_HASH = '$2y$12$iDjXY91sNjkpJI.rS//Xf.pvjUSLtdHGMUXI3tNr/Vm.9ilNA7xOm';
 
     public function authenticate(): ?LoginResponse
     {
@@ -44,8 +51,13 @@ class Login extends BaseLogin
         // REMOTE_ADDR, não request()->ip(): trustProxies(at: '*') (necessário para
         // HTTPS atrás do proxy da Railway) faz ip() confiar em X-Forwarded-For, que
         // um atacante pode forjar para gerar uma chave de rate-limit diferente a
-        // cada pedido e contornar o bloqueio de força bruta ao PIN.
+        // cada pedido e contornar o bloqueio de força bruta. Por isso nenhum dos
+        // dois limitadores abaixo usa request()->ip() — nem sequer via o trait
+        // WithRateLimiting, cuja chave (component+method+ip()) sofreria do mesmo
+        // problema, e sem o e-mail na chave um atacante ainda podia esgotar as
+        // tentativas de toda a gente a partir do mesmo IP do proxy.
         $throttleKey = 'login_pin:'.strtolower($email).'|'.(string) request()->server('REMOTE_ADDR');
+        $passwordThrottleKey = 'login_password:'.strtolower($email).'|'.(string) request()->server('REMOTE_ADDR');
 
         if ($isPinAttempt) {
             if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
@@ -67,11 +79,11 @@ class Login extends BaseLogin
             }
         }
 
-        try {
-            $this->rateLimit(5);
-        } catch (TooManyRequestsException $exception) {
+        if (RateLimiter::tooManyAttempts($passwordThrottleKey, 5)) {
+            $seconds = RateLimiter::availableIn($passwordThrottleKey);
+
             throw ValidationException::withMessages([
-                'data.email' => 'Demasiadas tentativas de acesso. Por favor, aguarde '.ceil($exception->secondsUntilAvailable / 60).' minutos antes de tentar novamente.',
+                'data.email' => 'Demasiadas tentativas de acesso. Por favor, aguarde '.ceil($seconds / 60).' minutos antes de tentar novamente.',
             ]);
         }
 
@@ -82,7 +94,7 @@ class Login extends BaseLogin
                 if ($isPinAttempt) {
                     RateLimiter::clear($throttleKey);
                 }
-                $this->clearRateLimiter();
+                RateLimiter::clear($passwordThrottleKey);
                 Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
@@ -93,11 +105,13 @@ class Login extends BaseLogin
                 if ($isPinAttempt) {
                     RateLimiter::clear($throttleKey);
                 }
-                $this->clearRateLimiter();
+                RateLimiter::clear($passwordThrottleKey);
                 Auth::login($user, $data['remember'] ?? false);
 
                 return app(LoginResponse::class);
             }
+        } else {
+            Hash::check($password, self::DUMMY_HASH);
         }
 
         if ($isPinAttempt) {
@@ -116,7 +130,7 @@ class Login extends BaseLogin
             }
         }
 
-        $this->hitRateLimiter();
+        RateLimiter::hit($passwordThrottleKey, 60);
 
         throw ValidationException::withMessages([
             'data.email' => __('filament-panels::pages/auth/login.messages.failed'),

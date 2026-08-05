@@ -846,7 +846,7 @@ class DailyRecordFormBuilder
                                             if (filled($ph)) {
                                                 $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
                                                 if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
-                                                    $prod = $dosePh['produto']?->name ?? 'Produto pH';
+                                                    $prod = e($dosePh['produto']?->name ?? 'Produto pH');
                                                     $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$dosePh['dose_formatada']}</strong> de <em>{$prod}</em>";
                                                 }
                                             }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\PaginaGestor;
 use App\Filament\Resources\StockWarehouseResource\Pages;
 use App\Models\Installation;
 use App\Models\StockWarehouse;
@@ -52,7 +53,11 @@ class StockWarehouseResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['admin', 'tecnico', 'gestor']) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole(['admin', 'tecnico', 'gestor'])
+            && $user->podeVerPagina(PaginaGestor::STOCK_ARMAZEM);
     }
 
     public static function canDelete($record): bool

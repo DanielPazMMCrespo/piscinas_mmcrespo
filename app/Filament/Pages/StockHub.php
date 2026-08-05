@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Models\Installation;
 use App\Models\Product;
@@ -50,7 +51,11 @@ class StockHub extends Page implements HasForms, HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR])
+            && $user->podeVerPagina(PaginaGestor::STOCK_VISAO_GERAL);
     }
 
     private static function podeMovimentar(): bool

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Filament\Concerns\HasPeriodoFilter;
 use App\Filament\Resources\StockInstallationLogResource\Pages;
@@ -32,7 +33,11 @@ class StockInstallationLogResource extends Resource
     public static function canAccess(): bool
     {
         // Gestor é leitura/relatórios: vê o histórico, não o altera.
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO, UserRole::GESTOR])
+            && $user->podeVerPagina(PaginaGestor::MOVIMENTOS_INSTALACAO);
     }
 
     public static function table(Table $table): Table

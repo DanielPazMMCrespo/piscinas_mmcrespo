@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\NSPermission;
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
@@ -38,12 +39,16 @@ class UserResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR])
+            && $user->podeVerPagina(PaginaGestor::UTILIZADORES);
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false;
+        return self::canAccess();
     }
 
     public static function canEdit($record): bool
@@ -128,6 +133,18 @@ class UserResource extends Resource
             ->exists();
     }
 
+    private static function rolesIncluemGestor(Forms\Get $get): bool
+    {
+        $roleIds = (array) ($get('roles') ?? []);
+        if (empty($roleIds)) {
+            return false;
+        }
+
+        return Role::whereIn('id', $roleIds)
+            ->where('name', UserRole::GESTOR)
+            ->exists();
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -153,7 +170,7 @@ class UserResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Placeholder::make('primeiro_acesso_info')
                     ->label('Palavra-passe / PIN')
-                    ->content('Não definidas aqui. O utilizador recebe a password inicial "password" e é obrigado a defini-las no primeiro acesso.')
+                    ->content('Não definidas aqui. Ao criar, é enviado um e-mail com um link de redefinição de palavra-passe para o utilizador.')
                     ->visibleOn('create'),
                 Forms\Components\Select::make('roles')
                     ->label('Cargo')
@@ -193,6 +210,17 @@ class UserResource extends Resource
                     ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::GESTOR)
                         || self::rolesIncluemNS($get))
                     ->helperText('Secções visíveis para este nadador salvador. Sem seleção, não vê nada.'),
+                Forms\Components\CheckboxList::make('paginas_visiveis')
+                    ->label('Páginas visíveis para este gestor')
+                    ->options(PaginaGestor::labels())
+                    ->default(PaginaGestor::all())
+                    ->afterStateHydrated(fn (Forms\Components\CheckboxList $component, $state) => $state === null
+                        ? $component->state(PaginaGestor::all())
+                        : null)
+                    ->columns(2)
+                    ->visible(fn (Forms\Get $get): bool => auth()->user()?->hasRole(UserRole::ADMIN)
+                        && self::rolesIncluemGestor($get))
+                    ->helperText('Só Admin define isto. Sem seleção, este gestor não vê nenhuma destas páginas.'),
             ]);
     }
 
@@ -248,6 +276,17 @@ class UserResource extends Resource
                         ->hiddenLabel()
                         ->badge()
                         ->formatStateUsing(fn (string $state): string => NSPermission::labels()[$state] ?? $state),
+                ]),
+
+            Infolists\Components\Section::make('Páginas visíveis')
+                ->icon('heroicon-o-eye')
+                ->visible(fn (User $record) => $record->hasRole(UserRole::GESTOR))
+                ->schema([
+                    Infolists\Components\TextEntry::make('paginas_visiveis')
+                        ->hiddenLabel()
+                        ->badge()
+                        ->state(fn (User $record): array => $record->paginas_visiveis ?? PaginaGestor::all())
+                        ->formatStateUsing(fn (string $state): string => PaginaGestor::labels()[$state] ?? $state),
                 ]),
 
             Infolists\Components\Section::make('Registo')
