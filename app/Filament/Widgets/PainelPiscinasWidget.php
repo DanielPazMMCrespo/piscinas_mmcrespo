@@ -210,7 +210,15 @@ class PainelPiscinasWidget extends Widget
             ->groupBy('hanna_device_id');
 
         $historicoRegistos = DailyRecord::query()
-            ->select('id', 'pool_id', 'registado_em', 'ph_efetivo', 'cloro_livre_efetivo', 'cloro_combinado', 'temperatura_efetivo', 'transparencia')
+            // Colunas reais: *_efetivo e cloro_combinado são accessors (manual ?? NS),
+            // não colunas — pô-los num select() rebenta a query em PostgreSQL.
+            ->select(
+                'id', 'pool_id', 'registado_em', 'transparencia',
+                'ph', 'ns_ph',
+                'cloro_livre', 'ns_cloro_livre',
+                'cloro_total', 'ns_cloro_total',
+                'temperatura', 'ns_temperatura',
+            )
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->where('registado_em', '>=', now()->subDays(14))
             ->orderByDesc('registado_em')
