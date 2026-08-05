@@ -17,6 +17,23 @@ use InvalidArgumentException;
 class DailyRecordService
 {
     /**
+     * Campos de $poolData aceites do cliente por piscina. Deliberadamente exclui
+     * `user_id`, `registado_em`, `hora_colheita`, `e_correcao`, `corrige_registo_id`
+     * e `razao_correcao` — apesar de estarem no $fillable do model, são calculados
+     * no servidor (em $commonData) ou pertencem só ao fluxo de correção append-only,
+     * nunca ao registo normal criado por este serviço.
+     */
+    private const CAMPOS_PISCINA_PERMITIDOS = [
+        'cloro_livre', 'cloro_total', 'ph', 'temperatura', 'transparencia',
+        'caleira_feita', 'renovacao_agua', 'pressao_filtro', 'observacoes',
+        'ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura', 'banhistas',
+        'filtro_faz_retrolavagem', 'numero_lavagens_filtro',
+        'filtro_foto_retrolavagem', 'filtro_foto_enxaguamento', 'filtro_foto_posicao_normal',
+        'bomba_ferrada', 'bomba_foto', 'contador_valor', 'contador_foto', 'torneira_foto', 'agua_modo',
+        'tanque_ok', 'tanque_observacoes', 'tanque_foto', 'analises_fotos',
+    ];
+
+    /**
      * Cria os registos diários para uma ou várias piscinas em nome do utilizador autenticado ou especificado.
      */
     public function createRecords(?User $user, array $data): ?DailyRecord
@@ -75,7 +92,12 @@ class DailyRecordService
                     }
                 }
 
-                $recordData = array_merge($commonData, $poolData, ['pool_id' => (int) $poolId]);
+                $poolData = array_intersect_key($poolData, array_flip(self::CAMPOS_PISCINA_PERMITIDOS));
+
+                // $commonData depois de $poolData: mesmo que a whitelist acima
+                // deixasse passar algo indevido, os campos calculados no servidor
+                // (user_id, registado_em, ...) continuam a ganhar ao payload do cliente.
+                $recordData = array_merge($poolData, $commonData, ['pool_id' => (int) $poolId]);
                 $lastRecord = DailyRecord::create($recordData);
 
                 if (! empty($adicoes) && is_array($adicoes)) {

@@ -721,38 +721,44 @@ document.addEventListener('alpine:init', () => {
         },
 
         navegar(statePath, poolId) {
-            // Lavagem e enxaguamento são passos distintos do Wizard. Antes de fazer
-            // scroll é preciso trocar para o passo certo — senão o fieldset está num
-            // passo escondido (display:none) e o scrollIntoView cai numa posição vazia.
+            // Cada piscina é um separador (Tabs) e só o separador ativo está no DOM
+            // visível. Antes de fazer scroll é preciso trocar para o separador da
+            // piscina — senão o scrollIntoView cai numa posição vazia.
             const fase = String(statePath).includes('timer_enxaguamento') ? 'enxaguamento' : 'lavagem';
-            const stepLabel = fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem filtros';
 
-            this.irParaPasso(stepLabel);
+            this.irParaSeparador(poolId);
 
-            // Aguarda o Alpine terminar a transição do passo — em vez de um timeout
-            // fixo, espera (com retries) até existir um fieldset realmente visível.
-            this.focarFieldsetComRetry(poolId);
+            // Aguarda o Alpine terminar a transição do separador — em vez de um
+            // timeout fixo, espera (com retries) até a secção estar visível.
+            this.focarFieldsetComRetry(poolId, 0, fase);
         },
 
-        // Clica no header do passo do Wizard cujo label corresponde. Devolve true se
-        // encontrou o botão do passo (e portanto vale a pena esperar pela transição).
-        irParaPasso(stepLabel) {
+        // Clica no separador da piscina. Devolve true se o encontrou (e portanto vale
+        // a pena esperar pela transição).
+        irParaSeparador(poolId) {
             const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-            const wizardRoot = document.querySelector('[class*="fi-fo-wizard"], [class*="wizard"]') || document;
-            const stepButton = Array.from(wizardRoot.querySelectorAll('button')).find((b) =>
-                norm(b.getAttribute('aria-label')) === stepLabel || norm(b.textContent).includes(stepLabel)
+            const poolNome = norm(window.__poolNomes?.[poolId]);
+            if (!poolNome) {
+                return false;
+            }
+
+            const tabButton = Array.from(document.querySelectorAll('[role="tab"], .fi-tabs button')).find((b) =>
+                norm(b.getAttribute('aria-label')) === poolNome || norm(b.textContent) === poolNome
             );
-            if (stepButton) {
-                stepButton.click();
+            if (tabButton) {
+                tabButton.click();
                 return true;
             }
             return false;
         },
 
-        focarFieldsetComRetry(poolId, tentativa = 0) {
+        focarFieldsetComRetry(poolId, tentativa = 0, fase = null) {
             const visivel = (el) => el && el.offsetParent !== null;
             const candidatos = [];
 
+            if (fase) {
+                document.querySelectorAll(`[data-pools-section="${fase}-${poolId}"]`).forEach((el) => candidatos.push(el));
+            }
             document.querySelectorAll(`[data-pools-fieldset="${poolId}"]`).forEach((el) => candidatos.push(el));
             document.querySelectorAll('fieldset').forEach((fs) => {
                 if (fs.querySelector(`[name*="pools.${poolId}"]`)) candidatos.push(fs);
@@ -764,14 +770,14 @@ document.addEventListener('alpine:init', () => {
                 });
             }
 
-            // Vários passos têm fieldsets da mesma piscina — só o do passo ativo está visível.
+            // Só as secções do separador ativo estão visíveis.
             const fieldset = candidatos.find(visivel);
 
             if (!fieldset) {
-                // A transição do Wizard ainda não terminou (ou o passo ainda não montou
-                // os fieldsets). Tenta de novo por até ~2s antes de desistir.
+                // A transição do separador ainda não terminou (ou as secções ainda não
+                // montaram). Tenta de novo por até ~2s antes de desistir.
                 if (tentativa < 20) {
-                    setTimeout(() => this.focarFieldsetComRetry(poolId, tentativa + 1), 100);
+                    setTimeout(() => this.focarFieldsetComRetry(poolId, tentativa + 1, fase), 100);
                 } else {
                     console.warn(`Fieldset visível não encontrado para pool ${poolId}`);
                 }

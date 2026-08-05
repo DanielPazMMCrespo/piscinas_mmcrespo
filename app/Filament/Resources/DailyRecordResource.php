@@ -139,9 +139,7 @@ class DailyRecordResource extends Resource
         preg_match('/\bdia\s+0*(\d{1,2})\b/', $termo, $matches);
         $diaDoTermo = isset($matches[1]) ? (int) $matches[1] : null;
 
-        $modelClass = static::getModel();
-
-        $recordsData = $modelClass::query()
+        $recordsData = static::getEloquentQuery()
             ->with(['piscina.instalacao', 'utilizador'])
             ->latest('registado_em')
             ->limit(500)
