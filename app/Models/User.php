@@ -6,6 +6,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Constants\NSPermission;
+use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -126,6 +127,20 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     }
 
     /**
+     * Se este utilizador Gestor consegue ver a página indicada. Outros
+     * cargos não são restringidos por aqui. Sem `paginas_visiveis`
+     * definido (gestor antigo ou por defeito), assume-se tudo visível.
+     */
+    public function podeVerPagina(string $pagina): bool
+    {
+        if (! $this->hasRole(UserRole::GESTOR)) {
+            return true;
+        }
+
+        return in_array($pagina, $this->paginas_visiveis ?? PaginaGestor::all(), true);
+    }
+
+    /**
      * Se este utilizador quer ser notificado sobre um evento específico, através de um canal.
      * Canais: push, mail
      */
@@ -157,6 +172,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'relatorio_mensal' => ['push' => true, 'mail' => false],
             'escalacao_incidente' => ['push' => true, 'mail' => false],
             'piscina_encerrada' => ['push' => true, 'mail' => false],
+            'pedido_acesso' => ['push' => true, 'mail' => false],
         ];
 
         return $prefs[$key][$canal] ?? $defaults[$key][$canal] ?? false;
@@ -177,6 +193,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'pin',
         'must_change_password',
         'ns_permissions',
+        'paginas_visiveis',
         'notification_preferences',
         'push_notifications_requested_at',
     ];
@@ -204,6 +221,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'password' => 'hashed',
             'pin' => 'hashed',
             'ns_permissions' => 'array',
+            'paginas_visiveis' => 'array',
             'notification_preferences' => 'array',
             'push_notifications_requested_at' => 'datetime',
         ];
