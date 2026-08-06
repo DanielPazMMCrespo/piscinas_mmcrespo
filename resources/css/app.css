@@ -107,10 +107,9 @@ body {
     }
 }
 
-/* No telemóvel, a navegação do wizard (Anterior/Próximo/Criar) fica fixa no
-   fundo do ecrã — evita scrollar até ao fim para avançar de passo ou gravar. */
+/* No telemóvel, a navegação fica fixa no fundo do ecrã — evita scrollar até ao fim para gravar. */
 @media (max-width: 768px) {
-    .fi-fo-wizard-footer {
+    .fi-fo-wizard-footer, .fi-form-actions {
         position: sticky;
         bottom: 0;
         z-index: 20;
@@ -118,10 +117,12 @@ body {
         padding: 0.75rem 1rem;
         background: var(--gray-50, #f9fafb);
         border-top: 1px solid var(--gray-200, #e5e7eb);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
     }
-    .dark .fi-fo-wizard-footer {
+    .dark .fi-fo-wizard-footer, .dark .fi-form-actions {
         background: var(--gray-900, #111827);
         border-top-color: var(--gray-700, #374151);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
     }
 }
 
@@ -349,5 +350,33 @@ textarea:focus,
     background-color: rgba(0, 0, 0, 0.4) !important;
     border-color: #38bdf8 !important; /* Sky 400 */
     box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ================== ONE-HANDED MOBILE FORM INPUTS ================== */
+.neo-input-large {
+    height: 3.5rem !important; /* 56px tap target minimum */
+    font-size: 1.125rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    padding: 0.75rem !important;
+    border-radius: 12px !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+}
+.neo-input-large:active, .neo-input-large:focus {
+    transform: scale(0.98);
+}
+.neo-input-wrapper-large {
+    margin-bottom: 0.5rem;
+}
+.neo-input-wrapper-large label {
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    color: #475569 !important;
+}
+.dark .neo-input-wrapper-large label {
+    color: #cbd5e1 !important;
+}
+.neo-input-wrapper-large .fi-fo-field-wrp-hint {
+    font-size: 0.8rem !important;
 }
 

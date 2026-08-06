@@ -439,7 +439,7 @@ class DailyRecordFormBuilder
     {
         return $campo
             ->live(onBlur: true)
-            ->extraInputAttributes(['inputmode' => 'decimal'])
+            ->extraInputAttributes(['inputmode' => 'decimal', 'class' => 'neo-input-large'])
             ->suffix(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?HtmlString {
                 $val = $get($campo->getName());
                 if (! filled($val)) {
@@ -512,7 +512,7 @@ class DailyRecordFormBuilder
                 return $cor;
             })
             ->extraAttributes(function (Get $get) use ($metrica, $pool, $campo) {
-                $classes = [];
+                $classes = ['neo-input-wrapper-large'];
                 if (DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado'] === EstadoConformidade::VERMELHO) {
                     $classes[] = 'ring-2 ring-danger-500 ring-inset bg-danger-50 dark:bg-danger-900/30';
                 }
@@ -634,6 +634,8 @@ class DailyRecordFormBuilder
                                         ->id("contador_valor_{$pool->id}")
                                         ->label('Contador (m³)')
                                         ->numeric()->step(0.01)->minValue(0)
+                                        ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                         // A última leitura só aparecia na mensagem de erro, depois de
                                         // falhar a validação e voltar 5 passos atrás no wizard.
                                         ->helperText(function () use ($pool): ?string {
@@ -663,7 +665,9 @@ class DailyRecordFormBuilder
                                             'on_com_agua' => 'ON com água',
                                             'on_sem_agua' => 'ON sem água',
                                             'off' => 'OFF sem água',
-                                        ]),
+                                        ])
+                                        ->extraInputAttributes(['class' => 'neo-input-large'])
+                                        ->extraAttributes(['class' => 'neo-input-wrapper-large']),
                                     self::fotosSection([
                                         self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
                                         self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
@@ -707,6 +711,8 @@ class DailyRecordFormBuilder
                                         ->label('Pressão do Filtro (bar)')
                                         ->numeric()
                                         ->step(0.05)
+                                        ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                         ->live(onBlur: true)
                                         ->helperText(function (Get $get): ?string {
                                             $val = $get('pressao_filtro');
@@ -822,7 +828,9 @@ class DailyRecordFormBuilder
                                         ->numeric()
                                         ->integer()
                                         ->minValue(0)
-                                        ->extraInputAttributes(['inputmode' => 'numeric'])
+                                        ->default(0)
+                                        ->extraInputAttributes(['inputmode' => 'numeric', 'class' => 'neo-input-large'])
+                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                         ->helperText('Nº de banhistas desde o último registo.'),
                                     Forms\Components\Textarea::make('observacoes')
                                         ->id("observacoes_zero_{$pool->id}")
@@ -830,6 +838,8 @@ class DailyRecordFormBuilder
                                         ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
                                         ->required(fn (Get $get) => self::algumValorZero($get))
                                         ->visible(fn (Get $get) => self::algumValorZero($get))
+                                        ->extraInputAttributes(['class' => 'neo-input-large'])
+                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                         ->columnSpanFull(),
                                 ];
 
@@ -887,6 +897,8 @@ class DailyRecordFormBuilder
                                                 ->label('Produto')
                                                 ->options(Product::query()->pluck('name', 'id'))
                                                 ->required()
+                                                ->extraInputAttributes(['class' => 'neo-input-large'])
+                                                ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                                 ->live(),
                                             Forms\Components\TextInput::make('quantity')
                                                 ->label('Quantidade')
@@ -894,6 +906,8 @@ class DailyRecordFormBuilder
                                                 ->minValue(0.01)
                                                 ->step(0.01)
                                                 ->required()
+                                                ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                                                ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                                 ->live(onBlur: true)
                                                 ->hint(function (Get $get) use ($installation) {
                                                     $productId = $get('product_id');
@@ -939,6 +953,7 @@ class DailyRecordFormBuilder
 
                                                             return $disponivel < (float) $value;
                                                         })
+                                                        ->slideOver()
                                                         ->modalHeading('Adicionar stock em falta')
                                                         ->modalDescription('A quantidade é debitada do stock de armazém e creditada no stock desta instalação.')
                                                         ->form([
