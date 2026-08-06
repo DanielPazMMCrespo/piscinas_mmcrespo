@@ -1,8 +1,8 @@
 <x-filament-widgets::widget>
     <!-- Main Header -->
-    <div class="text-center mb-6">
-        <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">Painel de Controlo</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Visão global das piscinas.</p>
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">Painel de Controlo</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-medium">Visão global das piscinas</p>
     </div>
 
     @if ($totalPiscinas > 0)
@@ -122,14 +122,14 @@
                     </div>
                     <div class="flex items-center gap-2">
                         @if (! empty($item['encerramento']))
-                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 whitespace-nowrap">Encerrada</span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 whitespace-nowrap border border-slate-200 dark:border-slate-700">Encerrada</span>
                         @elseif (! empty($item['sem_hoje']))
-                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 whitespace-nowrap">Falta registar</span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 whitespace-nowrap border border-amber-200 dark:border-amber-700/50">Falta registar</span>
                         @else
-                            <span class="text-xs uppercase tracking-wide {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
+                            <span class="text-[11px] font-semibold uppercase tracking-wider {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
                         @endif
-                        <button type="button" class="text-slate-400 hover:text-slate-600 p-1 transition-transform" :class="open ? 'rotate-180' : ''">
-                            <x-filament::icon icon="heroicon-m-chevron-down" class="w-6 h-6" />
+                        <button type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 transition-transform duration-300 ease-out" :class="open ? 'rotate-180' : ''">
+                            <x-filament::icon icon="heroicon-m-chevron-down" class="w-5 h-5" />
                         </button>
                     </div>
                 </div>
