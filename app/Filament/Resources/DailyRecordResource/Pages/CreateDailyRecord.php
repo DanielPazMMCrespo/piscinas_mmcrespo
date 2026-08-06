@@ -225,6 +225,7 @@ class CreateDailyRecord extends CreateRecord
                 ->extraAttributes(['class' => 'hidden'])
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
+                ->slideOver()
                 ->modalHeading('Confirmar registos')
                 ->modalContent(function () {
                     $data = $this->data;
