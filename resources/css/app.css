@@ -58,10 +58,15 @@ body {
 }
 
 
-/* Tabs: wrap instead of overflow on narrow screens */
+/* Tabs: horizontal scroll instead of wrap on mobile screens */
 .fi-tabs-list {
-    flex-wrap: wrap !important;
-    overflow-x: visible !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+}
+.fi-tabs-list::-webkit-scrollbar {
+    display: none !important;
 }
 
 /* FilePond Success Upload Feedback */
