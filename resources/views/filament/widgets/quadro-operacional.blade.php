@@ -41,7 +41,8 @@
                             @endif
                         </div>
                         @if (str_starts_with($a['key'], 'incidente|'))
-                            <a href="{{ $a['url'] }}" class="mmc-alert-resolve-btn">Resolver</a>
+                            @php($incId = explode('|', $a['key'])[1])
+                            <button type="button" wire:click="mountAction('resolveIncident', { id: {{ $incId }} })" class="mmc-alert-resolve-btn">Resolver</button>
                         @else
                             <button type="button" class="mmc-alert-resolve-btn"
                                     wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')"
@@ -89,5 +90,6 @@
                 </div>
             </div>
         @endif
+        <x-filament-actions::modals />
     </x-filament::section>
 </x-filament-widgets::widget>

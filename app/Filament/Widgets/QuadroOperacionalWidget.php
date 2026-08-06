@@ -8,8 +8,18 @@ use App\Constants\AlertLevel;
 use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Services\AlertasService;
-use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Actions\Action;
+use App\Models\Incident;
+use App\Constants\IncidentStatus;
+use App\Models\IncidentMessage;
+use App\Notifications\IncidentMessageNotification;
+use Filament\Notifications\Notification;
+use Filament\Forms;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -26,8 +36,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Visível a todos os roles exceto Nadador-Salvador.
  */
-class QuadroOperacionalWidget extends Widget
+class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
 {
+    use InteractsWithActions;
+    use InteractsWithForms;
     protected static ?int $sort = -20;
 
     protected int|string|array $columnSpan = 'full';
@@ -65,6 +77,54 @@ class QuadroOperacionalWidget extends Widget
                 ->warning()
                 ->send();
         }
+    }
+
+    public function resolveIncidentAction(): Action
+    {
+        return Action::make('resolveIncident')
+            ->modalWidth('md')
+            ->modalAlignment('center')
+            ->extraModalAttributes(['class' => 'neo-modal-glass'])
+            ->modalHeading('Resolver Incidente')
+            ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')
+            ->modalSubmitActionLabel('Arquivar')
+            ->modalIcon('heroicon-o-shield-check')
+            ->form([
+                Forms\Components\Textarea::make('resolucao')
+                    ->hiddenLabel()
+                    ->placeholder('Ex: Filtro retrolavado, valores normais.')
+                    ->required()
+                    ->minLength(5)
+                    ->rows(3)
+                    ->extraInputAttributes(['class' => 'neo-input-large']),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $incident = Incident::find($arguments['id']);
+                if (! $incident || $incident->status === IncidentStatus::RESOLVIDO) return;
+
+                $incident->update([
+                    'status' => IncidentStatus::RESOLVIDO,
+                    'resolvido_em' => now(),
+                    'resolvido_por' => auth()->id(),
+                    'resolucao' => $data['resolucao'],
+                ]);
+
+                $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
+
+                IncidentMessage::create([
+                    'incident_id' => $incident->id,
+                    'user_id' => auth()->id(),
+                    'tipo' => IncidentMessage::TIPO_SISTEMA,
+                    'texto' => $texto,
+                ]);
+
+                \Illuminate\Support\Facades\Notification::send(
+                    $incident->participantes(excluir: auth()->user()),
+                    new IncidentMessageNotification($incident, auth()->user(), $texto)
+                );
+
+                Notification::make()->success()->title('Incidente resolvido')->send();
+            });
     }
 
     protected function getViewData(): array

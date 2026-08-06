@@ -385,3 +385,24 @@ textarea:focus,
     font-size: 0.8rem !important;
 }
 
+/* ================== PREMIUM GLASS MODAL (Alert Resolution) ================== */
+.neo-modal-glass .fi-modal-window {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1), 0 10px 20px -5px rgba(0, 0, 0, 0.04) !important;
+}
+.dark .neo-modal-glass .fi-modal-window {
+    background: rgba(15, 23, 42, 0.75) !important; /* slate-900 */
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 10px 20px -5px rgba(0, 0, 0, 0.3) !important;
+}
+.neo-modal-glass .fi-modal-header {
+    text-align: center;
+    border-bottom: none !important;
+}
+.neo-modal-glass .fi-modal-footer {
+    border-top: none !important;
+}
+
