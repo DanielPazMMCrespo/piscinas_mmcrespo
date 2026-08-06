@@ -22,9 +22,24 @@
         
         .signature-line { width: 250px; border-top: 1px solid #000; margin: 40px auto 10px auto; }
         .signature-text { text-align: center; font-size: 10px; }
+        
+        footer {
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            height: 10mm; 
+            text-align: right; 
+            font-size: 10px;
+        }
+        .page-number:after { content: counter(page) " de " counter(pages); }
     </style>
 </head>
 <body>
+
+    <footer>
+        Página <span class="page-number"></span>
+    </footer>
 
     <!-- Capa / Termo de Abertura -->
     <div class="header">
