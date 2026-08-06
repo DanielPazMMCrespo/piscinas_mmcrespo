@@ -44,13 +44,17 @@
                             @php($incId = explode('|', $a['key'])[1])
                             <button type="button" wire:click="mountAction('resolveIncident', { id: {{ $incId }} })" class="mmc-alert-resolve-btn">Resolver</button>
                         @else
-                            <button type="button" class="mmc-alert-resolve-btn"
-                                    wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')"
-                                    @if (\App\Filament\Widgets\QuadroOperacionalWidget::exigeConfirmacao($a))
-                                        wire:confirm="Este alerta é uma violação dos limites legais. Marcar como tratado não altera os valores registados. Continuar?"
-                                    @endif>
-                                Resolver
-                            </button>
+                            @if (\App\Filament\Widgets\QuadroOperacionalWidget::exigeConfirmacao($a))
+                                <button type="button" class="mmc-alert-resolve-btn"
+                                        wire:click="mountAction('resolveViolation', { key: '{{ $a['key'] }}' })">
+                                    Resolver
+                                </button>
+                            @else
+                                <button type="button" class="mmc-alert-resolve-btn"
+                                        wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')">
+                                    Resolver
+                                </button>
+                            @endif
                         @endif
                     </div>
                 @endif

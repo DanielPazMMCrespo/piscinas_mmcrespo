@@ -127,6 +127,21 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
             });
     }
 
+    public function resolveViolationAction(): Action
+    {
+        return Action::make('resolveViolation')
+            ->requiresConfirmation()
+            ->modalWidth('md')
+            ->modalAlignment('center')
+            ->extraModalAttributes(['class' => 'neo-modal-glass'])
+            ->modalHeading('Violação de Limite Legal')
+            ->modalDescription('Este alerta reflete uma violação dos limites legais. Marcar como tratado apaga o alerta do quadro, mas não altera os valores registados na folha. Continuar?')
+            ->modalSubmitActionLabel('Sim, marcar como tratado')
+            ->action(function (array $arguments): void {
+                $this->moverAlerta($arguments['key'], 'resolvido');
+            });
+    }
+
     protected function getViewData(): array
     {
         $resultado = Cache::remember(
