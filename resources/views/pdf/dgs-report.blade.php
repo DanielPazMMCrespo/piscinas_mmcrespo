@@ -80,7 +80,7 @@
             <tr>
                 <th rowspan="2">Data</th>
                 <th rowspan="2">Hora</th>
-                <th colspan="4">Parâmetros Físico-Químicos</th>
+                <th colspan="5">Parâmetros Físico-Químicos</th>
                 <th rowspan="2">Transparência</th>
                 <th rowspan="2">Lavagem Filtros</th>
                 <th rowspan="2">Leitura Contador</th>
@@ -92,6 +92,7 @@
                 <th>pH</th>
                 <th>Cloro Livre<br>(mg/L)</th>
                 <th>Cloro Total<br>(mg/L)</th>
+                <th>Cloro Comb.<br>(mg/L)</th>
                 <th>Temp. ºC</th>
             </tr>
         </thead>
@@ -120,6 +121,7 @@
                         <td>—</td>
                         <td>—</td>
                         <td>—</td>
+                        <td>—</td>
                     </tr>
                 @else
                     @foreach($dayRecords as $idx => $record)
@@ -131,6 +133,7 @@
                             <td>{{ $record->ph_efetivo ?? '—' }}</td>
                             <td>{{ $record->cloro_livre_efetivo ?? '—' }}</td>
                             <td>{{ $record->cloro_total_efetivo ?? '—' }}</td>
+                            <td>{{ $record->cloro_combinado ?? '—' }}</td>
                             <td>{{ $record->temperatura_efetivo ?? '—' }}</td>
                             <td>{{ $record->transparencia !== null ? $record->transparencia . ' FNU' : '—' }}</td>
                             <td>{{ $record->filtro_faz_retrolavagem ? 'Sim' : 'Não' }}</td>
