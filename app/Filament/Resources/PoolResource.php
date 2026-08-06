@@ -234,6 +234,25 @@ class PoolResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('livro_sanitario')
+                    ->label('Livro Sanitário (PDF)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('month')
+                            ->label('Mês Referência')
+                            ->default(now())
+                            ->displayFormat('m/Y')
+                            ->native(false)
+                            ->required(),
+                    ])
+                    ->action(function (Pool $record, array $data, \App\Services\DgsPdfReportService $pdfService) {
+                        $date = \Illuminate\Support\Carbon::parse($data['month']);
+                        return response()->streamDownload(
+                            fn () => print($pdfService->generateMonthlyReport($record, $date)->output()),
+                            "livro_sanitario_{$record->id}_{$date->format('Y_m')}.pdf"
+                        );
+                    }),
                 Tables\Actions\ViewAction::make()->slideOver(),
                 Tables\Actions\EditAction::make()->slideOver(),
             ])
