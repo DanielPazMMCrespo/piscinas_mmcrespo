@@ -9,61 +9,61 @@
 
         @unless ($this->isNS())
             {{-- Atalhos: comparar leitura do controlador Hanna com a leitura manual do técnico --}}
-            <div class="flex gap-2 mb-3 flex-wrap">
-                <span class="text-xs text-gray-400 dark:text-gray-500 self-center">Sensor vs Manual:</span>
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide whitespace-nowrap items-center">
+                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest self-center mr-1">Comparar</span>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_ph', 'ph')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
                 >pH</button>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_orp', 'cloro_livre')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                >Cloro (ORP vs livre)</button>
+                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
+                >Cloro (ORP vs Livre)</button>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_temp', 'temperatura')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
                 >Temperatura</button>
             </div>
         @endunless
 
         {{-- Tabs + botões de período --}}
-        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-            <div class="flex gap-0 border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden text-sm font-medium">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
+            <div class="inline-flex bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl w-full sm:w-auto shadow-inner">
                 <button
                     type="button"
                     wire:click="setTab('graph')"
                     @class([
-                        'px-4 py-1.5 transition-colors',
-                        'bg-primary-600 text-white' => $this->tabAtiva === 'graph',
-                        'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' => $this->tabAtiva !== 'graph',
+                        'flex-1 sm:flex-none px-6 py-2 text-sm font-semibold rounded-xl transition-all',
+                        'bg-white text-slate-800 dark:bg-slate-600 dark:text-white shadow-sm' => $this->tabAtiva === 'graph',
+                        'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200' => $this->tabAtiva !== 'graph',
                     ])
                 >Gráfico</button>
                 <button
                     type="button"
                     wire:click="setTab('table')"
                     @class([
-                        'px-4 py-1.5 transition-colors border-l border-gray-200 dark:border-white/10',
-                        'bg-primary-600 text-white' => $this->tabAtiva === 'table',
-                        'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' => $this->tabAtiva !== 'table',
+                        'flex-1 sm:flex-none px-6 py-2 text-sm font-semibold rounded-xl transition-all',
+                        'bg-white text-slate-800 dark:bg-slate-600 dark:text-white shadow-sm' => $this->tabAtiva === 'table',
+                        'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200' => $this->tabAtiva !== 'table',
                     ])
                 >Tabela</button>
             </div>
 
-            <div class="flex gap-1">
+            <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
                 @if ($this->isNS())
-                    <span class="px-3 py-1.5 text-xs font-medium rounded-xl bg-primary-600 text-white shadow-sm">Últimas 12h</span>
+                    <span class="px-4 py-2 text-xs font-bold rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">Últimas 12h</span>
                 @else
                     @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
                         <button
                             type="button"
                             wire:click="setPeriod('{{ $key }}')"
                             @class([
-                                'px-3 py-1.5 text-xs font-medium rounded-xl transition-colors',
-                                'bg-primary-600 text-white shadow-sm' => $this->period === $key,
-                                'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-200 dark:border-white/10' => $this->period !== $key,
+                                'shrink-0 px-4 py-2 text-xs font-semibold rounded-xl transition-all active:scale-95',
+                                'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-md' => $this->period === $key,
+                                'bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700' => $this->period !== $key,
                             ])
                         >{{ $label }}</button>
                     @endforeach
@@ -104,12 +104,13 @@
             <div class="space-y-5">
                 {{-- Registos Manuais --}}
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Registos Manuais</h3>
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 ml-1 tracking-tight">Registos Manuais</h3>
                     @if (empty($tableData['manual']))
-                        <p class="text-sm text-gray-400 italic">Sem registos no período selecionado.</p>
+                        <p class="text-sm text-slate-400 italic ml-1">Sem registos no período selecionado.</p>
                     @else
-                        <div class="overflow-x-auto">
-                            <table class="mmc-tabela">
+                        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                            <div class="overflow-x-auto">
+                                <table class="mmc-tabela">
                                 <thead>
                                     <tr>
                                         <th>Data</th>
@@ -134,17 +135,19 @@
                                 </tbody>
                             </table>
                         </div>
+                        </div>
                     @endif
                 </div>
 
                 {{-- Leituras de Sonda --}}
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Leituras de Sonda</h3>
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 ml-1 tracking-tight mt-6">Leituras de Sonda (Hanna)</h3>
                     @if (empty($tableData['sensor']))
-                        <p class="text-sm text-gray-400 italic">Sem leituras de sonda no período selecionado.</p>
+                        <p class="text-sm text-slate-400 italic ml-1">Sem leituras de sonda no período selecionado.</p>
                     @else
-                        <div class="overflow-x-auto">
-                            <table class="mmc-tabela">
+                        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                            <div class="overflow-x-auto">
+                                <table class="mmc-tabela">
                                 <thead>
                                     <tr>
                                         <th>Data</th>
@@ -165,6 +168,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        </div>
                     @endif
                 </div>
             </div>
@@ -173,6 +177,13 @@
     </x-filament::section>
 
     <style>
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
         .mmc-grafico-canvas-wrap {
             position: relative;
             height: 380px;
@@ -186,34 +197,41 @@
         .mmc-tabela {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
         }
         .mmc-tabela th {
             text-align: left;
-            padding: 0.4rem 0.75rem;
+            padding: 0.75rem 1rem;
             font-weight: 600;
-            color: var(--fi-color-gray-500, #6b7280);
-            border-bottom: 1px solid var(--fi-color-gray-200, #e5e7eb);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b; /* slate-500 */
+            border-bottom: 1px solid #e2e8f0; /* slate-200 */
             white-space: nowrap;
         }
         .mmc-tabela td {
-            padding: 0.4rem 0.75rem;
-            border-bottom: 1px solid var(--fi-color-gray-100, #f3f4f6);
-            color: var(--fi-color-gray-700, #374151);
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9; /* slate-100 */
+            color: #334155; /* slate-700 */
+            font-weight: 500;
+        }
+        .mmc-tabela tbody tr {
+            transition: background-color 0.2s ease;
         }
         .mmc-tabela tbody tr:hover td {
-            background: var(--fi-color-gray-50, #f9fafb);
+            background-color: #f8fafc; /* slate-50 */
         }
         .dark .mmc-tabela th {
-            color: rgba(255,255,255,0.5);
-            border-bottom-color: rgba(255,255,255,0.08);
+            color: #94a3b8; /* slate-400 */
+            border-bottom-color: rgba(255,255,255,0.1);
         }
         .dark .mmc-tabela td {
-            color: rgba(255,255,255,0.8);
+            color: #e2e8f0; /* slate-200 */
             border-bottom-color: rgba(255,255,255,0.05);
         }
         .dark .mmc-tabela tbody tr:hover td {
-            background: rgba(255,255,255,0.03);
+            background-color: rgba(255,255,255,0.03);
         }
 
         @media (max-width: 640px) {
