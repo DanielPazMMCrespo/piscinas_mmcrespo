@@ -1,13 +1,13 @@
 {
-    "name": "Piscinas MMCrespo",
+    "name": "Gestão Piscinas",
     "short_name": "Piscinas",
     "description": "Gestão operacional de piscinas municipais — MMCrespo",
-    "start_url": "/admin",
-    "scope": "/admin",
+    "start_url": "/m",
+    "scope": "/",
     "display": "standalone",
     "orientation": "portrait-primary",
-    "background_color": "#ffffff",
-    "theme_color": "#2b9cd8",
+    "background_color": "#000000",
+    "theme_color": "#000000",
     "lang": "pt-PT",
     "icons": [
         {
