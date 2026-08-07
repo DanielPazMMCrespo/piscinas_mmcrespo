@@ -7,6 +7,7 @@ use App\Http\Controllers\OfflineSyncController;
 use App\Http\Controllers\PasswordChangeController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TimerPushController;
+use App\Http\Middleware\RequirePasswordChange;
 use Illuminate\Support\Facades\Route;
 
 // A app é o painel Filament — a raiz vai direta para lá.
@@ -29,7 +30,11 @@ Route::post('/convite/accept', [InvitationController::class, 'store'])
     ->name('invitation.store')
     ->middleware('throttle:10,1');
 
-Route::middleware('auth')->group(function (): void {
+// RequirePasswordChange também aqui: sem ele, quem tem a password por mudar
+// continuava a sincronizar registos por /offline-sync e a registar dispositivos
+// em /push — o guard existia só no painel. O middleware tem escape para
+// 'primeiro-acesso', por isso as duas rotas abaixo não entram em loop.
+Route::middleware(['auth', RequirePasswordChange::class])->group(function (): void {
     Route::get('/primeiro-acesso', [PasswordChangeController::class, 'show'])
         ->name('password-change.show');
     Route::post('/primeiro-acesso', [PasswordChangeController::class, 'store'])

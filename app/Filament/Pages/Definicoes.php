@@ -493,6 +493,13 @@ class Definicoes extends Page implements HasForms, HasTable
 
     public function getUsuariosNotificacoes(): Collection
     {
+        // Método público de um componente Livewire: sem este guard qualquer
+        // autenticado o invoca por wire:call e recebe a lista de utilizadores
+        // (nomes, e-mails, cargos) — o @if no Blade não protege nada.
+        if (! $this->podeGerir()) {
+            return collect();
+        }
+
         return User::query()
             ->with('roles')
             ->withCount('pushSubscriptions')
@@ -511,6 +518,10 @@ class Definicoes extends Page implements HasForms, HasTable
 
     public function getUsuariosLista(): array
     {
+        if (! $this->podeGerir()) {
+            return [];
+        }
+
         return User::query()
             ->orderBy('name')
             ->pluck('name', 'id')

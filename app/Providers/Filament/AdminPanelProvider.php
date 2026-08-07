@@ -82,8 +82,8 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Registo Diário',
                 'Operação',
-                'Stock',
                 'Dados',
+                'Stock',
                 'Sistema',
                 NavigationGroup::make('Estrutura')->collapsed(),
                 NavigationGroup::make('Logs')->collapsed(),

@@ -9,6 +9,7 @@ use App\Jobs\ProcessHannaSync;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\SensorReading;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
@@ -18,8 +19,17 @@ class EnsureHannaFreshTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function handle(Request $request): void
+    /**
+     * Todos os testes agem como utilizador autenticado por omissão — o
+     * middleware agora exige auth()->check(), coberto à parte em
+     * test_does_not_dispatch_for_unauthenticated_request().
+     */
+    private function handle(Request $request, bool $authenticated = true): void
     {
+        if ($authenticated) {
+            $this->actingAs(User::factory()->create());
+        }
+
         $middleware = app(EnsureHannaReadingsAreFresh::class);
         $middleware->handle($request, fn ($r) => response('ok'));
 
@@ -102,5 +112,36 @@ class EnsureHannaFreshTest extends TestCase
         $this->handle(Request::create('/admin', 'GET'));
 
         Queue::assertNotPushed(ProcessHannaSync::class);
+    }
+
+    public function test_does_not_dispatch_for_unauthenticated_request(): void
+    {
+        Queue::fake();
+
+        // Sem readings (stale) e sem sessão autenticada: um flood de GETs
+        // anónimos não pode continuar a encher a fila.
+        $this->handle(Request::create('/', 'GET'), authenticated: false);
+
+        Queue::assertNotPushed(ProcessHannaSync::class);
+    }
+
+    public function test_dispatches_only_once_within_the_cooldown_window(): void
+    {
+        Queue::fake();
+        $this->actingAs(User::factory()->create());
+
+        $middleware = app(EnsureHannaReadingsAreFresh::class);
+
+        // Três pedidos "separados" sem afterResponse()/terminate() entre eles —
+        // isso simula corretamente 3 requests reais (cada um com o seu próprio
+        // ciclo de vida), ao contrário de chamar terminate() 3 vezes no mesmo
+        // processo de teste, que replay todos os callbacks já acumulados.
+        $middleware->handle(Request::create('/admin', 'GET'), fn ($r) => response('ok'));
+        $middleware->handle(Request::create('/admin', 'GET'), fn ($r) => response('ok'));
+        $middleware->handle(Request::create('/admin', 'GET'), fn ($r) => response('ok'));
+
+        app()->terminate();
+
+        Queue::assertPushed(ProcessHannaSync::class, 1);
     }
 }

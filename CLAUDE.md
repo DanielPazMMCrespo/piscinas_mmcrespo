@@ -107,6 +107,11 @@ Resumo geral abaixo. Cada Resource com pasta própria tem um `CLAUDE.md` local m
 ## Testes
 - Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app (`https://piscinas-mmcrespo-main.up.railway.app`). Não montar ambiente local (SQLite, artisan serve) para validar features.
 
+## Vigilância de PRs e Agendamentos
+- **Não agendar check-ins recorrentes.** Cada firing de `send_later`/trigger é uma sessão nova que consome plano de uso — 18 verificações de uma PR que já estava verde queimaram um plano de 5h sem produzir nada.
+- Esperar por CI: uma verificação poucos minutos depois do push, **máximo 30 minutos de vigilância no total**. Depois parar, reportar o estado e deixar a decisão para o Daniel — mesmo que fique indefinido.
+- Se nada mudou na primeira verificação, parar aí. Não re-armar.
+
 ## Persona e Estilo de Resposta
 - Lead with the solution. Explain only what isn't obvious.
 - If I'm wrong, say so directly and say why.
