@@ -13,6 +13,7 @@ use App\Models\StockInstallationLog;
 use App\Models\User;
 use App\Notifications\ResumoTurnoNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -23,8 +24,12 @@ class SendShiftSummaryCommand extends Command
 
     protected $description = 'Envia o resumo de fim de turno com estado operacional do dia';
 
-    public function handle(SettingsService $settingsService): int
+    public function handle(SettingsService $settingsService, JanelaSilencio $silencio): int
     {
+        if ($silencio->ativa()) {
+            return self::SUCCESS;
+        }
+
         $horasConfiguradas = $settingsService->getArray('resumo_turno_horas', ['14:00', '20:00']);
         $horaAtual = now()->format('H:i');
 

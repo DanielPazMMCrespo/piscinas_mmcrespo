@@ -71,9 +71,12 @@ Schedule::command('regras:executar')
     ->withoutOverlapping();
 
 // Verificação de tendências degradantes nos parâmetros (pH, cloro).
-// Cada 6h é suficiente — tendências são de longo prazo.
+// Uma vez por dia chega: o dedup do comando já limita a um alerta por
+// piscina/parâmetro/dia. Estava em everySixHours(), que em Laravel significa
+// 00:00/06:00/12:00/18:00 — a corrida da meia-noite era a que acordava a
+// equipa com "tendência degradante".
 Schedule::command('tendencias:verificar')
-    ->everySixHours()
+    ->dailyAt('09:00')
     ->withoutOverlapping();
 
 // Resumo operacional de fim de turno — horários configuráveis em Definições.
@@ -82,16 +85,18 @@ Schedule::command('notificacoes:resumo-turno')
     ->everyMinute()
     ->withoutOverlapping();
 
-// Comparação semanal de conformidade — domingos às 09:00.
+// Comparação semanal de conformidade — segundas às 09:00. Estava ao domingo,
+// dia inteiro dentro da janela de silêncio: o push nunca sairia.
 Schedule::command('notificacoes:comparacao-semanal')
-    ->weeklyOn(0, '09:00')
+    ->weeklyOn(1, '09:00')
     ->withoutOverlapping();
 
 // ── Fase 3: Analytics & Business Intelligence ───────────────────────────────
 
-// Relatório mensal automático (livro sanitário do mês anterior) — dia 1 às 06:00.
+// Relatório mensal automático (livro sanitário do mês anterior) — dia 1 às 08:30,
+// já fora da janela de silêncio (às 06:00 o aviso de disponibilidade era engolido).
 Schedule::command('relatorio:mensal-automatico')
-    ->monthlyOn(1, '06:00')
+    ->monthlyOn(1, '08:30')
     ->withoutOverlapping();
 
 // Housekeeping de alert states: poda de >7 dias a cada hora.

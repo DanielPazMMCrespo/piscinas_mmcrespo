@@ -17,6 +17,7 @@ use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
 use App\Support\Auditoria;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -293,6 +294,12 @@ class HannaCloudSync extends Command
     /** @param array<string, mixed> $reading */
     private function notificarThresholds(HannaDevice $device, array $reading): void
     {
+        // Este alerta repete-se a cada ciclo enquanto o pH estiver fora, logo
+        // nada se perde por saltá-lo de noite: volta a ser avaliado às 08:00.
+        if (app(JanelaSilencio::class)->ativa()) {
+            return;
+        }
+
         if ($this->emArtefacto($device, $reading)) {
             return;
         }
@@ -398,6 +405,13 @@ class HannaCloudSync extends Command
         $forcarNotificacao = $apiOvertime && $device->ph_overtime_notified_at === null;
 
         if (($forcarNotificacao || $minutosDecorridos >= $ds['overtimeMinutes']) && $device->ph_overtime_notified_at === null) {
+            // O episódio é notificado uma única vez: marcar durante a janela de
+            // silêncio equivaleria a apagar o aviso. A máquina de estados acima
+            // já ficou atualizada; o próximo ciclo depois da janela notifica.
+            if (app(JanelaSilencio::class)->ativa()) {
+                return;
+            }
+
             $device->update(['ph_overtime_notified_at' => now()]);
 
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();

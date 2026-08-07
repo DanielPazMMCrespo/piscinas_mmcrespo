@@ -12,6 +12,7 @@ use App\Models\Incident;
 use App\Models\User;
 use App\Notifications\EscalacaoIncidenteNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -33,8 +34,10 @@ class ExecuteBusinessRulesCommand extends Command
      */
     protected $description = 'Executa regras de negócio automáticas (incidentes, escalação, stock)';
 
-    public function __construct(private readonly SettingsService $settings)
-    {
+    public function __construct(
+        private readonly SettingsService $settings,
+        private readonly JanelaSilencio $silencio,
+    ) {
         parent::__construct();
     }
 
@@ -125,6 +128,14 @@ class ExecuteBusinessRulesCommand extends Command
 
     private function rule2_autoEscalateIncidents(): void
     {
+        // A chave de dedup expira ao fim do dia e o comando corre de 15 em 15
+        // minutos: sem esta guarda, todos os incidentes parados re-escalavam em
+        // bloco à meia-noite em ponto. Agora escalam na primeira corrida depois
+        // da janela de silêncio.
+        if ($this->silencio->ativa()) {
+            return;
+        }
+
         $horasSemResposta = $this->settings->getInt('escalacao_incidente_horas', 24);
 
         $staleIncidents = Incident::where('status', '!=', IncidentStatus::RESOLVIDO)

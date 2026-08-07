@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -17,6 +18,12 @@ class NotificationPreferencesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // wantsNotification() passou a devolver false dentro da janela de
+        // silêncio: sem congelar a hora, esta suite falhava se corresse de
+        // madrugada ou ao domingo.
+        $this->travelTo(Carbon::parse('2026-08-05 10:00'));
+
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         foreach (['admin', 'tecnico', 'nadador_salvador'] as $roleName) {
             Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);

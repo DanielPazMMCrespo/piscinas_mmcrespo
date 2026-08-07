@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ResumoConformidadeNotification;
 use App\Services\AlertasService;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -30,8 +31,12 @@ class SendComplianceDigestCommand extends Command
 
     protected $description = 'Envia o resumo periódico de piscinas não conformes, se houver';
 
-    public function handle(SettingsService $settings, AlertasService $alertas): int
+    public function handle(SettingsService $settings, AlertasService $alertas, JanelaSilencio $silencio): int
     {
+        if ($silencio->ativa()) {
+            return self::SUCCESS;
+        }
+
         $horarios = $settings->getArray('digest_conformidade_horas', ['08:00', '13:00', '18:00']);
         $agora = now()->format('H:i');
 

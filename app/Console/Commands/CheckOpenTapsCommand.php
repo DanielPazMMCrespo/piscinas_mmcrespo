@@ -9,6 +9,7 @@ use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\TorneiraAbertaNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -24,8 +25,14 @@ class CheckOpenTapsCommand extends Command
 
     protected $description = 'Notifica torneiras abertas há mais tempo do que o limite configurado';
 
-    public function handle(SettingsService $settings): int
+    public function handle(SettingsService $settings, JanelaSilencio $silencio): int
     {
+        // Sai sem marcar notified_at: o comando corre de 15 em 15 minutos, logo
+        // o aviso sai na primeira corrida depois da janela de silêncio.
+        if ($silencio->ativa()) {
+            return self::SUCCESS;
+        }
+
         $limiteHoras = $settings->getInt('torneira_aberta_horas_aviso', 4);
 
         $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();

@@ -18,11 +18,15 @@ class SendWeeklyComparisonCommand extends Command
 {
     protected $signature = 'notificacoes:comparacao-semanal';
 
-    protected $description = 'Envia comparação semanal de conformidade (domingo)';
+    protected $description = 'Envia comparação semanal de conformidade (segunda-feira)';
 
     public function handle(): int
     {
-        if (! now()->isSunday()) {
+        // Passou de domingo para segunda: ao domingo a janela de silêncio cobre
+        // o dia inteiro e o aviso nunca chegaria ao dispositivo. Como agora
+        // corre já com a semana fechada, as duas janelas são semanas completas
+        // em vez de "a semana a meio" contra "a semana passada".
+        if (! now()->isMonday()) {
             return self::SUCCESS;
         }
 
@@ -35,11 +39,11 @@ class SendWeeklyComparisonCommand extends Command
 
         Cache::put($cacheKey, true, 86400 * 7);
 
-        $thisWeekStart = now()->startOfWeek();
-        $thisWeekEnd = now();
+        $thisWeekStart = now()->subWeek()->startOfWeek();
+        $thisWeekEnd = now()->startOfWeek();
 
-        $lastWeekStart = now()->subWeek()->startOfWeek();
-        $lastWeekEnd = now()->startOfWeek();
+        $lastWeekStart = now()->subWeeks(2)->startOfWeek();
+        $lastWeekEnd = now()->subWeek()->startOfWeek();
 
         $linhas = [];
         $pools = Pool::operacionais()->get();

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -22,8 +23,15 @@ class FireDueCustomBroadcastsCommand extends Command
 
     protected $description = 'Dispara os anúncios personalizados vencidos (únicos e diários)';
 
-    public function handle(): int
+    public function handle(JanelaSilencio $silencio): int
     {
+        // O comando corre a cada minuto e o disparo diário tem janela de
+        // tolerância, portanto um anúncio agendado para dentro da janela de
+        // silêncio sai na primeira corrida a seguir em vez de se perder.
+        if ($silencio->ativa()) {
+            return self::SUCCESS;
+        }
+
         $this->dispararUnicos();
         $this->dispararDiarios();
 
