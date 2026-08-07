@@ -65,19 +65,16 @@ class CheckParameterTrendsCommand extends Command
             }
 
             $this->checkTrend($pool, $records, 'ph', $adminAndTecnicos, $registosMinimos);
-            $this->checkTrend($pool, $records, 'cloro_livre', $adminAndTecnicos, $registosMinimos, $this->orpPorRegisto($pool, $records));
+            $this->checkTrend($pool, $records, 'cloro_livre', $adminAndTecnicos, $registosMinimos);
         }
 
         return Command::SUCCESS;
     }
 
-    /**
-     * @param  array<int, float>  $orpPorRegisto  ORP da sonda no momento de cada registo (record_id => mV)
-     */
-    private function checkTrend(Pool $pool, $records, string $parameter, $users, int $registosMinimos, array $orpPorRegisto = []): void
+    private function checkTrend(Pool $pool, $records, string $parameter, $users, int $registosMinimos): void
     {
         $values = [];
-        $orpsAlinhados = [];
+        $registosComValor = [];
 
         foreach ($records as $record) {
             $val = $parameter === 'ph' ? $record->ph_efetivo : $record->cloro_livre_efetivo;
@@ -86,7 +83,7 @@ class CheckParameterTrendsCommand extends Command
             }
 
             $values[] = (float) $val;
-            $orpsAlinhados[] = $orpPorRegisto[$record->id] ?? null;
+            $registosComValor[] = $record->id;
         }
 
         if (count($values) < $registosMinimos) {
@@ -143,18 +140,26 @@ class CheckParameterTrendsCommand extends Command
             return;
         }
 
+        $today = now()->format('Y-m-d');
+        $cacheKey = "tendencia_{$pool->id}_{$parameter}_{$today}";
+
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+
         // O cloro livre manual é medido uma ou duas vezes por dia; o controlador
         // dosa continuamente entre registos. Uma descida nas análises manuais,
         // por si só, não diz que o poder desinfetante caiu — é o ORP dessa altura
         // que o diz.
         $orp = null;
         if ($parameter === 'cloro_livre') {
-            $orp = $this->avaliarOrp($pool, $orpsAlinhados);
+            $porRegisto = $this->orpPorRegisto($pool, $records);
+            $orp = $this->avaliarOrp($pool, array_map(fn (int $id) => $porRegisto[$id] ?? null, $registosComValor));
 
             if ($orp['estado'] === 'contradiz') {
                 $this->line(sprintf(
                     '%s: tendência de cloro livre ignorada — ORP %s → %s mV (a sonda compensou).',
-                    $pool->nome_completo,
+                    $pool->nomeCompleto(),
                     number_format($orp['inicial'], 0, ',', ''),
                     number_format($orp['final'], 0, ',', ''),
                 ));
@@ -163,23 +168,18 @@ class CheckParameterTrendsCommand extends Command
             }
         }
 
-        $today = now()->format('Y-m-d');
-        $cacheKey = "tendencia_{$pool->id}_{$parameter}_{$today}";
-
-        if (! Cache::has($cacheKey)) {
-            NotificationFacade::send(
-                $users,
-                new TendenciaAlertaNotification(
-                    $pool->nome_completo,
-                    $parameter,
-                    $values,
-                    $nextValue,
-                    $limitCrossed,
-                    $orp
-                )
-            );
-            Cache::add($cacheKey, true, now()->endOfDay());
-        }
+        NotificationFacade::send(
+            $users,
+            new TendenciaAlertaNotification(
+                $pool->nome_completo,
+                $parameter,
+                $values,
+                $nextValue,
+                $limitCrossed,
+                $orp
+            )
+        );
+        Cache::add($cacheKey, true, now()->endOfDay());
     }
 
     /**
@@ -195,13 +195,21 @@ class CheckParameterTrendsCommand extends Command
             return [];
         }
 
+        // Uma janela estreita por registo em vez de um intervalo único: entre o
+        // primeiro e o último registo cabem dias de leituras de 15 em 15 min e
+        // só interessam as vizinhas de cada um.
         $leituras = SensorReading::query()
+            ->select(['lida_em', 'orp'])
             ->where('pool_id', $pool->id)
             ->whereNotNull('orp')
-            ->whereBetween('lida_em', [
-                $momentos->min()->copy()->subMinutes(self::ORP_JANELA_MINUTOS),
-                $momentos->max()->copy()->addMinutes(self::ORP_JANELA_MINUTOS),
-            ])
+            ->where(function ($query) use ($momentos): void {
+                foreach ($momentos as $momento) {
+                    $query->orWhereBetween('lida_em', [
+                        $momento->copy()->subMinutes(self::ORP_JANELA_MINUTOS),
+                        $momento->copy()->addMinutes(self::ORP_JANELA_MINUTOS),
+                    ]);
+                }
+            })
             ->orderBy('lida_em')
             ->get();
 

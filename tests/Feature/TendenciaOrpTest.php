@@ -67,7 +67,9 @@ it('nao alerta quando o ORP subiu na mesma janela', function (): void {
     $piscina = piscinaComCloroADescer();
     leiturasOrp($piscina, [700, 730, 760]);
 
-    $this->artisan('tendencias:verificar')->assertSuccessful();
+    $this->artisan('tendencias:verificar')
+        ->expectsOutputToContain('ORP 700 → 760 mV')
+        ->assertSuccessful();
 
     Notification::assertNotSentTo(User::role(UserRole::ADMIN)->get(), TendenciaAlertaNotification::class);
 });
