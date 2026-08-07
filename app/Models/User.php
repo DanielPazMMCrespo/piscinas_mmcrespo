@@ -8,6 +8,7 @@ namespace App\Models;
 use App\Constants\NSPermission;
 use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
+use App\Support\JanelaSilencio;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -146,6 +147,15 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
      */
     public function wantsNotification(string $key, string $canal): bool
     {
+        // Janela de silêncio: corta push e e-mail de tudo, incluindo os tipos de
+        // conformidade obrigatória logo abaixo. A notificação continua a ser
+        // escrita na base de dados e aparece no sino do painel.
+        // 'timer_finished' fica de fora: o temporizador foi iniciado pelo próprio
+        // utilizador, que está à espera do fim — silenciá-lo seria avariá-lo.
+        if ($key !== 'timer_finished' && app(JanelaSilencio::class)->ativa()) {
+            return false;
+        }
+
         // Se for conformidade legal, admin/gestor não podem desligar (compliance mandatory)
         if (in_array($key, ['nao_conformidade', 'resumo_conformidade', 'hanna_threshold', 'hanna_overtime'], true)
             && $this->hasRole([UserRole::ADMIN, UserRole::GESTOR])) {

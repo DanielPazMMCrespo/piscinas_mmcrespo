@@ -14,6 +14,7 @@ use App\Notifications\TesteNotificacaoPush;
 use App\Services\CacheService;
 use App\Services\SettingsService;
 use App\Support\Auditoria;
+use App\Support\JanelaSilencio;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -80,7 +81,15 @@ class Definicoes extends Page implements HasForms, HasTable
 
         if ($this->podeGerir()) {
             $settings = AppSetting::all()->pluck('value', 'key')->toArray();
-            $this->form->fill($settings);
+
+            // fill() com um array não aplica os ->default() dos componentes: sem
+            // isto a janela de silêncio aparecia desligada até alguém gravar.
+            $this->form->fill(array_merge([
+                'silencio_ativo' => true,
+                'silencio_inicio' => JanelaSilencio::INICIO_PADRAO,
+                'silencio_fim' => JanelaSilencio::FIM_PADRAO,
+                'silencio_domingo' => true,
+            ], $settings));
         }
 
         $this->preferencesForm->fill([
@@ -106,6 +115,22 @@ class Definicoes extends Page implements HasForms, HasTable
         $horas = [];
 
         foreach (range(6, 23) as $h) {
+            $label = sprintf('%02d:00', $h);
+            $horas[$label] = $label;
+        }
+
+        return $horas;
+    }
+
+    /**
+     * As 24 horas do dia. A janela de silêncio precisa das horas da madrugada,
+     * que não fazem sentido como horário de um resumo.
+     */
+    private function opcoesHorarioCompleto(): array
+    {
+        $horas = [];
+
+        foreach (range(0, 23) as $h) {
             $label = sprintf('%02d:00', $h);
             $horas[$label] = $label;
         }
@@ -194,6 +219,38 @@ class Definicoes extends Page implements HasForms, HasTable
                             ->numeric()
                             ->step(0.05)
                             ->helperText('Multiplica a dose calculada para compensar filtros, utilização, etc. (Padrão: 1.25 = +25%)')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Janela de Silêncio')
+                    ->description('Período em que a aplicação não envia notificações para o dispositivo nem por e-mail. Nada se perde: os avisos ficam no sino do painel e os alertas que só disparam uma vez (torneira, bidão, sonda, escalação) saem assim que a janela termina.')
+                    ->icon('heroicon-o-moon')
+                    ->schema([
+                        Forms\Components\Toggle::make('silencio_ativo')
+                            ->label('Janela de Silêncio Ativa')
+                            ->default(true)
+                            ->live()
+                            ->helperText('Padrão: ativa.')
+                            ->columnSpanFull(),
+                        Forms\Components\Select::make('silencio_inicio')
+                            ->label('Início do Silêncio')
+                            ->options($this->opcoesHorarioCompleto())
+                            ->default(JanelaSilencio::INICIO_PADRAO)
+                            ->selectablePlaceholder(false)
+                            ->visible(fn (Get $get) => (bool) $get('silencio_ativo'))
+                            ->helperText('Padrão: 22:00.'),
+                        Forms\Components\Select::make('silencio_fim')
+                            ->label('Fim do Silêncio')
+                            ->options($this->opcoesHorarioCompleto())
+                            ->default(JanelaSilencio::FIM_PADRAO)
+                            ->selectablePlaceholder(false)
+                            ->visible(fn (Get $get) => (bool) $get('silencio_ativo'))
+                            ->helperText('Padrão: 08:00.'),
+                        Forms\Components\Toggle::make('silencio_domingo')
+                            ->label('Domingo Sem Notificações (Dia Inteiro)')
+                            ->default(true)
+                            ->visible(fn (Get $get) => (bool) $get('silencio_ativo'))
+                            ->helperText('Padrão: ativo. Ao domingo não sai nada, a qualquer hora.')
                             ->columnSpanFull(),
                     ])->columns(2),
 

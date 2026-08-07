@@ -61,6 +61,19 @@ class SettingsService
         return (int) $this->get($key, $default);
     }
 
+    public function getBool(string $key, bool $default = false): bool
+    {
+        $value = $this->get($key, $default);
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        // Um toggle guardado pelo form chega como bool no JSON, mas um valor
+        // escrito à mão pode vir como '0'/'false'.
+        return ! in_array(strtolower((string) $value), ['0', 'false', 'off', 'no'], true);
+    }
+
     public function getArray(string $key, array $default = []): array
     {
         $value = $this->get($key, $default);

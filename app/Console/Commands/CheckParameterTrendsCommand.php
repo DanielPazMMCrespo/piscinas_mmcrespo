@@ -10,6 +10,7 @@ use App\Models\Pool;
 use App\Models\User;
 use App\Notifications\TendenciaAlertaNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -30,8 +31,10 @@ class CheckParameterTrendsCommand extends Command
      */
     protected $description = 'Verifica tendências degradantes nos parâmetros das piscinas e alerta preventivamente';
 
-    public function __construct(private readonly SettingsService $settings)
-    {
+    public function __construct(
+        private readonly SettingsService $settings,
+        private readonly JanelaSilencio $silencio,
+    ) {
         parent::__construct();
     }
 
@@ -40,6 +43,12 @@ class CheckParameterTrendsCommand extends Command
      */
     public function handle(): int
     {
+        // A chave de dedup é diária: se o alerta fosse gerado dentro da janela
+        // de silêncio ficava marcado como enviado sem ninguém o ter recebido.
+        if ($this->silencio->ativa()) {
+            return Command::SUCCESS;
+        }
+
         // Uma tendência degradante numa piscina encerrada não é accionável.
         $pools = Pool::operacionais()->with('instalacao')->get();
         $adminAndTecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
