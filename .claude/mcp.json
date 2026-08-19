@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "higgsfield": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@higgsfield/mcp"
+      ],
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    }
+  }
+}

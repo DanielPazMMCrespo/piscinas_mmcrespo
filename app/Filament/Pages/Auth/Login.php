@@ -8,7 +8,9 @@ use App\Models\User;
 use Filament\Forms\Components\Component;
 use Filament\Http\Responses\Auth\Contracts\LoginResponse;
 use Filament\Pages\Auth\Login as BaseLogin;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -43,10 +45,8 @@ class Login extends BaseLogin
         $email = $data['email'] ?? '';
         $password = (string) ($data['password'] ?? '');
 
-        // Auto-detect PIN: input is 4–6 digits only
-        $isPinAttempt = ctype_digit($password)
-            && strlen($password) >= 4
-            && strlen($password) <= 6;
+        // Auto-detect PIN: exactly 6 digits
+        $isPinAttempt = ctype_digit($password) && strlen($password) === 6;
 
         // REMOTE_ADDR, não request()->ip(): trustProxies(at: '*') (necessário para
         // HTTPS atrás do proxy da Railway) faz ip() confiar em X-Forwarded-For, que
@@ -115,7 +115,8 @@ class Login extends BaseLogin
         }
 
         if ($isPinAttempt) {
-            RateLimiter::hit($throttleKey, 60);
+            RateLimiter::hit($throttleKey, 900);
+            Event::dispatch(new Failed('web', null, ['email' => $email]));
 
             $attemptsLeft = RateLimiter::remaining($throttleKey, 5);
 
@@ -130,7 +131,8 @@ class Login extends BaseLogin
             }
         }
 
-        RateLimiter::hit($passwordThrottleKey, 60);
+        RateLimiter::hit($passwordThrottleKey, 900);
+        Event::dispatch(new Failed('web', null, ['email' => $email]));
 
         throw ValidationException::withMessages([
             'data.email' => __('filament-panels::pages/auth/login.messages.failed'),
