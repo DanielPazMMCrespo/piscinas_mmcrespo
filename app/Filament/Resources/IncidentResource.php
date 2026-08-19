@@ -194,7 +194,7 @@ class IncidentResource extends Resource
                     ->label('Fotos')
                     ->helperText('Evidência da avaria/ocorrência (até 5 fotos).')
                     ->disk(DailyRecord::getStorageDisk())
-                    ->visibility('public')
+                    ->visibility('private')
                     ->directory('incidentes')
                     ->image()
                     ->multiple()

@@ -468,7 +468,7 @@ class OperationalActionResource extends Resource
 
             Forms\Components\FileUpload::make('foto')
                 ->label('Foto (opcional)')
-                ->disk(DailyRecord::getStorageDisk())->visibility('public')
+                ->disk(DailyRecord::getStorageDisk())->visibility('private')
                 ->directory('operational-actions')
                 ->image()
                 ->imageEditor()

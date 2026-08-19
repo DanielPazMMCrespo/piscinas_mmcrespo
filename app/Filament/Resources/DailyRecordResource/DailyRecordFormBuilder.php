@@ -380,7 +380,7 @@ class DailyRecordFormBuilder
     {
         $component = Forms\Components\FileUpload::make($field)
             ->label($label)
-            ->disk(DailyRecord::getStorageDisk())->visibility('public')
+            ->disk(DailyRecord::getStorageDisk())->visibility('private')
             ->directory($directory)
             ->image()
             ->imageEditor()
