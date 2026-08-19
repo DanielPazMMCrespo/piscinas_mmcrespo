@@ -49,6 +49,14 @@ class DailyRecordService
         // created_at automático do model, para auditoria).
         $horaColheita = $data['hora_colheita'] ?? null;
         $registadoEm = Carbon::parse($data['registado_em'] ?? now());
+
+        // Validar que a data está dentro da janela permitida (offline sync com até 7 dias de atraso)
+        if ($registadoEm->gt(now()->addMinutes(5)) || $registadoEm->lt(now()->subDays(7))) {
+            throw ValidationException::withMessages([
+                'registado_em' => 'A data do registo tem de estar entre os últimos 7 dias e agora (+5 min de tolerância).',
+            ]);
+        }
+
         $hora = filled($horaColheita) ? Carbon::parse($horaColheita) : now();
         $registadoEm->setTime($hora->hour, $hora->minute, 0);
 
