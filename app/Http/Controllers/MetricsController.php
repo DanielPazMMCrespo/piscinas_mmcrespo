@@ -10,6 +10,7 @@ use App\Models\Pool;
 use App\Models\StockInstallation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Endpoint de métricas para integração com BI externo (Grafana/Metabase).
@@ -22,7 +23,7 @@ class MetricsController extends Controller
     {
         $token = config('services.metrics.token');
 
-        if (empty($token) || $request->bearerToken() !== $token) {
+        if (empty($token) || ! Str::equals((string) $request->bearerToken(), $token)) {
             return response()->json(['message' => 'Não autorizado.'], 401);
         }
 
