@@ -17,7 +17,6 @@ use App\Models\Pool;
 use App\Notifications\IncidentMessageNotification;
 use Filament\Actions\Action;
 use Filament\Forms;
-use Filament\Forms\Components\Component;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Infolists;
@@ -435,7 +434,6 @@ class IncidentResource extends Resource
             ->button() // Make it a primary explicit button, not hidden in dots
             ->modalWidth('md')
             ->modalAlignment('center')
-            ->extraModalAttributes(['class' => 'neo-modal-glass'])
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
             ->modalHeading('Resolver Incidente')
             ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')
@@ -456,7 +454,6 @@ class IncidentResource extends Resource
             ->color('success')
             ->modalWidth('md')
             ->modalAlignment('center')
-            ->extraModalAttributes(['class' => 'neo-modal-glass'])
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
             ->modalHeading('Resolver Incidente')
             ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')

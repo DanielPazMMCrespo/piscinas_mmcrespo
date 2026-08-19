@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Constants\AlertLevel;
+use App\Constants\IncidentStatus;
 use App\Constants\UserRole;
 use App\Models\AlertState;
-use App\Services\AlertasService;
-use Filament\Widgets\Widget;
-use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Actions\Contracts\HasActions;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Actions\Action;
 use App\Models\Incident;
-use App\Constants\IncidentStatus;
 use App\Models\IncidentMessage;
 use App\Notifications\IncidentMessageNotification;
-use Filament\Notifications\Notification;
+use App\Services\AlertasService;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Forms;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
+use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +40,7 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
 {
     use InteractsWithActions;
     use InteractsWithForms;
+
     protected static ?int $sort = -20;
 
     protected int|string|array $columnSpan = 'full';
@@ -84,7 +85,6 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
         return Action::make('resolveIncident')
             ->modalWidth('md')
             ->modalAlignment('center')
-            ->extraModalAttributes(['class' => 'neo-modal-glass'])
             ->modalHeading('Resolver Incidente')
             ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')
             ->modalSubmitActionLabel('Arquivar')
@@ -100,7 +100,9 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
             ])
             ->action(function (array $data, array $arguments): void {
                 $incident = Incident::find($arguments['id']);
-                if (! $incident || $incident->status === IncidentStatus::RESOLVIDO) return;
+                if (! $incident || $incident->status === IncidentStatus::RESOLVIDO) {
+                    return;
+                }
 
                 $incident->update([
                     'status' => IncidentStatus::RESOLVIDO,
@@ -133,7 +135,6 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
             ->requiresConfirmation()
             ->modalWidth('md')
             ->modalAlignment('center')
-            ->extraModalAttributes(['class' => 'neo-modal-glass'])
             ->modalHeading('Violação de Limite Legal')
             ->modalDescription('Este alerta reflete uma violação dos limites legais. Marcar como tratado apaga o alerta do quadro, mas não altera os valores registados na folha. Continuar?')
             ->modalSubmitActionLabel('Sim, marcar como tratado')
