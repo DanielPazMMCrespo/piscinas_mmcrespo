@@ -2,7 +2,7 @@
     "name": "Gestão Piscinas",
     "short_name": "Piscinas",
     "description": "Gestão operacional de piscinas municipais — MMCrespo",
-    "start_url": "/m",
+    "start_url": "/admin",
     "scope": "/",
     "display": "standalone",
     "orientation": "portrait-primary",
