@@ -10,7 +10,7 @@ use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\User;
 use App\Notifications\RelatorioMensalDisponivelNotification;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -59,7 +59,7 @@ class GerarRelatorioMensalCommand extends Command
 
             $seccoes = RelatorioPdf::construirSeccoes($piscinas, $inicio, $fim, 'todos', 'media_diaria');
 
-            $pdf = Pdf::loadView('pdf.livro-sanitario', [
+            $domPdf = PdfRenderer::render('pdf.livro-sanitario', [
                 'instalacao' => $instalacao,
                 'seccoes' => $seccoes,
                 'inicio' => $inicio,
@@ -70,20 +70,7 @@ class GerarRelatorioMensalCommand extends Command
                 'seccoesVisiveis' => self::SECCOES_VISIVEIS,
                 'modo' => 'todos',
                 'controladorModo' => 'media_diaria',
-            ])->setPaper('a4', 'landscape');
-
-            $domPdf = $pdf->getDomPDF();
-            $domPdf->render();
-            $canvas = $domPdf->getCanvas();
-            $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
-            $canvas->page_text(
-                $canvas->get_width() - 130,
-                $canvas->get_height() - 26,
-                'Página {PAGE_NUM} de {PAGE_COUNT}',
-                $fonte,
-                7.0,
-                [0, 0, 0],
-            );
+            ]);
 
             $nomeFicheiro = sprintf('livro-sanitario_%s_%s.pdf', Str::slug($instalacao->name), $inicio->format('Y-m'));
             $caminho = 'relatorios-mensais/'.$nomeFicheiro;

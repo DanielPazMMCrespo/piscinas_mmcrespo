@@ -14,7 +14,7 @@ use App\Models\PoolClosure;
 use App\Models\SensorReading;
 use App\Models\User;
 use App\Services\LeituraArtefactoService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfRenderer;
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
@@ -420,7 +420,7 @@ class RelatorioPdf extends Page implements HasForms
 
         $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $estado['registo_modo'] ?? 'todos', $modoControlador);
 
-        $pdf = Pdf::loadView('pdf.livro-sanitario', [
+        $domPdf = PdfRenderer::render('pdf.livro-sanitario', [
             'instalacao' => $instalacao,
             'seccoes' => $seccoes,
             'inicio' => $inicio,
@@ -431,21 +431,7 @@ class RelatorioPdf extends Page implements HasForms
             'seccoesVisiveis' => $seccoesVisiveis,
             'modo' => $estado['registo_modo'] ?? 'todos',
             'controladorModo' => $modoControlador,
-        ])->setPaper('a4', 'landscape');
-
-        $domPdf = $pdf->getDomPDF();
-        $domPdf->render();
-
-        $canvas = $domPdf->getCanvas();
-        $fonte = $domPdf->getFontMetrics()->getFont('DejaVu Sans');
-        $canvas->page_text(
-            $canvas->get_width() - 130,
-            $canvas->get_height() - 26,
-            'Página {PAGE_NUM} de {PAGE_COUNT}',
-            $fonte,
-            7.0,
-            [0, 0, 0],
-        );
+        ]);
 
         $nomePiscina = $todas ? 'todas' : Str::slug((string) $piscinas->first()?->name);
         $nomeFicheiro = sprintf(
