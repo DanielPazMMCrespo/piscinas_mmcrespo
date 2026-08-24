@@ -18,7 +18,6 @@ use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
 use App\Support\Auditoria;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
