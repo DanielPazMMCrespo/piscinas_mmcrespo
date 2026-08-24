@@ -22,17 +22,65 @@ Nenhum trabalho foi registado.
 com valores medidos e provas). Mais uma camada de evidência a partir da sonda, para a paragem
 que já decorre.
 
-### O caderno de encargos não existe no repositório
+### O caderno de encargos (Anexo A) — lido, e muda coisas
 
-Procura exaustiva: nenhum ficheiro com esse nome, nenhum ficheiro que o mencione, zero `.docx`.
-A lista de trabalhos deste plano é **provisória** e tem de ser confirmada contra o documento
-real antes de qualquer entrega à câmara.
+Documentos do cliente em `docs/caderno-encargos/` (fora do git, ver `.gitignore`).
+O que decide este plano está no **Anexo A — "Plano de manutenção de equipamentos e
+tratamento de águas das Piscinas Municipais de Leiria"**, 7 páginas.
 
-Base legal aplicável enquanto isso: **Lei n.º 52/2018** (prevenção e controlo da Legionella —
-obriga a Plano de Prevenção e Controlo baseado em análise de risco para instalações com
-equipamentos que geram aerossóis, incluindo piscinas cobertas aquecidas), **Despacho
-n.º 1547/2022** (parâmetros e frequência de análises), mais a CN 14/DA e o DR 5/97 que a app
-já implementa.
+**Obrigações com periodicidade fixa, citadas à letra:**
+
+| Obrigação | Periodicidade |
+|---|---|
+| "Limpeza e desinfecção semestral dos **tanques de compensação** de todas as instalações (**Dezembro e Agosto**) e sempre que seja necessário para correção de valores bacteriológicos" | Semestral, meses fixos |
+| "Lavagem dos filtros de areia conforme plano predefinido com um **mínimo de 3 vezes por semana**" | Semanal |
+| "Transbordo de superfície das piscinas (…) **mínimo de 2 vezes por semana**" | Semanal |
+| "Controlo Analítico Laboratorial físico-químico e bacteriológico **quinzenal** (…) em Laboratório Acreditado (2 Análises por mês por piscina)" | Quinzenal |
+| "controle analítico **Semestral** de Legionella em Laboratório Acreditado" sobre **água quente sanitária** | Semestral |
+| "Tratamento de choque conforme necessidades e ocorrências" | Sob evento |
+| "Relatório Mensal da operação e manutenção" | Mensal |
+
+**A paragem de Agosto é a obrigação contratual da limpeza dos tanques de compensação.**
+É esta a resposta directa a "os tanques foram limpos?".
+
+**As datas não são nossas.** O contrato diz: "Ligar/desligar equipamentos em função do regime
+de funcionamento das piscinas e **períodos de paragem definidos pela CM Leiria**". Logo
+`previsto_para` **tem de ser editável por linha** — não pode ser `inicio + offset` calculado.
+Era esta a condição que decidiu a arquitectura contra a abordagem minimalista.
+
+**Legionella — âmbito reduzido por decisão explícita do utilizador.**
+O contrato exige plano de prevenção anti-legionella e controlo semestral acreditado sobre
+**AQS (água quente sanitária)**, com pontos de colheita fixos por instalação:
+
+| Instalação | Pontos AQS | Análises/ano |
+|---|---|---|
+| Complexo de Leiria | 5 | 10 |
+| Maceira | 4 | 8 |
+| Caranguejeira | 4 | 8 |
+
+O utilizador foi avisado e **decidiu manter o âmbito "só a piscina"**. Consequência assumida:
+a Legionella fica **uma linha da checklist com anexo do boletim**, sem os pontos de colheita
+nem a periodicidade semestral. Há um documento inteiro de AQS (anexo A7) ainda **não lido** —
+é por aí que se alarga o âmbito se o vereador pedir esse detalhe.
+
+**Discrepância de equipamento, resolvida.** O Anexo A especifica, para as 5 piscinas,
+"Controlador ProMinent – Dulcomarin II. Sonda de leitura de: **Cloro**, PH, Temperatura,
+Potencial Redox, sensor de fluxo". O utilizador confirmou que os controladores **foram trocados
+para Hanna BL132**, que não reporta cloro. O caderno está desactualizado neste ponto.
+Confirmado no feed real: `raw_parameters` traz `ph`, `orp`, `temp`, `airTemp`, `acidBase`, `cl`
+— onde `cl` é o débito da bomba doseadora (`caudal_cloro`), não uma concentração.
+
+Enquadramento legal: CN 14/DA (DGS 2009, em `docs/caderno-encargos/`), Lei n.º 52/2018 e
+Despacho n.º 1547/2022 (Legionella), DR 5/97.
+
+**Obrigações contratuais que a app não registra hoje** — achados fora do âmbito deste plano,
+a abrir em separado: análises quinzenais de laboratório acreditado com a lista de parâmetros
+do contrato (turvação, cloretos, condutividade, oxidabilidade, coliformes, E. coli, enterococos
+fecais, staphylococcus, pseudomonas aeruginosa); leitura dos contadores de **gás e
+electricidade** a par do de água ("ficheiro excel articulado"); registo da formação anual de
+2 a 4 horas à equipa.
+
+
 
 ## Decisões fechadas com o utilizador
 
@@ -204,23 +252,28 @@ Em `PoolClosure`: `public function trabalhos(): HasMany` →
 construtor privado, `all()`, `isValid()`, `labels()`, `label()`), mais `obrigatorios(): array`
 e `template(): array`.
 
-Lista provisória, 13 itens:
+Lista ancorada no Anexo A. Cada item obrigatório cita a cláusula que o exige.
 
-| # | const | Label | Obrig. |
-|---|---|---|---|
-| 1 | `ESVAZIAMENTO_TANQUE` | Esvaziamento do tanque | não |
-| 2 | `LIMPEZA_TANQUE` | Limpeza e desinfeção do tanque | **sim** |
-| 3 | `LIMPEZA_TANQUE_COMPENSACAO` | Limpeza do tanque de compensação | **sim** |
-| 4 | `LIMPEZA_CALEIRAS` | Limpeza de caleiras e grelhas | não |
-| 5 | `MANUTENCAO_FILTROS` | Manutenção / massa filtrante | não |
-| 6 | `LIMPEZA_CIRCUITO` | Limpeza do circuito hidráulico | não |
-| 7 | `DESINFECAO_LEGIONELLA` | Desinfeção e controlo de Legionella | **sim** |
-| 8 | `ENCHIMENTO_TANQUE` | Enchimento do tanque | não |
-| 9 | `SUPERCLORACAO` | Supercloração / choque de arranque | **sim** |
-| 10 | `REPOSICAO_CLORO` | Reposição dos níveis de cloro | **sim** |
-| 11 | `ARRANQUE_AQUECIMENTO` | Arranque do sistema de aquecimento | não |
-| 12 | `VERIFICACAO_PARAMETROS` | Verificação de parâmetros pré-reabertura | **sim** |
-| 13 | `OUTRO` | Outro trabalho | não |
+| # | const | Label | Obrig. | Base no contrato |
+|---|---|---|---|---|
+| 1 | `ESVAZIAMENTO_TANQUE` | Esvaziamento / drenagem do tanque | não | pré-requisito da limpeza |
+| 2 | `LIMPEZA_TANQUE_COMPENSACAO` | Limpeza e desinfeção do tanque de compensação | **sim** | "limpeza e desinfecção semestral dos tanques de compensação (Dezembro e Agosto)" |
+| 3 | `LIMPEZA_TANQUE` | Limpeza e desinfeção do tanque da piscina | **sim** | "sempre que seja necessário para correção de valores bacteriológicos" |
+| 4 | `LAVAGEM_FILTROS` | Lavagem dos filtros de areia | **sim** | "mínimo de 3 vezes por semana" |
+| 5 | `MANUTENCAO_FILTROS` | Manutenção / substituição de massa filtrante | não | manutenção de equipamento |
+| 6 | `TRATAMENTO_CHOQUE` | Tratamento de choque / supercloração | **sim** | "tratamento de choque conforme necessidades e ocorrências" |
+| 7 | `DESINFECAO_LEGIONELLA` | Desinfeção e controlo de Legionella | **sim** | "controle analítico Semestral de Legionella em Laboratório Acreditado" (âmbito reduzido — ver acima) |
+| 8 | `ENCHIMENTO_TANQUE` | Enchimento do tanque | não | pré-requisito do arranque |
+| 9 | `REPOSICAO_CLORO` | Reposição dos níveis de cloro e pH | **sim** | "ajuste das dosagens de tratamento face aos resultados das análises" |
+| 10 | `CALIBRACAO_SONDAS` | Calibração de sondas e set points do controlador | **sim** | "calibração de sondas e definição dos set point dos controladores" |
+| 11 | `ARRANQUE_EQUIPAMENTOS` | Arranque de equipamentos e aquecimento | não | "ligar/desligar equipamentos (…) períodos de paragem definidos pela CM Leiria" |
+| 12 | `ANALISE_ACREDITADA` | Análise laboratorial acreditada pré-reabertura | **sim** | "controlo analítico laboratorial físico-químico e bacteriológico quinzenal (…) Laboratório Acreditado" |
+| 13 | `VERIFICACAO_PARAMETROS` | Verificação de parâmetros pré-reabertura | **sim** | CN 14/DA |
+| 14 | `OUTRO` | Outro trabalho | não | escape hatch |
+
+`ANALISE_ACREDITADA` e `DESINFECAO_LEGIONELLA` exigem `documentos` — o boletim do laboratório
+acreditado é a única prova aceitável. `LIMPEZA_TANQUE_COMPENSACAO` é o item que responde à
+pergunta do vereador sobre os tanques.
 
 **O template vive em código, não em BD:**
 
@@ -295,8 +348,8 @@ mesma página.
   imune a amostras em falta). Janela de 6 h: dispara com `temp(t+6h) - temp(t) >= 2.0 °C` **e**
   ≥80% dos passos horários `>= -0.1 °C` (aceita horas planas, rejeita serra) **e** sem queda
   de volta nas 6 h seguintes. 6 h porque abaixo disso o sol da tarde é indistinguível; 2,0 °C
-  porque está muito acima do ruído (±0,2). Despromover confiança se `temperatura_ar` subiu em
-  paralelo.
+  porque está muito acima do ruído (±0,2). **Não usar `temperatura_ar` como discriminador
+  de onda de calor** — o feed real devolve -44,5 °C, é um sensor não ligado. Ideia cortada.
 - **Reposição de cloro** — 8 leituras consecutivas (2 h) dentro da banda, **só se houver
   excursão prévia na mesma janela**. Senão isto é operação normal e todos os relatórios
   reclamariam uma reposição que nunca aconteceu.
@@ -601,5 +654,9 @@ possível provar", e que a foto aparece embebida (não uma caixa partida).
 3. **~16 ficheiros novos.** Se o caderno de encargos exigir outra lista, parte dela é custo
    afundado. A estrutura sobrevive; o conteúdo de `TrabalhoParagem::template()` é que muda.
 4. **Zero RelationManagers no repo hoje.** Padrão novo, ainda que seja Filament de fábrica.
-5. **A lista de 13 trabalhos é adivinhada.** Sem o caderno de encargos, tem de ser confirmada
-   antes de qualquer entrega à câmara.
+5. **A Legionella fica sub-especificada por decisão do utilizador.** O contrato exige
+   controlo semestral acreditado sobre AQS com 5/4/4 pontos de colheita; a checklist terá
+   uma linha com anexo. Se o vereador pedir esse detalhe, o relatório não o tem. O anexo A7
+   (AQS) está no projeto, não lido, e é por aí que se alarga.
+6. **`Pool::temp_min`/`temp_max` da Infantil a confirmar.** O Anexo A diz 29–30 °C; o
+   `CLAUDE.md` diz 28–30 °C. Verificar na BD antes de a checklist avaliar temperaturas.

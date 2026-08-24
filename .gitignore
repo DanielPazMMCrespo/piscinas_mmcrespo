@@ -48,3 +48,6 @@ format('Y-m-d'))
 # Temporary test images
 public/images/WhatsApp Image*
 DEPLOYMENT_SECRETS*
+
+# Caderno de encargos e anexos da CM Leiria (documentos do cliente, nao versionar)
+/docs/caderno-encargos/
