@@ -116,7 +116,7 @@
     @endif
 
     {{-- 4. Provas Documentais e Anexos (Boletins e Fotos) --}}
-    @if((isset($documentosIndex) && count($documentosIndex) > 0) || (isset($fotosEmbed) && count($fotosEmbed) > 0))
+    @if((isset($documentosIndex) && count($documentosIndex) > 0) || (isset($fotosEmbed) && count($fotosEmbed) > 0) || (isset($fotosNaoEmbutidas) && count($fotosNaoEmbutidas) > 0))
         <div class="seccao {{ !isset($dadosSonda) || $dadosSonda['total_leituras'] === 0 ? 'quebra' : '' }}">
             <div class="seccao-titulo">4. Arquivo Documental e Evidências Fotográficas</div>
 
@@ -167,6 +167,30 @@
                             </div>
                         @endforeach
                     </div>
+                </div>
+            @endif
+
+            @if(isset($fotosNaoEmbutidas) && count($fotosNaoEmbutidas) > 0)
+                <div style="margin-top: 8px;">
+                    <div style="font-weight: bold; font-size: 8px; margin-bottom: 4px;">Anexos fotográficos não impressos (arquivados no sistema):</div>
+                    <table class="registos">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Trabalho</th>
+                                <th style="width: 32%;">Ficheiro</th>
+                                <th style="width: 28%;">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($fotosNaoEmbutidas as $foto)
+                                <tr>
+                                    <td>{{ $foto['tarefa_label'] }}</td>
+                                    <td>{{ $foto['nome_ficheiro'] }}</td>
+                                    <td>{{ $foto['motivo'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             @endif
         </div>
