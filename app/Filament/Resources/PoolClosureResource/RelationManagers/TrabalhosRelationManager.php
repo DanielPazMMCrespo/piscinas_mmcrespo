@@ -416,6 +416,87 @@ class TrabalhosRelationManager extends RelationManager
                     ])->columns(2);
                 break;
 
+            case TrabalhoParagem::LIMPEZA_TANQUE:
+            case TrabalhoParagem::LIMPEZA_TANQUE_COMPENSACAO:
+            case TrabalhoParagem::LIMPEZA_CALEIRAS:
+            case TrabalhoParagem::LIMPEZA_CIRCUITO:
+                // O Anexo A exige "limpeza E desinfecção" — sem produto e
+                // concentração registados, o relatório não prova a desinfeção.
+                $campos[] = Forms\Components\Section::make('Limpeza e Desinfeção')
+                    ->description('O caderno de encargos exige desinfeção, não só limpeza: registe o produto e a concentração.')
+                    ->schema([
+                        Forms\Components\TextInput::make('dados.produto')
+                            ->label('Produto Utilizado')
+                            ->placeholder('Ex: Hipoclorito de Sódio'),
+                        Forms\Components\TextInput::make('dados.concentracao')
+                            ->label('Concentração / Dose')
+                            ->placeholder('Ex: 200 mg/L'),
+                        // O valor guardado é o próprio rótulo: `dados` é JSON
+                        // livre e o PDF imprime-o tal e qual, sem tradução.
+                        Forms\Components\Select::make('dados.metodo')
+                            ->label('Método')
+                            ->options([
+                                'Escovagem manual' => 'Escovagem manual',
+                                'Hidropressão / jato' => 'Hidropressão / jato',
+                                'Escovagem + hidropressão' => 'Escovagem + hidropressão',
+                                'Outro (ver observações)' => 'Outro (ver observações)',
+                            ])
+                            ->native(false),
+                        Forms\Components\TextInput::make('dados.tempo_contacto_min')
+                            ->label('Tempo de Contacto (min)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'numeric']),
+                        Forms\Components\Toggle::make('dados.enxaguado')
+                            ->label('Enxaguado após desinfeção')
+                            ->default(true)
+                            ->columnSpanFull(),
+                    ])->columns(2);
+                break;
+
+            case TrabalhoParagem::REPOSICAO_CLORO:
+                // O vereador perguntou pelo valor reposto. Sem antes/depois o
+                // relatório diz que foi feito, mas não a que nível ficou.
+                $campos[] = Forms\Components\Section::make('Reposição de Cloro e pH')
+                    ->schema([
+                        Forms\Components\TextInput::make('dados.cloro_antes')
+                            ->label('Cloro Livre Antes (mg/L)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                        Forms\Components\TextInput::make('dados.cloro_depois')
+                            ->label('Cloro Livre Depois (mg/L)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                        Forms\Components\TextInput::make('dados.ph_depois')
+                            ->label('pH Depois')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                        Forms\Components\TextInput::make('dados.produto')
+                            ->label('Produto Utilizado')
+                            ->placeholder('Ex: Hipoclorito de Sódio')
+                            ->columnSpanFull(),
+                    ])->columns(3);
+                break;
+
+            case TrabalhoParagem::ESVAZIAMENTO_TANQUE:
+            case TrabalhoParagem::ENCHIMENTO_TANQUE:
+                $campos[] = Forms\Components\Section::make('Volume e Contador')
+                    ->description('A renovação de água é registada por leitura de contador (Anexo A).')
+                    ->schema([
+                        Forms\Components\TextInput::make('dados.contador_inicio')
+                            ->label('Contador ao Início (m³)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                        Forms\Components\TextInput::make('dados.contador_fim')
+                            ->label('Contador ao Fim (m³)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                        Forms\Components\TextInput::make('dados.volume_m3')
+                            ->label('Volume (m³)')
+                            ->numeric()
+                            ->extraInputAttributes(['inputmode' => 'decimal']),
+                    ])->columns(3);
+                break;
+
             case TrabalhoParagem::DESINFECAO_LEGIONELLA:
                 $campos[] = Forms\Components\Section::make('Boletim Analítico de Legionella')
                     ->collapsed()

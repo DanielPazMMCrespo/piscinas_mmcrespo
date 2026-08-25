@@ -39,6 +39,13 @@ class LeituraArtefactoService
     private const BOMBA_LOOKBACK_DIAS = 2;
 
     /**
+     * Recuo para apanhar uma supercloração iniciada antes do período cuja
+     * janela (contacto + 12h de estabilização) ainda o alcança. Folgado sobre
+     * as 24h+12h por omissão, sem varrer a tabela inteira.
+     */
+    private const PARAGEM_LOOKBACK_DIAS = 7;
+
+    /**
      * Janelas de artefacto que se sobrepõem ao período [de, ate], recortadas
      * ao período.
      *
@@ -234,6 +241,8 @@ class LeituraArtefactoService
             ->whereIn('tipo', [TrabalhoParagem::SUPERCLORACAO, TrabalhoParagem::DESINFECAO_LEGIONELLA])
             ->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)
             ->whereNotNull('executado_em')
+            ->where('executado_em', '<=', $ate)
+            ->where('executado_em', '>=', $de->copy()->subDays(self::PARAGEM_LOOKBACK_DIAS))
             ->whereHas('encerramento', fn ($q) => $q->where('pool_id', $poolId))
             ->get();
 
@@ -268,7 +277,11 @@ class LeituraArtefactoService
             ->where('tipo', TrabalhoParagem::ESVAZIAMENTO_TANQUE)
             ->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)
             ->whereNotNull('executado_em')
-            ->whereHas('encerramento', fn ($q) => $q->where('pool_id', $poolId))
+            ->where('executado_em', '<=', $ate)
+            // A janela do tanque vazio fecha no enchimento ou no fim do
+            // encerramento; se o encerramento não interseta o período pedido,
+            // a janela também não. queIntersetam é a fonte única desse teste.
+            ->whereHas('encerramento', fn ($q) => $q->where('pool_id', $poolId)->queIntersetam($de, $ate))
             ->with(['encerramento.trabalhos'])
             ->get();
 

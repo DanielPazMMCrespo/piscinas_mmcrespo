@@ -122,7 +122,7 @@ class PlanoParagemPdfService
         $acoesOperacionais = $this->planoService->evidenciaOperacional($encerramento);
 
         // Processamento de Fotos e Documentos
-        $fotosEmbed = $this->processarFotos($trabalhos);
+        $fotos = $this->processarFotos($trabalhos);
         $documentosIndex = $this->processarDocumentos($trabalhos);
 
         // Dados de Sonda e Gráfico SVG
@@ -148,7 +148,8 @@ class PlanoParagemPdfService
             'trabalhos' => $trabalhos,
             'resumo' => $resumo,
             'acoesOperacionais' => $acoesOperacionais,
-            'fotosEmbed' => $fotosEmbed,
+            'fotosEmbed' => $fotos['embutidas'],
+            'fotosNaoEmbutidas' => $fotos['nao_embutidas'],
             'documentosIndex' => $documentosIndex,
             'dadosSonda' => $dadosSonda,
             'graficoSvg' => $graficoSvg,
@@ -159,13 +160,18 @@ class PlanoParagemPdfService
     }
 
     /**
+     * Fotos das tarefas prontas para o PDF. As que o dompdf não consegue
+     * imprimir saem em `nao_embutidas` para serem referenciadas — nunca
+     * omitidas em silêncio de um documento legal.
+     *
      * @param  Collection<int, PoolClosureTask>  $trabalhos
-     * @return array<int, array{tarefa_label: string, data: ?string, base64: string}>
+     * @return array{embutidas: array<int, array{tarefa_label: string, data: ?string, base64: string}>, nao_embutidas: array<int, array{tarefa_label: string, nome_ficheiro: string, motivo: string}>}
      */
     private function processarFotos($trabalhos): array
     {
         $disk = Storage::disk(DailyRecord::getStorageDisk());
         $fotos = [];
+        $naoEmbutidas = [];
 
         foreach ($trabalhos as $t) {
             if (! is_array($t->fotos) || empty($t->fotos)) {
@@ -177,12 +183,30 @@ class PlanoParagemPdfService
                     break 2;
                 }
 
-                if (! is_string($path) || ! $disk->exists($path)) {
+                if (! is_string($path)) {
                     continue;
                 }
 
-                $size = $disk->size($path);
-                if ($size > self::MAX_FOTO_BYTES) {
+                if (! $disk->exists($path)) {
+                    $naoEmbutidas[] = [
+                        'tarefa_label' => $t->tipoLabel(),
+                        'nome_ficheiro' => basename($path),
+                        'motivo' => 'ficheiro não encontrado no armazenamento',
+                    ];
+
+                    continue;
+                }
+
+                // Acima do limite o base64 (+33%) mais o bitmap descodificado
+                // rebentam a memória do dompdf. Omitir em silêncio um anexo de
+                // um documento legal é pior — fica referenciado.
+                if ($disk->size($path) > self::MAX_FOTO_BYTES) {
+                    $naoEmbutidas[] = [
+                        'tarefa_label' => $t->tipoLabel(),
+                        'nome_ficheiro' => basename($path),
+                        'motivo' => 'excede o limite de impressão de '.(int) (self::MAX_FOTO_BYTES / 1048576).' MB',
+                    ];
+
                     continue;
                 }
 
@@ -207,7 +231,18 @@ class PlanoParagemPdfService
                     }
                 }
 
-                $mime = $mime ?? 'image/jpeg';
+                // O dompdf não descodifica HEIC (aceite no upload) nem formatos
+                // exóticos. Declarar esse conteúdo como JPEG imprimia uma caixa
+                // partida num documento legal; referenciar é honesto.
+                if ($mime === null) {
+                    $naoEmbutidas[] = [
+                        'tarefa_label' => $t->tipoLabel(),
+                        'nome_ficheiro' => basename($path),
+                        'motivo' => 'formato não suportado na impressão ('.($ext !== '' ? $ext : 'desconhecido').')',
+                    ];
+
+                    continue;
+                }
 
                 $content = $disk->get($path);
                 if ($content === null || $content === '') {
@@ -224,7 +259,7 @@ class PlanoParagemPdfService
             }
         }
 
-        return $fotos;
+        return ['embutidas' => $fotos, 'nao_embutidas' => $naoEmbutidas];
     }
 
     /**
