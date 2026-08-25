@@ -234,6 +234,10 @@ class Definicoes extends Page implements HasForms, HasTable
                             ->label('Registos para Deteção de Tendência')
                             ->numeric()
                             ->helperText('Número mínimo de registos consecutivos para detetar tendências degradantes. (Padrão: 3)'),
+                        Forms\Components\TextInput::make('tendencia_orp_delta_mv')
+                            ->label('Descida de ORP que Confirma Tendência (mV)')
+                            ->numeric()
+                            ->helperText('Quanto o ORP tem de descer na mesma janela para confirmar uma tendência degradante do cloro livre. Se o ORP subiu ou se manteve, o alerta não é enviado — a sonda compensou sozinha. (Padrão: 10)'),
                         Forms\Components\TextInput::make('auto_incidente_violacoes_minimas')
                             ->label('Violações para Auto-Incidente')
                             ->numeric()

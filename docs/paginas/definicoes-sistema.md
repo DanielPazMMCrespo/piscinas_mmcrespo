@@ -6,7 +6,7 @@ Sem pasta própria. Contexto local; o `CLAUDE.md` da raiz tem a arquitetura gera
 Configuração global do sistema, guardada em `AppSetting` (key/value). 4 secções colapsáveis:
 1. **Limites Regulamentares (CN 14/DA)** — pH min/max, cloro livre min/max, cloro combinado max, turbidez max, tolerância amarelo. Tem aviso legal inline sobre o impacto de alterar.
 2. **Tempos e Prazos** — validade de leitura da sonda, timeout, validade de convite, aviso de torneira aberta, horários do resumo de conformidade (máx. 4).
-3. **Automação Operacional** — fator de compensação de dosagem, horários de resumo de turno (máx. 4), registos mínimos para tendência, violações mínimas para auto-incidente.
+3. **Automação Operacional** — fator de compensação de dosagem, horários de resumo de turno (máx. 4), registos mínimos para tendência, descida de ORP que confirma a tendência do cloro livre (`tendencia_orp_delta_mv`), violações mínimas para auto-incidente.
 4. **Templates de Email** — assunto/corpo do email de convite.
 
 ## Lógica não óbvia
