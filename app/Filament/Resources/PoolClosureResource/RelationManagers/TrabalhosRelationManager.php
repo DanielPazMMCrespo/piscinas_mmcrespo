@@ -396,6 +396,7 @@ class TrabalhosRelationManager extends RelationManager
         switch ($record->tipo) {
             case TrabalhoParagem::SUPERCLORACAO:
                 $campos[] = Forms\Components\Section::make('Parâmetros da Supercloração')
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('dados.cloro_livre_atingido')
                             ->label('Cloro Livre Atingido (mg/L)')
@@ -417,6 +418,7 @@ class TrabalhosRelationManager extends RelationManager
 
             case TrabalhoParagem::DESINFECAO_LEGIONELLA:
                 $campos[] = Forms\Components\Section::make('Boletim Analítico de Legionella')
+                    ->collapsed()
                     ->description('Obrigatório por lei: Carregue o boletim emitido por laboratório acreditado.')
                     ->schema([
                         Forms\Components\TextInput::make('dados.laboratorio')
@@ -468,6 +470,7 @@ class TrabalhosRelationManager extends RelationManager
 
             case TrabalhoParagem::ARRANQUE_AQUECIMENTO:
                 $campos[] = Forms\Components\Section::make('Aquecimento da Água')
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('dados.temperatura_inicial')
                             ->label('Temp. Inicial (°C)')
@@ -486,6 +489,7 @@ class TrabalhosRelationManager extends RelationManager
 
             case TrabalhoParagem::VERIFICACAO_PARAMETROS:
                 $campos[] = Forms\Components\Section::make('Parâmetros Químicos Pré-Reabertura')
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('dados.ph')
                             ->label('pH')
@@ -539,7 +543,7 @@ class TrabalhosRelationManager extends RelationManager
             ->columnSpanFull();
 
         if ($record->tipo === TrabalhoParagem::DESINFECAO_LEGIONELLA) {
-            $docField->required()->helperText('Obrigatório por lei: Carregue o PDF do boletim acreditado.');
+            $docField->helperText('Atenção: A lei exige o PDF do boletim acreditado (pode anexar mais tarde para fechar o trabalho no terreno).');
         }
 
         $campos[] = $docField;
