@@ -10,9 +10,13 @@ class ReportIncident extends Component
     use WithFileUploads;
 
     public $type = null;
+
     public $description = '';
+
     public $photo;
+
     public $showDateEditor = false;
+
     public $occurred_at;
 
     public function mount()
@@ -27,7 +31,7 @@ class ReportIncident extends Component
 
     public function toggleDateEditor()
     {
-        $this->showDateEditor = !$this->showDateEditor;
+        $this->showDateEditor = ! $this->showDateEditor;
     }
 
     public function save()
@@ -39,7 +43,7 @@ class ReportIncident extends Component
         ]);
 
         // Simula guardar
-        
+
         session()->flash('success', 'Incidente reportado com sucesso.');
         $this->reset(['type', 'description', 'photo']);
         $this->occurred_at = now()->format('Y-m-d\TH:i');

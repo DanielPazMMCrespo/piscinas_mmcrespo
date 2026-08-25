@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8">
+    <title>Relatório de Paragem Técnica e Manutenção — {{ $encerramento->piscina->nome_completo ?? 'Piscina' }}</title>
+    @include('pdf.paragem._estilos')
+</head>
+<body>
+    @include('pdf.paragem._cabecalho', ['tituloDocumento' => 'Relatório Técnico de Paragem e Manutenção'])
+
+    {{-- 1. Identificação --}}
+    <div class="seccao">
+        <div class="seccao-titulo">1. Identificação da Paragem Técnica</div>
+        <table class="meta-grid">
+            <tr>
+                <td class="label">Instalação / Piscina</td>
+                <td>{{ $encerramento->piscina->instalacao->name ?? '—' }} — <strong>{{ $encerramento->piscina->name ?? '—' }}</strong></td>
+                <td class="label">Motivo</td>
+                <td>{{ $encerramento->motivo_label }}</td>
+            </tr>
+            <tr>
+                <td class="label">Período de Paragem</td>
+                <td>{{ $encerramento->descricao_periodo }} ({{ $encerramento->dias }} {{ $encerramento->dias === 1 ? 'dia' : 'dias' }})</td>
+                <td class="label">Estado da Paragem</td>
+                <td><strong>{{ $encerramento->esta_vigente ? 'Em curso / Vigente' : 'Concluída / Reaberta' }}</strong></td>
+            </tr>
+            <tr>
+                <td class="label">Encerramento por</td>
+                <td>{{ $encerramento->encerradaPor->name ?? '—' }}</td>
+                <td class="label">Reabertura por</td>
+                <td>{{ $encerramento->reabertaPor->name ?? ($encerramento->esta_vigente ? 'Em aberto' : '—') }}</td>
+            </tr>
+            <tr>
+                <td class="label">Regime da Água</td>
+                <td>{{ $encerramento->agua_em_tratamento ? 'Água mantida em tratamento químico' : 'Tanque vazio / circuito parado' }}</td>
+                <td class="label">Observações</td>
+                <td>{{ $encerramento->observacoes ?? 'Sem observações registadas.' }}</td>
+            </tr>
+        </table>
+    </div>
+
+    {{-- 2. Resumo de Execução --}}
+    <div class="seccao">
+        <div class="seccao-titulo">2. Resumo de Cumprimento e Execução de Trabalhos</div>
+        <div class="resumo-bloco">
+            <strong>Resultado da Paragem:</strong>
+            {{ $resumo['total'] }} trabalhos no plano &nbsp;·&nbsp;
+            <span style="color: #166534; font-weight: bold;">{{ $resumo['executados'] }} executados</span> &nbsp;·&nbsp;
+            <span style="color: #854d0e;">{{ $resumo['previstos'] ?? 0 }} previstos/pendentes</span> &nbsp;·&nbsp;
+            <span style="color: #991b1b;">{{ $resumo['nao_executados'] ?? 0 }} não executados</span> &nbsp;·&nbsp;
+            <span style="color: #4b5563;">{{ $resumo['nao_aplicaveis'] ?? 0 }} não aplicáveis</span>
+            @if(($resumo['obrigatorios_em_falta'] ?? 0) > 0)
+                <div style="color: #991b1b; font-weight: bold; margin-top: 4px;">
+                    ⚠ ATENÇÃO: {{ $resumo['obrigatorios_em_falta'] }} obrigação(ões) legal(is) em falta ou por justificar!
+                </div>
+            @else
+                <div style="color: #166534; font-weight: bold; margin-top: 4px;">
+                    ✓ Todas as obrigações legais regulamentares foram concluídas ou justificadas formalmente.
+                </div>
+            @endif
+        </div>
+
+        @include('pdf.paragem._trabalhos', ['trabalhos' => $trabalhos, 'mostrarExecucao' => true])
+    </div>
+
+    {{-- 3. Evidência do Controlador / Gráfico Sonda --}}
+    @if(isset($dadosSonda) && $dadosSonda['total_leituras'] > 0)
+        <div class="seccao quebra">
+            <div class="seccao-titulo">3. Evidência Instrumental do Controlador Automático</div>
+            <p style="font-size: 7.5px; color: #374151; margin-bottom: 6px;">
+                <strong>Cobertura:</strong> {{ $dadosSonda['total_leituras'] }} leituras registadas entre {{ $dadosSonda['de']->format('d/m/Y H:i') }} e {{ $dadosSonda['ate']->format('d/m/Y H:i') }} (cadência 15 min, taxa de cobertura de {{ $dadosSonda['cobertura_percent'] }}% do período).
+            </p>
+
+            @if(filled($graficoSvg))
+                <div class="grafico-wrapper">
+                    {!! $graficoSvg !!}
+                    <div class="grafico-legenda">
+                        <strong>Evolução Instrumental Média Horária:</strong> Superior: Potencial Redox / ORP (mV) com banda regulamentar [{{ $encerramento->piscina->orp_min ?? 650 }}–{{ $encerramento->piscina->orp_max ?? 800 }} mV]. Inferior: Temperatura da Água (°C) com banda operacional [{{ $encerramento->piscina->temp_min ?? 26 }}–{{ $encerramento->piscina->temp_max ?? 28 }} °C].
+                    </div>
+                </div>
+            @endif
+
+            @if(!empty($eventosSonda))
+                <div style="margin-top: 8px;">
+                    <strong>Eventos e Padrões Físico-Químicos Detetados:</strong>
+                    <table class="tabela-dados" style="margin-top: 4px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">Evento Detetado</th>
+                                <th style="width: 25%;">Momento / Intervalo</th>
+                                <th style="width: 15%; text-align: center;">Confiança</th>
+                                <th style="width: 40%;">Critério Físico / Leituras</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($eventosSonda as $ev)
+                                <tr>
+                                    <td><strong>{{ $ev['tipo_label'] ?? $ev['tipo'] }}</strong></td>
+                                    <td>
+                                        {{ $ev['momento']->format('d/m/Y H:i') }}
+                                        @if(isset($ev['fim']) && $ev['fim'])
+                                            a {{ $ev['fim']->format('d/m/Y H:i') }}
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <span class="badge" style="background: #e0f2fe; color: #0369a1;">{{ ucfirst($ev['confianca']) }}</span>
+                                    </td>
+                                    <td>{{ $ev['criterio'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    {{-- 4. Provas Documentais e Anexos (Boletins e Fotos) --}}
+    @if((isset($documentosIndex) && count($documentosIndex) > 0) || (isset($fotosEmbed) && count($fotosEmbed) > 0))
+        <div class="seccao {{ !isset($dadosSonda) || $dadosSonda['total_leituras'] === 0 ? 'quebra' : '' }}">
+            <div class="seccao-titulo">4. Arquivo Documental e Evidências Fotográficas</div>
+
+            @if(isset($documentosIndex) && count($documentosIndex) > 0)
+                <div style="margin-bottom: 10px;">
+                    <div style="font-weight: bold; font-size: 8px; margin-bottom: 4px;">Boletins Analíticos e Certificados de Laboratório Acreditado:</div>
+                    <table class="tabela-dados">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;">#</th>
+                                <th style="width: 22%;">Trabalho Associado</th>
+                                <th style="width: 25%;">Laboratório / Entidade</th>
+                                <th style="width: 15%;">Data Colheita / Boletim</th>
+                                <th style="width: 15%;">Resultado</th>
+                                <th style="width: 18%;">Ficheiro & Hash SHA-256</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($documentosIndex as $doc)
+                                <tr>
+                                    <td style="text-align: center; font-weight: bold;">{{ $loop->iteration }}</td>
+                                    <td>{{ $doc['tarefa_label'] }}</td>
+                                    <td><strong>{{ $doc['laboratorio'] ?? 'Laboratório Externo' }}</strong><br><span style="font-size: 6.5px; color: #6b7280;">Nº: {{ $doc['numero_boletim'] ?? '—' }}</span></td>
+                                    <td>{{ $doc['data_boletim'] ?? '—' }}</td>
+                                    <td><strong>{{ $doc['resultado'] ?? 'Conforme' }}</strong></td>
+                                    <td style="font-family: monospace; font-size: 6px;">
+                                        {{ $doc['nome_ficheiro'] }}<br>
+                                        <span style="color: #6b7280;">SHA: {{ substr($doc['sha256'] ?? '—', 0, 16) }}...</span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if(isset($fotosEmbed) && count($fotosEmbed) > 0)
+                <div style="margin-top: 8px;">
+                    <div style="font-weight: bold; font-size: 8px; margin-bottom: 4px;">Registo Fotográfico da Intervenção:</div>
+                    <div class="fotos-grid">
+                        @foreach($fotosEmbed as $foto)
+                            <div class="foto-box">
+                                <img src="{{ $foto['base64'] }}" alt="Foto">
+                                <div class="foto-legenda">
+                                    <strong>{{ $foto['tarefa_label'] }}</strong><br>
+                                    {{ $foto['data'] ?? '' }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    {{-- 5. Anexo A: Ações Operacionais no Período --}}
+    @if(isset($acoesOperacionais) && $acoesOperacionais->count() > 0)
+        <div class="seccao quebra">
+            <div class="seccao-titulo">Anexo A — Ações Operacionais Registadas no Período da Paragem</div>
+            <p style="font-size: 7px; color: #4b5563; margin-bottom: 6px;">
+                Registo de intervenções manuais executadas pela equipa técnica e colaboradores durante o intervalo de encerramento da piscina:
+            </p>
+            <table class="tabela-dados">
+                <thead>
+                    <tr>
+                        <th style="width: 14%;">Data/Hora</th>
+                        <th style="width: 18%;">Operador</th>
+                        <th style="width: 22%;">Ação Operacional</th>
+                        <th style="width: 46%;">Parâmetros / Detalhes / Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($acoesOperacionais as $acao)
+                        <tr>
+                            <td>{{ $acao->registado_em ? $acao->registado_em->format('d/m/Y H:i') : $acao->created_at->format('d/m/Y H:i') }}</td>
+                            <td>{{ $acao->utilizador->name ?? '—' }}</td>
+                            <td><strong>{{ $acao->tipoLabel() }}</strong></td>
+                            <td>
+                                {{ $acao->dadosFormatados() }}
+                                @if(filled($acao->observacoes))
+                                    <div style="color: #4b5563; font-style: italic; font-size: 7px;">{{ $acao->observacoes }}</div>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    {{-- 6. O Que Não É Possível Provar Automaticamente --}}
+    <div class="aviso-limitacoes">
+        <h4>Limitações Técnicas e Declaração de Rastreabilidade Físico-Química</h4>
+        <ul>
+            <li><strong>Limpeza mecânica e desincrustação:</strong> As operações de escovagem física de paredes, caleiras, tanques de compensação e filtros de areia dependem exclusivamente da validação presencial do técnico executor, não sendo mensuráveis por sonda química.</li>
+            <li><strong>Controlo de Legionella:</strong> A comprovação de conformidade para <em>Legionella pneumophila</em> é atestada pelo boletim analítico emitido por laboratório acreditado anexo a este relatório.</li>
+            <li><strong>Níveis de Cloro em mg/L:</strong> O controlador automático mede o Potencial Redox / ORP (mV) como proxy do poder desinfetante instantâneo. A quantificação em mg/L de cloro livre requer métodos fotométricos manuais (DPD1).</li>
+        </ul>
+    </div>
+
+    {{-- 7. Assinaturas --}}
+    <div class="seccao" style="margin-top: 15px;">
+        <div class="seccao-titulo">5. Termo de Encerramento e Assinaturas Técnicas</div>
+        @include('pdf.paragem._assinaturas')
+    </div>
+
+    <div class="nota-legal">
+        <strong>Certificação Regulamentar:</strong> Relatório emitido pelo sistema de gestão técnica MMCrespo, em conformidade com a Lei n.º 52/2018 (Prevenção de Legionella), Despacho n.º 1547/2022, Circular Normativa n.º 14/DA da Direção-Geral da Saúde e Decreto Regulamentar n.º 5/97.
+    </div>
+</body>
+</html>

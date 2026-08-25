@@ -97,6 +97,7 @@ class OfflineSyncController extends Controller
 
         $syncedIds = [];
         $syncedCount = 0;
+        $failed = [];
 
         foreach ($actionsPayload as $item) {
             $offlineId = $item['offline_id'] ?? null;
@@ -111,9 +112,17 @@ class OfflineSyncController extends Controller
             }
 
             try {
-                $data['user_id'] = $user->id;
+                $validated = validator($data, [
+                    'pool_id' => ['required', 'integer', 'exists:pools,id'],
+                    'tipo' => ['required', 'string', 'in:'.implode(',', array_keys(OperationalAction::TIPOS))],
+                    'registado_em' => ['required', 'date', 'before_or_equal:now', 'after:'.now()->subDays(7)->toDateString()],
+                    'observacoes' => ['nullable', 'string', 'max:2000'],
+                    'dados' => ['nullable', 'array'],
+                    'foto' => ['nullable', 'string', 'max:255'],
+                ])->validate();
 
-                OperationalAction::create($data);
+                $validated['user_id'] = $user->id;
+                OperationalAction::create($validated);
 
                 $syncedCount += 1;
 
@@ -126,13 +135,16 @@ class OfflineSyncController extends Controller
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
+                if ($offlineId !== null) {
+                    $failed[] = ['offline_id' => $offlineId, 'motivo' => $e->getMessage()];
+                }
             }
         }
 
         return response()->json([
-            'success' => true,
+            'success' => count($failed) === 0,
             'synced_count' => $syncedCount,
             'synced_ids' => $syncedIds,
-        ]);
+        ], count($failed) === 0 ? 200 : 207);
     }
 }

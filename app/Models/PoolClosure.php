@@ -8,9 +8,11 @@ use App\Constants\MotivoEncerramento;
 use App\Services\CacheService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -28,6 +30,23 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *   violação legal; false (piscina parada/vazia) bloqueia registos diários.
  * - Nunca apagar um encerramento passado para "limpar" o histórico: o livro
  *   sanitário (CN 14/DA) precisa dele para justificar os dias sem registos.
+ *
+ * @property int $id
+ * @property int $pool_id
+ * @property Carbon $inicio
+ * @property ?Carbon $fim
+ * @property string $motivo
+ * @property bool $agua_em_tratamento
+ * @property ?string $observacoes
+ * @property-read Pool $piscina
+ * @property-read string $motivo_label
+ * @property-read string $descricao_periodo
+ * @property-read bool $esta_vigente
+ * @property-read int $dias
+ * @property-read Collection<int, PoolClosureTask> $trabalhos
+ *
+ * @method static Builder<PoolClosure> vigenteEm(\Carbon\CarbonInterface $data)
+ * @method static Builder<PoolClosure> queIntersetam(\Carbon\CarbonInterface $inicio, \Carbon\CarbonInterface $fim)
  */
 class PoolClosure extends Model
 {
@@ -80,6 +99,11 @@ class PoolClosure extends Model
     public function reabertaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reaberta_por');
+    }
+
+    public function trabalhos(): HasMany
+    {
+        return $this->hasMany(PoolClosureTask::class, 'pool_closure_id')->orderBy('ordem');
     }
 
     /** Encerramentos que intersetam o dia indicado ('fim' inclusivo). */

@@ -23,8 +23,11 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -85,6 +88,12 @@ class AppServiceProvider extends ServiceProvider
                 'reason' => $event->report->getReason(),
                 'status_code' => $event->report->getResponse()?->getStatusCode(),
             ]);
+        });
+
+        // Limitador para rotas públicas, com chave em REMOTE_ADDR (não request()->ip(),
+        // que confia em X-Forwarded-For e é contornável).
+        RateLimiter::for('publico', function (Request $request) {
+            return Limit::perMinute(30)->by((string) $request->server('REMOTE_ADDR'));
         });
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\UserRole;
-use App\Services\LeituraArtefactoService;
 use App\Filament\Resources\OperationalActionResource\Pages;
 use App\Models\DailyRecord;
 use App\Models\DosingContainer;
@@ -13,6 +12,7 @@ use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorOutage;
 use App\Models\SensorReading;
+use App\Services\LeituraArtefactoService;
 use App\Services\SettingsService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -468,7 +468,7 @@ class OperationalActionResource extends Resource
 
             Forms\Components\FileUpload::make('foto')
                 ->label('Foto (opcional)')
-                ->disk(DailyRecord::getStorageDisk())->visibility('public')
+                ->disk(DailyRecord::getStorageDisk())->visibility('private')
                 ->directory('operational-actions')
                 ->image()
                 ->imageEditor()

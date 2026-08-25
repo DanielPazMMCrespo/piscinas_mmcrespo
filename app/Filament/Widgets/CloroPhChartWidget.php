@@ -170,7 +170,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             ->mapWithKeys(fn ($m, $k) => [$k => $m['label']])->toArray();
 
         return [
-            Forms\Components\Grid::make(3)->schema([
+            Forms\Components\Grid::make(['default' => 1, 'sm' => 3])->schema([
                 Forms\Components\Select::make('poolSelecionada')
                     ->label('Piscina')
                     ->options($opcoesPiscinas)
@@ -190,7 +190,7 @@ class CloroPhChartWidget extends Widget implements HasForms
                     ->live()
                     ->afterStateUpdated(fn () => $this->dispatchChartRefresh()),
             ]),
-            Forms\Components\Grid::make(2)->schema([
+            Forms\Components\Grid::make(['default' => 1, 'sm' => 2])->schema([
                 Forms\Components\DatePicker::make('customStartDate')
                     ->label('Data Início')
                     ->hidden(fn () => $this->period !== 'custom')

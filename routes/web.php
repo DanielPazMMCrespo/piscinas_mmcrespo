@@ -9,32 +9,24 @@ use App\Http\Controllers\PoolAccessController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TimerPushController;
 use App\Http\Middleware\RequirePasswordChange;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // A app é o painel Filament — a raiz vai direta para lá.
 Route::redirect('/', '/admin');
 
 // Wrapper mobile PWA (Mobile Dashboard)
-Route::get('/m', \App\Livewire\MobileDashboard::class)->name('mobile.dashboard');
-Route::get('/m/diario', \App\Livewire\Mobile\DailyLog::class)->name('mobile.daily');
-Route::get('/m/analise', \App\Livewire\Mobile\Analysis::class)->name('mobile.analysis');
-Route::get('/m/incidentes/novo', \App\Livewire\Mobile\ReportIncident::class)->name('mobile.incident');
-Route::get('/m/exportar', \App\Livewire\Mobile\ExportPdf::class)->name('mobile.export');
 
 // API fictícia para download de PDF via Alpine (evita perda de User Gesture no Safari)
-Route::get('/api/pdf/export', function (\Illuminate\Http\Request $request) {
+Route::get('/api/pdf/export', function (Request $request) {
     $period = $request->query('period', 'atual');
     $content = "Relatorio gerado para o periodo: {$period}";
+
     return response($content, 200, [
         'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="relatorio_'.$period.'.pdf"'
+        'Content-Disposition' => 'attachment; filename="relatorio_'.$period.'.pdf"',
     ]);
 });
-
-
-
-
-
 
 // Prevenção de MethodNotAllowedHttpException no login:
 // Quando gestores de palavras-passe (ex.: Bitwarden, 1Password, Chrome Autofill)
@@ -51,7 +43,7 @@ Route::get('/convite', [InvitationController::class, 'show'])
 
 Route::post('/convite/accept', [InvitationController::class, 'store'])
     ->name('invitation.store')
-    ->middleware('throttle:10,1');
+    ->middleware('throttle:publico');
 
 Route::middleware(['auth', RequirePasswordChange::class])->group(function (): void {
     Route::get('/primeiro-acesso', [PasswordChangeController::class, 'show'])

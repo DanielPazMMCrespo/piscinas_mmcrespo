@@ -7,6 +7,7 @@ namespace App\Filament\Pages;
 use App\Constants\MotivoEncerramento;
 use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
+use App\Filament\Resources\PoolClosureResource;
 use App\Filament\Widgets\HistoricoEncerramentosWidget;
 use App\Models\Pool;
 use App\Models\PoolClosure;
@@ -194,6 +195,13 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
                                 : 'Último dia encerrado: '.$encerramento->fim->format('d/m/Y').'.')
                             ->send();
                     }),
+
+                Tables\Actions\Action::make('plano')
+                    ->label('Plano de paragem')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->color('info')
+                    ->visible(fn (Pool $piscina): bool => $piscina->estaEncerradaEm() && $piscina->encerramentoEm() !== null)
+                    ->url(fn (Pool $piscina): string => PoolClosureResource::getUrl('edit', ['record' => $piscina->encerramentoEm()])),
 
                 Tables\Actions\Action::make('historico')
                     ->label('Histórico')

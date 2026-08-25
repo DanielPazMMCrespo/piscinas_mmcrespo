@@ -57,20 +57,15 @@ class InvitationController extends Controller
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            'pin' => ['nullable', 'digits_between:4,6'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'pin' => ['nullable', 'digits:6'],
         ], [
             'first_name.required' => 'O primeiro nome é obrigatório.',
             'last_name.required' => 'O último nome é obrigatório.',
+            'password.required' => 'A palavra-passe é obrigatória.',
             'password.min' => 'A palavra-passe deve ter pelo menos 8 caracteres.',
-            'pin.digits_between' => 'O PIN deve ter entre 4 e 6 dígitos.',
+            'pin.digits' => 'O PIN deve ter exatamente 6 dígitos.',
         ]);
-
-        if (empty($validated['password']) && empty($validated['pin'])) {
-            return back()
-                ->withErrors(['password' => 'Deve definir uma palavra-passe ou um PIN (ou ambos).'])
-                ->withInput();
-        }
 
         $user = $service->accept($invitation, $validated);
 

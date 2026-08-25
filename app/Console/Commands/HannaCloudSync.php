@@ -128,6 +128,19 @@ class HannaCloudSync extends Command
                     ? Carbon::parse($reading['dt'])
                     : now();
 
+                // Validar que a data é plausível (não futura, não > 30 dias atrás)
+                if ($lida_em->gt(now()->addMinutes(10)) || $lida_em->lt(now()->subDays(30))) {
+                    $this->warn("  ✗ {$device->name}: lida_em implausível ({$lida_em}); leitura ignorada.");
+
+                    continue;
+                }
+
+                // Validar valores dentro de limites físicos plausíveis
+                $reading = $this->sanitizarLeitura($reading, $device);
+                if ($reading === null) {
+                    continue;
+                }
+
                 // Evita duplicados de forma atómica usando upsert (INSERT ... ON CONFLICT DO NOTHING)
                 $affected = SensorReading::upsert(
                     [[
@@ -261,16 +274,50 @@ class HannaCloudSync extends Command
 
     private function descontarBidao(HannaDevice $device, string $tipo, float $ml): void
     {
+        // Validar plausibilidade: > 20L num ciclo é avaria, não dosagem legítima
+        if ($ml <= 0 || $ml > 20000) {
+            Log::warning("HannaCloudSync [{$device->hanna_device_id}]: dosagem de {$ml} mL implausível; ignorada.");
+
+            return;
+        }
+
         $container = DosingContainer::firstOrCreate(
             ['pool_id' => $device->pool_id, 'tipo' => $tipo],
         );
 
-        if ($ml > 0) {
-            $container->consumir($ml);
-            $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
-        }
+        $container->consumir($ml);
+        $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
 
         $container->notificarSeBaixo();
+    }
+
+    /**
+     * Validar que os valores estão dentro dos limites físicos plausíveis.
+     * Fora destes limites, o valor é avaria de sonda, não leitura legítima.
+     *
+     * @param  array<string, mixed>  $reading
+     * @return array<string, mixed>|null $reading sanitizado ou null se implausível
+     */
+    private function sanitizarLeitura(array $reading, HannaDevice $device): ?array
+    {
+        $limites = [
+            'ph' => [0.0, 14.0],
+            'orp' => [-2000.0, 2000.0],
+            'temperatura_agua' => [-5.0, 60.0],
+            'temperatura_ar' => [-30.0, 60.0],
+            'caudal_ph' => [0.0, 100000.0],
+            'caudal_cloro' => [0.0, 100000.0],
+        ];
+
+        foreach ($limites as $campo => [$min, $max]) {
+            $valor = $reading[$campo] ?? null;
+            if ($valor !== null && ((float) $valor < $min || (float) $valor > $max)) {
+                Log::warning("HannaCloudSync [{$device->hanna_device_id}]: {$campo}={$valor} fora dos limites físicos [{$min}, {$max}]; descartado.");
+                $reading[$campo] = null;
+            }
+        }
+
+        return $reading;
     }
 
     /**

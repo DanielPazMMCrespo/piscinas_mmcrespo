@@ -29,7 +29,6 @@ class SecurityHeaders
             'https://*.r2.dev',
             'https://piscinasmmcrespo.up.railway.app',
             'https://piscinasmmcrespo-testes.up.railway.app',
-            'https://piscinas-mmcrespo-main.up.railway.app',
         ]);
 
         $csp = implode('; ', [

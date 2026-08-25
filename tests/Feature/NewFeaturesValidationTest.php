@@ -38,6 +38,12 @@ class NewFeaturesValidationTest extends TestCase
         Role::firstOrCreate(['name' => 'tecnico', 'guard_name' => 'web']);
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     private function createTestEnvironment(): array
     {
         $installation = Installation::create([
@@ -239,6 +245,8 @@ class NewFeaturesValidationTest extends TestCase
 
     public function test_hanna_sync_discounts_dosage_only_after_refill_timestamp(): void
     {
+        Carbon::setTestNow('2026-07-21 10:20:00');
+
         // Mock HannaCloudService first
         $mock = $this->mock(HannaCloudService::class);
         $mock->shouldReceive('authenticate')->once();

@@ -17,7 +17,6 @@ use App\Models\Pool;
 use App\Notifications\IncidentMessageNotification;
 use Filament\Actions\Action;
 use Filament\Forms;
-use Filament\Forms\Components\Component;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Infolists;
@@ -195,7 +194,7 @@ class IncidentResource extends Resource
                     ->label('Fotos')
                     ->helperText('Evidência da avaria/ocorrência (até 5 fotos).')
                     ->disk(DailyRecord::getStorageDisk())
-                    ->visibility('public')
+                    ->visibility('private')
                     ->directory('incidentes')
                     ->image()
                     ->multiple()
@@ -393,11 +392,11 @@ class IncidentResource extends Resource
             ->emptyStateHeading('Sem incidentes')
             ->emptyStateDescription('A lista mostra apenas os incidentes abertos por omissão — abra os filtros para ver os resolvidos.')
             ->actions([
+                static::resolverTableAction(),
                 Tables\Actions\ActionGroup::make([
-                    static::resolverTableAction(),
                     Tables\Actions\ViewAction::make()->slideOver(),
                     Tables\Actions\EditAction::make()->slideOver(),
-                ]),
+                ])->dropdownPlacement('bottom-end'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -430,13 +429,16 @@ class IncidentResource extends Resource
     {
         return Tables\Actions\Action::make('resolver')
             ->label('Resolver')
-            ->icon('heroicon-o-check-circle')
+            ->icon('heroicon-m-check-circle')
             ->color('success')
-            ->slideOver()
+            ->button() // Make it a primary explicit button, not hidden in dots
+            ->modalWidth('md')
+            ->modalAlignment('center')
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
-            ->modalHeading('Resolver incidente')
-            ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
-            ->modalSubmitActionLabel('Marcar como resolvido')
+            ->modalHeading('Resolver Incidente')
+            ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')
+            ->modalSubmitActionLabel('Arquivar')
+            ->modalIcon('heroicon-o-shield-check')
             ->form(static::resolverFormSchema())
             ->action(fn (Incident $record, array $data) => static::aplicarResolucao($record, $data));
     }
@@ -447,14 +449,16 @@ class IncidentResource extends Resource
     public static function resolverHeaderAction(): Action
     {
         return Action::make('resolver')
-            ->label('Resolver')
-            ->icon('heroicon-o-check-circle')
+            ->label('Resolver Incidente')
+            ->icon('heroicon-m-check-circle')
             ->color('success')
-            ->slideOver()
+            ->modalWidth('md')
+            ->modalAlignment('center')
             ->visible(fn (Incident $record): bool => static::podeResolver($record))
-            ->modalHeading('Resolver incidente')
-            ->modalDescription('Descreva como foi resolvido. O incidente sai do quadro de operação.')
-            ->modalSubmitActionLabel('Marcar como resolvido')
+            ->modalHeading('Resolver Incidente')
+            ->modalDescription('Como solucionou esta anomalia? (O alerta será arquivado)')
+            ->modalSubmitActionLabel('Arquivar')
+            ->modalIcon('heroicon-o-shield-check')
             ->form(static::resolverFormSchema())
             ->action(fn (Incident $record, array $data) => static::aplicarResolucao($record, $data));
     }
@@ -465,15 +469,16 @@ class IncidentResource extends Resource
             && (auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false);
     }
 
-    /** @return array<Component> */
     private static function resolverFormSchema(): array
     {
         return [
             Forms\Components\Textarea::make('resolucao')
-                ->label('Resolução aplicada')
+                ->hiddenLabel()
+                ->placeholder('Ex: Filtro retrolavado, valores normais.')
                 ->required()
                 ->minLength(5)
-                ->rows(3),
+                ->rows(3)
+                ->extraInputAttributes(['class' => 'neo-input-large']),
         ];
     }
 

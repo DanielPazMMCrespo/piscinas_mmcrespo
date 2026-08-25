@@ -22,12 +22,7 @@ class UserSeeder extends Seeder
             ? (env('ADMIN_PASSWORD_MARCIO') ?: throw new \RuntimeException('ADMIN_PASSWORD_MARCIO não está definida nas variáveis de ambiente de produção.'))
             : env('ADMIN_PASSWORD_MARCIO', 'dev_changeme_marcio');
 
-        // updateOrCreate garante que a password é sempre sincronizada com a env var
-        // a cada redeploy — firstOrCreate só aplica na primeira criação.
-        // updateOrCreate garante que a password é sempre sincronizada com a env var
-        // a cada redeploy — firstOrCreate só aplica na primeira criação.
-        // must_change_password só é forçado na criação inicial (wasRecentlyCreated).
-        $daniel = User::updateOrCreate(
+        $daniel = User::firstOrCreate(
             ['email' => 'daniel@mmcrespo.pt'],
             [
                 'name' => 'Daniel Paz',
@@ -35,14 +30,14 @@ class UserSeeder extends Seeder
                 'last_name' => 'Paz',
                 'password' => Hash::make($passwordDaniel),
                 'email_verified_at' => now(),
+                'must_change_password' => true,
             ]
         );
-        if ($daniel->wasRecentlyCreated) {
-            $daniel->update(['must_change_password' => true]);
+        if (! $daniel->hasRole('admin')) {
+            $daniel->assignRole('admin');
         }
-        $daniel->syncRoles(['admin']);
 
-        $marcio = User::updateOrCreate(
+        $marcio = User::firstOrCreate(
             ['email' => 'marcio@mmcrespo.pt'],
             [
                 'name' => 'Márcio',
@@ -50,12 +45,12 @@ class UserSeeder extends Seeder
                 'last_name' => '',
                 'password' => Hash::make($passwordMarcio),
                 'email_verified_at' => now(),
+                'must_change_password' => true,
             ]
         );
-        if ($marcio->wasRecentlyCreated) {
-            $marcio->update(['must_change_password' => true]);
+        if (! $marcio->hasRole('admin')) {
+            $marcio->assignRole('admin');
         }
-        $marcio->syncRoles(['admin']);
 
         // Contas de teste — apenas em 'local' ou 'testing' (não em staging ou produção)
         if (app()->environment('local', 'testing')) {
