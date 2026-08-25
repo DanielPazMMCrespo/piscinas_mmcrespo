@@ -241,6 +241,15 @@ class PoolClosureTask extends Model
             'metodo' => 'Método',
             'filtro_nome' => 'Filtro',
             'tipo_intervencao' => 'Intervenção',
+            'concentracao' => 'Concentração / dose',
+            'tempo_contacto_min' => 'Tempo de contacto (min)',
+            'enxaguado' => 'Enxaguado após desinfeção',
+            'cloro_antes' => 'Cloro livre antes (mg/L)',
+            'cloro_depois' => 'Cloro livre depois (mg/L)',
+            'ph_depois' => 'pH final',
+            'contador_inicio' => 'Contador ao início (m³)',
+            'contador_fim' => 'Contador ao fim (m³)',
+            'volume_m3' => 'Volume (m³)',
             default => ucfirst(str_replace('_', ' ', $chave)),
         };
     }
