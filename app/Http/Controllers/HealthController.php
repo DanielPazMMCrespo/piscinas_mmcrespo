@@ -14,7 +14,7 @@ class HealthController extends Controller
     public function check(): JsonResponse
     {
         try {
-            $isInternal = in_array(request()->ip(), ['127.0.0.1', '::1', '169.155.0.0/16'], true);
+            $isInternal = in_array((string) request()->server('REMOTE_ADDR'), ['127.0.0.1', '::1', '169.155.0.0/16'], true);
 
             $checks = [
                 'database' => $this->checkDatabase(),
