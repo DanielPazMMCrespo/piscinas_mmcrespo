@@ -18,6 +18,11 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property-read string $nome_completo
+ */
 class Pool extends Model
 {
     /** Piscina a operar normalmente. */

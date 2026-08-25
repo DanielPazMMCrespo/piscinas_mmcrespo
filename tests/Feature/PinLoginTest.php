@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Filament\Pages\Auth\Login;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -30,7 +29,7 @@ class PinLoginTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'tecnico@test.pt',
-            'pin' => Hash::make('1234'),
+            'pin' => '1234',
         ]);
         $user->assignRole('tecnico');
 
@@ -46,7 +45,7 @@ class PinLoginTest extends TestCase
     {
         User::factory()->create([
             'email' => 'tecnico@test.pt',
-            'pin' => Hash::make('1234'),
+            'pin' => '1234',
         ]);
 
         Livewire::test(Login::class)
@@ -61,13 +60,13 @@ class PinLoginTest extends TestCase
     {
         $userA = User::factory()->create([
             'email' => 'a@test.pt',
-            'pin' => Hash::make('1111'),
+            'pin' => '1111',
         ]);
         $userA->assignRole('tecnico');
 
         User::factory()->create([
             'email' => 'b@test.pt',
-            'pin' => Hash::make('2222'),
+            'pin' => '2222',
         ]);
 
         Livewire::test(Login::class)

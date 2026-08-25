@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\HannaDeviceResource\Pages;
-use App\Filament\Resources\OperationalActionResource;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
 use App\Models\SensorOutage;
@@ -21,6 +20,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Str;
 
 /**
  * Recurso para gerir o mapeamento dispositivos Hanna Cloud → piscinas.
@@ -143,7 +143,7 @@ class HannaDeviceResource extends Resource
                         }
 
                         return 'desde '.$avaria->aberta_em->format('d/m/Y H:i')
-                            .($avaria->detalhe !== null ? ' — '.\Illuminate\Support\Str::limit($avaria->detalhe, 60) : '');
+                            .($avaria->detalhe !== null ? ' — '.Str::limit($avaria->detalhe, 60) : '');
                     }),
                 Tables\Columns\TextColumn::make('ultima_leitura')
                     ->label('Última leitura')

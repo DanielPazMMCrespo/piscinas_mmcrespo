@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Pool;
 use App\Models\DailyRecord;
-use Illuminate\Support\Carbon;
+use App\Models\Pool;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Carbon;
 
 class DgsPdfReportService
 {

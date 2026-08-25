@@ -6,16 +6,20 @@ namespace App\Filament\Resources;
 
 use App\Constants\MotivoEncerramento;
 use App\Constants\PaginaGestor;
+use App\Constants\TrabalhoParagem;
 use App\Constants\UserRole;
 use App\Filament\Resources\PoolClosureResource\Pages;
+use App\Filament\Resources\PoolClosureResource\RelationManagers;
 use App\Models\Pool;
 use App\Models\PoolClosure;
+use App\Models\PoolClosureTask;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
@@ -72,15 +76,18 @@ class PoolClosureResource extends Resource
 
     public static function getGlobalSearchResultTitle(Model $record): string
     {
-        return ($record->piscina?->name ?? 'Piscina').' — '.$record->motivo_label;
+        $piscinaNome = $record instanceof PoolClosure ? $record->piscina->name : 'Piscina';
+        $motivoLabel = $record instanceof PoolClosure ? $record->motivo_label : '';
+
+        return $piscinaNome.' — '.$motivoLabel;
     }
 
     /** @return array<string, string> */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            'Período' => $record->descricao_periodo,
-            'Estado' => $record->esta_vigente ? 'Encerrada' : 'Reaberta',
+            'Período' => $record instanceof PoolClosure ? $record->descricao_periodo : '',
+            'Estado' => $record instanceof PoolClosure && $record->esta_vigente ? 'Encerrada' : 'Reaberta',
         ];
     }
 
@@ -98,11 +105,11 @@ class PoolClosureResource extends Resource
                 ->schema([
                     Forms\Components\Placeholder::make('piscina_nome')
                         ->label('Piscina')
-                        ->content(fn (?PoolClosure $record): string => $record?->piscina?->nome_completo ?? '—'),
+                        ->content(fn (?PoolClosure $record): string => ($record?->piscina instanceof Pool ? $record->piscina->nome_completo : null) ?? '—'),
 
                     Forms\Components\Placeholder::make('periodo')
                         ->label('Período')
-                        ->content(fn (?PoolClosure $record): string => ucfirst($record?->descricao_periodo ?? '—')),
+                        ->content(fn (?PoolClosure $record): string => ucfirst(($record instanceof PoolClosure ? $record->descricao_periodo : null) ?? '—')),
 
                     Forms\Components\Select::make('motivo')
                         ->label('Motivo')
@@ -127,7 +134,7 @@ class PoolClosureResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with(['piscina.instalacao', 'encerradaPor', 'reabertaPor'])
+                ->with(['piscina.instalacao', 'encerradaPor', 'reabertaPor', 'trabalhos'])
                 ->orderByDesc('inicio'))
             ->columns([
                 Tables\Columns\TextColumn::make('piscina.nome_completo')
@@ -143,6 +150,46 @@ class PoolClosureResource extends Resource
                         MotivoEncerramento::EPOCA_BALNEAR => 'info',
                         MotivoEncerramento::AVARIA, MotivoEncerramento::ORDEM_AUTORIDADE => 'danger',
                         default => 'warning',
+                    }),
+                Tables\Columns\TextColumn::make('plano_progresso')
+                    ->label('Plano de Paragem')
+                    ->badge()
+                    ->getStateUsing(function (PoolClosure $record): string {
+                        /** @var Collection<int, PoolClosureTask> $trabalhos */
+                        $trabalhos = $record->trabalhos;
+                        $total = $trabalhos->count();
+                        if ($total === 0) {
+                            return 'Sem plano';
+                        }
+                        $executados = $trabalhos->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)->count();
+                        $obrigatoriosEmFalta = $trabalhos->filter(
+                            fn (PoolClosureTask $t): bool => (bool) $t->obrigatorio && ! in_array($t->estado, [
+                                TrabalhoParagem::ESTADO_EXECUTADO,
+                                TrabalhoParagem::ESTADO_NAO_APLICAVEL,
+                            ], true)
+                        )->count();
+
+                        if ($obrigatoriosEmFalta === 0) {
+                            return "{$executados}/{$total} (Concluído)";
+                        }
+
+                        return "{$executados}/{$total} ({$obrigatoriosEmFalta} em falta)";
+                    })
+                    ->color(function (PoolClosure $record): string {
+                        /** @var Collection<int, PoolClosureTask> $trabalhos */
+                        $trabalhos = $record->trabalhos;
+                        $total = $trabalhos->count();
+                        if ($total === 0) {
+                            return 'gray';
+                        }
+                        $obrigatoriosEmFalta = $trabalhos->filter(
+                            fn (PoolClosureTask $t): bool => (bool) $t->obrigatorio && ! in_array($t->estado, [
+                                TrabalhoParagem::ESTADO_EXECUTADO,
+                                TrabalhoParagem::ESTADO_NAO_APLICAVEL,
+                            ], true)
+                        )->count();
+
+                        return $obrigatoriosEmFalta === 0 ? 'success' : 'warning';
                     }),
                 Tables\Columns\TextColumn::make('inicio')
                     ->label('Encerrada desde')
@@ -189,7 +236,7 @@ class PoolClosureResource extends Resource
                     ->trueLabel('Em vigor')
                     ->falseLabel('Terminados')
                     ->queries(
-                        true: fn (Builder $query) => $query->vigenteEm(Carbon::now()),
+                        true: fn (Builder $query) => $query->whereDate('inicio', '<=', Carbon::now()->startOfDay())->where(fn (Builder $q) => $q->whereNull('fim')->orWhereDate('fim', '>=', Carbon::now()->startOfDay())),
                         false: fn (Builder $query) => $query->whereNotNull('fim')->whereDate('fim', '<', Carbon::now()),
                     ),
             ])
@@ -199,6 +246,13 @@ class PoolClosureResource extends Resource
             ])
             ->emptyStateHeading('Sem encerramentos registados')
             ->emptyStateDescription('Encerrar uma piscina faz-se em Operação → Encerramentos.');
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\TrabalhosRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -45,8 +45,8 @@ class Login extends BaseLogin
         $email = $data['email'] ?? '';
         $password = (string) ($data['password'] ?? '');
 
-        // Auto-detect PIN: exactly 6 digits
-        $isPinAttempt = ctype_digit($password) && strlen($password) === 6;
+        // Auto-detect PIN: 4 to 6 digits
+        $isPinAttempt = ctype_digit($password) && strlen($password) >= 4 && strlen($password) <= 6;
 
         // REMOTE_ADDR, não request()->ip(): trustProxies(at: '*') (necessário para
         // HTTPS atrás do proxy da Railway) faz ip() confiar em X-Forwarded-For, que

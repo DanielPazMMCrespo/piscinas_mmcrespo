@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
+use App\Services\DgsPdfReportService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists;
@@ -15,6 +16,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class PoolResource extends Resource
 {
@@ -246,10 +248,11 @@ class PoolResource extends Resource
                             ->native(false)
                             ->required(),
                     ])
-                    ->action(function (Pool $record, array $data, \App\Services\DgsPdfReportService $pdfService) {
-                        $date = \Illuminate\Support\Carbon::parse($data['month']);
+                    ->action(function (Pool $record, array $data, DgsPdfReportService $pdfService) {
+                        $date = Carbon::parse($data['month']);
+
                         return response()->streamDownload(
-                            fn () => print($pdfService->generateMonthlyReport($record, $date)->output()),
+                            fn () => print ($pdfService->generateMonthlyReport($record, $date)->output()),
                             "livro_sanitario_{$record->id}_{$date->format('Y_m')}.pdf"
                         );
                     }),

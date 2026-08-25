@@ -447,19 +447,19 @@ class DailyRecordFormBuilder
                 }
 
                 $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
-                if ($sonda === null || !array_key_exists('delta', $sonda) || $sonda['delta'] === null) {
+                if ($sonda === null || ! array_key_exists('delta', $sonda) || $sonda['delta'] === null) {
                     return null;
                 }
 
                 $corBg = $sonda['aviso'] ? 'bg-danger-100 text-danger-700 dark:bg-danger-900/50 dark:text-danger-300 ring-1 ring-danger-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700';
                 $icon = $sonda['delta'] > 0 ? '↑' : '↓';
-                
+
                 return new HtmlString("
                     <span class='inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md {$corBg} shadow-sm' title='Diferença face à sonda'>
                         <span>{$icon}</span>
-                        <span>" . number_format(abs($sonda['delta']), 2, ',', '') . "</span>
+                        <span>".number_format(abs($sonda['delta']), 2, ',', '').'</span>
                     </span>
-                ");
+                ');
             })
             ->hint(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?string {
                 $val = $get($campo->getName());
@@ -486,7 +486,7 @@ class DailyRecordFormBuilder
                 }
 
                 $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
-                if ($sonda !== null && (!array_key_exists('delta', $sonda) || $sonda['delta'] === null)) {
+                if ($sonda !== null && (! array_key_exists('delta', $sonda) || $sonda['delta'] === null)) {
                     $msg = ($msg ? $msg.' | ' : '').$sonda['mensagem'];
                 }
 
@@ -626,141 +626,141 @@ class DailyRecordFormBuilder
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
 
                     $bombasSchema = fn (Pool $pool) => [
-                                    Forms\Components\Toggle::make('bomba_ferrada')
-                                        ->id("bomba_ferrada_{$pool->id}")
-                                        ->label('Bomba ferrada')
-                                        ->default(true),
-                                    Forms\Components\TextInput::make('contador_valor')
-                                        ->id("contador_valor_{$pool->id}")
-                                        ->label('Contador (m³)')
-                                        ->numeric()->step(0.01)->minValue(0)
-                                        ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
-                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                        // A última leitura só aparecia na mensagem de erro, depois de
-                                        // falhar a validação e voltar 5 passos atrás no wizard.
-                                        ->helperText(function () use ($pool): ?string {
-                                            $ultimo = self::ultimoRegisto($pool->id);
-                                            if (! $ultimo || $ultimo->contador_valor === null) {
-                                                return null;
-                                            }
+                        Forms\Components\Toggle::make('bomba_ferrada')
+                            ->id("bomba_ferrada_{$pool->id}")
+                            ->label('Bomba ferrada')
+                            ->default(true),
+                        Forms\Components\TextInput::make('contador_valor')
+                            ->id("contador_valor_{$pool->id}")
+                            ->label('Contador (m³)')
+                            ->numeric()->step(0.01)->minValue(0)
+                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                            // A última leitura só aparecia na mensagem de erro, depois de
+                            // falhar a validação e voltar 5 passos atrás no wizard.
+                            ->helperText(function () use ($pool): ?string {
+                                $ultimo = self::ultimoRegisto($pool->id);
+                                if (! $ultimo || $ultimo->contador_valor === null) {
+                                    return null;
+                                }
 
-                                            return 'Última: '.number_format((float) $ultimo->contador_valor, 2, ',', ' ')
-                                                .' m³ ('.$ultimo->registado_em->format('d/m H:i').')';
-                                        })
-                                        ->rules([
-                                            fn (): Closure => function (string $attribute, $value, Closure $fail) use ($pool) {
-                                                $ultimo = self::ultimoRegisto($pool->id);
-                                                if (filled($value) && $ultimo && $ultimo->contador_valor !== null
-                                                    && (float) $value < (float) $ultimo->contador_valor) {
-                                                    $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
-                                                }
-                                            },
-                                        ]),
-                                    Forms\Components\Select::make('agua_modo')
-                                        ->id("agua_modo_{$pool->id}")
-                                        ->label('Água')
-                                        ->options([
-                                            'auto_com_agua' => 'Auto com água',
-                                            'auto_sem_agua' => 'Auto sem água',
-                                            'on_com_agua' => 'ON com água',
-                                            'on_sem_agua' => 'ON sem água',
-                                            'off' => 'OFF sem água',
-                                        ])
-                                        ->extraInputAttributes(['class' => 'neo-input-large'])
-                                        ->extraAttributes(['class' => 'neo-input-wrapper-large']),
-                                    self::fotosSection([
-                                        self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
-                                        self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
-                                        self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
-                                    ]),
-                                ];
+                                return 'Última: '.number_format((float) $ultimo->contador_valor, 2, ',', ' ')
+                                    .' m³ ('.$ultimo->registado_em->format('d/m H:i').')';
+                            })
+                            ->rules([
+                                fn (): Closure => function (string $attribute, $value, Closure $fail) use ($pool) {
+                                    $ultimo = self::ultimoRegisto($pool->id);
+                                    if (filled($value) && $ultimo && $ultimo->contador_valor !== null
+                                        && (float) $value < (float) $ultimo->contador_valor) {
+                                        $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
+                                    }
+                                },
+                            ]),
+                        Forms\Components\Select::make('agua_modo')
+                            ->id("agua_modo_{$pool->id}")
+                            ->label('Água')
+                            ->options([
+                                'auto_com_agua' => 'Auto com água',
+                                'auto_sem_agua' => 'Auto sem água',
+                                'on_com_agua' => 'ON com água',
+                                'on_sem_agua' => 'ON sem água',
+                                'off' => 'OFF sem água',
+                            ])
+                            ->extraInputAttributes(['class' => 'neo-input-large'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large']),
+                        self::fotosSection([
+                            self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
+                            self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
+                            self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
+                        ]),
+                    ];
 
                     $tanquesSchema = fn (Pool $pool) => [
-                                    Forms\Components\Toggle::make('tanque_ok')
-                                        ->id("tanque_ok_{$pool->id}")
-                                        ->label('Tanque OK')->default(true),
-                                    Forms\Components\Textarea::make('tanque_observacoes')
-                                        ->id("tanque_observacoes_{$pool->id}")
-                                        ->label('Observações'),
-                                    self::fotosSection([
-                                        self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
-                                    ]),
-                                ];
+                        Forms\Components\Toggle::make('tanque_ok')
+                            ->id("tanque_ok_{$pool->id}")
+                            ->label('Tanque OK')->default(true),
+                        Forms\Components\Textarea::make('tanque_observacoes')
+                            ->id("tanque_observacoes_{$pool->id}")
+                            ->label('Observações'),
+                        self::fotosSection([
+                            self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
+                        ]),
+                    ];
 
                     $lavagemSchema = fn (Pool $pool) => [
-                                    Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
-                                        ->label('Histórico de Retrolavagens')
-                                        ->content(function () use ($pool): HtmlString {
-                                            $ultima = DailyRecord::query()
-                                                ->where('pool_id', $pool->id)
-                                                ->where('filtro_faz_retrolavagem', true)
-                                                ->orderByDesc('registado_em')
-                                                ->first();
-                                            if (! $ultima) {
-                                                return new HtmlString('<span class="text-sm text-slate-500">Sem registo anterior de retrolavagem.</span>');
-                                            }
-                                            $dias = (int) $ultima->registado_em->diffInDays(now());
-                                            $alerta = $dias >= 7 ? ' <span class="text-amber-600 dark:text-amber-400 font-bold">⚠️ Recomendada lavagem (>7 dias)</span>' : '';
+                        Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
+                            ->label('Histórico de Retrolavagens')
+                            ->content(function () use ($pool): HtmlString {
+                                $ultima = DailyRecord::query()
+                                    ->where('pool_id', $pool->id)
+                                    ->where('filtro_faz_retrolavagem', true)
+                                    ->orderByDesc('registado_em')
+                                    ->first();
+                                if (! $ultima) {
+                                    return new HtmlString('<span class="text-sm text-slate-500">Sem registo anterior de retrolavagem.</span>');
+                                }
+                                $dias = (int) $ultima->registado_em->diffInDays(now());
+                                $alerta = $dias >= 7 ? ' <span class="text-amber-600 dark:text-amber-400 font-bold">⚠️ Recomendada lavagem (>7 dias)</span>' : '';
 
-                                            return new HtmlString(
-                                                "<span class=\"text-sm font-medium\">Última: há {$dias} dia(s) ({$ultima->registado_em->format('d/m/Y')}) — {$ultima->numero_lavagens_filtro} ciclo(s){$alerta}</span>"
-                                            );
-                                        }),
-                                    Forms\Components\TextInput::make('pressao_filtro')
-                                        ->id("pressao_filtro_{$pool->id}")
-                                        ->label('Pressão do Filtro (bar)')
-                                        ->numeric()
-                                        ->step(0.05)
-                                        ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
-                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                        ->live(onBlur: true)
-                                        ->helperText(function (Get $get): ?string {
-                                            $val = $get('pressao_filtro');
-                                            if (blank($val)) {
-                                                return null;
-                                            }
-                                            $pressao = (float) $val;
-                                            if ($pressao >= 1.5) {
-                                                return '⚠️ Pressão elevada ('.$pressao.' bar)! Recomendada retrolavagem urgente do filtro.';
-                                            } elseif ($pressao >= 1.2) {
-                                                return 'ℹ️ Pressão moderada ('.$pressao.' bar). Considere programar lavagem brevemente.';
-                                            }
+                                return new HtmlString(
+                                    "<span class=\"text-sm font-medium\">Última: há {$dias} dia(s) ({$ultima->registado_em->format('d/m/Y')}) — {$ultima->numero_lavagens_filtro} ciclo(s){$alerta}</span>"
+                                );
+                            }),
+                        Forms\Components\TextInput::make('pressao_filtro')
+                            ->id("pressao_filtro_{$pool->id}")
+                            ->label('Pressão do Filtro (bar)')
+                            ->numeric()
+                            ->step(0.05)
+                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                            ->live(onBlur: true)
+                            ->helperText(function (Get $get): ?string {
+                                $val = $get('pressao_filtro');
+                                if (blank($val)) {
+                                    return null;
+                                }
+                                $pressao = (float) $val;
+                                if ($pressao >= 1.5) {
+                                    return '⚠️ Pressão elevada ('.$pressao.' bar)! Recomendada retrolavagem urgente do filtro.';
+                                } elseif ($pressao >= 1.2) {
+                                    return 'ℹ️ Pressão moderada ('.$pressao.' bar). Considere programar lavagem brevemente.';
+                                }
 
-                                            return '✅ Pressão normal ('.$pressao.' bar).';
-                                        }),
-                                    Forms\Components\Toggle::make('filtro_faz_retrolavagem')
-                                        ->id("filtro_faz_retrolavagem_{$pool->id}")
-                                        ->label('Fazer retrolavagem?')->default(false)->live(),
-                                    Forms\Components\TextInput::make('numero_lavagens_filtro')
-                                        ->id("numero_lavagens_filtro_{$pool->id}")
-                                        ->label('Nº de lavagens')
-                                        ->numeric()
-                                        ->minValue(1)
-                                        ->default(1)
-                                        ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                                    Forms\Components\ViewField::make('timer_lavagem')
-                                        ->id("timer_lavagem_{$pool->id}")
-                                        ->view('filament.timer-retrolavagem')
-                                        ->default(3)
-                                        ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                                    self::fotosSection([
-                                        self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
-                                    ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                                ];
+                                return '✅ Pressão normal ('.$pressao.' bar).';
+                            }),
+                        Forms\Components\Toggle::make('filtro_faz_retrolavagem')
+                            ->id("filtro_faz_retrolavagem_{$pool->id}")
+                            ->label('Fazer retrolavagem?')->default(false)->live(),
+                        Forms\Components\TextInput::make('numero_lavagens_filtro')
+                            ->id("numero_lavagens_filtro_{$pool->id}")
+                            ->label('Nº de lavagens')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
+                        Forms\Components\ViewField::make('timer_lavagem')
+                            ->id("timer_lavagem_{$pool->id}")
+                            ->view('filament.timer-retrolavagem')
+                            ->default(3)
+                            ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
+                        self::fotosSection([
+                            self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
+                        ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
+                    ];
 
                     $enxaguamentoSchema = fn (Pool $pool) => [
-                                    Forms\Components\ViewField::make('timer_enxaguamento')
-                                        ->id("timer_enxaguamento_{$pool->id}")
-                                        ->view('filament.timer-retrolavagem')
-                                        ->default(2),
-                                    self::fotosSection([
-                                        self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
-                                    ]),
-                                ];
+                        Forms\Components\ViewField::make('timer_enxaguamento')
+                            ->id("timer_enxaguamento_{$pool->id}")
+                            ->view('filament.timer-retrolavagem')
+                            ->default(2),
+                        self::fotosSection([
+                            self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
+                        ]),
+                    ];
 
                     $posicaoNormalSchema = fn (Pool $pool) => [
-                                    ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
-                                ];
+                        ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
+                    ];
 
                     $globaisSchema = [
                         Forms\Components\TimePicker::make('hora_colheita')
@@ -773,302 +773,302 @@ class DailyRecordFormBuilder
                     ];
 
                     $nsSchema = fn (Pool $pool) => [
-                                    Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
-                                        ->hiddenLabel()
-                                        ->columnSpanFull()
-                                        ->content(function ($livewire) use ($pool): ?HtmlString {
-                                            $horaColheita = $livewire->data['hora_colheita'] ?? null;
-                                            $sonda = self::sondaParaMomento($pool, $horaColheita);
-                                            if ($sonda !== null) {
-                                                if ($sonda->ph === null && $sonda->orp === null && $sonda->temperatura_agua === null) {
-                                                    return null;
-                                                }
+                        Forms\Components\Placeholder::make("sonda_referencia_{$pool->id}")
+                            ->hiddenLabel()
+                            ->columnSpanFull()
+                            ->content(function ($livewire) use ($pool): ?HtmlString {
+                                $horaColheita = $livewire->data['hora_colheita'] ?? null;
+                                $sonda = self::sondaParaMomento($pool, $horaColheita);
+                                if ($sonda !== null) {
+                                    if ($sonda->ph === null && $sonda->orp === null && $sonda->temperatura_agua === null) {
+                                        return null;
+                                    }
 
-                                                $violacoes = self::sondaViolacoes($sonda, $pool);
+                                    $violacoes = self::sondaViolacoes($sonda, $pool);
 
-                                                if ($violacoes === []) {
-                                                    return new HtmlString(
-                                                        '<div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-sm">'
-                                                        .'📡 Sonda: ✓ Conforme'
-                                                        .'</div>'
-                                                    );
-                                                }
+                                    if ($violacoes === []) {
+                                        return new HtmlString(
+                                            '<div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-sm">'
+                                            .'📡 Sonda: ✓ Conforme'
+                                            .'</div>'
+                                        );
+                                    }
 
-                                                return new HtmlString(
-                                                    '<div class="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-200 text-sm">'
-                                                    .'📡 Sonda: Não conforme - Valor '.implode(' e ', $violacoes).', por favor considera refazer a medição.'
-                                                    .'</div>'
-                                                );
-                                            }
+                                    return new HtmlString(
+                                        '<div class="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-200 text-sm">'
+                                        .'📡 Sonda: Não conforme - Valor '.implode(' e ', $violacoes).', por favor considera refazer a medição.'
+                                        .'</div>'
+                                    );
+                                }
 
-                                            // Sem leitura próxima do momento: fallback neutro. A mensagem
-                                            // distingue "hora retroativa sem leitura" de "sonda indisponível".
-                                            $mensagem = filled($horaColheita)
-                                                ? 'ℹ️ Sem leitura da sonda próxima da hora da colheita. Introduza a sua própria análise.'
-                                                : 'ℹ️ Sonda Hanna não disponível. Introduza a sua própria análise.';
+                                // Sem leitura próxima do momento: fallback neutro. A mensagem
+                                // distingue "hora retroativa sem leitura" de "sonda indisponível".
+                                $mensagem = filled($horaColheita)
+                                    ? 'ℹ️ Sem leitura da sonda próxima da hora da colheita. Introduza a sua própria análise.'
+                                    : 'ℹ️ Sonda Hanna não disponível. Introduza a sua própria análise.';
 
-                                            return new HtmlString(
-                                                '<div class="p-2 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">'
-                                                .$mensagem
-                                                .'</div>'
-                                            );
-                                        }),
-                                    self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->minValue(0)->maxValue(14)->required(), 'ns_ph', $pool),
-                                    self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->required(), 'ns_cloro_livre', $pool),
-                                    self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
-                                        ->id("ns_cloro_total_{$pool->id}")
-                                        ->label('Cl total')
-                                        ->numeric()
-                                        ->step(0.01)
-                                        ->required(), 'ns_cloro_total', $pool),
-                                    self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
-                                    Forms\Components\TextInput::make('banhistas')
-                                        ->id("banhistas_{$pool->id}")
-                                        ->label('Banhistas')
-                                        ->numeric()
-                                        ->integer()
-                                        ->minValue(0)
-                                        ->default(0)
-                                        ->extraInputAttributes(['inputmode' => 'numeric', 'class' => 'neo-input-large'])
-                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                        ->helperText('Nº de banhistas desde o último registo.'),
-                                    Forms\Components\Textarea::make('observacoes')
-                                        ->id("observacoes_zero_{$pool->id}")
-                                        ->label('Motivo do valor 0')
-                                        ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
-                                        ->required(fn (Get $get) => self::algumValorZero($get))
-                                        ->visible(fn (Get $get) => self::algumValorZero($get))
-                                        ->extraInputAttributes(['class' => 'neo-input-large'])
-                                        ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                        ->columnSpanFull(),
-                                ];
+                                return new HtmlString(
+                                    '<div class="p-2 rounded-lg bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm">'
+                                    .$mensagem
+                                    .'</div>'
+                                );
+                            }),
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->minValue(0)->maxValue(14)->required(), 'ns_ph', $pool),
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->required(), 'ns_cloro_livre', $pool),
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
+                            ->id("ns_cloro_total_{$pool->id}")
+                            ->label('Cl total')
+                            ->numeric()
+                            ->step(0.01)
+                            ->required(), 'ns_cloro_total', $pool),
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
+                        Forms\Components\TextInput::make('banhistas')
+                            ->id("banhistas_{$pool->id}")
+                            ->label('Banhistas')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->default(0)
+                            ->extraInputAttributes(['inputmode' => 'numeric', 'class' => 'neo-input-large'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                            ->helperText('Nº de banhistas desde o último registo.'),
+                        Forms\Components\Textarea::make('observacoes')
+                            ->id("observacoes_zero_{$pool->id}")
+                            ->label('Motivo do valor 0')
+                            ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
+                            ->required(fn (Get $get) => self::algumValorZero($get))
+                            ->visible(fn (Get $get) => self::algumValorZero($get))
+                            ->extraInputAttributes(['class' => 'neo-input-large'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                            ->columnSpanFull(),
+                    ];
 
                     $observacoesSchema = fn (Pool $pool, $installation) => [
-                                    Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
-                                        ->hiddenLabel()
-                                        ->content(function (Get $get) use ($pool) {
-                                            $ph = $get("pools.{$pool->id}.ns_ph");
-                                            $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+                        Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
+                            ->hiddenLabel()
+                            ->content(function (Get $get) use ($pool) {
+                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
 
-                                            $sugestoes = [];
-                                            $calculator = app(DosageCalculatorService::class);
+                                $sugestoes = [];
+                                $calculator = app(DosageCalculatorService::class);
 
-                                            if (filled($ph)) {
-                                                $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
-                                                if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
-                                                    $prod = e($dosePh['produto']?->name ?? 'Produto pH');
-                                                    $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$dosePh['dose_formatada']}</strong> de <em>{$prod}</em>";
+                                if (filled($ph)) {
+                                    $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
+                                    if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
+                                        $prod = e($dosePh['produto']?->name ?? 'Produto pH');
+                                        $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$dosePh['dose_formatada']}</strong> de <em>{$prod}</em>";
+                                    }
+                                }
+
+                                if (filled($cl)) {
+                                    $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
+                                    if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
+                                        $prod = e($doseCl['produto']?->name ?? 'Cloro');
+                                        $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseCl['dose_formatada']}</strong> de <em>{$prod}</em>";
+                                    }
+                                }
+
+                                if (empty($sugestoes)) {
+                                    return null;
+                                }
+
+                                $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1 mb-2">';
+                                $html .= '<div class="font-semibold flex items-center gap-1.5"><span class="text-base">⚡</span> <span>Sugestões Automáticas de Dosagem (Ação Corretiva Recomendada)</span></div>';
+                                foreach ($sugestoes as $sug) {
+                                    $html .= "<div>{$sug}</div>";
+                                }
+                                $html .= '</div>';
+
+                                return new HtmlString($html);
+                            })
+                            ->visible(function (Get $get) use ($pool) {
+                                $ph = $get("pools.{$pool->id}.ns_ph");
+                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+
+                                return filled($ph) || filled($cl);
+                            })
+                            ->columnSpanFull(),
+                        Forms\Components\Repeater::make('adicoes')
+                            ->id("adicoes_{$pool->id}")
+                            ->label('Adições de Químicos')
+                            ->schema([
+                                Forms\Components\Select::make('product_id')
+                                    ->label('Produto')
+                                    ->options(Product::query()->pluck('name', 'id'))
+                                    ->required()
+                                    ->extraInputAttributes(['class' => 'neo-input-large'])
+                                    ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                                    ->live(),
+                                Forms\Components\TextInput::make('quantity')
+                                    ->label('Quantidade')
+                                    ->numeric()
+                                    ->minValue(0.01)
+                                    ->step(0.01)
+                                    ->required()
+                                    ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                                    ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                                    ->live(onBlur: true)
+                                    ->hint(function (Get $get) use ($installation) {
+                                        $productId = $get('product_id');
+                                        if (! $productId) {
+                                            return null;
+                                        }
+                                        $stock = StockInstallation::where('installation_id', $installation->id)
+                                            ->where('product_id', $productId)->first();
+                                        $produto = Product::find($productId);
+                                        $disponivel = $stock?->quantity ?? 0;
+
+                                        return "Disponível na instalação: {$disponivel} {$produto?->unidade}";
+                                    })
+                                    ->hintColor(function (Get $get) use ($installation) {
+                                        $productId = $get('product_id');
+                                        $value = $get('quantity');
+                                        if (! $productId) {
+                                            return 'gray';
+                                        }
+                                        $stock = StockInstallation::where('installation_id', $installation->id)
+                                            ->where('product_id', $productId)->first();
+                                        $disponivel = (float) ($stock?->quantity ?? 0);
+                                        if (! $value) {
+                                            return 'gray';
+                                        }
+
+                                        return $disponivel < (float) $value ? 'danger' : 'gray';
+                                    })
+                                    ->hintAction(
+                                        Forms\Components\Actions\Action::make('adicionarStockInsuficiente')
+                                            ->label('Adicionar stock')
+                                            ->icon('heroicon-o-plus-circle')
+                                            ->color('danger')
+                                            ->visible(function (Get $get) use ($installation) {
+                                                $productId = $get('product_id');
+                                                $value = $get('quantity');
+                                                if (! $productId || ! $value) {
+                                                    return false;
                                                 }
-                                            }
+                                                $stock = StockInstallation::where('installation_id', $installation->id)
+                                                    ->where('product_id', $productId)->first();
+                                                $disponivel = (float) ($stock?->quantity ?? 0);
 
-                                            if (filled($cl)) {
-                                                $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
-                                                if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
-                                                    $prod = e($doseCl['produto']?->name ?? 'Cloro');
-                                                    $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseCl['dose_formatada']}</strong> de <em>{$prod}</em>";
+                                                return $disponivel < (float) $value;
+                                            })
+                                            ->slideOver()
+                                            ->modalHeading('Adicionar stock em falta')
+                                            ->modalDescription('A quantidade é debitada do stock de armazém e creditada no stock desta instalação.')
+                                            ->form([
+                                                Forms\Components\TextInput::make('quantidade_a_adicionar')
+                                                    ->label('Quantidade a transferir do armazém')
+                                                    ->numeric()
+                                                    ->minValue(0.001)
+                                                    ->rules(['gt:0'])
+                                                    ->required(),
+                                            ])
+                                            ->action(function (array $data, Get $get) use ($installation) {
+                                                $productId = $get('product_id');
+                                                $pedido = (float) $data['quantidade_a_adicionar'];
+                                                $insuficiente = false;
+
+                                                DB::transaction(function () use ($productId, $pedido, $installation, &$insuficiente) {
+                                                    $armazem = StockWarehouse::where('product_id', $productId)
+                                                        ->lockForUpdate()
+                                                        ->first();
+
+                                                    if (! $armazem || (float) $armazem->quantity < $pedido) {
+                                                        $insuficiente = true;
+
+                                                        return;
+                                                    }
+
+                                                    $armazem->quantity -= $pedido;
+                                                    $armazem->save();
+
+                                                    StockWarehouseLog::create([
+                                                        'stock_warehouse_id' => $armazem->id,
+                                                        'product_id' => $armazem->product_id,
+                                                        'user_id' => auth()->id(),
+                                                        'tipo_movimento' => 'saida',
+                                                        'quantity' => $pedido,
+                                                    ]);
+
+                                                    $stockInstalacao = StockInstallation::firstOrCreate(
+                                                        ['installation_id' => $installation->id, 'product_id' => $productId],
+                                                        ['quantity' => 0, 'limite_minimo' => 0],
+                                                    );
+                                                    $stockInstalacao = StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
+                                                    $stockInstalacao->quantity += $pedido;
+                                                    $stockInstalacao->save();
+
+                                                    StockInstallationLog::create([
+                                                        'stock_installation_id' => $stockInstalacao->id,
+                                                        'user_id' => auth()->id(),
+                                                        'tipo_movimento' => 'entrada',
+                                                        'quantity' => $pedido,
+                                                        'created_at' => now(),
+                                                    ]);
+                                                });
+
+                                                if ($insuficiente) {
+                                                    Auditoria::registar(
+                                                        Auditoria::CANAL_STOCK,
+                                                        'Transferência de stock recusada: quantidade insuficiente no armazém.',
+                                                        [
+                                                            'produto_id' => $productId,
+                                                            'instalacao' => $installation->name,
+                                                            'pedido' => $pedido,
+                                                        ],
+                                                    );
+
+                                                    Notification::make()
+                                                        ->danger()
+                                                        ->title('Stock insuficiente no armazém')
+                                                        ->body('Não há quantidade suficiente no armazém para transferir para esta instalação.')
+                                                        ->send();
+
+                                                    return;
                                                 }
-                                            }
 
-                                            if (empty($sugestoes)) {
-                                                return null;
-                                            }
-
-                                            $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1 mb-2">';
-                                            $html .= '<div class="font-semibold flex items-center gap-1.5"><span class="text-base">⚡</span> <span>Sugestões Automáticas de Dosagem (Ação Corretiva Recomendada)</span></div>';
-                                            foreach ($sugestoes as $sug) {
-                                                $html .= "<div>{$sug}</div>";
-                                            }
-                                            $html .= '</div>';
-
-                                            return new HtmlString($html);
-                                        })
-                                        ->visible(function (Get $get) use ($pool) {
-                                            $ph = $get("pools.{$pool->id}.ns_ph");
-                                            $cl = $get("pools.{$pool->id}.ns_cloro_livre");
-
-                                            return filled($ph) || filled($cl);
-                                        })
-                                        ->columnSpanFull(),
-                                    Forms\Components\Repeater::make('adicoes')
-                                        ->id("adicoes_{$pool->id}")
-                                        ->label('Adições de Químicos')
-                                        ->schema([
-                                            Forms\Components\Select::make('product_id')
-                                                ->label('Produto')
-                                                ->options(Product::query()->pluck('name', 'id'))
-                                                ->required()
-                                                ->extraInputAttributes(['class' => 'neo-input-large'])
-                                                ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                                ->live(),
-                                            Forms\Components\TextInput::make('quantity')
-                                                ->label('Quantidade')
-                                                ->numeric()
-                                                ->minValue(0.01)
-                                                ->step(0.01)
-                                                ->required()
-                                                ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
-                                                ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                                                ->live(onBlur: true)
-                                                ->hint(function (Get $get) use ($installation) {
-                                                    $productId = $get('product_id');
-                                                    if (! $productId) {
-                                                        return null;
-                                                    }
-                                                    $stock = StockInstallation::where('installation_id', $installation->id)
-                                                        ->where('product_id', $productId)->first();
-                                                    $produto = Product::find($productId);
-                                                    $disponivel = $stock?->quantity ?? 0;
-
-                                                    return "Disponível na instalação: {$disponivel} {$produto?->unidade}";
-                                                })
-                                                ->hintColor(function (Get $get) use ($installation) {
-                                                    $productId = $get('product_id');
-                                                    $value = $get('quantity');
-                                                    if (! $productId) {
-                                                        return 'gray';
-                                                    }
-                                                    $stock = StockInstallation::where('installation_id', $installation->id)
-                                                        ->where('product_id', $productId)->first();
-                                                    $disponivel = (float) ($stock?->quantity ?? 0);
-                                                    if (! $value) {
-                                                        return 'gray';
-                                                    }
-
-                                                    return $disponivel < (float) $value ? 'danger' : 'gray';
-                                                })
-                                                ->hintAction(
-                                                    Forms\Components\Actions\Action::make('adicionarStockInsuficiente')
-                                                        ->label('Adicionar stock')
-                                                        ->icon('heroicon-o-plus-circle')
-                                                        ->color('danger')
-                                                        ->visible(function (Get $get) use ($installation) {
-                                                            $productId = $get('product_id');
-                                                            $value = $get('quantity');
-                                                            if (! $productId || ! $value) {
-                                                                return false;
-                                                            }
-                                                            $stock = StockInstallation::where('installation_id', $installation->id)
-                                                                ->where('product_id', $productId)->first();
-                                                            $disponivel = (float) ($stock?->quantity ?? 0);
-
-                                                            return $disponivel < (float) $value;
-                                                        })
-                                                        ->slideOver()
-                                                        ->modalHeading('Adicionar stock em falta')
-                                                        ->modalDescription('A quantidade é debitada do stock de armazém e creditada no stock desta instalação.')
-                                                        ->form([
-                                                            Forms\Components\TextInput::make('quantidade_a_adicionar')
-                                                                ->label('Quantidade a transferir do armazém')
-                                                                ->numeric()
-                                                                ->minValue(0.001)
-                                                                ->rules(['gt:0'])
-                                                                ->required(),
-                                                        ])
-                                                        ->action(function (array $data, Get $get) use ($installation) {
-                                                            $productId = $get('product_id');
-                                                            $pedido = (float) $data['quantidade_a_adicionar'];
-                                                            $insuficiente = false;
-
-                                                            DB::transaction(function () use ($productId, $pedido, $installation, &$insuficiente) {
-                                                                $armazem = StockWarehouse::where('product_id', $productId)
-                                                                    ->lockForUpdate()
-                                                                    ->first();
-
-                                                                if (! $armazem || (float) $armazem->quantity < $pedido) {
-                                                                    $insuficiente = true;
-
-                                                                    return;
-                                                                }
-
-                                                                $armazem->quantity -= $pedido;
-                                                                $armazem->save();
-
-                                                                StockWarehouseLog::create([
-                                                                    'stock_warehouse_id' => $armazem->id,
-                                                                    'product_id' => $armazem->product_id,
-                                                                    'user_id' => auth()->id(),
-                                                                    'tipo_movimento' => 'saida',
-                                                                    'quantity' => $pedido,
-                                                                ]);
-
-                                                                $stockInstalacao = StockInstallation::firstOrCreate(
-                                                                    ['installation_id' => $installation->id, 'product_id' => $productId],
-                                                                    ['quantity' => 0, 'limite_minimo' => 0],
-                                                                );
-                                                                $stockInstalacao = StockInstallation::query()->lockForUpdate()->findOrFail($stockInstalacao->id);
-                                                                $stockInstalacao->quantity += $pedido;
-                                                                $stockInstalacao->save();
-
-                                                                StockInstallationLog::create([
-                                                                    'stock_installation_id' => $stockInstalacao->id,
-                                                                    'user_id' => auth()->id(),
-                                                                    'tipo_movimento' => 'entrada',
-                                                                    'quantity' => $pedido,
-                                                                    'created_at' => now(),
-                                                                ]);
-                                                            });
-
-                                                            if ($insuficiente) {
-                                                                Auditoria::registar(
-                                                                    Auditoria::CANAL_STOCK,
-                                                                    'Transferência de stock recusada: quantidade insuficiente no armazém.',
-                                                                    [
-                                                                        'produto_id' => $productId,
-                                                                        'instalacao' => $installation->name,
-                                                                        'pedido' => $pedido,
-                                                                    ],
-                                                                );
-
-                                                                Notification::make()
-                                                                    ->danger()
-                                                                    ->title('Stock insuficiente no armazém')
-                                                                    ->body('Não há quantidade suficiente no armazém para transferir para esta instalação.')
-                                                                    ->send();
-
-                                                                return;
-                                                            }
-
-                                                            Notification::make()
-                                                                ->success()
-                                                                ->title('Stock transferido do armazém')
-                                                                ->send();
-                                                        }),
-                                                ),
-                                            Forms\Components\Textarea::make('acao_corretiva')
-                                                ->label('Ação corretiva')
-                                                ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
-                                                ->columnSpanFull(),
-                                        ])
-                                        // Sem isto, entrar pelo atalho da piscina abria uma linha
-                                        // vazia cujos campos obrigatórios bloqueavam a submissão.
-                                        ->defaultItems(0)
-                                        ->addActionLabel('Adicionar químico')
-                                        ->columns(['default' => 1, 'sm' => 2]),
-                                    Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
-                                ];
+                                                Notification::make()
+                                                    ->success()
+                                                    ->title('Stock transferido do armazém')
+                                                    ->send();
+                                            }),
+                                    ),
+                                Forms\Components\Textarea::make('acao_corretiva')
+                                    ->label('Ação corretiva')
+                                    ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
+                                    ->columnSpanFull(),
+                            ])
+                            // Sem isto, entrar pelo atalho da piscina abria uma linha
+                            // vazia cujos campos obrigatórios bloqueavam a submissão.
+                            ->defaultItems(0)
+                            ->addActionLabel('Adicionar químico')
+                            ->columns(['default' => 1, 'sm' => 2]),
+                        Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
+                    ];
 
                     $tabs = Forms\Components\Tabs::make('Piscinas')->tabs(
                         $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $posicaoNormalSchema, $nsSchema, $observacoesSchema) {
                             $sections = [];
 
-                            if (!self::isNS() && !$modoRapido) {
+                            if (! self::isNS() && ! $modoRapido) {
                                 $sections[] = Forms\Components\Section::make('Bombas e contadores')
                                     ->schema($bombasSchema($pool))
                                     ->columns(['default' => 2, 'sm' => 3, 'lg' => 4]);
-                                
+
                                 if ((bool) $installation->tanques_verificaveis) {
                                     $sections[] = Forms\Components\Section::make('Tanques')
                                         ->schema($tanquesSchema($pool));
                                 }
-                                
+
                                 if ($poolsByFiltros->contains('id', $pool->id)) {
                                     $sections[] = Forms\Components\Section::make('Lavagem filtros')
                                         ->schema($lavagemSchema($pool));
-                                    
+
                                     $sections[] = Forms\Components\Section::make('Enxaguamento')
                                         ->schema($enxaguamentoSchema($pool))
                                         ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
-                                    
+
                                     $sections[] = Forms\Components\Section::make('Posição normal')
                                         ->schema($posicaoNormalSchema($pool))
                                         ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
@@ -1078,8 +1078,8 @@ class DailyRecordFormBuilder
                             $sections[] = Forms\Components\Section::make($modoRapido ? 'Registo Rápido' : 'Análises')
                                 ->schema($nsSchema($pool))
                                 ->columns(['default' => 2, 'sm' => 4]);
-                            
-                            if (!self::isNS()) {
+
+                            if (! self::isNS()) {
                                 $sections[] = Forms\Components\Section::make('Químicos e Observações')
                                     ->schema($observacoesSchema($pool, $installation));
                             }
