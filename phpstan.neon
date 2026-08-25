@@ -10,6 +10,3 @@ parameters:
 
     # Level 5 is a good baseline for existing projects without being overly pedantic
     level: 5
-
-    # Ignore generic iterable type errors for now to reduce noise
-    checkMissingIterableValueType: false

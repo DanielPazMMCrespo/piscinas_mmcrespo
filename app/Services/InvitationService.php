@@ -84,7 +84,7 @@ class InvitationService
         $firstName = $data['first_name'];
         $lastName = $data['last_name'];
 
-        $password = Hash::make($data['password']);
+        $password = Hash::make($data['password'] ?? Str::random(32));
 
         $user = User::create([
             'name' => trim("{$firstName} {$lastName}"),

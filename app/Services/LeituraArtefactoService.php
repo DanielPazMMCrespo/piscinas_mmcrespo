@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\TrabalhoParagem;
 use App\Models\DailyRecord;
 use App\Models\FilterCheck;
 use App\Models\OperationalAction;
+use App\Models\PoolClosure;
+use App\Models\PoolClosureTask;
 use App\Models\SensorOutage;
 use Carbon\Carbon;
 
@@ -14,7 +17,8 @@ use Carbon\Carbon;
  * Determina janelas temporais em que as leituras do controlador Hanna são
  * artefacto (inválidas) porque a água não circula normalmente no sensor:
  * durante uma lavagem/enxaguamento de filtro, ou com a bomba parada — e ainda
- * os períodos em que a própria sonda foi declarada indisponível (SensorOutage).
+ * os períodos em que a própria sonda foi declarada indisponível (SensorOutage),
+ * ou durante operações de paragem técnica (supercloração, desinfeção de choque, tanque vazio).
  *
  * Uma leitura dentro destas janelas não deve contar como não-conformidade —
  * é uma causa conhecida, não um problema de qualidade da água. Fonte única
@@ -46,6 +50,8 @@ class LeituraArtefactoService
             $this->janelasLavagem($poolId, $de, $ate),
             $this->janelasBombaParada($poolId, $de, $ate),
             $this->janelasSondaIndisponivel($poolId, $de, $ate),
+            $this->janelasSupercloracao($poolId, $de, $ate),
+            $this->janelasTanqueVazio($poolId, $de, $ate),
         );
 
         $resultado = [];
@@ -211,6 +217,90 @@ class LeituraArtefactoService
 
         if ($inicioParada !== null) {
             $janelas[] = ['inicio' => $inicioParada->copy(), 'fim' => $ate->copy(), 'motivo' => 'Bomba parada'];
+        }
+
+        return $janelas;
+    }
+
+    /**
+     * Janelas de supercloração e desinfeção de choque / Legionella executadas.
+     * Só conta quando estado = EXECUTADO e executado_em não é nulo.
+     *
+     * @return array<int, array{inicio: Carbon, fim: Carbon, motivo: string}>
+     */
+    private function janelasSupercloracao(int $poolId, Carbon $de, Carbon $ate): array
+    {
+        $tarefas = PoolClosureTask::query()
+            ->whereIn('tipo', [TrabalhoParagem::SUPERCLORACAO, TrabalhoParagem::DESINFECAO_LEGIONELLA])
+            ->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)
+            ->whereNotNull('executado_em')
+            ->whereHas('encerramento', fn ($q) => $q->where('pool_id', $poolId))
+            ->get();
+
+        $janelas = [];
+        foreach ($tarefas as $tarefa) {
+            /** @var Carbon $inicio */
+            $inicio = $tarefa->executado_em;
+            $horasContacto = (int) ($tarefa->dados['horas_contacto'] ?? $tarefa->dados['tempo_contacto_horas'] ?? 24);
+            // Horas de contacto + 12h de estabilização pós-choque
+            $fim = $inicio->copy()->addHours(max(1, $horasContacto) + 12);
+            $motivo = $tarefa->tipo === TrabalhoParagem::DESINFECAO_LEGIONELLA ? 'Desinfeção Legionella' : 'Supercloração';
+
+            $janelas[] = [
+                'inicio' => $inicio->copy(),
+                'fim' => $fim,
+                'motivo' => $motivo,
+            ];
+        }
+
+        return $janelas;
+    }
+
+    /**
+     * Janelas em que o tanque esteve vazio (após esvaziamento executado até ao enchimento ou fim da paragem).
+     * Só conta quando estado = EXECUTADO e executado_em não é nulo.
+     *
+     * @return array<int, array{inicio: Carbon, fim: Carbon, motivo: string}>
+     */
+    private function janelasTanqueVazio(int $poolId, Carbon $de, Carbon $ate): array
+    {
+        $tarefas = PoolClosureTask::query()
+            ->where('tipo', TrabalhoParagem::ESVAZIAMENTO_TANQUE)
+            ->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)
+            ->whereNotNull('executado_em')
+            ->whereHas('encerramento', fn ($q) => $q->where('pool_id', $poolId))
+            ->with(['encerramento.trabalhos'])
+            ->get();
+
+        $janelas = [];
+        foreach ($tarefas as $tarefa) {
+            /** @var Carbon $inicio */
+            $inicio = $tarefa->executado_em;
+
+            // Procurar se há enchimento executado posterior no mesmo encerramento
+            /** @var PoolClosure|null $encerramento */
+            $encerramento = $tarefa->encerramento;
+            $enchimento = $encerramento?->trabalhos
+                ->where('tipo', TrabalhoParagem::ENCHIMENTO_TANQUE)
+                ->where('estado', TrabalhoParagem::ESTADO_EXECUTADO)
+                ->whereNotNull('executado_em')
+                ->where('executado_em', '>=', $inicio)
+                ->sortBy('executado_em')
+                ->first();
+
+            if ($enchimento !== null && $enchimento->executado_em !== null) {
+                $fim = $enchimento->executado_em->copy();
+            } elseif ($encerramento?->fim !== null) {
+                $fim = $encerramento->fim->copy()->endOfDay();
+            } else {
+                $fim = $ate->copy();
+            }
+
+            $janelas[] = [
+                'inicio' => $inicio->copy(),
+                'fim' => $fim,
+                'motivo' => 'Tanque vazio',
+            ];
         }
 
         return $janelas;

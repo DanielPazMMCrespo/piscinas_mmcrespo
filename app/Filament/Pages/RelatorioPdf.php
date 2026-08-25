@@ -447,7 +447,7 @@ class RelatorioPdf extends Page implements HasForms
             ->log("Exportou relatório PDF: {$nomeFicheiro}");
 
         return response()->streamDownload(
-            fn () => print($domPdf->output()),
+            fn () => print ($domPdf->output()),
             $nomeFicheiro,
             ['Content-Type' => 'application/pdf']
         );

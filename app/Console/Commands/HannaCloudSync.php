@@ -131,6 +131,7 @@ class HannaCloudSync extends Command
                 // Validar que a data é plausível (não futura, não > 30 dias atrás)
                 if ($lida_em->gt(now()->addMinutes(10)) || $lida_em->lt(now()->subDays(30))) {
                     $this->warn("  ✗ {$device->name}: lida_em implausível ({$lida_em}); leitura ignorada.");
+
                     continue;
                 }
 
@@ -276,6 +277,7 @@ class HannaCloudSync extends Command
         // Validar plausibilidade: > 20L num ciclo é avaria, não dosagem legítima
         if ($ml <= 0 || $ml > 20000) {
             Log::warning("HannaCloudSync [{$device->hanna_device_id}]: dosagem de {$ml} mL implausível; ignorada.");
+
             return;
         }
 

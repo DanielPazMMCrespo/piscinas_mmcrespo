@@ -39,6 +39,12 @@ class HistoricoEncerramentosWidget extends TableWidget
             ->paginationPageOptions([10, 25, 50])
             ->poll(null)
             ->actions([
+                Tables\Actions\Action::make('plano')
+                    ->label('Plano')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->color('info')
+                    ->url(fn (PoolClosure $record): string => PoolClosureResource::getUrl('edit', ['record' => $record]))
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]) ?? false),
                 Tables\Actions\Action::make('editar')
                     ->label('Editar')
                     ->icon('heroicon-m-pencil-square')
