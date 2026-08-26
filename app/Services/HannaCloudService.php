@@ -285,8 +285,14 @@ class HannaCloudService
      * Os controladores estão em Portugal e mostram hora local, por isso o
      * relógio de parede é reancorado no fuso da aplicação, seja qual for o
      * offset que a API declare. Fonte única: não repetir este cálculo.
+     *
+     * $ajusteMinutos corrige um controlador cujo relógio não bate com o local.
+     * O fuso do aparelho não vem em nenhum campo da API (nem a interface da
+     * Hanna é consistente: o mesmo histórico aparece com duas horas de
+     * diferença antes e depois de um refresh), logo tem de ser declarado em
+     * hanna_devices.ajuste_minutos.
      */
-    public static function horaLeitura(?string $dt): ?Carbon
+    public static function horaLeitura(?string $dt, int $ajusteMinutos = 0): ?Carbon
     {
         if ($dt === null || trim($dt) === '') {
             return null;
@@ -294,7 +300,8 @@ class HannaCloudService
 
         $relogio = Carbon::parse($dt)->format('Y-m-d H:i:s');
 
-        return Carbon::createFromFormat('Y-m-d H:i:s', $relogio, config('app.timezone'));
+        return Carbon::createFromFormat('Y-m-d H:i:s', $relogio, config('app.timezone'))
+            ->addMinutes($ajusteMinutos);
     }
 
     /**

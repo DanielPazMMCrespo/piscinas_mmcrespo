@@ -130,13 +130,13 @@ class HannaCloudSync extends Command
 
                 $this->atualizarPhOvertime($device, $reading);
 
-                $lida_em = HannaCloudService::horaLeitura($reading['dt']) ?? now();
+                $lida_em = HannaCloudService::horaLeitura($reading['dt'], $device->ajuste_minutos) ?? now();
 
                 // Validar que a data é plausível (não futura, não > 30 dias atrás)
                 if ($lida_em->gt(now()->addMinutes(10)) || $lida_em->lt(now()->subDays(30))) {
                     // Inclui o DT bruto: sem ele, diagnosticar um desvio de
                     // relógio ou de fuso obriga a adivinhar o que a API enviou.
-                    $this->warn("  ✗ {$device->name}: lida_em implausível ({$lida_em}, DT bruto '{$reading['dt']}', agora ".now().'); leitura ignorada. Verifica o relógio do controlador.');
+                    $this->warn("  ✗ {$device->name}: lida_em implausível ({$lida_em}, DT bruto '{$reading['dt']}', agora ".now().'); leitura ignorada. Corrige o relógio do controlador ou define o Ajuste de relógio em Sensores Hanna.');
 
                     continue;
                 }
@@ -295,7 +295,7 @@ class HannaCloudSync extends Command
 
         $novas = array_filter(
             $leituras,
-            fn (array $l) => HannaCloudService::horaLeitura($l['dt'])?->gt($device->dose_sincronizada_ate) === true,
+            fn (array $l) => HannaCloudService::horaLeitura($l['dt'], $device->ajuste_minutos)?->gt($device->dose_sincronizada_ate) === true,
         );
 
         if (empty($novas)) {
@@ -314,7 +314,7 @@ class HannaCloudSync extends Command
         $ultimoDt = $device->dose_sincronizada_ate;
 
         foreach ($novas as $l) {
-            $dt = HannaCloudService::horaLeitura($l['dt']);
+            $dt = HannaCloudService::horaLeitura($l['dt'], $device->ajuste_minutos);
 
             if ($dt === null) {
                 continue;
@@ -399,7 +399,7 @@ class HannaCloudSync extends Command
             return false;
         }
 
-        $lida_em = HannaCloudService::horaLeitura($reading['dt']) ?? now();
+        $lida_em = HannaCloudService::horaLeitura($reading['dt'], $device->ajuste_minutos) ?? now();
 
         return app(LeituraArtefactoService::class)->motivoEm((int) $device->pool_id, $lida_em) !== null;
     }
@@ -498,7 +498,7 @@ class HannaCloudSync extends Command
         // Se a API diz que está em overtime mas a leitura local não detectou ou o histórico é curto,
         // garantimos que $desde não é null e respeita a existência do alarme.
         if ($desde === null || $desde->isFuture()) {
-            $desde = HannaCloudService::horaLeitura($reading['dt']) ?? now();
+            $desde = HannaCloudService::horaLeitura($reading['dt'], $device->ajuste_minutos) ?? now();
         }
 
         if ($device->ph_out_of_band_since === null || ! $device->ph_out_of_band_since->equalTo($desde)) {

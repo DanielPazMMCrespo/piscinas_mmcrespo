@@ -15,13 +15,14 @@ class HannaDevice extends Model
     use LogsActivity;
 
     protected $fillable = [
-        'hanna_device_id', 'name', 'pool_id', 'active', 'raw_info',
+        'hanna_device_id', 'name', 'pool_id', 'active', 'raw_info', 'ajuste_minutos',
         'ph_out_of_band_since', 'ph_overtime_notified_at', 'dose_sincronizada_ate',
     ];
 
     protected $casts = [
         'active' => 'boolean',
         'raw_info' => 'array',
+        'ajuste_minutos' => 'integer',
         'ph_out_of_band_since' => 'datetime',
         'ph_overtime_notified_at' => 'datetime',
         'dose_sincronizada_ate' => 'datetime',

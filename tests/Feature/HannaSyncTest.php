@@ -193,6 +193,64 @@ class HannaSyncTest extends TestCase
         $cache->shouldHaveReceived('invalidateGraphCache')->once();
     }
 
+    /**
+     * O caso da Lazer: relógio 2h adiantado. Com ajuste_minutos = -120 a
+     * leitura passa a ser gravada com a hora local verdadeira.
+     */
+    public function test_device_offset_makes_an_ahead_clock_usable(): void
+    {
+        config(['app.timezone' => 'Europe/Lisbon']);
+        Carbon::setTestNow(Carbon::parse('2026-08-26 15:56:33', 'Europe/Lisbon'));
+
+        $this->createDevice(['ajuste_minutos' => -120]);
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getLastReading')
+            ->with('DEV-001')
+            ->once()
+            ->andReturn(array_merge($this->defaultReading(), [
+                'dt' => '2026-08-26T17:45:31.000Z',
+            ]));
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        $this->assertDatabaseHas('sensor_readings', [
+            'hanna_device_id' => 'DEV-001',
+            'lida_em' => '2026-08-26 15:45:31',
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    /** Sem ajuste, a mesma leitura continua a ser recusada. */
+    public function test_without_offset_the_same_reading_is_rejected(): void
+    {
+        config(['app.timezone' => 'Europe/Lisbon']);
+        Carbon::setTestNow(Carbon::parse('2026-08-26 15:56:33', 'Europe/Lisbon'));
+
+        $this->createDevice();
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getLastReading')
+            ->with('DEV-001')
+            ->once()
+            ->andReturn(array_merge($this->defaultReading(), [
+                'dt' => '2026-08-26T17:45:31.000Z',
+            ]));
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        $this->assertDatabaseCount('sensor_readings', 0);
+
+        Carbon::setTestNow();
+    }
+
     private function createAdmin(): User
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();

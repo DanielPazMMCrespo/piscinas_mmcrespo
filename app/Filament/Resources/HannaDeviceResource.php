@@ -105,6 +105,15 @@ class HannaDeviceResource extends Resource
                 ->preload()
                 ->helperText('A que piscina pertencem as leituras deste sensor?'),
 
+            Forms\Components\TextInput::make('ajuste_minutos')
+                ->label('Ajuste de relógio (minutos)')
+                ->numeric()
+                ->default(0)
+                ->required()
+                ->minValue(-1440)
+                ->maxValue(1440)
+                ->helperText('Minutos a somar à hora que o controlador reporta. Deixa 0 se a hora dele está certa. Se ele reportar 2 horas adiantado, põe -120.'),
+
             Forms\Components\Toggle::make('active')
                 ->label('Activo (sincronizar)')
                 ->default(true),

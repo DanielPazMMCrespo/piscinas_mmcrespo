@@ -287,7 +287,7 @@ class DosingContainer extends Model
 
             $doseMl = 0.0;
             foreach ($leituras as $l) {
-                $dt = HannaCloudService::horaLeitura($l['dt']);
+                $dt = HannaCloudService::horaLeitura($l['dt'], $device->ajuste_minutos);
 
                 if ($dt === null) {
                     continue;

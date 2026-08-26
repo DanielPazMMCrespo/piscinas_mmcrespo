@@ -66,6 +66,34 @@ class HannaHoraLeituraTest extends TestCase
         Carbon::setTestNow();
     }
 
+    /**
+     * O controlador da Lazer reporta sempre hora local + 2h. Com o ajuste
+     * declarado, a leitura volta a cair na janela plausível.
+     */
+    public function test_negative_offset_brings_a_two_hour_ahead_clock_back(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-26 15:56:33', 'Europe/Lisbon'));
+
+        $hora = HannaCloudService::horaLeitura('2026-08-26T17:45:31.000Z', -120);
+
+        $this->assertSame('2026-08-26 15:45:31', $hora?->toDateTimeString());
+        $this->assertFalse($hora->gt(now()->addMinutes(10)));
+
+        Carbon::setTestNow();
+    }
+
+    /** Sem ajuste, o mesmo relógio adiantado continua a ser rejeitado. */
+    public function test_same_clock_without_offset_stays_implausible(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-26 15:56:33', 'Europe/Lisbon'));
+
+        $hora = HannaCloudService::horaLeitura('2026-08-26T17:45:31.000Z');
+
+        $this->assertTrue($hora->gt(now()->addMinutes(10)));
+
+        Carbon::setTestNow();
+    }
+
     public function test_null_and_empty_return_null(): void
     {
         $this->assertNull(HannaCloudService::horaLeitura(null));
