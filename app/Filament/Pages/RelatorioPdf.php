@@ -67,13 +67,13 @@ class RelatorioPdf extends Page implements HasForms
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Dados';
+    protected static ?string $navigationGroup = 'Gestão';
 
-    protected static ?string $navigationLabel = 'Relatório PDF (CN 14/DA)';
+    protected static ?string $navigationLabel = 'Relatórios PDF';
 
     protected static ?string $title = 'Relatório PDF — Livro de Registo Sanitário (CN 14/DA)';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 3;
 
     protected static string $view = 'filament.pages.relatorio-pdf';
 

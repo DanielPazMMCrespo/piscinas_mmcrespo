@@ -37,6 +37,11 @@ class DosingContainerResource extends Resource
 
     protected static ?int $navigationSort = 40;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();

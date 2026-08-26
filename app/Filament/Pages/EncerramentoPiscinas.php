@@ -46,13 +46,13 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
 
     protected static ?string $navigationIcon = 'heroicon-o-lock-closed';
 
-    protected static ?string $navigationGroup = 'Operação';
+    protected static ?string $navigationGroup = 'Gestão';
 
     protected static ?string $navigationLabel = 'Encerramentos';
 
     protected static ?string $title = 'Encerramento de Piscinas';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 2;
 
     protected static string $view = 'filament.pages.encerramento-piscinas';
 

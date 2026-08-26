@@ -81,13 +81,11 @@ class AdminPanelProvider extends PanelProvider
             // Ordem pela frequência real de uso: o trabalho diário primeiro,
             // a estrutura (piscinas/instalações, configuradas uma vez) no fim.
             ->navigationGroups([
-                'Registo Diário',
-                'Operação',
-                'Dados',
-                'Stock',
-                'Sistema',
+                NavigationGroup::make('Registo Diário'),
+                NavigationGroup::make('Operação'),
+                NavigationGroup::make('Gestão'),
                 NavigationGroup::make('Estrutura')->collapsed(),
-                NavigationGroup::make('Logs')->collapsed(),
+                NavigationGroup::make('Sistema')->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

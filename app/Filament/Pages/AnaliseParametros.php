@@ -17,13 +17,13 @@ class AnaliseParametros extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static ?string $navigationGroup = 'Dados';
+    protected static ?string $navigationGroup = 'Gestão';
 
     protected static ?string $navigationLabel = 'Análise de Parâmetros';
 
     protected static ?string $title = 'Análise de Parâmetros';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 4;
 
     protected static string $view = 'filament.pages.analise-parametros';
 

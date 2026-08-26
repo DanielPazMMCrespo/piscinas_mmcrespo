@@ -1047,52 +1047,56 @@ class DailyRecordFormBuilder
                         Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                     ];
 
-                    $tabs = Forms\Components\Tabs::make('Piscinas')->tabs(
-                        $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $posicaoNormalSchema, $nsSchema, $observacoesSchema) {
-                            $sections = [];
+                    $poolCards = $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $posicaoNormalSchema, $nsSchema, $observacoesSchema) {
+                        $sections = [];
 
-                            if (! self::isNS() && ! $modoRapido) {
-                                $sections[] = Forms\Components\Section::make('Bombas e contadores')
-                                    ->schema($bombasSchema($pool))
-                                    ->columns(['default' => 2, 'sm' => 3, 'lg' => 4]);
+                        if (! self::isNS() && ! $modoRapido) {
+                            $sections[] = Forms\Components\Section::make('Bombas e contadores')
+                                ->schema($bombasSchema($pool))
+                                ->columns(['default' => 2, 'sm' => 3, 'lg' => 4]);
 
-                                if ((bool) $installation->tanques_verificaveis) {
-                                    $sections[] = Forms\Components\Section::make('Tanques')
-                                        ->schema($tanquesSchema($pool));
-                                }
-
-                                if ($poolsByFiltros->contains('id', $pool->id)) {
-                                    $sections[] = Forms\Components\Section::make('Lavagem filtros')
-                                        ->schema($lavagemSchema($pool));
-
-                                    $sections[] = Forms\Components\Section::make('Enxaguamento')
-                                        ->schema($enxaguamentoSchema($pool))
-                                        ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
-
-                                    $sections[] = Forms\Components\Section::make('Posição normal')
-                                        ->schema($posicaoNormalSchema($pool))
-                                        ->visible(fn (Get $get) => $get("pools.{$pool->id}.filtro_faz_retrolavagem"));
-                                }
+                            if ((bool) $installation->tanques_verificaveis) {
+                                $sections[] = Forms\Components\Section::make('Tanques')
+                                    ->schema($tanquesSchema($pool));
                             }
 
-                            $sections[] = Forms\Components\Section::make($modoRapido ? 'Registo Rápido' : 'Análises')
-                                ->schema($nsSchema($pool))
-                                ->columns(['default' => 2, 'sm' => 4]);
-
-                            if (! self::isNS()) {
-                                $sections[] = Forms\Components\Section::make('Químicos e Observações')
-                                    ->schema($observacoesSchema($pool, $installation));
+                            if ($poolsByFiltros->contains('id', $pool->id)) {
+                                $sections[] = Forms\Components\Section::make('Lavagem de filtros')
+                                    ->icon('heroicon-o-wrench-screwdriver')
+                                    ->collapsible()
+                                    ->collapsed(true)
+                                    ->compact()
+                                    ->schema([
+                                        ...$lavagemSchema($pool),
+                                        ...$enxaguamentoSchema($pool),
+                                        ...$posicaoNormalSchema($pool),
+                                    ]);
                             }
+                        }
 
-                            return Forms\Components\Tabs\Tab::make($pool->name)
-                                ->statePath("pools.{$pool->id}")
-                                ->schema($sections);
-                        })->toArray()
-                    )->columnSpanFull();
+                        $sections[] = Forms\Components\Section::make($modoRapido ? 'Registo Rápido' : 'Análises da Água')
+                            ->schema($nsSchema($pool))
+                            ->columns(['default' => 2, 'sm' => 4]);
+
+                        if (! self::isNS()) {
+                            $sections[] = Forms\Components\Section::make('Químicos e Observações')
+                                ->icon('heroicon-o-beaker')
+                                ->collapsible()
+                                ->collapsed(true)
+                                ->compact()
+                                ->schema($observacoesSchema($pool, $installation));
+                        }
+
+                        return Forms\Components\Section::make("🏊 {$pool->name}")
+                            ->description($pool->volume ? "Volume: " . number_format((float) $pool->volume, 0, ',', ' ') . " m³" : null)
+                            ->statePath("pools.{$pool->id}")
+                            ->schema($sections)
+                            ->columnSpanFull();
+                    })->toArray();
 
                     return array_merge(
                         [Forms\Components\Section::make('Dados Globais')->schema($globaisSchema)->columns(['default' => 1, 'sm' => 2])],
-                        [$tabs]
+                        $poolCards
                     );
                 }),
         ])->columns(1);

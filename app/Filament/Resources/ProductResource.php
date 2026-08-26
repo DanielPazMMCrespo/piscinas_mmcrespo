@@ -34,6 +34,11 @@ class ProductResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Produtos Químicos';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();

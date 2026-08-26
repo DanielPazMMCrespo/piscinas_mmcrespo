@@ -37,13 +37,13 @@ class StockHub extends Page implements HasForms, HasTable
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
 
-    protected static ?string $navigationGroup = 'Stock';
+    protected static ?string $navigationGroup = 'Gestão';
 
-    protected static ?string $navigationLabel = 'Visão Geral';
+    protected static ?string $navigationLabel = 'Stock';
 
-    protected static ?string $title = 'Stock — Visão Geral';
+    protected static ?string $title = 'Gestão de Stock';
 
-    protected static ?int $navigationSort = -1;
+    protected static ?int $navigationSort = 1;
 
     protected static string $view = 'filament.pages.stock-hub';
 
@@ -61,6 +61,72 @@ class StockHub extends Page implements HasForms, HasTable
     private static function podeMovimentar(): bool
     {
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('criarProduto')
+                ->label('Novo Produto')
+                ->icon('heroicon-o-plus')
+                ->color('primary')
+                ->visible(fn (): bool => auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false)
+                ->slideOver()
+                ->modalHeading('Adicionar Novo Produto Químico')
+                ->form([
+                    Forms\Components\TextInput::make('name')
+                        ->label('Nome do Produto')
+                        ->required()
+                        ->maxLength(100),
+                    Forms\Components\Select::make('unidade')
+                        ->label('Unidade de Medida')
+                        ->options([
+                            'L' => 'L',
+                            'kg' => 'kg',
+                            'un' => 'un',
+                        ])
+                        ->required(),
+                    Forms\Components\Select::make('categoria')
+                        ->label('Categoria')
+                        ->options(function (): array {
+                            return Product::query()
+                                ->distinct()
+                                ->whereNotNull('categoria')
+                                ->pluck('categoria', 'categoria')
+                                ->all();
+                        })
+                        ->searchable(),
+                    Forms\Components\TextInput::make('concentracao_cl')
+                        ->label('Concentração de cloro ativo (%)')
+                        ->numeric()
+                        ->step(0.01)
+                        ->suffix('%')
+                        ->nullable(),
+                ])
+                ->action(function (array $data): void {
+                    Product::create([
+                        'name' => $data['name'],
+                        'unidade' => $data['unidade'],
+                        'categoria' => $data['categoria'] ?? null,
+                        'concentracao_cl' => $data['concentracao_cl'] ?? null,
+                        'active' => true,
+                    ]);
+
+                    Notification::make()->success()->title('Produto adicionado ao catálogo')->send();
+                }),
+
+            \Filament\Actions\Action::make('bicoesDosagem')
+                ->label('Bidões de Dosagem')
+                ->icon('heroicon-o-beaker')
+                ->color('gray')
+                ->url('/admin/dosing-containers'),
+
+            \Filament\Actions\Action::make('historicoArmazem')
+                ->label('Histórico de Movimentos')
+                ->icon('heroicon-o-arrow-trending-down')
+                ->color('gray')
+                ->url('/admin/stock-warehouse-logs'),
+        ];
     }
 
     /** @return array<int, Installation> */

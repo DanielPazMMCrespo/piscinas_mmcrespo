@@ -217,7 +217,10 @@ class CreateDailyRecord extends CreateRecord
     {
         return [
             Action::make('create')
-                ->label('Criar')
+                ->label('Gravar Registos')
+                ->icon('heroicon-o-check-circle')
+                ->color('primary')
+                ->size('lg')
                 ->action('validarERegistosGuardar')
                 ->keyBindings(['mod+s']),
             Action::make('confirmarCriacao')
@@ -226,7 +229,7 @@ class CreateDailyRecord extends CreateRecord
                 ->action(fn () => $this->create())
                 ->requiresConfirmation()
                 ->slideOver()
-                ->modalHeading('Confirmar registos')
+                ->modalHeading('Resumo e Confirmação de Registos')
                 ->modalContent(function () {
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];

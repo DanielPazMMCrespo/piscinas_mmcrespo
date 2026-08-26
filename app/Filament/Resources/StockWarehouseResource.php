@@ -51,6 +51,11 @@ class StockWarehouseResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Stock de Armazém';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
