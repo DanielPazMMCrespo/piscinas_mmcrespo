@@ -72,6 +72,22 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
         return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO]) ?? false;
     }
 
+    protected function getHeaderActions(): array
+    {
+        $pendentes = \App\Models\PoolAccessRequest::query()->pendentes()->count();
+
+        return [
+            \Filament\Actions\Action::make('pedidosAcesso')
+                ->label('Pedidos de Acesso')
+                ->icon('heroicon-o-key')
+                ->color($pendentes > 0 ? 'warning' : 'gray')
+                ->badge($pendentes > 0 ? (string) $pendentes : null)
+                ->badgeColor('warning')
+                ->visible(fn (): bool => auth()->user()?->hasRole(UserRole::ADMIN) ?? false)
+                ->url('/admin/pool-access-requests'),
+        ];
+    }
+
     /**
      * A tabela de cima mostra o estado atual por piscina; o histórico completo
      * (o log dos encerramentos) fica por baixo, no mesmo ecrã.
