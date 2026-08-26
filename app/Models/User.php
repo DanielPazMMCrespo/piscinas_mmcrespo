@@ -165,6 +165,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'resumo_conformidade' => ['push' => true, 'mail' => true],
             'hanna_threshold' => ['push' => true, 'mail' => false],
             'hanna_overtime' => ['push' => true, 'mail' => false],
+            'hanna_sync_falhou' => ['push' => true, 'mail' => true],
             'custom_broadcast' => ['push' => true, 'mail' => false],
             'resumo_turno' => ['push' => true, 'mail' => false],
             'tendencia_alerta' => ['push' => true, 'mail' => false],

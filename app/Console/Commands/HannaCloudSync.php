@@ -12,6 +12,7 @@ use App\Models\HannaDevice;
 use App\Models\SensorReading;
 use App\Models\User;
 use App\Notifications\HannaOvertimeAlert;
+use App\Notifications\HannaSyncFalhouNotification;
 use App\Notifications\HannaThresholdAlert;
 use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
@@ -19,6 +20,7 @@ use App\Services\LeituraArtefactoService;
 use App\Support\Auditoria;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -51,12 +53,14 @@ class HannaCloudSync extends Command
         try {
             $hanna->authenticate($email, $password);
             $this->info('Hanna Cloud: autenticado.');
+            Cache::forget(self::AUTH_FALHA_CACHE_KEY);
         } catch (\Throwable $e) {
             $this->error('Falha na autenticação: '.$e->getMessage());
             Log::error('HannaCloudSync auth: '.$e->getMessage());
             Auditoria::sistema('Sincronização Hanna falhou: autenticação recusada.', [
                 'erro' => $e->getMessage(),
             ]);
+            $this->notificarFalhaDeAutenticacao($e->getMessage());
 
             return self::FAILURE;
         }
@@ -196,6 +200,47 @@ class HannaCloudSync extends Command
         $this->info("Sync concluído: {$sincronizados} leitura(s) novas.");
 
         return self::SUCCESS;
+    }
+
+    /** Marca que a falha de autenticação já foi comunicada à equipa. */
+    private const AUTH_FALHA_CACHE_KEY = 'hanna:sync:auth_falha_notificada';
+
+    /**
+     * O sync corre a cada 15 min: sem esta janela, uma credencial errada
+     * enviaria 96 notificações por dia.
+     */
+    private const AUTH_FALHA_REPETIR_HORAS = 6;
+
+    /**
+     * Avisa admins e técnicos que as sondas deixaram de sincronizar. Sem isto
+     * a página Sensores Hanna mostra "sonda em falha" sem dizer que a causa
+     * real é a credencial, e as leituras ficam paradas dias sem ninguém notar.
+     */
+    private function notificarFalhaDeAutenticacao(string $erro): void
+    {
+        if (Cache::has(self::AUTH_FALHA_CACHE_KEY)) {
+            return;
+        }
+
+        Cache::put(
+            self::AUTH_FALHA_CACHE_KEY,
+            now()->toDateTimeString(),
+            now()->addHours(self::AUTH_FALHA_REPETIR_HORAS),
+        );
+
+        // whereHas em vez de ->role(): o scope do Spatie lança RoleDoesNotExist
+        // se um dos papéis não existir, e um handler de falha nunca deve
+        // transformar uma falha tratada numa excepção não apanhada.
+        $destinatarios = User::whereHas(
+            'roles',
+            fn ($q) => $q->whereIn('name', [UserRole::ADMIN, UserRole::TECNICO]),
+        )->get();
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        Notification::send($destinatarios, new HannaSyncFalhouNotification($erro));
     }
 
     /** Janela máxima de recuperação de dosagem quando o sync esteve em baixo. */

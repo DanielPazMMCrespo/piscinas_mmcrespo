@@ -380,6 +380,7 @@ class Definicoes extends Page implements HasForms, HasTable
                             $this->getSingleNotificationItemSchema('Resumo de Conformidade', 'resumo_conformidade', 'Resumo periódico com a lista de piscinas não conformes.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Parâmetros Fora na Sonda Hanna', 'hanna_threshold', 'Alerta em tempo real quando o controlador Hanna deteta valores anómalos.'),
                             $this->getSingleNotificationItemSchema('pH em Overtime na Sonda', 'hanna_overtime', 'Alerta quando a dosagem automática do controlador falha em corrigir o pH.'),
+                            $this->getSingleNotificationItemSchema('Sondas sem Sincronização', 'hanna_sync_falhou', 'Alerta quando a Hanna Cloud recusa o login e as leituras das sondas deixam de entrar.', defaultMail: true),
                             $this->getSingleNotificationItemSchema('Tendência Degradante', 'tendencia_alerta', 'Alerta quando pH ou cloro mostram tendência a sair dos limites nos próximos dias.'),
                             $this->getSingleNotificationItemSchema('Comparação Semanal', 'comparacao_semanal', 'Resumo semanal de conformidade comparado com a semana anterior.'),
                         ])

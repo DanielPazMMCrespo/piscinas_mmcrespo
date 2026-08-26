@@ -8,8 +8,14 @@ use App\Models\HannaDevice;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\SensorReading;
+use App\Models\User;
+use App\Notifications\HannaSyncFalhouNotification;
 use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class HannaSyncTest extends TestCase
@@ -117,6 +123,72 @@ class HannaSyncTest extends TestCase
 
         $this->artisan('hanna:sync')->assertFailed();
         $this->assertDatabaseCount('sensor_readings', 0);
+    }
+
+    private function createAdmin(): User
+    {
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'tecnico', 'guard_name' => 'web']);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        return $admin;
+    }
+
+    public function test_auth_failure_notifies_admins(): void
+    {
+        Notification::fake();
+        $admin = $this->createAdmin();
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')
+            ->once()
+            ->andThrow(new \RuntimeException('invalidUsernameOrPassword'));
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'wrongpassword']);
+
+        $this->artisan('hanna:sync')->assertFailed();
+
+        Notification::assertSentTo($admin, HannaSyncFalhouNotification::class);
+    }
+
+    public function test_auth_failure_notifies_only_once_within_window(): void
+    {
+        Notification::fake();
+        $admin = $this->createAdmin();
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')
+            ->twice()
+            ->andThrow(new \RuntimeException('invalidUsernameOrPassword'));
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'wrongpassword']);
+
+        $this->artisan('hanna:sync')->assertFailed();
+        $this->artisan('hanna:sync')->assertFailed();
+
+        Notification::assertSentToTimes($admin, HannaSyncFalhouNotification::class, 1);
+    }
+
+    public function test_successful_auth_clears_notification_lock(): void
+    {
+        Cache::put('hanna:sync:auth_falha_notificada', now()->toDateTimeString(), now()->addHours(6));
+        $this->createDevice();
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getLastReading')
+            ->with('DEV-001')
+            ->once()
+            ->andReturn($this->defaultReading());
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        $this->assertFalse(Cache::has('hanna:sync:auth_falha_notificada'));
     }
 
     public function test_sync_skips_device_on_api_error_without_crashing(): void
