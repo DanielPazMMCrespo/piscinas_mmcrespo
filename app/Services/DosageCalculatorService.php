@@ -75,7 +75,14 @@ class DosageCalculatorService
             return null; // Parametro nao suportado para calculo automatico
         }
 
-        $concentracao = $produto->concentracao_cl ?? 10.0; // 10% por defeito se nao definido
+        $concentracao = (float) ($produto->concentracao_cl ?? 10.0); // 10% por defeito se nao definido
+
+        // Concentracao zero (ou negativa) rebenta a divisao abaixo com um 500.
+        // Sem este dado nao ha dose fiavel, e inventar um valor seria pior que
+        // nao sugerir nada: o tecnico dosearia por um numero errado.
+        if ($concentracao <= 0) {
+            return null;
+        }
 
         // Formula: Volume(L) × Deficit(mg/L) / (Concentração% × 10) × FatorCompensação
         $doseCalculada = ($volumeLitros * $deficit) / ($concentracao * 10);

@@ -228,6 +228,20 @@ class DailyRecordFormBuilder
     private static array $ultimoRegistoMemo = [];
 
     /**
+     * Os memos acima valem para um pedido HTTP, onde a estática morre no fim.
+     * Na suite de testes o processo é um só e os IDs de piscina reiniciam com o
+     * RefreshDatabase: sem limpar, um ficheiro de teste que abra o formulário
+     * fixa "piscina 1 nao tem registo anterior" e o ficheiro seguinte perde a
+     * validacao do contador. Chamado pelo Tests\TestCase::setUp().
+     */
+    public static function limparMemos(): void
+    {
+        self::$sondaMemo = [];
+        self::$sondaMomentoMemo = [];
+        self::$ultimoRegistoMemo = [];
+    }
+
+    /**
      * O contexto do atalho "Registo Rápido" vem da query string, mas os POSTs do
      * Livewire não a incluem — sem isto o modo rápido desfazia-se no primeiro
      * roundtrip e o wizard voltava aos 6 passos. A página aplica-o em cada pedido.
@@ -748,18 +762,28 @@ class DailyRecordFormBuilder
                         ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
                     ];
 
+                    // O enxaguamento e a reposição em posição normal só existem
+                    // como etapas de uma retrolavagem. A condição vive aqui, junto
+                    // dos campos, e não no sítio onde o schema é montado: sem isso
+                    // uma foto de enxaguamento que nunca aconteceu entra no livro
+                    // sanitário. O caminho é relativo ao statePath da piscina.
                     $enxaguamentoSchema = fn (Pool $pool) => [
                         Forms\Components\ViewField::make('timer_enxaguamento')
                             ->id("timer_enxaguamento_{$pool->id}")
                             ->view('filament.timer-retrolavagem')
-                            ->default(2),
+                            ->default(2)
+                            ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
                         self::fotosSection([
                             self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
-                        ]),
+                        ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
                     ];
 
                     $posicaoNormalSchema = fn (Pool $pool) => [
-                        ...self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}"),
+                        Forms\Components\Group::make(
+                            self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}")
+                        )
+                            ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem'))
+                            ->columnSpanFull(),
                     ];
 
                     $globaisSchema = [
@@ -1088,7 +1112,7 @@ class DailyRecordFormBuilder
                         }
 
                         return Forms\Components\Section::make("🏊 {$pool->name}")
-                            ->description($pool->volume ? "Volume: " . number_format((float) $pool->volume, 0, ',', ' ') . " m³" : null)
+                            ->description($pool->volume ? 'Volume: '.number_format((float) $pool->volume, 0, ',', ' ').' m³' : null)
                             ->statePath("pools.{$pool->id}")
                             ->schema($sections)
                             ->columnSpanFull();

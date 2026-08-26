@@ -6,12 +6,16 @@ namespace App\Filament\Pages;
 
 use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
+use App\Filament\Resources\DosingContainerResource;
+use App\Filament\Resources\ProductResource;
+use App\Filament\Resources\StockWarehouseLogResource;
 use App\Models\Installation;
 use App\Models\Product;
 use App\Models\StockInstallation;
 use App\Models\StockWarehouse;
 use App\Services\StockService;
 use DomainException;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -66,11 +70,14 @@ class StockHub extends Page implements HasForms, HasTable
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\Action::make('criarProduto')
+            // A autorização é a do próprio ProductResource: este atalho grava
+            // Product diretamente, logo tem de respeitar exatamente as mesmas
+            // regras (incluindo a página "Produtos" desligada a um Gestor).
+            Actions\Action::make('criarProduto')
                 ->label('Novo Produto')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
-                ->visible(fn (): bool => auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::GESTOR]) ?? false)
+                ->visible(fn (): bool => ProductResource::canAccess())
                 ->slideOver()
                 ->modalHeading('Adicionar Novo Produto Químico')
                 ->form([
@@ -100,7 +107,10 @@ class StockHub extends Page implements HasForms, HasTable
                         ->label('Concentração de cloro ativo (%)')
                         ->numeric()
                         ->step(0.01)
+                        ->minValue(0.01)
+                        ->maxValue(100)
                         ->suffix('%')
+                        ->helperText('Deixe vazio se não se aplica. Zero não é aceite: impediria o cálculo da dose.')
                         ->nullable(),
                 ])
                 ->action(function (array $data): void {
@@ -115,17 +125,19 @@ class StockHub extends Page implements HasForms, HasTable
                     Notification::make()->success()->title('Produto adicionado ao catálogo')->send();
                 }),
 
-            \Filament\Actions\Action::make('bicoesDosagem')
+            Actions\Action::make('bicoesDosagem')
                 ->label('Bidões de Dosagem')
                 ->icon('heroicon-o-beaker')
                 ->color('gray')
-                ->url('/admin/dosing-containers'),
+                ->visible(fn (): bool => DosingContainerResource::canAccess())
+                ->url(fn (): string => DosingContainerResource::getUrl()),
 
-            \Filament\Actions\Action::make('historicoArmazem')
+            Actions\Action::make('historicoArmazem')
                 ->label('Histórico de Movimentos')
                 ->icon('heroicon-o-arrow-trending-down')
                 ->color('gray')
-                ->url('/admin/stock-warehouse-logs'),
+                ->visible(fn (): bool => StockWarehouseLogResource::canAccess())
+                ->url(fn (): string => StockWarehouseLogResource::getUrl()),
         ];
     }
 

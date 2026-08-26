@@ -7,12 +7,15 @@ namespace App\Filament\Pages;
 use App\Constants\MotivoEncerramento;
 use App\Constants\PaginaGestor;
 use App\Constants\UserRole;
+use App\Filament\Resources\PoolAccessRequestResource;
 use App\Filament\Resources\PoolClosureResource;
 use App\Filament\Widgets\HistoricoEncerramentosWidget;
 use App\Models\Pool;
+use App\Models\PoolAccessRequest;
 use App\Models\PoolClosure;
 use App\Services\PoolClosureService;
 use DomainException;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -74,17 +77,22 @@ class EncerramentoPiscinas extends Page implements HasForms, HasTable
 
     protected function getHeaderActions(): array
     {
-        $pendentes = \App\Models\PoolAccessRequest::query()->pendentes()->count();
+        // A autorização é a do próprio resource, e sai antes da contagem: quem
+        // não tem acesso não paga a query dos pendentes em cada render.
+        if (! PoolAccessRequestResource::canAccess()) {
+            return [];
+        }
+
+        $pendentes = PoolAccessRequest::query()->pendentes()->count();
 
         return [
-            \Filament\Actions\Action::make('pedidosAcesso')
+            Actions\Action::make('pedidosAcesso')
                 ->label('Pedidos de Acesso')
                 ->icon('heroicon-o-key')
                 ->color($pendentes > 0 ? 'warning' : 'gray')
                 ->badge($pendentes > 0 ? (string) $pendentes : null)
                 ->badgeColor('warning')
-                ->visible(fn (): bool => auth()->user()?->hasRole(UserRole::ADMIN) ?? false)
-                ->url('/admin/pool-access-requests'),
+                ->url(PoolAccessRequestResource::getUrl()),
         ];
     }
 
