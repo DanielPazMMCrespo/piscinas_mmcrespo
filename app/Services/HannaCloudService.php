@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -272,6 +273,29 @@ class HannaCloudService
     }
 
     // ---------------------------------------------------------------- Helpers
+
+    /**
+     * Converte o campo DT da API na hora real da leitura.
+     *
+     * A Hanna Cloud envia o relógio de parede do controlador mas etiqueta-o
+     * como UTC ("2026-08-03T16:40:46.000Z"). Lido ao pé da letra, cada leitura
+     * fica uma hora no futuro no verão português, e a validação de
+     * plausibilidade do sync rejeita-a — foi o que parou as sondas todas.
+     *
+     * Os controladores estão em Portugal e mostram hora local, por isso o
+     * relógio de parede é reancorado no fuso da aplicação, seja qual for o
+     * offset que a API declare. Fonte única: não repetir este cálculo.
+     */
+    public static function horaLeitura(?string $dt): ?Carbon
+    {
+        if ($dt === null || trim($dt) === '') {
+            return null;
+        }
+
+        $relogio = Carbon::parse($dt)->format('Y-m-d H:i:s');
+
+        return Carbon::createFromFormat('Y-m-d H:i:s', $relogio, config('app.timezone'));
+    }
 
     /**
      * Encripta uma string com AES-256-CBC usando a chave pública da Hanna Cloud.

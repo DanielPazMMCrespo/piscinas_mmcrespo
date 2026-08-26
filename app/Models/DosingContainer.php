@@ -287,11 +287,12 @@ class DosingContainer extends Model
 
             $doseMl = 0.0;
             foreach ($leituras as $l) {
-                if ($l['dt'] === null) {
+                $dt = HannaCloudService::horaLeitura($l['dt']);
+
+                if ($dt === null) {
                     continue;
                 }
 
-                $dt = Carbon::parse($l['dt']);
                 if ($dt->gt($this->reabastecido_em) && $dt->lte($syncTime)) {
                     if ($this->tipo === self::TIPO_CLORO) {
                         $doseMl += (float) ($l['dose_cloro_ml'] ?? 0);

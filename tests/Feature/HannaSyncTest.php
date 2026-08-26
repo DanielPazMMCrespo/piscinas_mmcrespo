@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Notifications\HannaSyncFalhouNotification;
 use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
@@ -123,6 +124,39 @@ class HannaSyncTest extends TestCase
 
         $this->artisan('hanna:sync')->assertFailed();
         $this->assertDatabaseCount('sensor_readings', 0);
+    }
+
+    /**
+     * Reproduz a avaria que parou as 5 sondas: a Hanna Cloud manda o relógio
+     * local do controlador com sufixo Z, e a leitura era lida como UTC — uma
+     * hora no futuro no verão português — e rejeitada como implausível.
+     */
+    public function test_z_suffixed_local_timestamp_is_stored_not_rejected(): void
+    {
+        config(['app.timezone' => 'Europe/Lisbon']);
+        Carbon::setTestNow(Carbon::parse('2026-08-26 15:25:00', 'Europe/Lisbon'));
+
+        $this->createDevice();
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getLastReading')
+            ->with('DEV-001')
+            ->once()
+            ->andReturn(array_merge($this->defaultReading(), [
+                'dt' => '2026-08-26T15:12:00.000Z',
+            ]));
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        $this->assertDatabaseHas('sensor_readings', [
+            'hanna_device_id' => 'DEV-001',
+            'lida_em' => '2026-08-26 15:12:00',
+        ]);
+
+        Carbon::setTestNow();
     }
 
     private function createAdmin(): User
