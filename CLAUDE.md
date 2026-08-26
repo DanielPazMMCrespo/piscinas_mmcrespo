@@ -2,6 +2,7 @@
 
 Este ficheiro está checked-in no branch `test` (staging — `https://piscinasmmcrespo-testes.up.railway.app`).
 **Push automático para `test`** (`git push origin test`) — não perguntar "main ou teste?" antes de dar push.
+**Push para `main` só a pedido explícito** e depois de a suite passar e de o teste manual em staging estar feito. Na sessão 25 os dois branches ficaram alinhados em `7a687fe`; o `main` local está preso na worktree `implement_pool_closure_task`, por isso o alinhamento faz-se com `git push origin test:main`.
 Se em algum momento este texto disser "TEST" mas `git branch --show-current` disser outra coisa, o ficheiro está desatualizado nesse checkout — confiar no `git branch`, não neste texto.
 
 ---
@@ -73,7 +74,9 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 
 # Páginas do Painel `/admin`
 
-Ordem dos grupos de navegação (por frequência real de uso): **Registo Diário → Operação → Dados → Stock → Sistema → Estrutura (recolhido) → Logs (recolhido)**.
+Ordem dos grupos de navegação (por frequência real de uso): **Registo Diário → Operação → Gestão → Estrutura (recolhido) → Sistema (recolhido) → Logs (recolhido)**.
+
+Os antigos grupos "Dados" e "Stock" foram fundidos em **Gestão** na sessão 25. Nove resources deixaram de aparecer na sidebar (`shouldRegisterNavigation(): false`) e chegam-se por header actions ou por link direto — as rotas e os `canAccess()` continuam todos ativos. **Regra:** se se esconder um resource, o grupo declarado no seu `$navigationGroup` deixa de precisar de estar em `navigationGroups()`; mas se um resource **visível** declarar um grupo que não está nessa lista, o Filament acrescenta-o no fim da sidebar e **ignora o `->collapsed()`**. Foi o que aconteceu ao grupo `Logs` do `ActivitylogPlugin`, corrigido em `d310c0c`.
 
 Cada Resource com pasta própria tem um `CLAUDE.md` local mais detalhado (propósito, lógica não óbvia, ações, e uma lista de coisas a rever encontradas no código — carrega automaticamente ao trabalhar nessa pasta). As páginas standalone têm o equivalente em `docs/paginas/*.md`:
 
@@ -90,31 +93,32 @@ Cada Resource com pasta própria tem um `CLAUDE.md` local mais detalhado (propó
 
 ## Operação
 - **Ações Operacionais** (`OperationalActionResource`, sort 2): lavagem/enxaguamento de filtro, torneira, bomba, contador, tanque, análise pontual, reabastecimento de bidão, **avaria/indisponibilidade de sonda**, outro. Cada tipo tem o seu resumo formatado a partir de `dados` (JSON). Editável pelo autor durante 24h.
-- **Encerramentos** (`EncerramentoPiscinas`, sort 4): estado atual por piscina em cima, histórico completo em baixo (`HistoricoEncerramentosWidget`, colunas e filtros vindos de `PoolClosureResource::table()` — fonte única; só as ações mudam, o "Editar" é um link para a rota do resource).
-- **Pedidos de Acesso** (`PoolAccessRequestResource`, sort 5): pedidos de nadadores-salvadores bloqueados por piscina encerrada; aprovar/negar notifica o requerente (`PedidoAcessoRespondidoNotification`).
+- **Pedidos de Acesso** (`PoolAccessRequestResource`): pedidos de nadadores-salvadores bloqueados por piscina encerrada; aprovar/negar notifica o requerente (`PedidoAcessoRespondidoNotification`). **Fora da sidebar** desde a sessão 25 — chega-se pelo botão `[Pedidos de Acesso]` no topo de Encerramentos, com badge de pendentes. Esse botão usa `PoolAccessRequestResource::canAccess()` e `::getUrl()`, e sai antes de contar os pendentes para não pagar a query a quem não tem acesso.
 
-## Dados
-- **Análise de Parâmetros** (`AnaliseParametros`, sort 5): uso pontual. `CloroPhChartWidget` em ecrã cheio + `ViolacoesPeriodoWidget`, `ScoreConformidadeWidget`, `HeatmapConformidadeWidget`, `EstabilidadeMedicoesWidget`, `ConsumoQuimicosWidget`. Cada acesso é registado no trilho de auditoria (canal `analise`).
-- **Relatório PDF (CN 14/DA)** (`RelatorioPdf`, sort 6): livro de registo sanitário oficial. Auditorias DGS externas (sob pedido) e arquivo interno mensal (`relatorio:mensal-automatico` no dia 1). Exclui registos corrigidos (`whereDoesntHave('correcoes')`), coluna Conforme ✓/✗, avalia turbidez, defaults do mês anterior, contagem prévia. **Geração é síncrona** (stream direto) — o job assíncrono foi revertido e apagado por causa da UX de espera.
+## Gestão
+- **Stock** (`StockHub`, sort 1): entrada única do stock, uma linha por produto com armazém + cada instalação. Três header actions: `[Novo Produto]` (slide-over que grava `Product` direto, autorizado por `ProductResource::canAccess()`, concentração de cloro obrigatoriamente 0.01–100), `[Bidões de Dosagem]` e `[Histórico de Movimentos]` (ambos com `canAccess()` + `getUrl()` do resource respetivo, nunca URL em duro).
+- **Encerramentos** (`EncerramentoPiscinas`): estado atual por piscina em cima, histórico completo em baixo (`HistoricoEncerramentosWidget`, colunas e filtros vindos de `PoolClosureResource::table()` — fonte única; só as ações mudam, o "Editar" é um link para a rota do resource).
+- **Relatórios PDF (CN 14/DA)** (`RelatorioPdf`): livro de registo sanitário oficial. Auditorias DGS externas (sob pedido) e arquivo interno mensal (`relatorio:mensal-automatico` no dia 1). Exclui registos corrigidos (`whereDoesntHave('correcoes')`), coluna Conforme ✓/✗, avalia turbidez, defaults do mês anterior, contagem prévia. **Geração é síncrona** (stream direto) — o job assíncrono foi revertido e apagado por causa da UX de espera.
+- **Análise de Parâmetros** (`AnaliseParametros`): uso pontual. `CloroPhChartWidget` em ecrã cheio + `ViolacoesPeriodoWidget`, `ScoreConformidadeWidget`, `HeatmapConformidadeWidget`, `EstabilidadeMedicoesWidget`, `ConsumoQuimicosWidget`. Cada acesso é registado no trilho de auditoria (canal `analise`).
 
-## Stock
-- **Visão Geral** (`StockHub`, sort -1): entrada do grupo Stock.
+### Fora da sidebar, dentro do Stock (rotas vivas)
+Estes quatro continuam com rota, policies e pesquisa global; só saíram do menu para o Stock ter uma porta de entrada em vez de cinco:
 - **Stock Armazém / Stock Instalação** (`StockWarehouseResource` / `StockInstallationResource`): duas camadas — ver Arquitetura. Ação "Transferir p/ Instalação" debita armazém, credita instalação. Unidades reais, filtros e somas na tabela.
-- **Produtos** (`ProductResource`): catálogo com unidade e `limite_minimo` por instalação.
+- **Produtos** (`ProductResource`): catálogo com unidade, categoria e `concentracao_cl` (% de cloro ativo, usada pelo `DosageCalculatorService`).
 - **Bidões de Dosagem** (`DosingContainerResource`, sort 40): capacidade e nível de cada bidão de reagente (cloro/pH-) por piscina. O nível desce automaticamente com a dosagem sincronizada do controlador Hanna; aqui configura-se capacidade e registam-se reabastecimentos (que debitam stock via `dosing_containers.product_id`).
-
-## Sistema
-- **Definições** (`Definicoes`, sort 10): três separadores — "Minhas Notificações" (todos), "Sistema" e "Avisos" (só admin). Sistema: limites CN 14/DA (pH, cloro livre, cloro combinado, turbidez, tolerância de aviso), tempos/prazos (validade de leitura, timeout de sonda, validade de convite, aviso de torneira aberta, horários de digest), automação operacional (fator de compensação de dosagem). A fonte de verdade dos números é o código + `AppSetting`, não este documento.
-- **Sensores Hanna** (`HannaDeviceResource`, sort 30, admin only): mapeamento dispositivo Hanna Cloud → piscina, coluna de estado (online/stale/avaria) + filtro. `php artisan hanna:sync --discover` cria/atualiza o mapeamento.
-- **Utilizadores** (`UserResource`, admin/gestor): contas, convites, e o painel de páginas visíveis por Gestor (`PaginaGestor`). Gestor **não** pode mudar password/PIN de admins.
-- **Convites** (`UserInvitationResource`, sort 45): pendentes/expirados/aceites, ações "Reenviar" (regenera token) e "Revogar".
 
 ## Estrutura (recolhido)
 - **Piscinas** (`PoolResource`, admin only) / **Instalações** (`InstallationResource`): CRUD dos dados físicos (volume, temp_min/max, orp_min/max, ordem, tanques) usados em todos os cálculos de conformidade. A tabela de Piscinas tem ainda a ação **"Livro Sanitário (PDF)"** por linha, que gera um PDF mensal em A4 landscape via `DgsPdfReportService` + `resources/views/pdf/dgs-report.blade.php` (termo de abertura/encerramento, coluna Cloro Combinado, numeração legal "X de Y"). ⚠️ Este caminho é **paralelo** ao `RelatorioPdf` e, ao contrário dele, **não exclui registos corrigidos nem tem em conta encerramentos** — decidir se se unifica ou se se corrige.
 
+## Sistema (recolhido)
+- **Definições** (`Definicoes`, sort 10): três separadores — "Minhas Notificações" (todos), "Sistema" e "Avisos" (só admin). Sistema: limites CN 14/DA (pH, cloro livre, cloro combinado, turbidez, tolerância de aviso), tempos/prazos (validade de leitura, timeout de sonda, validade de convite, aviso de torneira aberta, horários de digest), automação operacional (fator de compensação de dosagem). A fonte de verdade dos números é o código + `AppSetting`, não este documento.
+- **Sensores Hanna** (`HannaDeviceResource`, sort 30, admin only): mapeamento dispositivo Hanna Cloud → piscina, coluna de estado (online/stale/avaria) + filtro. `php artisan hanna:sync --discover` cria/atualiza o mapeamento.
+- **Utilizadores** (`UserResource`, admin/gestor): contas, convites, e o painel de páginas visíveis por Gestor (`PaginaGestor`). Gestor **não** pode mudar password/PIN de admins.
+- **Convites** (`UserInvitationResource`, sort 45): pendentes/expirados/aceites, ações "Reenviar" (regenera token) e "Revogar". **Fora da sidebar** desde a sessão 25 — chega-se por Utilizadores.
+
 ## Logs (recolhido)
 - **Movimentos Armazém/Instalação** (`StockWarehouseLogResource` / `StockInstallationLogResource`): histórico auditável das transações de stock, com a unidade real do produto.
-- **Encerramentos** (`PoolClosureResource`): resource e rota continuam vivos (é para lá que o "Editar" do widget aponta), mas o **item de menu foi removido** — o histórico já aparece no rodapé de Operação → Encerramentos.
+- **Encerramentos** (`PoolClosureResource`): voltou ao menu de Logs na sessão 25 (é também para lá que o "Editar" do `HistoricoEncerramentosWidget` aponta). O histórico continua a aparecer no rodapé de Gestão → Encerramentos; este item é o acesso direto à tabela.
 - **Auditoria** (`CustomActivitylogResource` + `ActivitylogPlugin`, sort 99, admin only): trilho de auditoria **único**. Junta CRUD dos models, autenticação (incl. login falhado, lockout, reset de password), alterações de definições, movimentos de stock/bidões e falhas de sistema. Escrita centralizada em `App\Support\Auditoria`; retenção de 730 dias.
 
 ## Dashboard
@@ -150,10 +154,15 @@ Além disso existe uma **casca mobile separada** (`resources/views/components/la
 - Push automático para o branch indicado no topo deste ficheiro ("Branch Atual") — não perguntar main/teste.
 
 ## Testes
-- Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção, diretamente no URL da app. Não montar ambiente local (SQLite, artisan serve) para validar features.
+- Testes funcionais/manuais (browser, mobile) fazem-se sempre na versão em produção ou staging, diretamente no URL da app. Não montar ambiente local (SQLite, artisan serve) para validar features.
+- O login faz-se com a **sessão já aberta no Chrome do Daniel** (ferramentas `claude-in-chrome`), não escrevendo credenciais. Staging: `https://piscinasmmcrespo-testes.up.railway.app`. O endpoint `/api/health` diz se a base de dados e a cache estão ligadas antes de se abrir o painel.
+- Um teste novo só conta depois de se confirmar que **falha sem a correção**. Na sessão 25, o `assertFormFieldIsHidden` passava por acaso em duas hipóteses diferentes; só reverter a correção e ver o teste rebentar provou que apanhava o bug.
+- Correr a suite inteira, não só o ficheiro novo: um teste pode passar isolado e envenenar outro (ver memos `static`, sessão 25).
 
 ## Higiene do repositório
-- O `git add -A` em PowerShell com heredocs mal interpretados já criou **duas vezes** dezenas de ficheiros-lixo com nomes como `({`, `p.slug`, `hasRole('admin'))`. Já foram limpos em `4d3d393` e voltaram a aparecer como untracked. Nunca usar `git add -A`; usar `git commit --only <lista>` para commits parciais (o index é partilhado com outras sessões a correr no mesmo repositório).
+- O `git add -A` em PowerShell com heredocs mal interpretados já criou **três vezes** ficheiros-lixo com nomes como `({`, `p.slug`, `hasRole('admin'))`, `data`, `fim`, `halt()`, `map(function`. Foram limpos em `4d3d393` e outra vez na sessão 25. Nunca usar `git add -A`; usar `git commit --only <lista>` para commits parciais (o index é partilhado com outras sessões a correr no mesmo repositório). Para ficheiros novos, `git add <caminho>` explícito antes do `--only`.
+- **Há 5 worktrees ativas** neste repositório (`git worktree list`), várias com alterações não commitadas. Uma reestruturação de 15 ficheiros esteve fora do controlo de versões durante dias porque vivia numa delas. Ao começar uma auditoria ou uma revisão, correr `git status` **e** `git worktree list` — e nesse caso, fazer commit de segurança antes de tocar em código.
+- Uma worktree criada pelo Antigravity pode não ter `vendor/` — nela não se corre `artisan`, `pest`, `pint` nem `phpstan`. Trazer o trabalho para o checkout principal (ou criar uma worktree própria com `vendor` ligado por junção) antes de verificar.
 
 ## Persona e Estilo de Resposta
 - Lead with the solution. Explain only what isn't obvious.
@@ -187,7 +196,34 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-08-19 (auditoria do código vs documentação; sessões 22–24 documentadas)
+> Última atualização: 2026-08-26 (sessão 25: auditoria QA da reestruturação de navegação, 3 regressões corrigidas, `main` alinhado com `test`)
+
+## Sessão 25 — Reestruturação de navegação, cards verticais e auditoria QA (2026-08-25 → 2026-08-26)
+
+Duas metades: a reestruturação em si (feita noutra sessão, noutra pasta de trabalho) e a auditoria QA que a validou, encontrou 3 regressões e as corrigiu.
+
+**A reestruturação** (`655f1f7`, `85f2eeb`, `d310c0c`, `60cbc21`):
+- Sidebar de 7 grupos para 6: "Dados" + "Stock" fundidos em **Gestão**; `Estrutura`, `Sistema` e `Logs` recolhidos.
+- Nove resources fora do menu com `shouldRegisterNavigation(): false` — `StockWarehouse`, `StockInstallation`, `Product`, `DosingContainer`, `UserInvitation`, `PoolAccessRequest` (e, temporariamente, os 3 de Logs, que voltaram em `d310c0c`).
+- `StockHub` passa a porta única do stock, com 3 header actions.
+- `EncerramentoPiscinas` ganha o botão `[Pedidos de Acesso]` com badge de pendentes.
+- **Registo Diário sem Tabs**: `DailyRecordFormBuilder` troca `Tabs::make('Piscinas')` por uma `Section` vertical por piscina (`🏊 Nome` + `Volume: X m³` na descrição), `statePath("pools.{id}")` mantido igual. Filtros e químicos passam a secções `collapsible()->collapsed()`. O técnico preenche as 3 piscinas de Leiria com scroll, sem tocar em separadores.
+- `CreateDailyRecord`: botão "Criar" passa a **"Gravar Registos"** (`size('lg')`, primary, ícone de check).
+
+**A auditoria encontrou o trabalho fora do repositório.** Os 15 ficheiros estavam **não commitados** numa worktree do Antigravity (`C:\Users\danie\.gemini\antigravity\worktrees\piscinas_mmcrespo-main\optimize_pool_measurement_flow`), que não tem `vendor/`. Lição: antes de auditar, confirmar `git status` **e** `git worktree list` — há 5 worktrees ativas neste repositório e o trabalho pode estar em qualquer uma.
+
+**Três regressões corrigidas (`7a687fe`)**:
+1. **Risco legal.** Ao fundir "Lavagem filtros" + "Enxaguamento" + "Posição normal" numa só secção, a condição `->visible(...)` das duas últimas desapareceu. Como `filtro_foto_enxaguamento` e `filtro_foto_posicao_normal` estão na whitelist do `DailyRecordService`, o técnico podia gravar a prova de um enxaguamento que nunca aconteceu no livro sanitário. **A condição antiga também estava errada**: usava o caminho absoluto `$get("pools.{$pool->id}.filtro_faz_retrolavagem")` dentro de um container cujo statePath já era `pools.{id}`, logo resolvia para `pools.1.pools.1.…` e devolvia sempre null — antes da reestruturação estes campos estavam **sempre escondidos**. Corrigido com o caminho relativo `$get('filtro_faz_retrolavagem')`, colocado dentro dos closures dos schemas para não se perder outra vez.
+2. **Erro 500.** `DosageCalculatorService` fazia `$produto->concentracao_cl ?? 10.0` e dividia por `($concentracao * 10)`. O `??` só apanha null, logo um produto com `concentracao_cl = 0` dava `DivisionByZeroError` na sugestão de dose. Passa a devolver `null` com concentração `<= 0`; o `[Novo Produto]` do StockHub exige 0.01–100.
+3. **Autorização invertida.** O `criarProduto` do StockHub estava visível a `[ADMIN, GESTOR]` escrito à mão e gravava `Product::create()` direto — um Gestor com a página "Produtos" desligada em `PaginaGestor` criava produtos pelo hub, e um Técnico (que *tem* acesso a Produtos) não via o botão. Passa a `ProductResource::canAccess()`. Os 3 botões com `->url('/admin/…')` em duro passam a `getUrl()` + `canAccess()`.
+
+**Bug latente na suite, corrigido na raiz.** O teste novo do enxaguamento desligou silenciosamente a validação do contador noutro ficheiro: `DailyRecordFormBuilder::$ultimoRegistoMemo` (e os dois memos de sonda) são `static`, valem um pedido HTTP em produção, mas a suite corre num processo e o `RefreshDatabase` reinicia os IDs das piscinas. Um ficheiro que abrisse o formulário fixava "piscina 1 não tem registo anterior" para todos os seguintes. Novo `DailyRecordFormBuilder::limparMemos()`, chamado em `Tests\TestCase::setUp()`.
+
+**Verificação**: 535 testes a passar (eram 529 + 6 novos), Pint limpo, PHPStan neutro (53 antes e depois, todos pré-existentes). Os 2 ficheiros de teste novos foram confirmados a **falhar** sem as correções. Teste manual no browser em staging (sessão real do Chrome, sem montar ambiente local): toggle de retrolavagem ida-e-volta, mobile 390x844, os 3 botões do StockHub, recusa da concentração 0, badge de Encerramentos, e `/admin/products` a responder apesar de estar fora do menu. Zero erros de consola.
+
+**`main` alinhado com `test`** (`29546a8..7a687fe`, fast-forward de 6 commits) — primeira vez em várias sessões que os dois branches estão iguais.
+
+**Ficheiros-lixo de heredoc apareceram pela terceira vez** (`data`, `fim`, `halt()`, `map(function`, `concentracao_cl`, `$get('filtro_faz_retrolavagem'))`, `visiveis`), todos com 0 bytes. Limpos. Ver "Higiene do repositório".
 
 ## Sessão 24 — PWA, mobile-first e livro sanitário DGS (2026-08-06 → 2026-08-14)
 - **Redesign mobile-first do dashboard** (`624e642`) com "vibe Linear/Revolut": Inter adicionada (`@fontsource/inter`), `--font-sans`/`--font-heading` passam a Inter com `!important`, glassmorphism e micro-animações no `widgets.css` e no `painel-piscinas.blade.php`.
@@ -353,6 +389,7 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 | Plano 6 — UI de Audit Trail | **CONCLUÍDO** | Trilho único ("Auditoria"), sessão 21. |
 | Plano 7 — Transformação UX (Sessão 7) | **CONCLUÍDO** | Ver secção da sessão 7. |
 | PWA `/m` (Sessão 24) | **PROTÓTIPO** | Desenho pronto, dados e autenticação por ligar. Ver secção própria. |
+| Reestruturação de navegação (Sessão 25) | **CONCLUÍDO** | Sidebar de 6 grupos, 9 resources fora do menu, cards verticais no registo diário. Auditado, 3 regressões corrigidas, 535 testes a passar, validado em browser. `main` = `test` em `7a687fe`. |
 
 ---
 
@@ -361,9 +398,12 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 2. **`/api/pdf/export`** devolve texto fingido com `Content-Type: application/pdf`, sem autenticação.
 3. **Dois geradores de livro sanitário** (`RelatorioPdf` vs `DgsPdfReportService`), e o segundo ignora correções e encerramentos.
 4. **`docs/paginas/definicoes-sistema.md`** documenta um bug confirmado ainda por corrigir.
-5. **Ficheiros-lixo de heredoc** outra vez untracked na raiz (`({`, `p.slug`, `hasRole('admin'))`, …).
+5. **Ficheiros-lixo de heredoc** já reapareceram três vezes na raiz (`({`, `p.slug`, `hasRole('admin'))`, `data`, `fim`, `halt()`, …), sempre com 0 bytes. Verificar `git status` antes de qualquer commit.
 6. **`PersistenceTest`** falha por ambiente (`SESSION_LIFETIME` 120 no `.env` local vs 43200 no `.env.example`).
-7. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `StockHub` e a casca `/m`.
+7. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `StockHub` e a casca `/m`. O `docs/paginas/encerramentos.md` e o `stock` estão desatualizados desde a sessão 25 (grupo, botões novos).
+8. **Enxaguamento e posição normal nunca foram testados no terreno** — a condição de visibilidade estava errada desde o início e só ficou correta na sessão 25. Confirmar com a equipa se os campos fazem sentido como estão, agora que aparecem de facto.
+9. **Cinco worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
+10. **`PaginaGestor::STOCK_VISAO_GERAL` continua rotulado "Stock — Visão Geral"** no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" (título "Gestão de Stock") na sessão 25. O admin vê dois nomes para a mesma coisa.
 
 ---
 
@@ -376,6 +416,12 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 6. **Nunca selecionar accessors no `select()`** — o PostgreSQL rebenta e o SQLite engole o erro (sessão 23).
 7. **Segurança:** middleware `SecurityHeaders` com CSP; sessões `secure=true` (produção), `http_only=true`, `same_site=strict`; rate limit de login por conta + `REMOTE_ADDR`.
 8. **Interface/Gráficos:** `CloroPhChartWidget` usa `spanGaps = false`. Grelhas de widgets usam `minmax(min(100%, Npx), 1fr)`.
+9. **`$get()` é relativo ao container, não à raiz do formulário** (sessão 25). Dentro de um componente com `statePath("pools.{id}")`, escrever `$get("pools.{$pool->id}.campo")` resolve para `pools.1.pools.1.campo` e devolve **null sem erro** — a condição parece funcionar e está sempre falsa. Usar o nome do campo (`$get('campo')`), ou `$get('...', isAbsolute: true)` quando é mesmo preciso sair do container.
+10. **Condições de visibilidade vivem junto dos campos**, dentro do closure que devolve o schema — não no sítio onde o schema é montado. Foi ao reorganizar o sítio de montagem que a regra do enxaguamento se perdeu (sessão 25).
+11. **Atalhos que gravam models diretamente reutilizam o `canAccess()` do Resource** (e o `getUrl()` para links), nunca uma lista de papéis reescrita à mão. Uma segunda cópia da regra divergiu da primeira e abriu um furo de autorização (sessão 25).
+12. **`??` não apanha zero.** Num denominador (`concentracao_cl`, volume, capacidade) o fallback tem de testar `<= 0`, não só null — senão é `DivisionByZeroError` em produção (sessão 25).
+13. **Memos `static` em classes de formulário precisam de reset na suite.** Valem um pedido HTTP em produção, mas os testes correm num processo e o `RefreshDatabase` reinicia os IDs. Se se acrescentar um memo ao `DailyRecordFormBuilder`, acrescentá-lo também ao `limparMemos()` (sessão 25).
+14. **Esconder um resource da sidebar é `shouldRegisterNavigation(): false`** — a rota, as policies e a pesquisa global continuam ativas, e isso é intencional. Mas um resource **visível** cujo `$navigationGroup` não esteja em `navigationGroups()` cria um grupo solto no fim da sidebar, sem respeitar `->collapsed()` (sessão 25).
 
 ---
 
@@ -410,4 +456,7 @@ Os seguintes ficheiros têm um bloco `[AI_CONTEXT]` no cabeçalho que dita as re
   - `app/Services/SourceSelectionService.php` (cascata sonda/manual)
   - `app/Services/LeituraArtefactoService.php` (leituras que não contam)
   - `app/Services/AlertasService.php` (alertas)
+  - `app/Services/DosageCalculatorService.php` (dose sugerida a partir de `concentracao_cl`; devolve `null` em vez de inventar valores)
   - `app/Support/Auditoria.php` (escrita no trilho de auditoria)
+- **Formulário do registo diário:**
+  - `app/Filament/Resources/DailyRecordResource/DailyRecordFormBuilder.php` — ~1100 linhas, monta o formulário todo. Ver as regras 9, 10 e 13 em "Regras de Código": `$get()` relativo, condições junto dos campos, e memos `static` a limpar na suite.
