@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\HannaOvertimeAlert;
 use App\Notifications\HannaSyncFalhouNotification;
 use App\Notifications\HannaThresholdAlert;
+use App\Services\CacheService;
 use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
@@ -95,6 +96,7 @@ class HannaCloudSync extends Command
 
         $sincronizados = 0;
         $falhas = [];
+        $piscinasAtualizadas = [];
 
         foreach ($devices as $device) {
             try {
@@ -167,6 +169,9 @@ class HannaCloudSync extends Command
 
                 if ($affected > 0) {
                     $sincronizados++;
+                    if ($device->pool_id !== null) {
+                        $piscinasAtualizadas[(int) $device->pool_id] = true;
+                    }
                     $this->line("  ✓ {$device->name}: pH={$reading['ph']} ORP={$reading['orp']}mV T={$reading['temperatura_agua']}°C");
                     $this->notificarThresholds($device, $reading);
                 } else {
@@ -185,6 +190,19 @@ class HannaCloudSync extends Command
                 } catch (\Throwable $e) {
                     Log::warning("HannaCloudSync dosagem [{$device->hanna_device_id}]: ".$e->getMessage());
                 }
+            }
+        }
+
+        // SensorReading::upsert() não dispara eventos de model, logo nenhum
+        // observer invalida o cache. Sem isto o painel do dashboard mostrava
+        // valores até 10 min velhos depois de a leitura já estar na base.
+        if ($piscinasAtualizadas !== []) {
+            $cache = app(CacheService::class);
+            $cache->invalidatePoolData();
+            $cache->invalidateAllAlerts();
+
+            foreach (array_keys($piscinasAtualizadas) as $poolId) {
+                $cache->invalidateGraphCache($poolId);
             }
         }
 

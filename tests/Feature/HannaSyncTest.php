@@ -10,6 +10,7 @@ use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
 use App\Notifications\HannaSyncFalhouNotification;
+use App\Services\CacheService;
 use App\Services\HannaCloudService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -157,6 +158,39 @@ class HannaSyncTest extends TestCase
         ]);
 
         Carbon::setTestNow();
+    }
+
+    /**
+     * O painel do dashboard tem cache de 10 min e SensorReading::upsert() não
+     * dispara eventos de model, logo nenhum observer invalidava o cache: a
+     * leitura entrava na base e o dashboard continuava a mostrar o valor velho.
+     *
+     * Espiamos o CacheService em vez de ler o cache: a invalidação por padrão
+     * wildcard só funciona nos drivers redis e database, e os testes correm
+     * com o driver array.
+     */
+    public function test_new_reading_invalidates_the_dashboard_cache(): void
+    {
+        $this->createDevice();
+
+        // Pool::saved() invalida o cache; espiar só depois do arranjo para
+        // contar apenas o que o sync faz.
+        $cache = $this->spy(CacheService::class);
+
+        $mock = $this->mock(HannaCloudService::class);
+        $mock->shouldReceive('authenticate')->once();
+        $mock->shouldReceive('getLastReading')
+            ->with('DEV-001')
+            ->once()
+            ->andReturn($this->defaultReading());
+
+        config(['services.hanna.email' => 'test@hanna.pt', 'services.hanna.password' => 'secret']);
+
+        $this->artisan('hanna:sync')->assertSuccessful();
+
+        $cache->shouldHaveReceived('invalidatePoolData')->once();
+        $cache->shouldHaveReceived('invalidateAllAlerts')->once();
+        $cache->shouldHaveReceived('invalidateGraphCache')->once();
     }
 
     private function createAdmin(): User
