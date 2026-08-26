@@ -30,11 +30,6 @@ class StockWarehouseLogResource extends Resource
 
     protected static ?string $navigationLabel = 'Movimentos — Armazém';
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     public static function canAccess(): bool
     {
         // Gestor é leitura/relatórios: vê o histórico, não o altera.

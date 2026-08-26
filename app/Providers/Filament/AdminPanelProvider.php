@@ -86,6 +86,7 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Gestão'),
                 NavigationGroup::make('Estrutura')->collapsed(),
                 NavigationGroup::make('Sistema')->collapsed(),
+                NavigationGroup::make('Logs')->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

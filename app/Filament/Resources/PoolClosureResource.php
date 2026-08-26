@@ -51,16 +51,6 @@ class PoolClosureResource extends Resource
             && $user->podeVerPagina(PaginaGestor::ENCERRAMENTOS);
     }
 
-    /**
-     * Sem item de menu próprio: o histórico já aparece no rodapé de
-     * Operação → Encerramentos (`HistoricoEncerramentosWidget`). A rota deste
-     * Resource continua viva — é para onde o botão "Editar" desse widget leva.
-     */
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     public static function canCreate(): bool
     {
         // Encerrar passa sempre pelo serviço, na página de Encerramentos —

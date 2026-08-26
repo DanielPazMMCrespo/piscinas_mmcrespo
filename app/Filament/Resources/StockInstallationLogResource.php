@@ -30,11 +30,6 @@ class StockInstallationLogResource extends Resource
 
     protected static ?string $navigationLabel = 'Movimentos — Instalação';
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     public static function canAccess(): bool
     {
         // Gestor é leitura/relatórios: vê o histórico, não o altera.
