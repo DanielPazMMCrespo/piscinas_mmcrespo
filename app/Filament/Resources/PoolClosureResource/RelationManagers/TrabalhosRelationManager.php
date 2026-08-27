@@ -48,10 +48,6 @@ class TrabalhosRelationManager extends RelationManager
             ->defaultSort('ordem')
             ->paginated(false)
             ->columns([
-                Tables\Columns\TextColumn::make('ordem')
-                    ->label('#')
-                    ->sortable()
-                    ->width('40px'),
                 Tables\Columns\TextColumn::make('tipo')
                     ->label('Trabalho')
                     ->weight('semibold')
@@ -423,6 +419,7 @@ class TrabalhosRelationManager extends RelationManager
                 // O Anexo A exige "limpeza E desinfecção" — sem produto e
                 // concentração registados, o relatório não prova a desinfeção.
                 $campos[] = Forms\Components\Section::make('Limpeza e Desinfeção')
+                    ->collapsed()
                     ->description('O caderno de encargos exige desinfeção, não só limpeza: registe o produto e a concentração.')
                     ->schema([
                         Forms\Components\TextInput::make('dados.produto')
@@ -457,6 +454,7 @@ class TrabalhosRelationManager extends RelationManager
                 // O vereador perguntou pelo valor reposto. Sem antes/depois o
                 // relatório diz que foi feito, mas não a que nível ficou.
                 $campos[] = Forms\Components\Section::make('Reposição de Cloro e pH')
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('dados.cloro_antes')
                             ->label('Cloro Livre Antes (mg/L)')
@@ -480,6 +478,7 @@ class TrabalhosRelationManager extends RelationManager
             case TrabalhoParagem::ESVAZIAMENTO_TANQUE:
             case TrabalhoParagem::ENCHIMENTO_TANQUE:
                 $campos[] = Forms\Components\Section::make('Volume e Contador')
+                    ->collapsed()
                     ->description('A renovação de água é registada por leitura de contador (Anexo A).')
                     ->schema([
                         Forms\Components\TextInput::make('dados.contador_inicio')
@@ -525,6 +524,7 @@ class TrabalhosRelationManager extends RelationManager
 
             case TrabalhoParagem::MANUTENCAO_FILTROS:
                 $campos[] = Forms\Components\Section::make('Intervenção nos Filtros')
+                    ->collapsed()
                     ->schema([
                         Forms\Components\CheckboxList::make('dados.filtros_intervencionados')
                             ->label('Filtros Intervencionados')
@@ -612,22 +612,21 @@ class TrabalhosRelationManager extends RelationManager
             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
             ->columnSpanFull();
 
-        $docField = Forms\Components\FileUpload::make('documentos')
-            ->label('Documentos / Boletins Analíticos (PDF)')
-            ->disk(DailyRecord::getStorageDisk())
-            ->visibility('private')
-            ->directory('paragens')
-            ->multiple()
-            ->maxFiles(10)
-            ->maxSize(20480)
-            ->acceptedFileTypes(['application/pdf'])
-            ->columnSpanFull();
-
+        // O boletim analitico so faz sentido na desinfecao de Legionella; nos
+        // restantes trabalhos o campo so acrescentava ruido ao formulario.
         if ($record->tipo === TrabalhoParagem::DESINFECAO_LEGIONELLA) {
-            $docField->helperText('Atenção: A lei exige o PDF do boletim acreditado (pode anexar mais tarde para fechar o trabalho no terreno).');
+            $campos[] = Forms\Components\FileUpload::make('documentos')
+                ->label('Boletim Analítico (PDF)')
+                ->helperText('A lei exige o PDF do boletim acreditado (pode anexar mais tarde para fechar o trabalho no terreno).')
+                ->disk(DailyRecord::getStorageDisk())
+                ->visibility('private')
+                ->directory('paragens')
+                ->multiple()
+                ->maxFiles(10)
+                ->maxSize(20480)
+                ->acceptedFileTypes(['application/pdf'])
+                ->columnSpanFull();
         }
-
-        $campos[] = $docField;
 
         $campos[] = Forms\Components\Textarea::make('observacoes')
             ->label('Observações Adicionais')
