@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class PlanoParagemPdfService
 {
-    private const MAX_FOTOS_EMBED = 12;
+    private const MAX_FOTOS_EMBED = 30;
 
     private const MAX_FOTO_BYTES = 2097152; // 2 MB
 
