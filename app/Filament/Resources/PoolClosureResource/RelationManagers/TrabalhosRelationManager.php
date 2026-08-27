@@ -609,7 +609,11 @@ class TrabalhosRelationManager extends RelationManager
             ->maxFiles(10)
             ->maxSize(20480)
             ->image()
-            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            // Sem HEIC no accept, o iOS converte a foto para JPEG na seleção.
+            // O dompdf não descodifica HEIC: aceitá-lo aqui empurrava as fotos
+            // do iPhone para a lista de "não impressas" do relatório legal.
+            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+            ->helperText('As fotos do iPhone são convertidas para JPEG automaticamente, para poderem ser impressas no relatório.')
             ->columnSpanFull();
 
         // O boletim analitico so faz sentido na desinfecao de Legionella; nos
