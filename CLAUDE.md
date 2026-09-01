@@ -40,6 +40,7 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 - **Leituras que não contam (artefactos)**: `LeituraArtefactoService` calcula as janelas em que a leitura do controlador é inválida — lavagem/enxaguamento de filtro (duração assumida de 20 min + 10 min de estabilização), bomba parada, e o período de uma `SensorOutage` declarada. Uma leitura dentro dessas janelas não gera não-conformidade em nenhum ecrã, gráfico ou no livro sanitário. Fonte única — não duplicar a regra.
 - **Avaria de sonda (`SensorOutage`)**: aberta por uma Ação Operacional do tipo `avaria_sonda` (motivos: peça partida, em reparação, em calibração, sem comunicação, removida, leituras erradas, outro) e fechada por outra ação a dar baixa. Enquanto está aberta, a sonda aparece como "indisponível" no cartão do dashboard, no Kanban, no Esquema do Circuito, na página Sensores Hanna (coluna + filtro) e no modal de detalhes. O `OperationalActionObserver` é quem abre/fecha o registo.
 - **Encerramento de piscinas (`PoolClosure` + `PoolClosureService`)**: fonte única para "esta piscina estava aberta neste dia?". Usar `PoolClosureService::mapa()` em ecrãs de intervalo (heatmap, gráficos, PDF — uma query para a janela toda) e `Pool::estaEncerradaEm()` para um único dia. Nunca reimplementar — uma segunda versão divergiria do livro sanitário. Encerrar/reabrir também limpa `AlertState` e `TapAlert` da piscina e notifica a equipa (`PiscinaEncerradaNotification`).
+- **Plano de trabalhos da paragem técnica (`PoolClosureTask` + `PlanoParagemService`)**: cada `PoolClosure` pode gerar um plano com os 13 trabalhos do template legal (`TrabalhoParagem::template()`) — esvaziamento, limpeza e desinfeção do tanque, Legionella, supercloração, etc. Cada trabalho é uma máquina de estados auditada (`previsto` / `em_curso` / `executado` / `nao_executado` / `nao_aplicavel`), com `origem` ortogonal ao estado (`declarada`, `reconstruida` a partir de ações operacionais ou sonda, `inferida`). **Não é append-only** — vive de `LogsActivity`. As provas por trabalho são três colunas JSON: `fotos`, `videos` (1 clipe, 60 MB) e `documentos` (boletim de Legionella, obrigatório para fechar esse trabalho). `PlanoParagemPdfService` gera dois documentos: o Plano de Trabalhos (prévio) e o Relatório de Paragem (final, com gráfico de sonda, Anexo A de ações operacionais, fotos embutidas e índice SHA-256 dos vídeos e boletins). **Ficheiro que o dompdf não imprime nunca é omitido em silêncio de um documento legal** — sai referenciado, com o motivo.
 - **Nadador-salvador bloqueado por piscina encerrada (`PoolAccessRequest`)**: se **todas** as piscinas atribuídas ao NS estão encerradas, o middleware `BlockClosedPoolAccess` desvia-o para `/piscinas-encerradas`, onde pode pedir acesso temporário ao admin (`PoolAccessRequestService`, estados `pendente`/`aprovado`/`negado`, resource "Pedidos de Acesso" em Operação). Uma aprovação só cobre o encerramento vigente no momento da decisão — se a piscina reabrir e encerrar outra vez, o NS volta a ficar bloqueado e tem de pedir de novo.
 - **Roles via `App\Constants\UserRole`** (não strings soltas) + `spatie/laravel-permission`: `admin`, `gestor`, `tecnico`, `nadador_salvador`, `inativo`. Nadador-Salvador só vê as suas piscinas e um subconjunto de secções do formulário de registo diário (sem Bomba/Filtros/Contador/Químicos); usa telemóvel pessoal no local, e as suas permissões finas estão em `App\Constants\NSPermission` (`registo_diario`, `incidentes`, `analise_parametros`). Gestor é essencialmente leitura/relatórios. Policies (`DailyRecordPolicy`, `IncidentPolicy`, `StockInstallationPolicy`) fazem a validação de autorização real.
 - **Páginas ligáveis/desligáveis por Gestor (`App\Constants\PaginaGestor` + `users.paginas_visiveis`)**: no `UserResource` pode-se ligar/desligar por utilizador Gestor 13 páginas (Utilizadores, Convites, Encerramentos, Stock Visão Geral/Armazém/Instalação, Produtos, Bidões, Movimentos Armazém/Instalação, Análise, Relatório PDF, Esquema). `User::podeVerPagina()` devolve sempre `true` para quem não é Gestor; páginas core (Registo Diário/Incidentes) e admin-only ficam sempre fora da lista.
@@ -196,7 +197,34 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-08-26 (sessão 25: auditoria QA da reestruturação de navegação, 3 regressões corrigidas, `main` alinhado com `test`)
+> Última atualização: 2026-09-01 (sessão 26: vídeo curto de evidência nos trabalhos de paragem técnica, dois travões silenciosos ao upload corrigidos, `main` alinhado com `test`)
+
+## Sessão 26 — Vídeo curto de evidência na paragem técnica (2026-09-01)
+
+Pedido do Daniel: "vídeo para mostrar o tanque limpo era muito muito melhor" do que fotos. Antes desta sessão, cada trabalho do plano de paragem só aceitava **fotos** (JPEG/PNG/WebP) e, no caso da Legionella, o **PDF** do boletim.
+
+**O que passou a existir** (`1c18031`):
+- Coluna `videos` (JSON) em `pool_closure_tasks` (migração `2026_09_01_000001`), a par de `fotos` e `documentos`. `PlanoParagemService` passa-a nos três sítios onde já passava as outras (criar plano, acrescentar trabalho, marcar executado).
+- `FileUpload::make('videos')` no formulário de execução: **1 clipe por trabalho**, máximo **60 MB** (`MAX_VIDEO_KB`), mp4/mov.
+- Ação de tabela **"Evidências"** (`verEvidencias`) + `resources/views/filament/paragem/evidencias.blade.php`: `<video controls>` mais link de descarga, e também as fotos. Fecha um buraco antigo — depois de um trabalho ficar `executado`, a ação "Executar" desaparece e **as fotos deixavam de se poder ver na app**; só saíam no PDF.
+- No relatório PDF o vídeo **nunca é embutido** (o dompdf não o reproduz): `processarVideos()` gera um índice com nome do ficheiro, dimensão e **SHA-256**, impresso na secção 4 — o mesmo tratamento que já se dava aos boletins, para se poder provar que o vídeo visto na app é o que o relatório cita.
+- `media-src` no CSP (sem ele o `r2.dev` caía no `default-src 'self'` e o vídeo não tocava), `upload_max_filesize` 25M → 64M, `post_max_size` e `client_max_body_size` para 128M.
+
+**Duas coisas que faziam o vídeo desaparecer em silêncio** (`046b969`), as duas encontradas só porque o teste novo usa os **bytes verdadeiros de um MP4** (`tests/Fixtures/video-evidencia.mp4`, 64 KB de um ficheiro real — o cabeçalho `ftyp` é o que decide) em vez de um `UploadedFile::fake()->create()` vazio:
+1. **`config/livewire.php` recusava tudo o que não fosse imagem ou PDF.** É uma porta global, anterior ao campo, e recusa **sem mensagem**: o clipe desaparecia, a tarefa ficava `executado` e o livro sanitário ficava sem a prova. Nenhum `acceptedFileTypes` no campo salva disto.
+2. **O `fileinfo` do PHP classifica muitos MP4 reais como `application/mp4`**, não `video/mp4` — depende da marca no cabeçalho `ftyp`. Com só `video/mp4` na lista, um vídeo legítimo do telemóvel era rejeitado com erro de tipo de ficheiro.
+
+**Aviso no formulário** (`dc4a287`): em 4K, 15 s passam dos 60 MB e o upload é recusado — o técnico só descobria **depois** de filmar. O `helperText` passa a `HtmlString` com os passos exatos no telemóvel (Gravar Vídeo 1080p 30 fps + Formatos "Mais Compatível"), que resolve de caminho o HEVC não abrir no Chrome do Windows. Contas: a 1080p/30 "Mais Compatível" cabem ~28 s; a 4K/30, ~10 s.
+
+**Verificação.** 555 testes (eram 549). Pint limpo, PHPStan sem erros novos nos ficheiros tocados. Os três testes novos foram confirmados a **falhar** sem as respetivas correções. No browser: vídeo real de 7,6 MB a reproduzir (`readyState` 4, 33 s lidos, imagem no ecrã), SHA-256 do relatório **igual** ao `hash_file` do ficheiro em disco, e o aviso legível em desktop e em 375 px.
+
+**O teste em browser foi local, não em staging** — a sessão do Chrome não estava autenticada em staging e não se escrevem passwords. Criou-se uma conta descartável só no SQLite local (que é gitignored) e uma rota `local`-only para entrar sem formulário; ambas removidas antes do commit. Duas notas para a próxima vez:
+- `php artisan serve` é **um pedido de cada vez** e no Windows não há `PHP_CLI_SERVER_WORKERS`. O polling do painel segura o único worker durante minutos e o upload nunca apanha vez — foi por isso que o upload real não se conseguiu fazer pela UI local. O que se testou pela UI foi o campo, o aviso e a reprodução; o upload em si está coberto pelo teste com o MP4 verdadeiro.
+- `after()` numa migração é **ignorado em silêncio no PostgreSQL** (`PostgresGrammar::$modifiers` não inclui `After`). É seguro — a coluna fica no fim — e já havia meia dúzia de migrações no repositório a fazê-lo.
+
+**Ficheiros-lixo de heredoc apareceram três vezes durante a sessão** (`videos`, `$record`, `form(function`, `refresh()`, `main`, `$(curl`, …), todos com 0 bytes, todos limpos antes de cada commit. Ver "Higiene do repositório" — o problema é o heredoc em PowerShell, não o `git add`.
+
+**`main` alinhado com `test` em `dc4a287`.** Produção e staging confirmados estáveis depois de cada deploy (5 verificações seguidas ao `/api/health` mais a página de login).
 
 ## Sessão 25 — Reestruturação de navegação, cards verticais e auditoria QA (2026-08-25 → 2026-08-26)
 
@@ -390,10 +418,12 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 | Plano 7 — Transformação UX (Sessão 7) | **CONCLUÍDO** | Ver secção da sessão 7. |
 | PWA `/m` (Sessão 24) | **PROTÓTIPO** | Desenho pronto, dados e autenticação por ligar. Ver secção própria. |
 | Reestruturação de navegação (Sessão 25) | **CONCLUÍDO** | Sidebar de 6 grupos, 9 resources fora do menu, cards verticais no registo diário. Auditado, 3 regressões corrigidas, 535 testes a passar, validado em browser. `main` = `test` em `7a687fe`. |
+| Vídeo de evidência na paragem (Sessão 26) | **CONCLUÍDO** | 1 clipe de 60 MB por trabalho, ação "Evidências" para o ver, índice com SHA-256 no relatório. 555 testes, validado em browser. `main` = `test` em `dc4a287`. |
 
 ---
 
 ## Dívida técnica em aberto (por ordem de gravidade)
+0. **A Paragem Técnica inteira não está documentada.** `PoolClosureTask`, `TrabalhoParagem` (13 trabalhos do template legal), `PlanoParagemService`, `EvidenciaParagemService`, `PlanoParagemPdfService` e o `TrabalhosRelationManager` (~700 linhas) foram construídos nas sessões entre a 25 e a 26 e **nunca chegaram a este ficheiro nem a um `CLAUDE.md` local**. A sessão 26 documenta só o vídeo, que é uma fatia. Quem pegar nisto a seguir não tem mapa.
 1. **`/m` sem `auth` e sem persistência** — qualquer pessoa não autenticada abre o protótipo, e o `start_url` do manifest aponta para lá.
 2. **`/api/pdf/export`** devolve texto fingido com `Content-Type: application/pdf`, sem autenticação.
 3. **Dois geradores de livro sanitário** (`RelatorioPdf` vs `DgsPdfReportService`), e o segundo ignora correções e encerramentos.
@@ -403,7 +433,8 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 7. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `StockHub` e a casca `/m`. O `docs/paginas/encerramentos.md` e o `stock` estão desatualizados desde a sessão 25 (grupo, botões novos).
 8. **Enxaguamento e posição normal nunca foram testados no terreno** — a condição de visibilidade estava errada desde o início e só ficou correta na sessão 25. Confirmar com a equipa se os campos fazem sentido como estão, agora que aparecem de facto.
 9. **Cinco worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
-10. **`PaginaGestor::STOCK_VISAO_GERAL` continua rotulado "Stock — Visão Geral"** no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" (título "Gestão de Stock") na sessão 25. O admin vê dois nomes para a mesma coisa.
+10. **A duração do vídeo de evidência não é validada.** Os "10-15 segundos" são só texto no formulário; o servidor não tem `ffmpeg` para medir. O que trava mesmo é o tamanho (60 MB). Um clipe de 2 minutos a 1080p passa.
+11. **`PaginaGestor::STOCK_VISAO_GERAL` continua rotulado "Stock — Visão Geral"** no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" (título "Gestão de Stock") na sessão 25. O admin vê dois nomes para a mesma coisa.
 
 ---
 
@@ -422,6 +453,10 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 12. **`??` não apanha zero.** Num denominador (`concentracao_cl`, volume, capacidade) o fallback tem de testar `<= 0`, não só null — senão é `DivisionByZeroError` em produção (sessão 25).
 13. **Memos `static` em classes de formulário precisam de reset na suite.** Valem um pedido HTTP em produção, mas os testes correm num processo e o `RefreshDatabase` reinicia os IDs. Se se acrescentar um memo ao `DailyRecordFormBuilder`, acrescentá-lo também ao `limparMemos()` (sessão 25).
 14. **Esconder um resource da sidebar é `shouldRegisterNavigation(): false`** — a rota, as policies e a pesquisa global continuam ativas, e isso é intencional. Mas um resource **visível** cujo `$navigationGroup` não esteja em `navigationGroups()` cria um grupo solto no fim da sidebar, sem respeitar `->collapsed()` (sessão 25).
+15. **`config/livewire.php` → `temporary_file_upload.rules` é a porta de TODOS os uploads**, e recusa **sem mensagem visível**: o ficheiro desaparece, o formulário grava na mesma e fica-se com um registo sem prova. Ao acrescentar um tipo novo de anexo em qualquer sítio da app, acrescentar a extensão a essa lista **antes** de tocar no `acceptedFileTypes` do campo (sessão 26).
+16. **`acceptedFileTypes` tem de cobrir as variantes reais do MIME.** O `fileinfo` do PHP devolve `application/mp4` para muitos MP4 legítimos (depende da marca no cabeçalho `ftyp`), não `video/mp4`. Validar por um único MIME "correto" rejeita ficheiros verdadeiros de telemóvel (sessão 26).
+17. **Um teste de upload com `UploadedFile::fake()->create()` não prova nada sobre validação de tipo** — o ficheiro vai vazio e o MIME é o que se lhe disser. Para regras de `mimes`/`mimetypes`, usar bytes verdadeiros (ver `tests/Fixtures/video-evidencia.mp4`), que é o que o `fileinfo` vai ler (sessão 26).
+18. **`after()` numa migração é ignorado no PostgreSQL** (`PostgresGrammar::$modifiers` não o inclui). Não parte nada — a coluna fica no fim da tabela — mas não se pode contar com a ordem das colunas em produção.
 
 ---
 
@@ -453,6 +488,9 @@ Os seguintes ficheiros têm um bloco `[AI_CONTEXT]` no cabeçalho que dita as re
 - **Serviços com fonte única (não duplicar a regra):**
   - `app/Services/PoolClosureService.php` (encerramentos)
   - `app/Services/PoolAccessRequestService.php` (bloqueio do NS)
+  - `app/Services/PlanoParagemService.php` (plano de trabalhos da paragem; máquina de estados dos trabalhos)
+  - `app/Services/EvidenciaParagemService.php` (candidatos a evidência a partir da sonda)
+  - `app/Models/PoolClosureTask.php` (o trabalho em si — não é append-only, é auditado)
   - `app/Services/SourceSelectionService.php` (cascata sonda/manual)
   - `app/Services/LeituraArtefactoService.php` (leituras que não contam)
   - `app/Services/AlertasService.php` (alertas)
