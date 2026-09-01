@@ -23,8 +23,8 @@ RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache bcmath
 
 # Upload limits
 RUN { \
-    echo 'upload_max_filesize = 25M'; \
-    echo 'post_max_size = 100M'; \
+    echo 'upload_max_filesize = 64M'; \
+    echo 'post_max_size = 128M'; \
     echo 'memory_limit = 256M'; \
 } > /usr/local/etc/php/conf.d/uploads.ini
 

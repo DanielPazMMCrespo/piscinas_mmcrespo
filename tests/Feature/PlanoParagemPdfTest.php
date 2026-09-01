@@ -172,6 +172,46 @@ class PlanoParagemPdfTest extends TestCase
         $this->assertStringContainsString('data:image/jpeg;base64,', $html);
     }
 
+    public function test_video_de_evidencia_e_referenciado_no_relatorio_com_hash(): void
+    {
+        Storage::fake(DailyRecord::getStorageDisk());
+
+        $admin = $this->criarUser(UserRole::ADMIN);
+        $closure = PoolClosure::factory()->create([
+            'inicio' => Carbon::parse('2026-08-10'),
+            'fim' => Carbon::parse('2026-08-20'),
+        ]);
+
+        app(PlanoParagemService::class)->criarPlano($closure, $admin);
+
+        $disk = Storage::disk(DailyRecord::getStorageDisk());
+        $videoPath = 'paragens/videos/tanque_limpo.mp4';
+        $conteudo = 'fake-video-binary-data';
+        $disk->put($videoPath, $conteudo);
+
+        /** @var PoolClosureTask $tarefa */
+        $tarefa = $closure->trabalhos()->where('tipo', TrabalhoParagem::LIMPEZA_TANQUE)->first();
+
+        app(PlanoParagemService::class)->marcarExecutado($tarefa, [
+            'executado_em' => Carbon::parse('2026-08-11 10:00:00'),
+            'videos' => [$videoPath],
+        ], $admin);
+
+        $this->assertSame([$videoPath], $tarefa->fresh()->videos);
+
+        /** @var PlanoParagemPdfService $service */
+        $service = app(PlanoParagemPdfService::class);
+        $dados = $service->prepararDadosRelatorio($closure, $admin);
+        $html = view('pdf.paragem.relatorio', $dados)->render();
+
+        $this->assertStringContainsString('Registo em vídeo da intervenção', $html);
+        $this->assertStringContainsString('tanque_limpo.mp4', $html);
+        // O video nunca e embutido: o dompdf nao o reproduz.
+        $this->assertStringNotContainsString('data:video/', $html);
+        // O hash prova que o ficheiro arquivado e o mesmo que o relatorio cita.
+        $this->assertStringContainsString(substr(hash('sha256', $conteudo), 0, 16), $html);
+    }
+
     public function test_header_actions_de_download_em_edit_pool_closure(): void
     {
         $admin = $this->criarUser(UserRole::ADMIN);

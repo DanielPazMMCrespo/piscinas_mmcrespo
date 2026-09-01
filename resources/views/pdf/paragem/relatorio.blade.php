@@ -116,7 +116,7 @@
     @endif
 
     {{-- 4. Provas Documentais e Anexos (Boletins e Fotos) --}}
-    @if((isset($documentosIndex) && count($documentosIndex) > 0) || (isset($fotosEmbed) && count($fotosEmbed) > 0) || (isset($fotosNaoEmbutidas) && count($fotosNaoEmbutidas) > 0))
+    @if((isset($documentosIndex) && count($documentosIndex) > 0) || (isset($fotosEmbed) && count($fotosEmbed) > 0) || (isset($fotosNaoEmbutidas) && count($fotosNaoEmbutidas) > 0) || (isset($videosIndex) && count($videosIndex) > 0))
         <div class="seccao {{ !isset($dadosSonda) || $dadosSonda['total_leituras'] === 0 ? 'quebra' : '' }}">
             <div class="seccao-titulo">4. Arquivo Documental e Evidências Fotográficas</div>
 
@@ -167,6 +167,40 @@
                             </div>
                         @endforeach
                     </div>
+                </div>
+            @endif
+
+            {{-- O dompdf nao reproduz video: o clipe fica referenciado com o
+                 SHA-256 do ficheiro arquivado, para se poder provar que o
+                 video visto no sistema e o mesmo que este relatorio cita. --}}
+            @if(isset($videosIndex) && count($videosIndex) > 0)
+                <div style="margin-top: 8px;">
+                    <div style="font-weight: bold; font-size: 8px; margin-bottom: 4px;">Registo em vídeo da intervenção (arquivado no sistema, não reproduzível em papel):</div>
+                    <table class="tabela-dados">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;">#</th>
+                                <th style="width: 30%;">Trabalho Associado</th>
+                                <th style="width: 15%;">Data / Hora</th>
+                                <th style="width: 12%;">Dimensão</th>
+                                <th style="width: 38%;">Ficheiro &amp; Hash SHA-256</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($videosIndex as $video)
+                                <tr>
+                                    <td style="text-align: center; font-weight: bold;">{{ $loop->iteration }}</td>
+                                    <td>{{ $video['tarefa_label'] }}</td>
+                                    <td>{{ $video['data'] ?? '—' }}</td>
+                                    <td>{{ $video['tamanho_mb'] }}</td>
+                                    <td style="font-family: monospace; font-size: 6px;">
+                                        {{ $video['nome_ficheiro'] }}<br>
+                                        <span style="color: #6b7280;">SHA: {{ substr($video['sha256'] ?? '—', 0, 16) }}...</span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             @endif
 

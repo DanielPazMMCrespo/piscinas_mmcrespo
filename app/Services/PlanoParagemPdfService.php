@@ -123,6 +123,7 @@ class PlanoParagemPdfService
 
         // Processamento de Fotos e Documentos
         $fotos = $this->processarFotos($trabalhos);
+        $videosIndex = $this->processarVideos($trabalhos);
         $documentosIndex = $this->processarDocumentos($trabalhos);
 
         // Dados de Sonda e Gráfico SVG
@@ -150,6 +151,7 @@ class PlanoParagemPdfService
             'acoesOperacionais' => $acoesOperacionais,
             'fotosEmbed' => $fotos['embutidas'],
             'fotosNaoEmbutidas' => $fotos['nao_embutidas'],
+            'videosIndex' => $videosIndex,
             'documentosIndex' => $documentosIndex,
             'dadosSonda' => $dadosSonda,
             'graficoSvg' => $graficoSvg,
@@ -260,6 +262,54 @@ class PlanoParagemPdfService
         }
 
         return ['embutidas' => $fotos, 'nao_embutidas' => $naoEmbutidas];
+    }
+
+    /**
+     * Videos das tarefas. O dompdf nao reproduz video, por isso o relatorio
+     * legal referencia-os pelo nome e pelo SHA-256 do conteudo — a prova de
+     * integridade do ficheiro arquivado, tal como se faz nos boletins.
+     *
+     * @param  Collection<int, PoolClosureTask>  $trabalhos
+     * @return array<int, array{tarefa_label: string, data: ?string, nome_ficheiro: string, tamanho_mb: string, sha256: string}>
+     */
+    private function processarVideos($trabalhos): array
+    {
+        $disk = Storage::disk(DailyRecord::getStorageDisk());
+        $videos = [];
+
+        foreach ($trabalhos as $t) {
+            if (! is_array($t->videos) || empty($t->videos)) {
+                continue;
+            }
+
+            foreach ($t->videos as $path) {
+                if (! is_string($path) || $path === '') {
+                    continue;
+                }
+
+                $existe = $disk->exists($path);
+                $sha256 = '—';
+                $tamanhoMb = '—';
+
+                if ($existe) {
+                    $conteudo = $disk->get($path);
+                    if ($conteudo !== null && $conteudo !== '') {
+                        $sha256 = hash('sha256', $conteudo);
+                    }
+                    $tamanhoMb = number_format($disk->size($path) / 1048576, 1, ',', '').' MB';
+                }
+
+                $videos[] = [
+                    'tarefa_label' => $t->tipoLabel(),
+                    'data' => $t->executado_em?->format('d/m/Y H:i'),
+                    'nome_ficheiro' => basename($path),
+                    'tamanho_mb' => $existe ? $tamanhoMb : 'ficheiro não encontrado',
+                    'sha256' => $sha256,
+                ];
+            }
+        }
+
+        return $videos;
     }
 
     /**

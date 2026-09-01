@@ -54,6 +54,7 @@ class PlanoParagemService
                     'motivo_nao_execucao' => null,
                     'dados' => null,
                     'fotos' => null,
+                    'videos' => null,
                     'documentos' => null,
                     'observacoes' => null,
                 ]);
@@ -75,6 +76,7 @@ class PlanoParagemService
      *     observacoes?: ?string,
      *     dados?: ?array<string, mixed>,
      *     fotos?: ?array<int, string>,
+     *     videos?: ?array<int, string>,
      *     documentos?: ?array<int, string>
      * }  $dados
      *
@@ -107,6 +109,7 @@ class PlanoParagemService
             'motivo_nao_execucao' => null,
             'dados' => $dados['dados'] ?? null,
             'fotos' => $dados['fotos'] ?? null,
+            'videos' => $dados['videos'] ?? null,
             'documentos' => $dados['documentos'] ?? null,
             'observacoes' => $dados['observacoes'] ?? null,
         ]);
@@ -121,6 +124,7 @@ class PlanoParagemService
      *     executado_em?: mixed,
      *     dados?: ?array<string, mixed>,
      *     fotos?: ?array<int, string>,
+     *     videos?: ?array<int, string>,
      *     documentos?: ?array<int, string>,
      *     observacoes?: ?string,
      *     origem?: string
@@ -161,6 +165,7 @@ class PlanoParagemService
             'origem' => $origem,
             'dados' => array_key_exists('dados', $dados) ? $dados['dados'] : $tarefa->dados,
             'fotos' => array_key_exists('fotos', $dados) ? $dados['fotos'] : $tarefa->fotos,
+            'videos' => array_key_exists('videos', $dados) ? $dados['videos'] : $tarefa->videos,
             'documentos' => array_key_exists('documentos', $dados) ? $dados['documentos'] : $tarefa->documentos,
             'observacoes' => array_key_exists('observacoes', $dados) ? $dados['observacoes'] : $tarefa->observacoes,
         ]);

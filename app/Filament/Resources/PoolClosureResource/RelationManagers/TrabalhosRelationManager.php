@@ -28,6 +28,12 @@ class TrabalhosRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'tipo';
 
+    /** Um clipe por trabalho: o objetivo e uma prova curta, nao um arquivo de filmagens. */
+    private const MAX_VIDEOS_POR_TRABALHO = 1;
+
+    /** 60 MB — acima disto o upload bate no limite do PHP antes de chegar ao R2. */
+    private const MAX_VIDEO_KB = 61440;
+
     public function form(Form $form): Form
     {
         return $form->schema([
@@ -363,6 +369,18 @@ class TrabalhosRelationManager extends RelationManager
                         }
                     }),
 
+                Tables\Actions\Action::make('verEvidencias')
+                    ->label('Evidências')
+                    ->icon('heroicon-o-play-circle')
+                    ->color('info')
+                    ->visible(fn (PoolClosureTask $record): bool => filled($record->videos) || filled($record->fotos))
+                    ->modalHeading(fn (PoolClosureTask $record): string => "Evidências: {$record->tipoLabel()}")
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
+                    ->modalContent(fn (PoolClosureTask $record) => view('filament.paragem.evidencias', [
+                        'tarefa' => $record,
+                    ])),
+
                 Tables\Actions\EditAction::make('editarData')
                     ->label('Editar')
                     ->icon('heroicon-m-pencil-square')
@@ -614,6 +632,21 @@ class TrabalhosRelationManager extends RelationManager
             // do iPhone para a lista de "não impressas" do relatório legal.
             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
             ->helperText('As fotos do iPhone são convertidas para JPEG automaticamente, para poderem ser impressas no relatório.')
+            ->columnSpanFull();
+
+        // Um clipe curto prova o estado do tanque melhor do que qualquer foto,
+        // mas o dompdf nao reproduz video: no relatorio legal ele sai como
+        // anexo referenciado (nome + SHA-256), nunca embutido.
+        $campos[] = Forms\Components\FileUpload::make('videos')
+            ->label('Vídeo Curto de Evidência (10-15 s)')
+            ->disk(DailyRecord::getStorageDisk())
+            ->visibility('private')
+            ->directory('paragens/videos')
+            ->multiple()
+            ->maxFiles(self::MAX_VIDEOS_POR_TRABALHO)
+            ->maxSize(self::MAX_VIDEO_KB)
+            ->acceptedFileTypes(['video/mp4', 'video/quicktime'])
+            ->helperText('Um clipe de 10 a 15 segundos, no máximo '.(int) (self::MAX_VIDEO_KB / 1024).' MB. No iPhone, grave em "Mais Compatível" (H.264) para o vídeo abrir em qualquer computador. O relatório em PDF não reproduz vídeo: fica referenciado como anexo, e vê-se aqui em "Evidências".')
             ->columnSpanFull();
 
         // O boletim analitico so faz sentido na desinfecao de Legionella; nos

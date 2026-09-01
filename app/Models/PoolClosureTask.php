@@ -42,6 +42,7 @@ class PoolClosureTask extends Model
         'motivo_nao_execucao',
         'dados',
         'fotos',
+        'videos',
         'documentos',
         'observacoes',
     ];
@@ -53,6 +54,7 @@ class PoolClosureTask extends Model
         'executado_em' => 'datetime',
         'dados' => 'array',
         'fotos' => 'array',
+        'videos' => 'array',
         'documentos' => 'array',
     ];
 

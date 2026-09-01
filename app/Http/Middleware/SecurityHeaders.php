@@ -22,7 +22,7 @@ class SecurityHeaders
 
         $response = $next($request);
 
-        $allowedImageDomains = implode(' ', [
+        $allowedMediaDomains = implode(' ', [
             "'self'",
             'data:',
             'blob:',
@@ -35,7 +35,8 @@ class SecurityHeaders
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.bunny.net https://fonts.googleapis.com",
-            "img-src {$allowedImageDomains}",
+            "img-src {$allowedMediaDomains}",
+            "media-src {$allowedMediaDomains}",
             "font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com",
             "connect-src 'self' https://*.r2.dev",
             "worker-src 'self' blob:",
@@ -48,7 +49,8 @@ class SecurityHeaders
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-{$nonce}' 'strict-dynamic' https://cdn.jsdelivr.net",
             "style-src 'self' 'unsafe-inline' 'nonce-{$nonce}' https://cdn.jsdelivr.net https://fonts.bunny.net https://fonts.googleapis.com",
-            "img-src {$allowedImageDomains}",
+            "img-src {$allowedMediaDomains}",
+            "media-src {$allowedMediaDomains}",
             "font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com",
             "connect-src 'self' https://*.r2.dev",
             "worker-src 'self' blob:",
