@@ -26,6 +26,17 @@ use Illuminate\Support\Facades\DB;
 class PlanoParagemService
 {
     /**
+     * Acoes que nao sao intervencao na paragem e so enchiam o Anexo A do
+     * relatorio. Reabastecer um bidao de reagente e logistica de consumiveis,
+     * nao um trabalho de manutencao da piscina.
+     *
+     * @var array<int, string>
+     */
+    private const ACOES_FORA_DO_RELATORIO = [
+        OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
+    ];
+
+    /**
      * Cria o plano de trabalhos inicial a partir do template canónico.
      *
      * @return Collection<int, PoolClosureTask>
@@ -281,6 +292,7 @@ class PlanoParagemService
         return OperationalAction::query()
             ->where('pool_id', $encerramento->pool_id)
             ->whereBetween('registado_em', [$inicio, $fim])
+            ->whereNotIn('tipo', self::ACOES_FORA_DO_RELATORIO)
             ->orderBy('registado_em')
             ->get();
     }

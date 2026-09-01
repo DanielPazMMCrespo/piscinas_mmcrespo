@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\EvidenciaParagemService;
 use App\Services\PlanoParagemService;
 use DomainException;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -282,48 +283,21 @@ class TrabalhosRelationManager extends RelationManager
                     ->color('warning')
                     ->visible(fn (PoolClosureTask $record): bool => $record->estado === TrabalhoParagem::ESTADO_PREVISTO)
                     ->modalHeading(fn (PoolClosureTask $record): string => "Reconciliar Evidência: {$record->tipoLabel()}")
-                    ->modalDescription('Pré-preencha a execução a partir de ações operacionais registadas no período ou deteção de sonda. O registo será gravado com proveniência "reconstruída".')
+                    ->modalDescription('Pré-preencha a execução a partir de ações operacionais registadas no período ou de deteção de sonda.')
+                    // Sem evidencia nao ha nada para reconciliar. Sem isto o
+                    // botao gravava o trabalho como executado a dizer que fora
+                    // reconstruido a partir de evidencia que nunca existiu — e
+                    // era isso que saia impresso no relatorio legal.
+                    ->modalSubmitAction(fn (Actions\StaticAction $action, PoolClosureTask $record) => self::temEvidencia($record) ? $action : $action->hidden())
+                    ->modalCancelActionLabel(fn (PoolClosureTask $record): string => self::temEvidencia($record) ? 'Cancelar' : 'Fechar')
                     ->form(function (PoolClosureTask $record): array {
-                        /** @var PoolClosure|null $encerramento */
-                        $encerramento = $record->encerramento;
-                        $tiposAcao = TrabalhoParagem::acoesOperacionaisCompativeis($record->tipo);
-
-                        $opcoesAcoes = [];
-                        if (! empty($tiposAcao) && $encerramento !== null) {
-                            $de = $encerramento->inicio->copy()->startOfDay();
-                            $ate = ($encerramento->fim ?? now())->copy()->endOfDay();
-
-                            $acoes = OperationalAction::query()
-                                ->where('pool_id', $encerramento->pool_id)
-                                ->whereIn('tipo', $tiposAcao)
-                                ->whereBetween('registado_em', [$de, $ate])
-                                ->with('utilizador')
-                                ->orderBy('registado_em')
-                                ->get();
-
-                            foreach ($acoes as $acao) {
-                                $dataStr = $acao->registado_em->format('d/m/Y H:i');
-                                $autorNome = $acao->utilizador instanceof User ? $acao->utilizador->name : 'Técnico';
-                                $opcoesAcoes["acao_{$acao->id}"] = "Ação Operacional: {$acao->tipoLabel()} a {$dataStr} ({$autorNome}) — {$acao->dadosFormatados()}";
-                            }
-                        }
-
-                        $opcoesSonda = [];
-                        if ($encerramento !== null) {
-                            $candidatos = app(EvidenciaParagemService::class)->candidatosPara($encerramento, $record->tipo);
-                            foreach ($candidatos as $idx => $cand) {
-                                $dataStr = $cand['momento']->format('d/m/Y H:i');
-                                $opcoesSonda["sonda_{$idx}"] = "Sonda Hanna ({$cand['confianca']}): {$cand['detalhe']} em {$dataStr}";
-                            }
-                        }
-
-                        $todasOpcoes = array_merge($opcoesAcoes, $opcoesSonda);
+                        $todasOpcoes = self::opcoesEvidencia($record);
 
                         if (empty($todasOpcoes)) {
                             return [
                                 Forms\Components\Placeholder::make('sem_evidencias')
                                     ->label('Sem evidências automáticas')
-                                    ->content('Não foram encontradas ações operacionais compatíveis nem padrões de sonda para este trabalho no período.'),
+                                    ->content('Não foram encontradas ações operacionais compatíveis nem padrões de sonda para este trabalho no período. Use "Executar" para registar a execução com os valores e as provas que tem.'),
                             ];
                         }
 
@@ -346,6 +320,16 @@ class TrabalhosRelationManager extends RelationManager
                     ->action(function (PoolClosureTask $record, array $data): void {
                         $user = auth()->user();
                         if ($user === null) {
+                            return;
+                        }
+
+                        if (! filled($data['evidencia_selecionada'] ?? null)) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Sem evidência para reconciliar')
+                                ->body('Não há ações operacionais nem deteções de sonda para este trabalho no período. Registe a execução em "Executar".')
+                                ->send();
+
                             return;
                         }
 
@@ -391,6 +375,59 @@ class TrabalhosRelationManager extends RelationManager
             ])
             ->emptyStateHeading('Sem plano de trabalhos gerado')
             ->emptyStateDescription('Clique em "Gerar Plano de Trabalhos" para criar a checklist com as 13 tarefas legais.');
+    }
+
+    /**
+     * Evidências que se podem reconciliar com este trabalho: ações operacionais
+     * compatíveis registadas no período, mais o que a sonda detetou.
+     *
+     * @return array<string, string>
+     */
+    private static function opcoesEvidencia(PoolClosureTask $record): array
+    {
+        /** @var PoolClosure|null $encerramento */
+        $encerramento = $record->encerramento;
+
+        if ($encerramento === null) {
+            return [];
+        }
+
+        $opcoesAcoes = [];
+        $tiposAcao = TrabalhoParagem::acoesOperacionaisCompativeis($record->tipo);
+
+        if (! empty($tiposAcao)) {
+            $de = $encerramento->inicio->copy()->startOfDay();
+            $ate = ($encerramento->fim ?? now())->copy()->endOfDay();
+
+            $acoes = OperationalAction::query()
+                ->where('pool_id', $encerramento->pool_id)
+                ->whereIn('tipo', $tiposAcao)
+                ->whereBetween('registado_em', [$de, $ate])
+                ->with('utilizador')
+                ->orderBy('registado_em')
+                ->get();
+
+            foreach ($acoes as $acao) {
+                $dataStr = $acao->registado_em->format('d/m/Y H:i');
+                $autorNome = $acao->utilizador instanceof User ? $acao->utilizador->name : 'Técnico';
+                $opcoesAcoes["acao_{$acao->id}"] = "Ação Operacional: {$acao->tipoLabel()} a {$dataStr} ({$autorNome}) — {$acao->dadosFormatados()}";
+            }
+        }
+
+        $opcoesSonda = [];
+        $candidatos = app(EvidenciaParagemService::class)->candidatosPara($encerramento, $record->tipo);
+
+        foreach ($candidatos as $idx => $cand) {
+            $dataStr = $cand['momento']->format('d/m/Y H:i');
+            $opcoesSonda["sonda_{$idx}"] = "Sonda Hanna ({$cand['confianca']}): {$cand['detalhe']} em {$dataStr}";
+        }
+
+        return array_merge($opcoesAcoes, $opcoesSonda);
+    }
+
+    private static function temEvidencia(PoolClosureTask $record): bool
+    {
+        return self::opcoesEvidencia($record) !== [];
     }
 
     /**

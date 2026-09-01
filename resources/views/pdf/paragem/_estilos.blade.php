@@ -126,11 +126,6 @@
         text-align: left;
         color: #1f2937;
     }
-    table.tabela-dados tr.linha-inferida {
-        background: #f9fafb;
-        border-left: 2.5px solid #6b7280;
-    }
-
     /* Badges / Destaques de Estado */
     .badge {
         display: inline-block;

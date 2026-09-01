@@ -271,9 +271,94 @@
         <ul>
             <li><strong>Limpeza mecânica e desincrustação:</strong> As operações de escovagem física de paredes, caleiras, tanques de compensação e filtros de areia dependem exclusivamente da validação presencial do técnico executor, não sendo mensuráveis por sonda química.</li>
             <li><strong>Controlo de Legionella:</strong> A comprovação de conformidade para <em>Legionella pneumophila</em> é atestada pelo boletim analítico emitido por laboratório acreditado anexo a este relatório.</li>
-            <li><strong>Níveis de Cloro em mg/L:</strong> O controlador automático mede o Potencial Redox / ORP (mV) como proxy do poder desinfetante instantâneo. A quantificação em mg/L de cloro livre requer métodos fotométricos manuais (DPD1).</li>
+            <li><strong>Níveis de Cloro em mg/L:</strong> O controlador automático mede o Potencial Redox / ORP (mV). A validação do ORP contra o método fotométrico de referência (DPD1) consta do Anexo B.</li>
         </ul>
     </div>
+
+    {{-- Fundamentacao do ORP como fonte de cloro. Sai sempre: quando nao ha
+         pares suficientes, o que se imprime e a ausencia de validacao, nao um
+         numero sem suporte. --}}
+    @if(isset($correlacaoOrp) && is_array($correlacaoOrp))
+        <div class="seccao quebra">
+            <div class="seccao-titulo">Anexo B — Validação do Potencial Redox (ORP) como Indicador de Cloro Livre</div>
+
+            <p style="font-size: 7.5px; text-align: justify; margin: 0 0 6px 0;">
+                O Potencial Redox mede o <strong>poder oxidante efetivo</strong> da água, ou seja, a capacidade real de
+                inativação microbiológica — que é o parâmetro sanitariamente relevante. O cloro livre em mg/L é uma
+                medida de massa e não traduz, por si só, essa capacidade: o mesmo teor de cloro tem poder desinfetante
+                diferente consoante o pH, por variação do equilíbrio entre ácido hipocloroso e ião hipoclorito.
+                Por esse motivo o ORP é internacionalmente usado como indicador de desinfeção adequada, sendo o valor de
+                referência mais citado na literatura de piscinas <strong>≈ 720 mV a pH 7,2–7,8</strong>. A banda de
+                referência configurada para esta piscina é
+                <strong>{{ number_format((float) ($encerramento->piscina->orp_min ?? 650), 0, ',', '') }}–{{ number_format((float) ($encerramento->piscina->orp_max ?? 800), 0, ',', '') }} mV</strong>.
+            </p>
+
+            <p style="font-size: 7.5px; text-align: justify; margin: 0 0 6px 0;">
+                Para que a leitura contínua da sonda possa ser lida como cloro livre, foi construída uma
+                <strong>correlação local</strong> entre o ORP registado pela sonda e as medições manuais a DPD1
+                efetuadas nesta mesma piscina, emparelhadas no tempo (tolerância de 30 minutos). O que se segue é a
+                validação do método indirecto contra o método de referência, com os dados da própria instalação.
+            </p>
+
+            @if(($correlacaoOrp['n'] ?? 0) > 0)
+                <table class="tabela-dados" style="margin-bottom: 6px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 22%;">Data / Hora da colheita</th>
+                            <th style="width: 20%;">Origem da medição</th>
+                            <th style="width: 20%; text-align: center;">ORP da sonda (mV)</th>
+                            <th style="width: 20%; text-align: center;">Cloro livre DPD1 (mg/L)</th>
+                            <th style="width: 18%; text-align: center;">pH</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($correlacaoOrp['pares'] as $par)
+                            <tr>
+                                <td>{{ $par['momento']->format('d/m/Y H:i') }}</td>
+                                <td>{{ $par['origem'] }}</td>
+                                <td style="text-align: center;">{{ number_format($par['orp'], 0, ',', '') }}</td>
+                                <td style="text-align: center;"><strong>{{ number_format($par['cloro_livre'], 2, ',', '') }}</strong></td>
+                                <td style="text-align: center;">{{ $par['ph'] === null ? '—' : number_format($par['ph'], 2, ',', '') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            @if($correlacaoOrp['utilizavel'] ?? false)
+                <div style="font-size: 7.5px; border-left: 3px solid #059669; background: #f0fdf4; padding: 5px 7px;">
+                    <strong>Correlação validada.</strong>
+                    Pares emparelhados: <strong>n = {{ $correlacaoOrp['n'] }}</strong>.
+                    Coeficiente de correlação de Pearson: <strong>r = {{ number_format((float) $correlacaoOrp['r'], 3, ',', '') }}</strong>.
+                    Relação obtida por mínimos quadrados:
+                    <strong>Cloro livre (mg/L) = {{ number_format((float) $correlacaoOrp['declive'], 5, ',', '') }} &times; ORP (mV) {{ ((float) $correlacaoOrp['ordenada']) < 0 ? '−' : '+' }} {{ number_format(abs((float) $correlacaoOrp['ordenada']), 3, ',', '') }}</strong>.
+                    <br>
+                    <strong>Domínio de validade:</strong> ORP entre
+                    {{ number_format((float) $correlacaoOrp['orp_min_par'], 0, ',', '') }} e
+                    {{ number_format((float) $correlacaoOrp['orp_max_par'], 0, ',', '') }} mV
+                    @if($correlacaoOrp['ph_min'] !== null)
+                        , com pH entre {{ number_format((float) $correlacaoOrp['ph_min'], 2, ',', '') }} e {{ number_format((float) $correlacaoOrp['ph_max'], 2, ',', '') }}
+                    @endif
+                    . Dentro deste domínio, a leitura contínua da sonda é aceite como estimativa rastreável de cloro
+                    livre, por estar ancorada às medições DPD1 acima. Fora dele — designadamente em regime de
+                    hipercloração, onde a resposta do ORP satura — a leitura vale como prova de
+                    <strong>poder oxidante sustentado e do respetivo tempo de contacto</strong>, não como quantificação
+                    em mg/L, que nesse caso é dada pela análise manual.
+                </div>
+            @else
+                <div style="font-size: 7.5px; border-left: 3px solid #b45309; background: #fffbeb; padding: 5px 7px;">
+                    <strong>Correlação não validada neste período.</strong>
+                    Pares ORP/DPD1 emparelhados: <strong>n = {{ $correlacaoOrp['n'] ?? 0 }}</strong>@if(($correlacaoOrp['r'] ?? null) !== null), r = {{ number_format((float) $correlacaoOrp['r'], 3, ',', '') }}@endif.
+                    Não há amostra suficiente para ancorar a leitura da sonda ao método de referência, pelo que o ORP é
+                    aqui apresentado apenas como indicador de poder oxidante e do tempo em que foi mantido. Os valores
+                    de cloro livre em mg/L constantes deste relatório provêm exclusivamente de medição manual a DPD1.
+                    <br>
+                    <strong>Para validar a correlação</strong> basta registar a análise manual à mesma hora a que a
+                    sonda está a ler, em pelo menos 4 momentos com teores de cloro distintos.
+                </div>
+            @endif
+        </div>
+    @endif
 
     {{-- 7. Assinaturas --}}
     <div class="seccao" style="margin-top: 15px;">

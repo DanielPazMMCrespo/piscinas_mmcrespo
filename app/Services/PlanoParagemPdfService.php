@@ -29,9 +29,14 @@ class PlanoParagemPdfService
 
     private const MAX_FOTO_BYTES = 2097152; // 2 MB
 
+    // Nenhuma destas dependencias pode ter `= null`: o container do Laravel
+    // devolve o valor por defeito para um parametro de classe com default e
+    // sem binding explicito, ou seja, nunca as injeta. Foi assim que a seccao
+    // de eventos de sonda deixou de sair no relatorio sem ninguem dar por isso.
     public function __construct(
         private readonly PlanoParagemService $planoService,
-        private readonly ?EvidenciaParagemService $evidenciaService = null
+        private readonly EvidenciaParagemService $evidenciaService,
+        private readonly CorrelacaoOrpCloroService $correlacaoService
     ) {}
 
     /**
@@ -128,19 +133,18 @@ class PlanoParagemPdfService
 
         // Dados de Sonda e Gráfico SVG
         $dadosSonda = $this->obterDadosSonda($encerramento);
+        $correlacaoOrp = $this->obterCorrelacaoOrp($encerramento);
         $graficoSvg = $dadosSonda['total_leituras'] > 0 ? $this->gerarGraficoSvg($dadosSonda, $encerramento) : null;
 
         // Eventos e candidatos forenses detetados
         $eventosSonda = [];
-        if ($this->evidenciaService !== null) {
-            $candidatos = $this->evidenciaService->candidatos($encerramento);
-            foreach ($candidatos as $tipo => $lista) {
-                foreach ($lista as $cand) {
-                    $eventosSonda[] = array_merge($cand, [
-                        'tipo' => $tipo,
-                        'tipo_label' => TrabalhoParagem::label($tipo),
-                    ]);
-                }
+        $candidatos = $this->evidenciaService->candidatos($encerramento);
+        foreach ($candidatos as $tipo => $lista) {
+            foreach ($lista as $cand) {
+                $eventosSonda[] = array_merge($cand, [
+                    'tipo' => $tipo,
+                    'tipo_label' => TrabalhoParagem::label($tipo),
+                ]);
             }
         }
 
@@ -154,6 +158,7 @@ class PlanoParagemPdfService
             'videosIndex' => $videosIndex,
             'documentosIndex' => $documentosIndex,
             'dadosSonda' => $dadosSonda,
+            'correlacaoOrp' => $correlacaoOrp,
             'graficoSvg' => $graficoSvg,
             'eventosSonda' => $eventosSonda,
             'emitidoEm' => Carbon::now(),
@@ -356,6 +361,23 @@ class PlanoParagemPdfService
         }
 
         return $documentos;
+    }
+
+    /**
+     * Correlacao local ORP vs cloro livre a DPD. A janela e maior do que a da
+     * paragem de proposito: os pares que validam a sonda vem da operacao
+     * normal, nao do regime de choque, onde o ORP satura.
+     *
+     * @return array<string, mixed>
+     */
+    private function obterCorrelacaoOrp(PoolClosure $encerramento): array
+    {
+        $piscina = $encerramento->piscina;
+
+        $ate = ($encerramento->fim ?? Carbon::now())->copy()->endOfDay();
+        $de = $encerramento->inicio->copy()->subDays(90)->startOfDay();
+
+        return $this->correlacaoService->analisar($piscina, $de, $ate);
     }
 
     /**

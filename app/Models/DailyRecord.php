@@ -16,6 +16,17 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * Os valores "efetivos" combinam o campo manual com o equivalente `ns_`
+ * preenchido pelo nadador-salvador. São accessors, não colunas — nunca os pôr
+ * num `select()`, que o PostgreSQL rebenta e o SQLite engole o erro.
+ *
+ * @property-read float|null $ph_efetivo
+ * @property-read float|null $cloro_livre_efetivo
+ * @property-read float|null $cloro_total_efetivo
+ * @property-read float|null $temperatura_efetivo
+ * @property-read float|null $cloro_combinado
+ */
 class DailyRecord extends Model
 {
     use HasFactory;

@@ -5,23 +5,20 @@
 <table class="tabela-dados">
     <thead>
         <tr>
-            <th style="width: 4%; text-align: center;">#</th>
-            <th style="width: {{ $mostrarExecucao ? '26%' : '44%' }};">Trabalho / Obrigação Técnica</th>
+            <th style="width: {{ $mostrarExecucao ? '30%' : '46%' }};">Trabalho / Obrigação Técnica</th>
             @if(!$mostrarExecucao)
-                <th style="width: 18%;">Data Prevista</th>
+                <th style="width: 20%;">Data Prevista</th>
                 <th style="width: 34%;">Observações / Âmbito</th>
             @else
-                <th style="width: 10%; text-align: center;">Origem</th>
-                <th style="width: 12%; text-align: center;">Estado</th>
-                <th style="width: 20%;">Execução & Técnico</th>
-                <th style="width: 28%;">Valores / Provas / Justificação</th>
+                <th style="width: 13%; text-align: center;">Estado</th>
+                <th style="width: 22%;">Execução & Técnico</th>
+                <th style="width: 35%;">Valores / Provas / Justificação</th>
             @endif
         </tr>
     </thead>
     <tbody>
         @forelse($trabalhos as $t)
-            <tr class="{{ $t->origem === \App\Constants\TrabalhoParagem::ORIGEM_INFERIDA ? 'linha-inferida' : '' }}">
-                <td style="text-align: center; font-weight: bold;">{{ $t->ordem }}</td>
+            <tr>
                 <td>
                     <strong>{{ $t->tipoLabel() }}</strong>
                     @if($t->obrigatorio)
@@ -40,11 +37,6 @@
                         {{ $t->observacoes ?? '—' }}
                     </td>
                 @else
-                    <td style="text-align: center;">
-                        <span class="badge" style="font-size: 6.5px; background: #e5e7eb; color: #374151;">
-                            {{ \App\Constants\TrabalhoParagem::origemLabel($t->origem) }}
-                        </span>
-                    </td>
                     <td style="text-align: center;">
                         @if($t->estado === \App\Constants\TrabalhoParagem::ESTADO_EXECUTADO)
                             <span class="badge badge-executado">Executado</span>
@@ -92,7 +84,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="{{ $mostrarExecucao ? 6 : 4 }}" style="text-align: center; color: #6b7280; padding: 12px;">
+                <td colspan="{{ $mostrarExecucao ? 4 : 3 }}" style="text-align: center; color: #6b7280; padding: 12px;">
                     Nenhum trabalho registado no plano.
                 </td>
             </tr>
