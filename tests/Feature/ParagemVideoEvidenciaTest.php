@@ -179,6 +179,28 @@ class ParagemVideoEvidenciaTest extends TestCase
         ])->assertTableActionVisible('verEvidencias', $tarefa->fresh());
     }
 
+    public function test_campo_de_video_avisa_para_gravar_em_1080p(): void
+    {
+        Storage::fake(DailyRecord::getStorageDisk());
+        [$closure, $tarefa, $admin] = $this->cenario();
+        $this->actingAs($admin);
+
+        $html = Livewire::test(TrabalhosRelationManager::class, [
+            'ownerRecord' => $closure,
+            'pageClass' => EditPoolClosure::class,
+        ])
+            ->mountTableAction('marcarExecutado', $tarefa)
+            ->assertHasNoTableActionErrors()
+            ->html();
+
+        // Em 4K um clipe de 15 s passa dos 60 MB e e recusado no upload. O
+        // aviso e a unica coisa que evita a filmagem perdida — se sair do
+        // formulario, este teste tem de rebentar.
+        $this->assertStringContainsString('Grave em 1080p, nao em 4K', str_replace('ã', 'a', $html));
+        $this->assertStringContainsString('1080p HD, 30 fps', $html);
+        $this->assertStringContainsString('Mais Compat', $html);
+    }
+
     public function test_modal_de_evidencias_reproduz_o_video_e_oferece_descarga(): void
     {
         Storage::fake(DailyRecord::getStorageDisk());

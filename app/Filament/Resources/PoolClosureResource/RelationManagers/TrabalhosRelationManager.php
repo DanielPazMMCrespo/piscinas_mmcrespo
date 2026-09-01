@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 class TrabalhosRelationManager extends RelationManager
 {
@@ -649,7 +650,14 @@ class TrabalhosRelationManager extends RelationManager
             // (depende da marca no cabecalho ftyp), nao `video/mp4`. Sem as duas
             // variantes na lista, um video legitimo do telemovel e recusado.
             ->acceptedFileTypes(['video/mp4', 'application/mp4', 'video/x-m4v', 'video/quicktime'])
-            ->helperText('Um clipe de 10 a 15 segundos, no máximo '.(int) (self::MAX_VIDEO_KB / 1024).' MB. No iPhone, grave em "Mais Compatível" (H.264) para o vídeo abrir em qualquer computador. O relatório em PDF não reproduz vídeo: fica referenciado como anexo, e vê-se aqui em "Evidências".')
+            ->helperText(new HtmlString(
+                '<strong>Grave em 1080p, não em 4K.</strong> Em 4K, 15 segundos passam dos '
+                .(int) (self::MAX_VIDEO_KB / 1024).' MB e o vídeo não chega a ser guardado.'
+                .'<br>No telemóvel: <strong>Definições &rarr; Câmara &rarr; Gravar Vídeo &rarr; «1080p HD, 30 fps»</strong>'
+                .' e <strong>Formatos &rarr; «Mais Compatível»</strong> (assim o vídeo também abre em qualquer computador).'
+                .'<br>Um clipe de 10 a 15 segundos, no máximo '.(int) (self::MAX_VIDEO_KB / 1024).' MB.'
+                .' O relatório em PDF não reproduz vídeo: fica lá referenciado como anexo, e vê-se aqui no botão «Evidências».'
+            ))
             ->columnSpanFull();
 
         // O boletim analitico so faz sentido na desinfecao de Legionella; nos
