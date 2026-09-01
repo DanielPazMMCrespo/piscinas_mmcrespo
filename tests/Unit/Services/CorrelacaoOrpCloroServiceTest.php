@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Models\DailyRecord;
+use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
@@ -27,7 +28,7 @@ class CorrelacaoOrpCloroServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new CorrelacaoOrpCloroService;
+        $this->service = app(CorrelacaoOrpCloroService::class);
         $this->piscina = Pool::factory()->create();
         $this->user = User::factory()->create();
     }
@@ -145,6 +146,54 @@ class CorrelacaoOrpCloroServiceTest extends TestCase
         $this->assertSame(4, $r['n']);
         $this->assertFalse($r['utilizavel']);
         $this->assertNull($this->service->estimarCloro($r, 725.0));
+    }
+
+    public function test_ignora_leitura_tirada_durante_lavagem_de_filtro(): void
+    {
+        $this->medicao('2026-08-10 10:00:00', 0.50, 650.0);
+        $this->medicao('2026-08-11 10:00:00', 1.00, 700.0);
+
+        // Leitura absurda tirada em plena lavagem: o ORP despenca porque a agua
+        // que passa na sonda nao e a da piscina. Sem a exclusao, este par
+        // sozinho destroi a correlacao.
+        OperationalAction::create([
+            'pool_id' => $this->piscina->id,
+            'user_id' => $this->user->id,
+            'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO,
+            'registado_em' => Carbon::parse('2026-08-12 09:55:00'),
+        ]);
+        $this->medicao('2026-08-12 10:00:00', 2.95, 297.0);
+
+        $r = $this->service->analisar($this->piscina, Carbon::parse('2026-08-01'), Carbon::parse('2026-08-31'));
+
+        $this->assertSame(2, $r['n']);
+        $this->assertSame([650.0, 700.0], array_column($r['pares'], 'orp'));
+    }
+
+    public function test_explica_que_o_problema_e_a_relacao_e_nao_o_numero_de_pares(): void
+    {
+        // Pares que chegam, relacao que nao existe.
+        $this->medicao('2026-08-10 10:00:00', 2.00, 650.0);
+        $this->medicao('2026-08-11 10:00:00', 0.40, 700.0);
+        $this->medicao('2026-08-12 10:00:00', 1.90, 750.0);
+        $this->medicao('2026-08-13 10:00:00', 0.50, 800.0);
+
+        $r = $this->service->analisar($this->piscina, Carbon::parse('2026-08-01'), Carbon::parse('2026-08-31'));
+
+        $this->assertFalse($r['utilizavel']);
+        // Dizer "amostra insuficiente" com 4+ pares seria mentira no relatorio.
+        $this->assertStringNotContainsString('suficientes', (string) $r['motivo_nao_validada']);
+        $this->assertStringContainsString('sem relação utilizável', (string) $r['motivo_nao_validada']);
+    }
+
+    public function test_explica_a_falta_de_pares_quando_a_amostra_e_pequena(): void
+    {
+        $this->medicao('2026-08-10 10:00:00', 0.50, 650.0);
+        $this->medicao('2026-08-11 10:00:00', 1.00, 700.0);
+
+        $r = $this->service->analisar($this->piscina, Carbon::parse('2026-08-01'), Carbon::parse('2026-08-31'));
+
+        $this->assertStringContainsString('pares suficientes', (string) $r['motivo_nao_validada']);
     }
 
     public function test_regista_a_gama_de_ph_dos_pares(): void

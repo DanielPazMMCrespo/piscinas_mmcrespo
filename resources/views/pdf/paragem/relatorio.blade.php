@@ -348,13 +348,15 @@
             @else
                 <div style="font-size: 7.5px; border-left: 3px solid #b45309; background: #fffbeb; padding: 5px 7px;">
                     <strong>Correlação não validada neste período.</strong>
-                    Pares ORP/DPD1 emparelhados: <strong>n = {{ $correlacaoOrp['n'] ?? 0 }}</strong>@if(($correlacaoOrp['r'] ?? null) !== null), r = {{ number_format((float) $correlacaoOrp['r'], 3, ',', '') }}@endif.
-                    Não há amostra suficiente para ancorar a leitura da sonda ao método de referência, pelo que o ORP é
-                    aqui apresentado apenas como indicador de poder oxidante e do tempo em que foi mantido. Os valores
-                    de cloro livre em mg/L constantes deste relatório provêm exclusivamente de medição manual a DPD1.
+                    Pares ORP/DPD1 emparelhados: <strong>n = {{ $correlacaoOrp['n'] ?? 0 }}</strong>@if(($correlacaoOrp['r'] ?? null) !== null), r = {{ number_format((float) $correlacaoOrp['r'], 3, ',', '') }}@endif@if($correlacaoOrp['ph_min'] !== null), com pH entre {{ number_format((float) $correlacaoOrp['ph_min'], 2, ',', '') }} e {{ number_format((float) $correlacaoOrp['ph_max'], 2, ',', '') }}@endif.
+                    @if(filled($correlacaoOrp['motivo_nao_validada'] ?? null))
+                        {{ $correlacaoOrp['motivo_nao_validada'] }}
+                    @endif
                     <br>
-                    <strong>Para validar a correlação</strong> basta registar a análise manual à mesma hora a que a
-                    sonda está a ler, em pelo menos 4 momentos com teores de cloro distintos.
+                    A leitura da sonda é por isso apresentada neste relatório apenas como indicador de
+                    <strong>poder oxidante e do tempo em que foi mantido</strong> — que é o parâmetro sanitariamente
+                    relevante e para o qual o ORP é o método próprio. Os valores de cloro livre em mg/L aqui constantes
+                    provêm exclusivamente de medição manual a DPD1.
                 </div>
             @endif
         </div>

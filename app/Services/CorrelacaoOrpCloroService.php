@@ -36,6 +36,10 @@ class CorrelacaoOrpCloroService
     /** Correlação fraca não se usa para estimar — só se reporta. */
     private const MIN_R = 0.7;
 
+    public function __construct(
+        private readonly LeituraArtefactoService $artefactoService
+    ) {}
+
     /**
      * Emparelha as medições manuais com a leitura de sonda mais próxima e
      * devolve a correlação resultante.
@@ -50,7 +54,8 @@ class CorrelacaoOrpCloroService
      *     ph_max: ?float,
      *     orp_min_par: ?float,
      *     orp_max_par: ?float,
-     *     utilizavel: bool
+     *     utilizavel: bool,
+     *     motivo_nao_validada: ?string
      * }
      */
     public function analisar(Pool $piscina, Carbon $de, Carbon $ate): array
@@ -77,7 +82,34 @@ class CorrelacaoOrpCloroService
             'orp_min_par' => $orps === [] ? null : min($orps),
             'orp_max_par' => $orps === [] ? null : max($orps),
             'utilizavel' => $n >= self::MIN_PARES && $r !== null && $r >= self::MIN_R && $declive !== null,
+            'motivo_nao_validada' => $this->motivoNaoValidada($n, $r),
         ];
+    }
+
+    /**
+     * Porque e que a correlacao nao serve. Dizer "amostra insuficiente" quando
+     * ha 66 pares e uma explicacao errada num documento legal: o problema ai
+     * nao e a quantidade, e a ausencia de relacao.
+     */
+    private function motivoNaoValidada(int $n, ?float $r): ?string
+    {
+        if ($n >= self::MIN_PARES && $r !== null && $r >= self::MIN_R) {
+            return null;
+        }
+
+        if ($n < self::MIN_PARES) {
+            return 'Não há pares suficientes: são precisos pelo menos '.self::MIN_PARES
+                .' momentos com análise manual feita à hora a que a sonda está a ler.';
+        }
+
+        if ($r === null) {
+            return 'Os pares não têm variação suficiente em ORP ou em cloro para se calcular uma relação.';
+        }
+
+        return 'Há pares em número bastante, mas sem relação utilizável entre as duas medidas (r = '
+            .number_format($r, 3, ',', '').'; exigido '.number_format(self::MIN_R, 1, ',', '')
+            .'). Tipicamente porque as leituras se concentram acima de 750 mV, onde a resposta do ORP satura, '
+            .'ou porque o pH variou demasiado no período — o ORP move-se com o pH.';
     }
 
     /**
@@ -199,6 +231,14 @@ class CorrelacaoOrpCloroService
                 ->first();
 
             if (! $leitura instanceof SensorReading) {
+                continue;
+            }
+
+            // Uma leitura tirada durante lavagem de filtro, bomba parada ou
+            // avaria declarada nao representa a agua da piscina. Emparelhar
+            // essa com uma analise manual injeta ruido puro na correlacao —
+            // e foi assim que apareceu um par de 297 mV com 2,95 mg/L.
+            if ($this->artefactoService->motivoEm($piscina->id, $leitura->lida_em) !== null) {
                 continue;
             }
 
