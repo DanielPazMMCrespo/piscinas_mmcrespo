@@ -645,7 +645,10 @@ class TrabalhosRelationManager extends RelationManager
             ->multiple()
             ->maxFiles(self::MAX_VIDEOS_POR_TRABALHO)
             ->maxSize(self::MAX_VIDEO_KB)
-            ->acceptedFileTypes(['video/mp4', 'video/quicktime'])
+            // O fileinfo do PHP devolve `application/mp4` para muitos MP4 reais
+            // (depende da marca no cabecalho ftyp), nao `video/mp4`. Sem as duas
+            // variantes na lista, um video legitimo do telemovel e recusado.
+            ->acceptedFileTypes(['video/mp4', 'application/mp4', 'video/x-m4v', 'video/quicktime'])
             ->helperText('Um clipe de 10 a 15 segundos, no máximo '.(int) (self::MAX_VIDEO_KB / 1024).' MB. No iPhone, grave em "Mais Compatível" (H.264) para o vídeo abrir em qualquer computador. O relatório em PDF não reproduz vídeo: fica referenciado como anexo, e vê-se aqui em "Evidências".')
             ->columnSpanFull();
 

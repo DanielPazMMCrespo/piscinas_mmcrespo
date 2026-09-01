@@ -65,7 +65,13 @@ return [
 
     'temporary_file_upload' => [
         'disk' => env('LIVEWIRE_TMP_DISK', 'local'),
-        'rules' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,pdf', 'max:20480'],
+        // Porta global de TODOS os uploads Livewire, aplicada antes de o
+        // ficheiro chegar ao campo. O que nao estiver aqui e recusado em
+        // silencio, por muito que o campo o aceite — foi o que aconteceu ao
+        // video de evidencia das paragens ate mp4/mov entrarem nesta lista.
+        // O tecto e o do maior campo (video, 60 MB); cada campo continua a
+        // impor o seu proprio maxSize (as fotos ficam nos 20 MB).
+        'rules' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,pdf,mp4,mov', 'max:61440'],
         'directory' => null,
         'middleware' => ['auth', 'throttle:10,1'],
         'preview_mimes' => [
