@@ -117,4 +117,24 @@ class TrabalhoParagemTest extends TestCase
 
         $this->assertSame([], TrabalhoParagem::acoesOperacionaisCompativeis(TrabalhoParagem::OUTRO));
     }
+
+    public function test_limpeza_do_circuito_reconhece_a_hipercloracao_e_a_lavagem_de_filtro(): void
+    {
+        // A limpeza do circuito e a hipercloracao seguida de lavagem prolongada.
+        // Sem este mapeamento o "Sugerir Evidencia" abre vazio e o tecnico
+        // preenche a mao um trabalho que ja esta registado nas acoes.
+        $compativeis = TrabalhoParagem::acoesOperacionaisCompativeis(TrabalhoParagem::LIMPEZA_CIRCUITO);
+
+        $this->assertContains('tratamento_choque', $compativeis);
+        $this->assertContains('lavagem_filtro', $compativeis);
+        $this->assertContains('enxaguamento_filtro', $compativeis);
+    }
+
+    public function test_legionella_nao_aceita_evidencia_de_acoes_operacionais(): void
+    {
+        // Prova-se com boletim de laboratorio acreditado, nao com o que se
+        // registou no terreno. Se algum dia isto deixar de ser vazio, o
+        // trabalho passa a poder fechar-se sem colheita.
+        $this->assertSame([], TrabalhoParagem::acoesOperacionaisCompativeis(TrabalhoParagem::DESINFECAO_LEGIONELLA));
+    }
 }

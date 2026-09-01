@@ -258,6 +258,17 @@ final class TrabalhoParagem
             self::LIMPEZA_CALEIRAS => ['limpeza_praias'],
             self::REPOSICAO_CLORO, self::VERIFICACAO_PARAMETROS => ['analise_pontual'],
             self::ENCHIMENTO_TANQUE => ['contador', 'torneira'],
+            // A limpeza do circuito e o mesmo ato fisico que a hipercloracao
+            // seguida de lavagem prolongada: a agua clorada desinfeta as
+            // condutas e a lavagem arrasta o que se soltou. Sao as mesmas
+            // acoes da supercloracao e dos filtros, com outro objetivo — a
+            // observacao da tarefa e que tem de dizer qual.
+            self::LIMPEZA_CIRCUITO => ['tratamento_choque', 'lavagem_filtro', 'enxaguamento_filtro'],
+            // Legionella fica DELIBERADAMENTE sem acoes compativeis: prova-se
+            // com o boletim de laboratorio acreditado, nao com o que se
+            // registou no terreno. Ligar aqui uma acao operacional daria a
+            // ideia de que o trabalho se pode fechar sem colheita.
+            self::DESINFECAO_LEGIONELLA => [],
             default => [],
         };
     }
