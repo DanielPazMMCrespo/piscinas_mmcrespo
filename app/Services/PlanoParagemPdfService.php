@@ -136,17 +136,11 @@ class PlanoParagemPdfService
         $correlacaoOrp = $this->obterCorrelacaoOrp($encerramento);
         $graficoSvg = $dadosSonda['total_leituras'] > 0 ? $this->gerarGraficoSvg($dadosSonda, $encerramento) : null;
 
-        // Eventos e candidatos forenses detetados
-        $eventosSonda = [];
-        $candidatos = $this->evidenciaService->candidatos($encerramento);
-        foreach ($candidatos as $tipo => $lista) {
-            foreach ($lista as $cand) {
-                $eventosSonda[] = array_merge($cand, [
-                    'tipo' => $tipo,
-                    'tipo_label' => TrabalhoParagem::label($tipo),
-                ]);
-            }
-        }
+        // Eventos e candidatos forenses detetados, agregados por tipo
+        $eventosSonda = $this->agruparEventosSonda(
+            $this->evidenciaService->candidatos($encerramento),
+            $encerramento
+        );
 
         return [
             'encerramento' => $encerramento,
@@ -164,6 +158,94 @@ class PlanoParagemPdfService
             'emitidoEm' => Carbon::now(),
             'emitidoPor' => $emitente !== null ? $emitente->name : auth()->user()?->name,
         ];
+    }
+
+    /**
+     * Uma linha por tipo de evento em vez de uma por ocorrência. A deteção
+     * dispara dezenas de vezes para o mesmo facto (14 rampas de aquecimento,
+     * 9 estabilizações de ORP) e a tabela repetida deixa de ser lida.
+     *
+     * A síntese do aquecimento não cita temperaturas: a amplitude por rampa
+     * inclui insolação e estabilização da sonda, logo o número não é atribuível
+     * ao sistema de aquecimento e não pode ser afirmado como tal.
+     *
+     * @param  array<string, array<int, array<string, mixed>>>  $candidatos
+     * @return array<int, array{tipo: string, tipo_label: string, ocorrencias: int, momento: Carbon, fim: ?Carbon, confianca: string, criterio: string}>
+     */
+    private function agruparEventosSonda(array $candidatos, PoolClosure $encerramento): array
+    {
+        $orpMin = (float) ($encerramento->piscina->orp_min ?? 650.0);
+        $orpMax = (float) ($encerramento->piscina->orp_max ?? 800.0);
+
+        $linhas = [];
+
+        foreach ($candidatos as $tipo => $lista) {
+            if ($lista === []) {
+                continue;
+            }
+
+            $inicio = null;
+            $fim = null;
+            $confianca = 'media';
+            $picoOrp = 0.0;
+            $horasContacto = 0.0;
+
+            foreach ($lista as $cand) {
+                $momento = $cand['momento'];
+                $termo = $cand['fim'] ?? $momento;
+
+                if ($inicio === null || $momento->lt($inicio)) {
+                    $inicio = $momento->copy();
+                }
+                if ($fim === null || $termo->gt($fim)) {
+                    $fim = $termo->copy();
+                }
+                if (($cand['confianca'] ?? '') === 'alta') {
+                    $confianca = 'alta';
+                }
+
+                $picoOrp = max($picoOrp, (float) ($cand['dados']['pico_orp'] ?? 0.0));
+                $horasContacto += (float) ($cand['dados']['duracao_horas'] ?? 0.0);
+            }
+
+            $ocorrencias = count($lista);
+
+            $criterio = match ($tipo) {
+                TrabalhoParagem::SUPERCLORACAO => sprintf(
+                    '%d excursão(ões) de ORP acima da banda regulamentar, num total de %.1f h de poder oxidante elevado. Pico máximo registado pela sonda: %.0f mV (banda de referência: %.0f–%.0f mV).',
+                    $ocorrencias,
+                    $horasContacto,
+                    $picoOrp,
+                    $orpMin,
+                    $orpMax
+                ),
+                TrabalhoParagem::ARRANQUE_AQUECIMENTO => sprintf(
+                    '%d rampas de subida sustentada da temperatura da água, compatíveis com o funcionamento do sistema de aquecimento. A amplitude de cada rampa não é aqui quantificada por incluir insolação e estabilização da própria sonda.',
+                    $ocorrencias
+                ),
+                TrabalhoParagem::REPOSICAO_CLORO => sprintf(
+                    '%d retorno(s) do ORP à banda regulamentar [%.0f–%.0f mV], cada um sustentado por 8 leituras consecutivas (2 h) após excursão.',
+                    $ocorrencias,
+                    $orpMin,
+                    $orpMax
+                ),
+                default => $ocorrencias === 1
+                    ? (string) $lista[0]['criterio']
+                    : sprintf('%d ocorrências detetadas. Critério: %s', $ocorrencias, $lista[0]['criterio']),
+            };
+
+            $linhas[] = [
+                'tipo' => $tipo,
+                'tipo_label' => TrabalhoParagem::label($tipo),
+                'ocorrencias' => $ocorrencias,
+                'momento' => $inicio,
+                'fim' => $fim,
+                'confianca' => $confianca,
+                'criterio' => $criterio,
+            ];
+        }
+
+        return $linhas;
     }
 
     /**

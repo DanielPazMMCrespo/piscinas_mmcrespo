@@ -34,7 +34,7 @@
                 <td class="label">Regime da Água</td>
                 <td>{{ $encerramento->agua_em_tratamento ? 'Água mantida em tratamento químico' : 'Tanque vazio / circuito parado' }}</td>
                 <td class="label">Observações</td>
-                <td>{{ $encerramento->observacoes ?? 'Sem observações registadas.' }}</td>
+                <td>{{ filled($encerramento->observacoes) ? 'Ver Anexo A.1 — Declarações do Responsável Técnico.' : 'Sem observações registadas.' }}</td>
             </tr>
         </table>
     </div>
@@ -87,9 +87,10 @@
                         <thead>
                             <tr>
                                 <th style="width: 20%;">Evento Detetado</th>
-                                <th style="width: 25%;">Momento / Intervalo</th>
-                                <th style="width: 15%; text-align: center;">Confiança</th>
-                                <th style="width: 40%;">Critério Físico / Leituras</th>
+                                <th style="width: 20%;">Intervalo Coberto</th>
+                                <th style="width: 8%; text-align: center;">Ocorr.</th>
+                                <th style="width: 10%; text-align: center;">Confiança</th>
+                                <th style="width: 42%;">Critério Físico / Leituras</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -97,11 +98,19 @@
                                 <tr>
                                     <td><strong>{{ $ev['tipo_label'] ?? $ev['tipo'] }}</strong></td>
                                     <td>
-                                        {{ $ev['momento']->format('d/m/Y H:i') }}
-                                        @if(isset($ev['fim']) && $ev['fim'])
-                                            a {{ $ev['fim']->format('d/m/Y H:i') }}
+                                        @if(($ev['ocorrencias'] ?? 1) > 1)
+                                            {{ $ev['momento']->format('d/m/Y') }}
+                                            @if(isset($ev['fim']) && $ev['fim'])
+                                                a {{ $ev['fim']->format('d/m/Y') }}
+                                            @endif
+                                        @else
+                                            {{ $ev['momento']->format('d/m/Y H:i') }}
+                                            @if(isset($ev['fim']) && $ev['fim'])
+                                                a {{ $ev['fim']->format('d/m/Y H:i') }}
+                                            @endif
                                         @endif
                                     </td>
+                                    <td style="text-align: center;">{{ $ev['ocorrencias'] ?? 1 }}</td>
                                     <td style="text-align: center;">
                                         <span class="badge" style="background: #e0f2fe; color: #0369a1;">{{ ucfirst($ev['confianca']) }}</span>
                                     </td>
@@ -262,6 +271,25 @@
                     @endforeach
                 </tbody>
             </table>
+            <p style="font-size: 7px; color: #4b5563; margin-top: 4px;">
+                As análises constantes deste anexo foram colhidas com a piscina encerrada ao público, em regime de manutenção
+                e sem carga de banhistas. Os valores de conformidade para utilização são os aferidos na verificação de
+                parâmetros pré-reabertura, constante do ponto 2 deste relatório.
+            </p>
+        </div>
+    @endif
+
+    {{-- 5.1 Declarações do responsável técnico (factos não instrumentados) --}}
+    @if(filled($encerramento->observacoes))
+        <div class="seccao" style="margin-top: 10px;">
+            <div class="seccao-titulo">Anexo A.1 — Declarações do Responsável Técnico</div>
+            <p style="font-size: 7px; color: #4b5563; margin-bottom: 4px;">
+                Operações executadas no período cujo registo não foi lançado na aplicação no momento da execução.
+                Constam aqui como declaração expressa do responsável técnico, sem suporte instrumental automático.
+            </p>
+            <div style="font-size: 8px; color: #111827; border-left: 2px solid #0284c7; padding-left: 6px;">
+                {!! nl2br(e($encerramento->observacoes)) !!}
+            </div>
         </div>
     @endif
 
