@@ -24,6 +24,17 @@
         'mostrar_nota_legal'
     ];
     $modo = $modo ?? 'todos';
+
+    // Termo de abertura/encerramento (Anexo III-b/c, CN 14/DA): só faz sentido
+    // para "um livro = uma piscina, um mês civil completo" — este relatório
+    // permite intervalos arbitrários e várias piscinas. A regra vive num único
+    // sítio (RelatorioPdf::termoLegalElegivel) para a view direta nos testes e
+    // o formulário nunca divergirem sobre o que conta como elegível.
+    $termoPedido = in_array('mostrar_termo_legal', $seccoesVisiveis, true);
+    $termoElegivel = \App\Filament\Pages\RelatorioPdf::termoLegalElegivel(count($seccoes), $inicio, $fim);
+    $mostrarTermo = $termoPedido && $termoElegivel;
+    $termoOmitidoPorPedidoInelegivel = $termoPedido && ! $termoElegivel;
+    $piscinaTermo = $mostrarTermo ? collect($seccoes)->first()['piscina'] : null;
 @endphp
 <!DOCTYPE html>
 <html lang="pt">
@@ -195,6 +206,41 @@
             border-top: 0.5px solid #000;
             padding-top: 4px;
         }
+
+        /* Termo de abertura/encerramento (Anexo III-b/c, CN 14/DA) */
+        .termo-legal {
+            border: 1px solid #000;
+            padding: 10px 14px;
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        .termo-legal h3 {
+            text-align: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            text-decoration: underline;
+            margin: 0 0 8px 0;
+        }
+        .termo-legal p { margin: 0 0 6px 0; }
+
+        table.assinaturas-termo {
+            width: 100%;
+            margin-top: 26px;
+            border-collapse: collapse;
+        }
+        table.assinaturas-termo td {
+            width: 33.33%;
+            padding: 0 10px;
+            text-align: center;
+            vertical-align: bottom;
+        }
+        table.assinaturas-termo .linha {
+            border-top: 1px solid #000;
+            margin-top: 30px;
+            padding-top: 3px;
+            font-size: 8px;
+        }
+        table.assinaturas-termo .data-assinatura { font-size: 7px; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -219,6 +265,37 @@
             </div>
         </div>
     </div>
+
+    @if ($mostrarTermo)
+        <div class="termo-legal">
+            <h3>Termo de Abertura</h3>
+            <p>
+                Este livro, com folhas numeradas, destina-se ao registo diário do controlo analítico e
+                operacional da piscina <strong>{{ $piscinaTermo->name }}</strong>, da instalação
+                <strong>{{ $instalacao->name }}</strong>, referente ao mês de
+                <strong>{{ $inicio->translatedFormat('F Y') }}</strong>, nos termos da Circular Normativa
+                n.º 14/DA da Direção-Geral da Saúde (Anexo III-b).
+            </p>
+            <p>Data de abertura: <strong>{{ $inicio->format('d/m/Y') }}</strong></p>
+            <table class="assinaturas-termo">
+                <tr>
+                    <td>
+                        <div class="linha">Responsável Técnico</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                    <td>
+                        <div class="linha">Diretor de Instalação</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                    <td>
+                        <div class="linha">Delegado de Saúde (rubrica)</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div class="quebra"></div>
+    @endif
 
     @foreach ($seccoes as $indice => $seccao)
         @php
@@ -1017,6 +1094,47 @@
         Registo conforme CN 14/DA (DGS 2009), NP 4542:2017 e DR 5/97.
         Documento gerado eletronicamente pela aplicação de gestão operacional MMCrespo em {{ $emitidoEm->format('d/m/Y H:i') }}.
     </p>
+    @endif
+
+    @if ($termoOmitidoPorPedidoInelegivel)
+    <p class="nota-legal">
+        Termo de abertura/encerramento não impresso: só é emitido para um período de exatamente um mês
+        civil completo e uma única piscina (Anexo III-b/c, CN 14/DA). Este relatório abrange
+        {{ $inicio->format('d/m/Y') }} a {{ $fim->format('d/m/Y') }}
+        @if (count($seccoes) !== 1)
+            para {{ count($seccoes) }} piscinas
+        @endif
+        .
+    </p>
+    @endif
+
+    @if ($mostrarTermo)
+        <div class="termo-legal quebra">
+            <h3>Termo de Encerramento</h3>
+            <p>
+                Encerra-se o presente livro, referente à piscina <strong>{{ $piscinaTermo->name }}</strong>
+                e ao mês de <strong>{{ $inicio->translatedFormat('F Y') }}</strong>, tendo sido devidamente
+                preenchido e verificado nos termos da Circular Normativa n.º 14/DA (Anexo III-c). Eventuais
+                anomalias constam nas observações e nas ações operacionais registadas nas secções anteriores.
+            </p>
+            <p>Data de encerramento: <strong>{{ $fim->format('d/m/Y') }}</strong></p>
+            <table class="assinaturas-termo">
+                <tr>
+                    <td>
+                        <div class="linha">Responsável Técnico</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                    <td>
+                        <div class="linha">Diretor de Instalação</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                    <td>
+                        <div class="linha">Delegado de Saúde (rubrica)</div>
+                        <div class="data-assinatura">Data: ____ / ____ / ________</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
     @endif
 
 </body>

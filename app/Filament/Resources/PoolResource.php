@@ -6,7 +6,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
-use App\Services\DgsPdfReportService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists;
@@ -16,7 +15,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 
 class PoolResource extends Resource
 {
@@ -235,27 +233,15 @@ class PoolResource extends Resource
             ->filters([
                 //
             ])
+            // A ação "Livro Sanitário (PDF)" saiu daqui. Gerava o mesmo documento
+            // legal por um segundo caminho, com um serviço próprio, mas sem excluir
+            // registos corrigidos nem saber de encerramentos: contava duas vezes
+            // um registo que fora corrigido e imprimia leituras de dias em que a
+            // piscina estava fechada. Dois geradores para um documento legal são
+            // um problema por si — não se sabe qual é o autoritativo.
+            // O livro sanitário faz-se em Gestão → Relatórios PDF, que já leva o
+            // termo de abertura/encerramento (Anexo III-b/c) portado para lá.
             ->actions([
-                Tables\Actions\Action::make('livro_sanitario')
-                    ->label('Livro Sanitário (PDF)')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->form([
-                        Forms\Components\DatePicker::make('month')
-                            ->label('Mês Referência')
-                            ->default(now())
-                            ->displayFormat('m/Y')
-                            ->native(false)
-                            ->required(),
-                    ])
-                    ->action(function (Pool $record, array $data, DgsPdfReportService $pdfService) {
-                        $date = Carbon::parse($data['month']);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdfService->generateMonthlyReport($record, $date)->output()),
-                            "livro_sanitario_{$record->id}_{$date->format('Y_m')}.pdf"
-                        );
-                    }),
                 Tables\Actions\ViewAction::make()->slideOver(),
                 Tables\Actions\EditAction::make()->slideOver(),
             ])

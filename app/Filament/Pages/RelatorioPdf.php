@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\LeituraArtefactoService;
 use App\Support\PdfRenderer;
 use Carbon\Carbon;
+use Dompdf\Dompdf;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\CheckboxList;
@@ -165,6 +166,54 @@ class RelatorioPdf extends Page implements HasForms
 
         return $registos->count().' registo(s) no período · '
             .($foraLimites > 0 ? $foraLimites.' fora dos limites CN 14/DA' : 'todos conformes');
+    }
+
+    /**
+     * O termo de abertura/encerramento (Anexo III-b/c, CN 14/DA) só faz sentido
+     * para "um livro = uma piscina, um mês civil completo": este relatório
+     * permite intervalos arbitrários e várias piscinas ao mesmo tempo. Público
+     * e usado também pela blade (`pdf.livro-sanitario`), que renderiza a view
+     * diretamente nos testes sem passar por `exportar()` — um único sítio para
+     * a regra não divergir entre o formulário e a view.
+     */
+    public static function termoLegalElegivel(int $numPiscinas, Carbon $inicio, Carbon $fim): bool
+    {
+        if ($numPiscinas !== 1) {
+            return false;
+        }
+
+        return $inicio->isSameDay($inicio->copy()->startOfMonth())
+            && $fim->isSameDay($inicio->copy()->endOfMonth());
+    }
+
+    /**
+     * O termo de abertura E o de encerramento têm de declarar o número de
+     * páginas do livro (Anexo III-b/c). O total só se conhece depois do
+     * layout completo — o script PHP inline do dompdf está desativado por
+     * segurança, por isso não pode vir da blade (ver App\Support\PdfRenderer).
+     * Escreve-se via page_script(), o mesmo mecanismo que já numera "Página X
+     * de Y" no rodapé; regista-se DEPOIS de PdfRenderer::render() já ter
+     * corrido o layout, tal como aquele já faz. Fica na margem esquerda para
+     * não colidir com a numeração "Página X de Y", que fica na direita.
+     */
+    private static function assinarNumeroPaginasTermo(Dompdf $domPdf): void
+    {
+        $canvas = $domPdf->getCanvas();
+
+        $canvas->page_script(function (int $paginaAtual, int $totalPaginas, $canvas, $fontMetrics): void {
+            if ($paginaAtual !== 1 && $paginaAtual !== $totalPaginas) {
+                return;
+            }
+
+            $canvas->text(
+                36,
+                $canvas->get_height() - 26,
+                "Livro constituído por {$totalPaginas} páginas numeradas (CN 14/DA).",
+                $fontMetrics->getFont('DejaVu Sans'),
+                8,
+                [0, 0, 0]
+            );
+        });
     }
 
     public function form(Form $form): Form
@@ -336,6 +385,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_acoes_operacionais' => 'Ações operacionais (torneira, filtro, contador, etc.)',
                                 'mostrar_assinaturas' => 'Área de assinaturas',
                                 'mostrar_nota_legal' => 'Nota legal de rodapé',
+                                'mostrar_termo_legal' => 'Termo de abertura/encerramento (Anexo III-b/c, CN 14/DA) — só com 1 piscina e um mês civil completo',
                             ])
                             ->columns(1)
                             ->live(),
@@ -432,6 +482,11 @@ class RelatorioPdf extends Page implements HasForms
             'modo' => $estado['registo_modo'] ?? 'todos',
             'controladorModo' => $modoControlador,
         ]);
+
+        $termoPedido = in_array('mostrar_termo_legal', $seccoesVisiveis, true);
+        if ($termoPedido && self::termoLegalElegivel($piscinas->count(), $inicio, $fim)) {
+            self::assinarNumeroPaginasTermo($domPdf);
+        }
 
         $nomePiscina = $todas ? 'todas' : Str::slug((string) $piscinas->first()?->name);
         $nomeFicheiro = sprintf(
