@@ -23,6 +23,15 @@ class FireDueTimersCommand extends Command
 
     protected $description = 'Dispara notificações push dos timers de retrolavagem vencidos';
 
+    /**
+     * Um push de timer só vale nos minutos em volta do evento. Passado este
+     * atraso, "a lavagem acabou" já não ajuda ninguém e é o aviso que faz a
+     * equipa achar que a app está avariada — acontece quando o registo nunca
+     * foi gravado, ou quando o container esteve em baixo na altura de disparar.
+     * Nesse caso o timer é dado como cancelado, sem notificação.
+     */
+    public const TOLERANCIA_ATRASO_MIN = 15;
+
     public function handle(): int
     {
         $deadline = Carbon::now()->addSeconds((int) $this->option('max-time'));
@@ -43,18 +52,27 @@ class FireDueTimersCommand extends Command
 
     private function dispararVencidos(): void
     {
+        $agora = Carbon::now();
+        $limiteAtraso = $agora->copy()->subMinutes(self::TOLERANCIA_ATRASO_MIN);
+
         TimerPush::query()
             ->whereNull('sent_at')
             ->whereNull('cancelled_at')
-            ->where('fire_at', '<=', Carbon::now())
+            ->where('fire_at', '<=', $agora)
             ->with(['user', 'pool'])
             ->get()
-            ->each(function (TimerPush $timer): void {
+            ->each(function (TimerPush $timer) use ($agora, $limiteAtraso): void {
+                if ($timer->fire_at->lessThan($limiteAtraso)) {
+                    $timer->update(['cancelled_at' => $agora]);
+
+                    return;
+                }
+
                 $timer->user?->notify(
                     new TimerFinishedNotification($timer->fase, $timer->pool?->name)
                 );
 
-                $timer->update(['sent_at' => Carbon::now()]);
+                $timer->update(['sent_at' => $agora]);
             });
     }
 }

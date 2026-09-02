@@ -7,6 +7,55 @@ import GLightbox from 'glightbox';
 // terceiros carregados em todas as páginas, mesmo nas que não têm fotos.
 window.GLightbox = GLightbox;
 
+// --- Chaves do timer de retrolavagem -------------------------------------
+// Fonte única. Declaradas como function para ficarem içadas: são usadas em
+// componentes Alpine registados acima do sítio onde estariam num const.
+//
+// Duas coisas que estas funções resolvem:
+//
+// 1. A chave inclui o utilizador. Sem isso, num browser partilhado (o portátil
+//    da instalação) o técnico seguinte via o timer do anterior.
+// 2. O timer é carimbado com o rascunho a que pertence. Um timer cujo rascunho
+//    já não existe é órfão: fechar o separador sem gravar deixava a barra presa
+//    em cima da topbar, a tapar o botão da sidebar, em todas as páginas.
+
+const MMC_TIMER_PREFIXO = 'mmc_timer_';
+
+// Folga entre iniciar um timer e o autosave do rascunho gravar. O autosave tem
+// debounce de 400 ms; 15 s é folgado sem chegar perto do problema que isto
+// resolve (a barra presa durante meia hora).
+const MMC_TIMER_GRACA_MS = 15000;
+
+function mmcUserId() {
+    return String(window.__userId ?? 'anon');
+}
+
+function mmcDraftKey() {
+    return 'daily_record_form_draft_' + mmcUserId();
+}
+
+function mmcTimerStorageKey(statePath) {
+    return MMC_TIMER_PREFIXO + mmcUserId() + '_' + statePath;
+}
+
+/**
+ * Extrai o statePath de uma chave de timer, aceitando as chaves antigas
+ * (sem utilizador) que já estão gravadas nos browsers da equipa.
+ * Devolve null quando a chave pertence a outro utilizador.
+ */
+function mmcTimerStatePath(key) {
+    const resto = key.slice(MMC_TIMER_PREFIXO.length);
+    const meu = mmcUserId() + '_';
+
+    if (resto.startsWith(meu)) {
+        return resto.slice(meu.length);
+    }
+
+    // Chave antiga: começa direto em "pools.". Trata-se como nossa uma única
+    // vez, para o mecanismo de órfão a poder limpar em vez de a deixar presa.
+    return resto.startsWith('pools.') ? resto : null;
+}
+
 // Notificação de timers de retrolavagem expirados. Registado em livewire:init:
 // no momento do import o Livewire ainda não existe, e o guard silencioso que
 // aqui estava fazia com que o listener nunca chegasse a ser registado.
@@ -428,6 +477,7 @@ document.addEventListener('alpine:init', () => {
         fase: null,
         alertado: false,
         endTime: null,
+        startedAt: null,
         _onVisibilityChange: null,
 
         // Deriva pool e fase do statePath (ex.: data.pools.4.timer_lavagem) para
@@ -494,7 +544,7 @@ document.addEventListener('alpine:init', () => {
 
         init() {
             this.parseContexto();
-            const storageKey = 'mmc_timer_' + this.statePath;
+            const storageKey = mmcTimerStorageKey(this.statePath);
             const saved = localStorage.getItem(storageKey);
 
             if (saved) {
@@ -505,6 +555,7 @@ document.addEventListener('alpine:init', () => {
 
                     if (this.isRunning && data.endTime) {
                         this.endTime = data.endTime;
+                        this.startedAt = data.startedAt ?? null;
                         this.remainingSeconds = Math.round((this.endTime - Date.now()) / 1000);
                         this.startTimer();
                     } else {
@@ -535,11 +586,19 @@ document.addEventListener('alpine:init', () => {
         },
 
         saveState() {
-            const storageKey = 'mmc_timer_' + this.statePath;
+            const storageKey = mmcTimerStorageKey(this.statePath);
             const data = {
                 initialSeconds: this.initialSeconds,
                 remainingSeconds: this.remainingSeconds,
-                isRunning: this.isRunning
+                isRunning: this.isRunning,
+                // Carimbo do rascunho a que este timer pertence. Sem ele o timer
+                // sobrevive ao registo que o criou: fechar o separador sem gravar
+                // deixava a barra presa em toda a app durante meia hora.
+                formKey: mmcDraftKey(),
+                // Instante de arranque, para o período de graça da deteção de
+                // órfão. O autosave do rascunho tem debounce; sem isto um timer
+                // iniciado antes da primeira gravação seria morto ao segundo.
+                startedAt: this.startedAt ?? null,
             };
             if (this.isRunning) {
                 data.endTime = this.endTime;
@@ -557,6 +616,7 @@ document.addEventListener('alpine:init', () => {
 
         startTimer() {
             if (this.isRunning && this.timer) return;
+            this.startedAt ??= Date.now();
             this.isRunning = true;
             // Só recalcula endTime se ainda não vier de uma restauração (init()) —
             // caso contrário perderíamos o instante de fim já persistido.
@@ -592,6 +652,7 @@ document.addEventListener('alpine:init', () => {
             this.pauseTimer();
             this.remainingSeconds = this.initialSeconds;
             this.alertado = false;
+            this.startedAt = null;
         },
         
         adjustTime(seconds) {
@@ -633,10 +694,17 @@ document.addEventListener('alpine:init', () => {
         refresh() {
             const ativos = [];
             const keysParaRemover = [];
+            const orfaosParaCancelar = [];
+            const rascunhoVivo = localStorage.getItem(mmcDraftKey()) !== null;
 
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (!key || !key.startsWith('mmc_timer_')) continue;
+                if (!key || !key.startsWith(MMC_TIMER_PREFIXO)) continue;
+
+                const statePath = mmcTimerStatePath(key);
+                // Chave de outro utilizador do mesmo browser: não é nossa para
+                // mostrar nem para apagar.
+                if (statePath === null) continue;
 
                 let data;
                 try {
@@ -646,12 +714,34 @@ document.addEventListener('alpine:init', () => {
                 }
                 if (!data || !data.isRunning || !data.endTime) continue;
 
-                const statePath = key.replace('mmc_timer_', '');
                 const match = statePath.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
                 const poolId = match ? parseInt(match[1], 10) : null;
                 const fase = match ? match[2] : (statePath.match(/timer_(lavagem|enxaguamento)/) || [])[1];
                 const remainingSeconds = Math.round((data.endTime - Date.now()) / 1000);
                 const tempoExcedido = remainingSeconds < 0 ? Math.abs(remainingSeconds) : 0;
+
+                // Timer órfão: o rascunho que o criou já não existe, logo o
+                // registo diário nunca vai ser gravado e este timer não tem
+                // dono. Sem isto a barra ficava presa em cima da topbar em
+                // todas as páginas até meia hora depois de o timer esgotar.
+                //
+                // O carimbo `formKey` só existe em timers gravados depois desta
+                // correção; uma chave antiga sem carimbo é órfã se não houver
+                // rascunho nenhum, e caso contrário assume-se do rascunho atual.
+                const rascunhoDoTimer = data.formKey ?? (rascunhoVivo ? mmcDraftKey() : null);
+                const semRascunho = rascunhoDoTimer === null
+                    || localStorage.getItem(rascunhoDoTimer) === null;
+                const foraDaGraca = data.startedAt === null
+                    || data.startedAt === undefined
+                    || (Date.now() - data.startedAt) > MMC_TIMER_GRACA_MS;
+
+                if (semRascunho && foraDaGraca) {
+                    keysParaRemover.push(key);
+                    if (poolId) {
+                        orfaosParaCancelar.push({ poolId, fase });
+                    }
+                    continue;
+                }
 
                 // Se ultrapassou 30 min, remove automaticamente e envia notificação uma única vez
                 if (tempoExcedido > 1800) {
@@ -680,6 +770,13 @@ document.addEventListener('alpine:init', () => {
 
             // Remove timers expirados após iteração (evita problemas com índices)
             keysParaRemover.forEach(key => localStorage.removeItem(key));
+
+            // Um timer órfão também tem um TimerPush no servidor à espera de
+            // disparar. Cancelar aqui evita a notificação de um registo que
+            // nunca existiu.
+            orfaosParaCancelar.forEach(({ poolId, fase }) => {
+                window.mmcPush?.cancelarTimer(poolId, fase);
+            });
 
             ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
             this.timers = ativos;
@@ -1583,8 +1680,10 @@ const DRAFT_TTL_MS = 45 * 60 * 1000;
 const clearDraftState = async (formKey) => {
     localStorage.removeItem(formKey);
     localStorage.removeItem('mmc_restore_draft_on_load');
+    // Só os timers deste utilizador: num browser partilhado apagar todos
+    // matava o timer de quem estava a trabalhar noutra sessão.
     Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('mmc_timer_')) {
+        if (key.startsWith(MMC_TIMER_PREFIXO) && mmcTimerStatePath(key) !== null) {
             localStorage.removeItem(key);
         }
     });
