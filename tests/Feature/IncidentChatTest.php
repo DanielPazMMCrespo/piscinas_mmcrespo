@@ -12,6 +12,7 @@ use App\Filament\Widgets\IncidentChatWidget;
 use App\Models\Incident;
 use App\Models\IncidentMessage;
 use App\Models\Installation;
+use App\Models\Pool;
 use App\Models\User;
 use App\Notifications\IncidentCreatedNotification;
 use App\Notifications\IncidentMessageNotification;
@@ -47,6 +48,21 @@ class IncidentChatTest extends TestCase
         $admin->assignRole(UserRole::ADMIN);
         $tecnico = User::factory()->create();
         $tecnico->assignRole(UserRole::TECNICO);
+
+        // O NS tem de ter uma piscina atribuída nesta instalação. Sem isso, a
+        // guarda em Incident::creating() recusa — e está certa: um NS sem
+        // piscina nenhuma não tem onde reportar um incidente. O cenário antigo
+        // (NS sem piscinas, instalação sem piscinas) não existe no terreno.
+        $piscina = Pool::create([
+            'installation_id' => $inst->id,
+            'name' => 'Competição',
+            'type' => 'Interior',
+            'temp_min' => 26.0,
+            'temp_max' => 27.0,
+            'volume' => 900.0,
+            'active' => true,
+        ]);
+        $ns->piscinas()->attach($piscina->id);
 
         $this->actingAs($ns);
 
