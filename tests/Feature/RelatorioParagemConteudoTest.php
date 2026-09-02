@@ -173,6 +173,80 @@ class RelatorioParagemConteudoTest extends TestCase
         $this->assertStringNotContainsString('Correlação validada.', $html);
     }
 
+    public function test_eventos_de_sonda_saem_agregados_por_tipo_e_sem_temperaturas(): void
+    {
+        [$closure, $admin, $piscina] = $this->cenario();
+
+        // Tres rampas de aquecimento em dias diferentes: +0.6 C/h durante 6 h.
+        foreach (['2026-08-11', '2026-08-13', '2026-08-15'] as $dia) {
+            for ($h = 0; $h <= 6; $h++) {
+                SensorReading::create([
+                    'pool_id' => $piscina->id,
+                    'hanna_device_id' => 'DEV-AQ',
+                    'lida_em' => Carbon::parse($dia)->setTime(6 + $h, 0),
+                    'temperatura_agua' => 22.0 + ($h * 0.6),
+                    'temperatura_ar' => 20.0,
+                    'orp' => 700,
+                ]);
+            }
+            // Arrefecimento nocturno, para as rampas nao se colarem umas as outras.
+            for ($h = 0; $h <= 5; $h++) {
+                SensorReading::create([
+                    'pool_id' => $piscina->id,
+                    'hanna_device_id' => 'DEV-AQ',
+                    'lida_em' => Carbon::parse($dia)->setTime(14 + $h, 0),
+                    'temperatura_agua' => 25.6 - ($h * 0.7),
+                    'temperatura_ar' => 20.0,
+                    'orp' => 700,
+                ]);
+            }
+        }
+
+        $dados = app(PlanoParagemPdfService::class)->prepararDadosRelatorio($closure, $admin);
+        $html = view('pdf.paragem.relatorio', $dados)->render();
+
+        $aquecimento = collect($dados['eventosSonda'])
+            ->firstWhere('tipo', TrabalhoParagem::ARRANQUE_AQUECIMENTO);
+
+        $this->assertNotNull($aquecimento, 'As rampas de aquecimento deviam ter sido detetadas.');
+
+        // Uma linha por tipo, nao uma por ocorrencia.
+        $this->assertSame(
+            1,
+            collect($dados['eventosSonda'])->where('tipo', TrabalhoParagem::ARRANQUE_AQUECIMENTO)->count()
+        );
+        $this->assertGreaterThan(1, $aquecimento['ocorrencias']);
+        $this->assertStringContainsString(
+            $aquecimento['ocorrencias'].' rampas de subida sustentada',
+            $html
+        );
+
+        // A amplitude por rampa mistura insolacao e deriva da sonda: nao se afirma
+        // como sendo do aquecedor num documento legal.
+        $this->assertStringNotContainsString('Subida térmica da água de', $html);
+        $this->assertStringContainsString('rampas de subida sustentada da temperatura da água', $html);
+    }
+
+    public function test_declaracoes_do_responsavel_saem_separadas_da_prova_instrumental(): void
+    {
+        [$closure, $admin] = $this->cenario();
+
+        $closure->update([
+            'observacoes' => "A partir de 25/08 os filtros foram lavados diariamente.\nSegunda linha.",
+        ]);
+
+        $dados = app(PlanoParagemPdfService::class)->prepararDadosRelatorio($closure->fresh(), $admin);
+        $html = view('pdf.paragem.relatorio', $dados)->render();
+
+        $this->assertStringContainsString('Anexo A.1 — Declarações do Responsável Técnico', $html);
+        $this->assertStringContainsString('sem suporte instrumental automático', $html);
+        $this->assertStringContainsString('os filtros foram lavados diariamente', $html);
+
+        // O texto nao pode ficar espremido na celula de Observacoes do ponto 1.
+        $this->assertStringContainsString('Ver Anexo A.1', $html);
+        $this->assertSame(1, substr_count($html, 'os filtros foram lavados diariamente'));
+    }
+
     public function test_sugerir_evidencia_nao_marca_executado_quando_nao_ha_evidencia(): void
     {
         [$closure, $admin] = $this->cenario();
