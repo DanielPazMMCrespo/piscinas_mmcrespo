@@ -35,6 +35,10 @@ function mmcDraftKey() {
     return 'daily_record_form_draft_' + mmcUserId();
 }
 
+function mmcOperationalActionDraftKey() {
+    return 'operational_action_form_draft_' + mmcUserId();
+}
+
 function mmcTimerStorageKey(statePath) {
     return MMC_TIMER_PREFIXO + mmcUserId() + '_' + statePath;
 }
@@ -2010,7 +2014,7 @@ const mmcSetup = () => {
         else if (window.location.pathname.includes('/operational-actions/create') && (btn.innerText.includes('Criar') || btn.innerText.includes('Confirmar e guardar'))) {
             e.preventDefault();
             e.stopPropagation();
-            const formKey = 'operational_action_form_draft_' + (window.__userId ?? 'anon');
+            const formKey = mmcOperationalActionDraftKey();
             const draftStr = localStorage.getItem(formKey);
             if (draftStr) {
                 try {
@@ -2054,7 +2058,7 @@ document.addEventListener('livewire:init', () => {
             });
         } else if (component && component.name && component.name.includes('create-operational-action')) {
             respond(() => {
-                const formKey = 'operational_action_form_draft_' + (window.__userId ?? 'anon');
+                const formKey = mmcOperationalActionDraftKey();
                 try {
                     const currentData = component.get('data');
                     if (currentData) {
@@ -2073,6 +2077,17 @@ document.addEventListener('livewire:init', () => {
         const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');
         await clearDraftState(formKey);
         window.mmcPush?.cancelarTodosTimers();
+    });
+
+    // Idem para Ações Operacionais: sem isto o rascunho da última ação gravada
+    // ficava em localStorage e podia ser reenviado como duplicado pelo
+    // interceptor offline (ver CLAUDE.md, "estado preso" BUG-07). Só limpa a
+    // própria chave — ao contrário do registo diário, não há timers nem fotos
+    // em IndexedDB associados a uma ação operacional.
+    Livewire.on('operationalActionSaved', async () => {
+        const formKey = mmcOperationalActionDraftKey();
+        localStorage.removeItem(formKey);
+        await deleteDraftFromDB(formKey);
     });
 });
 

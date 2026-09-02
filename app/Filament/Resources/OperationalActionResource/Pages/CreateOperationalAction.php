@@ -51,6 +51,15 @@ class CreateOperationalAction extends CreateRecord
         return 'Ação registada';
     }
 
+    // Sinal para o app.js limpar o rascunho de localStorage — sem isto o
+    // rascunho da última ação gravada ficava para trás e podia ser reenviado
+    // como duplicado pelo interceptor offline (ver CLAUDE.md, "estado preso"
+    // BUG-07).
+    protected function afterCreate(): void
+    {
+        $this->dispatch('operationalActionSaved');
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

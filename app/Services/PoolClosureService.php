@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Constants\MotivoEncerramento;
+use App\Constants\TrabalhoParagem;
 use App\Constants\UserRole;
 use App\Models\AlertState;
 use App\Models\Pool;
 use App\Models\PoolClosure;
+use App\Models\PoolClosureTask;
 use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\PiscinaEncerradaNotification;
@@ -120,6 +122,23 @@ class PoolClosureService
 
         if ($encerramento === null) {
             throw new \DomainException("{$piscina->nome_completo} não está encerrada nesta data.");
+        }
+
+        // O plano de trabalhos da paragem (PoolClosureTask) é gerido por um
+        // serviço à parte (PlanoParagemService) e não tem dono na reabertura —
+        // sem este bloqueio, uma tarefa legal obrigatória ficava "em_curso"
+        // para sempre, sem aviso nenhum (ver CLAUDE.md, "estado preso" BUG-05).
+        $trabalhosEmFalta = PoolClosureTask::query()
+            ->where('pool_closure_id', $encerramento->id)
+            ->obrigatoriosEmFalta()
+            ->pluck('tipo');
+
+        if ($trabalhosEmFalta->isNotEmpty()) {
+            $nomes = $trabalhosEmFalta->map(fn (string $tipo) => TrabalhoParagem::label($tipo))->implode(', ');
+
+            throw new \DomainException(
+                "Há trabalhos obrigatórios do plano de paragem por terminar ou justificar: {$nomes}."
+            );
         }
 
         return DB::transaction(function () use ($encerramento, $reabertura, $utilizador): ?PoolClosure {

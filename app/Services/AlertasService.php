@@ -204,7 +204,11 @@ class AlertasService
                 $violacoes = $this->violacoesLegais($registo);
 
                 if ($violacoes !== []) {
-                    $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
+                    // Chave por piscina+data, não por id do registo: uma correção
+                    // append-only cria um DailyRecord novo com id diferente e faria
+                    // o alerta "ressuscitar" como pendente mesmo já tratado (ver
+                    // CLAUDE.md, "estado preso" BUG-04).
+                    $alertas[AlertType::FORA_LIMITES."|{$piscina->id}|{$registo->registado_em->toDateString()}"] = [
                         'nivel' => AlertLevel::VERMELHO,
                         'icone' => 'heroicon-o-beaker',
                         'titulo' => "{$piscina->nome_completo}: parâmetros fora dos limites CN 14/DA",
@@ -345,8 +349,13 @@ class AlertasService
             $violacoes = $this->violacoesLegais($registo);
             $violacaoTemp = $this->violacaoTemperatura($registo);
 
+            // Chave por piscina+data, não por id do registo: uma correção append-only
+            // cria um DailyRecord novo com id diferente e faria o alerta "ressuscitar"
+            // como pendente mesmo já tratado (ver CLAUDE.md, "estado preso" BUG-04).
+            $chaveDia = $piscina->id.'|'.$registo->registado_em->toDateString();
+
             if ($violacoes !== []) {
-                $alertas[AlertType::FORA_LIMITES."|{$registo->id}"] = [
+                $alertas[AlertType::FORA_LIMITES."|{$chaveDia}"] = [
                     'nivel' => AlertLevel::VERMELHO,
                     'icone' => 'heroicon-o-beaker',
                     'titulo' => "{$nome}: parâmetros fora dos limites CN 14/DA",
@@ -358,7 +367,7 @@ class AlertasService
             }
 
             if ($violacaoTemp !== null) {
-                $alertas[AlertType::TEMPERATURA."|{$registo->id}"] = [
+                $alertas[AlertType::TEMPERATURA."|{$chaveDia}"] = [
                     'nivel' => AlertLevel::AMARELO,
                     'icone' => 'heroicon-o-fire',
                     'titulo' => "{$nome}: temperatura fora da gama da piscina",
