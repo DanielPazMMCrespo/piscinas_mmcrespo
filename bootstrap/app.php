@@ -23,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Railway (e qualquer reverse proxy) envia X-Forwarded-Proto: https.
         // Sem isto, o Laravel gera URLs http:// e o browser bloqueia como mixed content.
         $middleware->trustProxies(at: '*');
+        // O middleware `auth` do Laravel manda os visitantes para route('login'),
+        // e neste projeto essa rota não existe: o painel usa
+        // filament.admin.auth.login e o atalho /login é anónimo. Sem isto,
+        // qualquer visita sem sessão a /primeiro-acesso ou /piscinas-encerradas
+        // rebentava com RouteNotFoundException, ou seja 500 — era o que o
+        // nadador-salvador com a sessão morta recebia, em vez do login.
+        $middleware->redirectGuestsTo('/admin/login');
         // Valida o tamanho dos uploads (máx 5MB) server-side.
         $middleware->append(ValidateUploadSize::class);
         // Cabecalhos de seguranca globais aplicados a todas as respostas.
