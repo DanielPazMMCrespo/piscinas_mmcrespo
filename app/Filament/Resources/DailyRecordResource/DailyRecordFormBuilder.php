@@ -130,7 +130,28 @@ class DailyRecordFormBuilder
      *
      * @return array{mensagem: string, aviso: bool}|null
      */
-    private static function infoSonda(string $metrica, mixed $valor, Pool $pool, ?string $horaColheita = null): ?array
+    /**
+     * O pH da mesma leitura escolhe a banda legal do cloro livre (CN 14/DA,
+     * Tabela 5). O $get é relativo ao container da piscina, logo o nome curto
+     * é o caminho certo — ver regra 9 no CLAUDE.md.
+     *
+     * A vírgula é tratada aqui de propósito: os campos são `type="text"` e a
+     * conversão no JS pode não ter corrido ainda quando o semáforo é avaliado.
+     */
+    private static function phDaLeitura(Get $get): ?float
+    {
+        $ph = $get('ns_ph');
+
+        if (! filled($ph)) {
+            return null;
+        }
+
+        $ph = str_replace(',', '.', (string) $ph);
+
+        return is_numeric($ph) ? (float) $ph : null;
+    }
+
+    private static function infoSonda(string $metrica, mixed $valor, Pool $pool, ?string $horaColheita = null, ?float $ph = null): ?array
     {
         if (! filled($valor) || ! is_numeric($valor)) {
             return null;
@@ -172,7 +193,7 @@ class DailyRecordFormBuilder
             $orp = (float) $sonda->orp;
             $orpNaGama = $pool->orp_min !== null && $pool->orp_max !== null
                 && $orp >= (float) $pool->orp_min && $orp <= (float) $pool->orp_max;
-            $estado = DailyRecord::avaliarConformidade($metrica, $valor, $pool)['estado'];
+            $estado = DailyRecord::avaliarConformidade($metrica, $valor, $pool, ph: $ph)['estado'];
             $aviso = $orpNaGama && $estado === EstadoConformidade::VERMELHO;
 
             return [
@@ -460,7 +481,7 @@ class DailyRecordFormBuilder
                     return null;
                 }
 
-                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
+                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null, self::phDaLeitura($get));
                 if ($sonda === null || ! array_key_exists('delta', $sonda) || $sonda['delta'] === null) {
                     return null;
                 }
@@ -481,7 +502,7 @@ class DailyRecordFormBuilder
                     return null;
                 }
 
-                $eval = DailyRecord::avaliarConformidade($metrica, $val, $pool);
+                $eval = DailyRecord::avaliarConformidade($metrica, $val, $pool, ph: self::phDaLeitura($get));
                 $msg = $eval['mensagem'] ?: null;
 
                 if ($eval['estado'] !== EstadoConformidade::VERDE) {
@@ -499,7 +520,7 @@ class DailyRecordFormBuilder
                     }
                 }
 
-                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
+                $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null, self::phDaLeitura($get));
                 if ($sonda !== null && (! array_key_exists('delta', $sonda) || $sonda['delta'] === null)) {
                     $msg = ($msg ? $msg.' | ' : '').$sonda['mensagem'];
                 }
@@ -508,7 +529,7 @@ class DailyRecordFormBuilder
             })
             ->hintColor(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?string {
                 $val = $get($campo->getName());
-                $cor = match (DailyRecord::avaliarConformidade($metrica, $val, $pool)['estado']) {
+                $cor = match (DailyRecord::avaliarConformidade($metrica, $val, $pool, ph: self::phDaLeitura($get))['estado']) {
                     EstadoConformidade::VERDE => 'success',
                     EstadoConformidade::AMARELO => 'warning',
                     EstadoConformidade::VERMELHO => 'danger',
@@ -517,7 +538,7 @@ class DailyRecordFormBuilder
 
                 // Conforme mas a divergir da sonda: sinaliza possível erro de medição.
                 if ($cor === 'success' || $cor === null) {
-                    $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null);
+                    $sonda = self::infoSonda($metrica, $val, $pool, $livewire->data['hora_colheita'] ?? null, self::phDaLeitura($get));
                     if ($sonda !== null && $sonda['aviso']) {
                         return 'warning';
                     }
@@ -527,7 +548,7 @@ class DailyRecordFormBuilder
             })
             ->extraAttributes(function (Get $get) use ($metrica, $pool, $campo) {
                 $classes = ['neo-input-wrapper-large'];
-                if (DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool)['estado'] === EstadoConformidade::VERMELHO) {
+                if (DailyRecord::avaliarConformidade($metrica, $get($campo->getName()), $pool, ph: self::phDaLeitura($get))['estado'] === EstadoConformidade::VERMELHO) {
                     $classes[] = 'ring-2 ring-danger-500 ring-inset bg-danger-50 dark:bg-danger-900/30';
                 }
 
@@ -725,6 +746,11 @@ class DailyRecordFormBuilder
                             ->label('Pressão do Filtro (bar)')
                             ->numeric()
                             ->step(0.05)
+                            // Um manómetro de filtro não passa dos 4 bar. Sem máximo,
+                            // 4 dígitos estouram a coluna decimal(5,2) e o registo
+                            // rebenta com 500 depois de tudo estar preenchido.
+                            ->minValue(0)
+                            ->maxValue(10)
                             ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->live(onBlur: true)
@@ -838,14 +864,19 @@ class DailyRecordFormBuilder
                                 );
                             }),
                         self::comSemaforo(Forms\Components\TextInput::make('ns_ph')->id("ns_ph_{$pool->id}")->label('pH')->numeric()->step(0.01)->minValue(0)->maxValue(14)->required(), 'ns_ph', $pool),
-                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->required(), 'ns_cloro_livre', $pool),
+                        // Os limites alinham com o formulário de correção. Sem eles um
+                        // cloro de 5000 ou uma temperatura de 900 entram no livro
+                        // sanitário sem bloqueio — só ficam vermelhos no semáforo.
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_livre')->id("ns_cloro_livre_{$pool->id}")->label('Cl livre')->numeric()->step(0.01)->minValue(0)->maxValue(20)->required(), 'ns_cloro_livre', $pool),
                         self::comSemaforo(Forms\Components\TextInput::make('ns_cloro_total')
                             ->id("ns_cloro_total_{$pool->id}")
                             ->label('Cl total')
                             ->numeric()
                             ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(20)
                             ->required(), 'ns_cloro_total', $pool),
-                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->required(), 'ns_temperatura', $pool),
+                        self::comSemaforo(Forms\Components\TextInput::make('ns_temperatura')->id("ns_temperatura_{$pool->id}")->label('Temp')->numeric()->step(0.01)->minValue(0)->maxValue(60)->required(), 'ns_temperatura', $pool),
                         Forms\Components\TextInput::make('banhistas')
                             ->id("banhistas_{$pool->id}")
                             ->label('Banhistas')
@@ -871,8 +902,12 @@ class DailyRecordFormBuilder
                         Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
                             ->hiddenLabel()
                             ->content(function (Get $get) use ($pool) {
-                                $ph = $get("pools.{$pool->id}.ns_ph");
-                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
+                                // Caminho RELATIVO: este placeholder vive dentro da
+                                // Section com statePath("pools.{id}"). O caminho
+                                // absoluto resolvia para pools.1.pools.1.ns_ph e
+                                // devolvia sempre null — o banner nunca aparecia.
+                                $ph = $get('ns_ph');
+                                $cl = $get('ns_cloro_livre');
 
                                 $sugestoes = [];
                                 $calculator = app(DosageCalculatorService::class);
@@ -906,11 +941,8 @@ class DailyRecordFormBuilder
 
                                 return new HtmlString($html);
                             })
-                            ->visible(function (Get $get) use ($pool) {
-                                $ph = $get("pools.{$pool->id}.ns_ph");
-                                $cl = $get("pools.{$pool->id}.ns_cloro_livre");
-
-                                return filled($ph) || filled($cl);
+                            ->visible(function (Get $get): bool {
+                                return filled($get('ns_ph')) || filled($get('ns_cloro_livre'));
                             })
                             ->columnSpanFull(),
                         Forms\Components\Repeater::make('adicoes')

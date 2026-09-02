@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\EstadoConformidade;
+use App\Services\LimitesLegaisService;
 use App\Services\SettingsService;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -89,14 +91,22 @@ class DailyRecord extends Model
     /**
      * Mapa central das métricas com limites legais dinâmicos — fonte única para o semáforo
      * de conformidade do formulário, validações e relatórios.
+     *
+     * A banda do cloro livre depende do pH da mesma leitura e o regime de
+     * limites depende da data do registo — ver LimitesLegaisService.
+     *
+     * @param  float|null  $ph  pH da mesma leitura; sem ele usa-se a banda larga
+     * @param  CarbonInterface|null  $data  data do registo; sem ela assume-se hoje
      */
-    public static function getMetricas(): array
+    public static function getMetricas(?float $ph = null, ?CarbonInterface $data = null): array
     {
+        $cloroLivre = LimitesLegaisService::bandaCloroLivre($ph, $data);
+
         return [
             'ph' => ['label' => 'pH', 'min' => self::getPhMin(), 'max' => self::getPhMax(), 'unidade' => ''],
-            'cloro_livre' => ['label' => 'Cloro livre', 'min' => self::getCloroLivreMin(), 'max' => self::getCloroLivreMax(), 'unidade' => 'mg/L'],
-            'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => self::getCloroCombinadoMax(), 'unidade' => 'mg/L'],
-            'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => self::getTransparenciaMax(), 'unidade' => 'FNU'],
+            'cloro_livre' => ['label' => 'Cloro livre', 'min' => $cloroLivre['min'], 'max' => $cloroLivre['max'], 'unidade' => 'mg/L'],
+            'cloro_combinado' => ['label' => 'Cloro combinado', 'min' => null, 'max' => LimitesLegaisService::cloroCombinadoMax($data), 'unidade' => 'mg/L'],
+            'transparencia' => ['label' => 'Turbidez', 'min' => null, 'max' => LimitesLegaisService::transparenciaMax($data), 'unidade' => 'FNU'],
             'temperatura' => ['label' => 'Temperatura', 'min' => null, 'max' => null, 'unidade' => 'ºC'],
         ];
     }
@@ -191,14 +201,19 @@ class DailyRecord extends Model
      * @return array{estado: string, mensagem: string}
      *                                                 estado: \App\Enums\EstadoConformidade (verde|amarelo|vermelho|neutro)
      */
-    public static function avaliarConformidade(string $campo, mixed $valor, ?Pool $piscina = null): array
-    {
+    public static function avaliarConformidade(
+        string $campo,
+        mixed $valor,
+        ?Pool $piscina = null,
+        ?float $ph = null,
+        ?CarbonInterface $data = null,
+    ): array {
         if ($valor === null || $valor === '') {
             return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
         $campoReal = str_starts_with($campo, 'ns_') ? substr($campo, 3) : $campo;
-        $meta = self::getMetricas()[$campoReal] ?? null;
+        $meta = self::getMetricas($ph, $data)[$campoReal] ?? null;
         if ($meta === null) {
             return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
@@ -259,6 +274,18 @@ class DailyRecord extends Model
         return (float) $val >= self::getPhMin() && (float) $val <= self::getPhMax();
     }
 
+    /**
+     * A banda aplicável vem do pH da MESMA leitura (CN 14/DA, Tabela 5).
+     * Sem pH usa-se a banda larga: não se declara violação por adivinhação.
+     */
+    public function bandaCloroLivre(): array
+    {
+        return LimitesLegaisService::bandaCloroLivre(
+            $this->ph_efetivo !== null ? (float) $this->ph_efetivo : null,
+            $this->registado_em,
+        );
+    }
+
     public function cloroLivreConforme(): bool
     {
         $val = $this->cloro_livre_efetivo;
@@ -266,7 +293,9 @@ class DailyRecord extends Model
             return true; // sem leitura não é violação
         }
 
-        return (float) $val >= self::getCloroLivreMin() && (float) $val <= self::getCloroLivreMax();
+        $banda = $this->bandaCloroLivre();
+
+        return (float) $val >= $banda['min'] && (float) $val <= $banda['max'];
     }
 
     public function cloroCombinadoConforme(): bool
@@ -276,7 +305,7 @@ class DailyRecord extends Model
             return true;
         }
 
-        return $this->cloro_combinado <= self::getCloroCombinadoMax();
+        return (float) $this->cloro_combinado <= LimitesLegaisService::cloroCombinadoMax($this->registado_em);
     }
 
     /**
@@ -319,18 +348,24 @@ class DailyRecord extends Model
 
         if ($this->cloro_livre_efetivo !== null && ! $this->cloroLivreConforme()) {
             $cl = (float) $this->cloro_livre_efetivo;
-            $clMin = $settings->getFloat('cloro_livre_min', self::CLORO_LIVRE_MIN);
-            $clMax = $settings->getFloat('cloro_livre_max', self::CLORO_LIVRE_MAX);
+            $banda = $this->bandaCloroLivre();
+
+            // A banda depende do pH, por isso a mensagem tem de dizer qual o pH
+            // que a escolheu — senão o técnico lê "acima de 1,2" e não entende.
+            $porque = $this->ph_efetivo !== null
+                ? ' para pH '.$fmt((float) $this->ph_efetivo)
+                : '';
+
             $violacoes[] = [
                 'parametro' => 'cloro_livre',
-                'mensagem' => $cl < $clMin
-                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($clMin, 1).')'
-                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($clMax, 1).')',
+                'mensagem' => $cl < $banda['min']
+                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($banda['min'], 1).')'.$porque
+                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($banda['max'], 1).')'.$porque,
             ];
         }
 
         if ($this->cloro_total_efetivo !== null && $this->cloro_livre_efetivo !== null && ! $this->cloroCombinadoConforme()) {
-            $clCombMax = $settings->getFloat('cloro_combinado_max', self::CLORO_COMBINADO_MAX);
+            $clCombMax = LimitesLegaisService::cloroCombinadoMax($this->registado_em);
             $violacoes[] = [
                 'parametro' => 'cloro_combinado',
                 'mensagem' => 'cloro combinado '.$fmt((float) $this->cloro_combinado)
@@ -351,7 +386,7 @@ class DailyRecord extends Model
         // A turbidez é um parâmetro legal CN 14/DA e não estava a ser avaliada
         // em sítio nenhum (no PDF saía "Conforme" fixo para três das piscinas).
         if ($this->transparencia !== null) {
-            $turbidezMax = $settings->getFloat('transparencia_max', self::TRANSPARENCIA_MAX);
+            $turbidezMax = LimitesLegaisService::transparenciaMax($this->registado_em);
 
             if ((float) $this->transparencia > $turbidezMax) {
                 $violacoes[] = [

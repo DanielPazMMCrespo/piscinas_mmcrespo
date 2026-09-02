@@ -91,7 +91,13 @@ class HeatmapConformidadeWidget extends Widget
                         if ($valor === null) {
                             continue;
                         }
-                        $eval = DailyRecord::avaliarConformidade($campo, $valor, $piscina);
+                        $eval = DailyRecord::avaliarConformidade(
+                            $campo,
+                            $valor,
+                            $piscina,
+                            ph: $registo->ph_efetivo !== null ? (float) $registo->ph_efetivo : null,
+                            data: $registo->registado_em,
+                        );
                         if ($eval['estado'] === EstadoConformidade::VERMELHO) {
                             $piorEstado = EstadoConformidade::VERMELHO;
                             $mensagens[] = $eval['mensagem'];

@@ -215,10 +215,14 @@ class DailyRecordTableBuilder
                                     ->required()->numeric()->step(0.01)->minValue(0)->maxValue(20),
                                 Forms\Components\TextInput::make('temperatura')
                                     ->label('Temperatura (°C)')
-                                    ->required()->numeric()->step(0.1),
+                                    // Sem máximo, 4 dígitos estouram a coluna decimal(4,1)
+                                    // e o INSERT rebenta com 500 no PostgreSQL.
+                                    ->required()->numeric()->step(0.1)->minValue(0)->maxValue(60),
                                 Forms\Components\TextInput::make('transparencia')
                                     ->label('Turbidez (FNU)')
-                                    ->required()->numeric()->step(0.1)->minValue(0),
+                                    // Não é obrigatória: a leitura diária é visual e a
+                                    // medição em FNU vem do boletim de laboratório.
+                                    ->numeric()->step(0.1)->minValue(0)->maxValue(99.99),
                                 Forms\Components\Toggle::make('caleira_feita')
                                     ->label('Caleira feita'),
                                 Forms\Components\Toggle::make('renovacao_agua')
@@ -290,7 +294,13 @@ class DailyRecordTableBuilder
                                 if ($valor === null) {
                                     continue;
                                 }
-                                $estado = DailyRecord::avaliarConformidade($isNS ? "ns_{$campo}" : $campo, $valor, $pool);
+                                $estado = DailyRecord::avaliarConformidade(
+                                    $isNS ? "ns_{$campo}" : $campo,
+                                    $valor,
+                                    $pool,
+                                    ph: $novoRegisto->ph_efetivo !== null ? (float) $novoRegisto->ph_efetivo : null,
+                                    data: $novoRegisto->registado_em,
+                                );
                                 if ($estado['estado'] === EstadoConformidade::VERMELHO) {
                                     $violacoes[] = $estado['mensagem'];
                                 }
@@ -352,7 +362,13 @@ class DailyRecordTableBuilder
                 }
 
                 $campoReal = str_replace('_efetivo', '', $field);
-                $avaliacao = DailyRecord::avaliarConformidade($campoReal, $state, $record->piscina);
+                $avaliacao = DailyRecord::avaliarConformidade(
+                    $campoReal,
+                    $state,
+                    $record->piscina,
+                    ph: $record->ph_efetivo !== null ? (float) $record->ph_efetivo : null,
+                    data: $record->registado_em,
+                );
                 $estado = $avaliacao['estado'];
 
                 if ($estado === EstadoConformidade::VERDE) {

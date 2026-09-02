@@ -15,6 +15,7 @@ use App\Models\Pool;
 use App\Models\SensorOutage;
 use App\Models\SensorReading;
 use App\Services\CacheService;
+use App\Services\LimitesLegaisService;
 use App\Services\SourceSelectionService;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -545,7 +546,7 @@ class PainelPiscinasWidget extends Widget
 
             // 6. Turbidez (só manual — sem variante de sonda/NS)
             $turbidezOk = $registo?->transparencia !== null
-                ? (float) $registo->transparencia <= DailyRecord::getTransparenciaMax()
+                ? (float) $registo->transparencia <= LimitesLegaisService::transparenciaMax($registo->registado_em)
                 : null;
             $metricas4['turbidez'] = [
                 'label' => 'Turbidez',
