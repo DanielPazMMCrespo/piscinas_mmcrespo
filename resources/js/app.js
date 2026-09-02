@@ -3,36 +3,30 @@ import './push';
 import './gsap-transitions';
 import GLightbox from 'glightbox';
 import { normalizarNumeroPt } from './numero-pt';
+import {
+    avaliarTimer,
+    chaveRascunho,
+    chaveTimer,
+    MMC_TIMER_PREFIXO,
+    statePathDaChave,
+} from './timer-lavagem';
 
 // Empacotado em vez de vir do CDN: era um CSS render-blocking e um JS de
 // terceiros carregados em todas as páginas, mesmo nas que não têm fotos.
 window.GLightbox = GLightbox;
 
 // --- Chaves do timer de retrolavagem -------------------------------------
-// Fonte única. Declaradas como function para ficarem içadas: são usadas em
-// componentes Alpine registados acima do sítio onde estariam num const.
-//
-// Duas coisas que estas funções resolvem:
-//
-// 1. A chave inclui o utilizador. Sem isso, num browser partilhado (o portátil
-//    da instalação) o técnico seguinte via o timer do anterior.
-// 2. O timer é carimbado com o rascunho a que pertence. Um timer cujo rascunho
-//    já não existe é órfão: fechar o separador sem gravar deixava a barra presa
-//    em cima da topbar, a tapar o botão da sidebar, em todas as páginas.
-
-const MMC_TIMER_PREFIXO = 'mmc_timer_';
-
-// Folga entre iniciar um timer e o autosave do rascunho gravar. O autosave tem
-// debounce de 400 ms; 15 s é folgado sem chegar perto do problema que isto
-// resolve (a barra presa durante meia hora).
-const MMC_TIMER_GRACA_MS = 15000;
+// A decisão vive em ./timer-lavagem.js, como função pura, porque controla uma
+// barra fixa que aparece em todas as páginas do painel — e quando estava
+// errada trancava o botão da sidebar. Testada em tests/js/.
+// Aqui ficam só os invólucros que sabem quem é o utilizador desta página.
 
 function mmcUserId() {
     return String(window.__userId ?? 'anon');
 }
 
 function mmcDraftKey() {
-    return 'daily_record_form_draft_' + mmcUserId();
+    return chaveRascunho(mmcUserId());
 }
 
 function mmcOperationalActionDraftKey() {
@@ -40,25 +34,11 @@ function mmcOperationalActionDraftKey() {
 }
 
 function mmcTimerStorageKey(statePath) {
-    return MMC_TIMER_PREFIXO + mmcUserId() + '_' + statePath;
+    return chaveTimer(mmcUserId(), statePath);
 }
 
-/**
- * Extrai o statePath de uma chave de timer, aceitando as chaves antigas
- * (sem utilizador) que já estão gravadas nos browsers da equipa.
- * Devolve null quando a chave pertence a outro utilizador.
- */
 function mmcTimerStatePath(key) {
-    const resto = key.slice(MMC_TIMER_PREFIXO.length);
-    const meu = mmcUserId() + '_';
-
-    if (resto.startsWith(meu)) {
-        return resto.slice(meu.length);
-    }
-
-    // Chave antiga: começa direto em "pools.". Trata-se como nossa uma única
-    // vez, para o mecanismo de órfão a poder limpar em vez de a deixar presa.
-    return resto.startsWith('pools.') ? resto : null;
+    return statePathDaChave(key, mmcUserId());
 }
 
 // Notificação de timers de retrolavagem expirados. Registado em livewire:init:
@@ -717,30 +697,35 @@ document.addEventListener('alpine:init', () => {
                 } catch (e) {
                     continue;
                 }
-                if (!data || !data.isRunning || !data.endTime) continue;
-
                 const match = statePath.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
                 const poolId = match ? parseInt(match[1], 10) : null;
                 const fase = match ? match[2] : (statePath.match(/timer_(lavagem|enxaguamento)/) || [])[1];
-                const remainingSeconds = Math.round((data.endTime - Date.now()) / 1000);
-                const tempoExcedido = remainingSeconds < 0 ? Math.abs(remainingSeconds) : 0;
 
-                // Timer órfão: o rascunho que o criou já não existe, logo o
-                // registo diário nunca vai ser gravado e este timer não tem
-                // dono. Sem isto a barra ficava presa em cima da topbar em
-                // todas as páginas até meia hora depois de o timer esgotar.
-                //
                 // O carimbo `formKey` só existe em timers gravados depois desta
-                // correção; uma chave antiga sem carimbo é órfã se não houver
-                // rascunho nenhum, e caso contrário assume-se do rascunho atual.
-                const rascunhoDoTimer = data.formKey ?? (rascunhoVivo ? mmcDraftKey() : null);
-                const semRascunho = rascunhoDoTimer === null
-                    || localStorage.getItem(rascunhoDoTimer) === null;
-                const foraDaGraca = data.startedAt === null
-                    || data.startedAt === undefined
-                    || (Date.now() - data.startedAt) > MMC_TIMER_GRACA_MS;
+                // correção; uma chave antiga sem carimbo cai no rascunho atual.
+                const rascunhoDoTimer = data?.formKey ?? (rascunhoVivo ? mmcDraftKey() : null);
+                const veredicto = avaliarTimer({
+                    dados: data,
+                    agora: Date.now(),
+                    rascunhoExiste: rascunhoDoTimer !== null
+                        && localStorage.getItem(rascunhoDoTimer) !== null,
+                });
 
-                if (semRascunho && foraDaGraca) {
+                if (veredicto.acao === 'ignorar') continue;
+
+                // Vencido há demasiado tempo: avisa uma vez e sai. É esta regra
+                // que impede a barra de ficar encravada — o rascunho do
+                // formulário sobrevive ao abandono do registo e não serve de
+                // sinal por si só.
+                if (veredicto.acao === 'limpar_expirado') {
+                    if (!this.notificadosTimers.has(key)) {
+                        this.notificadosTimers.set(key, true);
+                        this.enviarNotificacao(
+                            (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
+                            fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
+                            Math.abs(veredicto.restantes)
+                        );
+                    }
                     keysParaRemover.push(key);
                     if (poolId) {
                         orfaosParaCancelar.push({ poolId, fase });
@@ -748,17 +733,11 @@ document.addEventListener('alpine:init', () => {
                     continue;
                 }
 
-                // Se ultrapassou 30 min, remove automaticamente e envia notificação uma única vez
-                if (tempoExcedido > 1800) {
-                    if (!this.notificadosTimers.has(key)) {
-                        this.notificadosTimers.set(key, true);
-                        this.enviarNotificacao(
-                            (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
-                            fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
-                            tempoExcedido
-                        );
-                    }
+                if (veredicto.acao === 'limpar_orfao') {
                     keysParaRemover.push(key);
+                    if (poolId) {
+                        orfaosParaCancelar.push({ poolId, fase });
+                    }
                     continue;
                 }
 
@@ -768,8 +747,8 @@ document.addEventListener('alpine:init', () => {
                     poolId,
                     poolNome: (poolId && window.__poolNomes?.[poolId]) || 'Piscina',
                     fase: fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem',
-                    remainingSeconds,
-                    isExceeded: remainingSeconds < 0,
+                    remainingSeconds: veredicto.restantes,
+                    isExceeded: veredicto.restantes < 0,
                 });
             }
 
