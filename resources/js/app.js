@@ -733,6 +733,19 @@ document.addEventListener('alpine:init', () => {
 
             ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
             this.timers = ativos;
+
+            // O prompt de notificacoes e a barra sao ambos overlays fixos no fundo
+            // e ficavam sobrepostos (o prompt roubava os cliques da barra). A barra
+            // publica quanto espaco ocupa a contar do fundo do ecra — a altura dela
+            // mais o proprio afastamento — e quem fica por cima empilha-se com isso.
+            this.$nextTick(() => {
+                let espaco = 0;
+                if (ativos.length > 0) {
+                    const caixa = this.$el.getBoundingClientRect();
+                    espaco = Math.max(0, window.innerHeight - caixa.top + 12);
+                }
+                document.documentElement.style.setProperty('--mmc-timer-bar-space', espaco + 'px');
+            });
         },
 
         enviarNotificacao(poolNome, fase, tempoExcedidoSegundos) {

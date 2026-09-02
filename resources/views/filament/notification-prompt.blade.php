@@ -50,6 +50,14 @@
                 // 'default': ainda não ativou nem negou. 'ios-instalar': iOS Safari
                 // fora do ecrã principal — mostra-se também, mas com instruções em
                 // vez do botão 'Ativar' (pedir permissão não funciona nesse estado).
+                // No registo diario este cartao assenta em cima do botao de
+                // gravar (medido: prompt 602..768, botao 664..704 em 390 px) e
+                // engole-lhe o clique. E um convite, nao vale bloquear a tarefa
+                // principal — aparece em qualquer outra pagina.
+                if (window.location.pathname.includes('/daily-records/create')) {
+                    return;
+                }
+
                 const estado = window.mmcPush.estado();
                 if (estado === 'default' || estado === 'ios-instalar' || this.pedidoAdmin) {
                     this.iosInstalar = estado === 'ios-instalar';
@@ -99,7 +107,11 @@
     x-transition:leave-start="opacity-100 translate-y-0 md:translate-x-0"
     x-transition:leave-end="opacity-0 translate-y-8 md:translate-x-8 md:translate-y-0"
     x-cloak
-    class="fixed z-40 bottom-[76px] left-4 right-4 md:left-auto md:right-6 md:bottom-6 md:w-96 rounded-2xl p-5 shadow-2xl backdrop-blur-lg bg-white/95 dark:bg-gray-900/95 border border-gray-100 dark:border-gray-800 ring-1 ring-gray-950/5 dark:ring-white/10 flex flex-col gap-4"
+    {{-- A barra dos timers de retrolavagem tambem e um overlay fixo no fundo:
+         sem se empilhar com o espaco que ela ocupa, este cartao assentava por
+         cima e engolia-lhe os cliques. --}}
+    style="bottom: max(var(--mmc-prompt-bottom, 76px), var(--mmc-timer-bar-space, 0px))"
+    class="fixed z-40 left-4 right-4 md:left-auto md:right-6 md:w-96 md:[--mmc-prompt-bottom:1.5rem] rounded-2xl p-5 shadow-2xl backdrop-blur-lg bg-white/95 dark:bg-gray-900/95 border border-gray-100 dark:border-gray-800 ring-1 ring-gray-950/5 dark:ring-white/10 flex flex-col gap-4"
 >
     <!-- Animação do Sino e Conteúdo -->
     <div class="flex items-start gap-4">

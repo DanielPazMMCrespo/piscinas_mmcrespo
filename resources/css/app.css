@@ -112,11 +112,18 @@ body {
     }
 }
 
-/* No telemóvel, a navegação fica fixa no fundo do ecrã — evita scrollar até ao fim para gravar. */
+/* No telemóvel, a navegação fica fixa no fundo do ecrã — evita scrollar até ao fim para gravar.
+ *
+ * O `bottom: 0` que aqui estava punha esta barra debaixo da bottom nav
+ * (`fixed bottom-4`, z-50): medido em 390 px, o botão "Gravar Registos" ficava
+ * em 792..832 e a nav em 759..828 — `elementFromPoint` no centro do botão
+ * devolvia a nav, ou seja o registo diário não se conseguia gravar no
+ * telemóvel em nenhuma posição de scroll. Empilha agora acima da nav e, quando
+ * há timers a correr, acima também da barra deles. */
 @media (max-width: 768px) {
     .fi-fo-wizard-footer, .fi-form-actions {
         position: sticky;
-        bottom: 0;
+        bottom: max(5.5rem + env(safe-area-inset-bottom, 0px), var(--mmc-timer-bar-space, 0px));
         z-index: 20;
         margin: 0 -1rem -1rem;
         padding: 0.75rem 1rem;
