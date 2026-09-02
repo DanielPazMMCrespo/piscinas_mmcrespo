@@ -11,6 +11,7 @@ use App\Services\DailyRecordService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class OfflineSyncController extends Controller
 {
@@ -34,6 +35,7 @@ class OfflineSyncController extends Controller
 
         $syncedIds = [];
         $syncedCount = 0;
+        $failed = [];
 
         foreach ($recordsPayload as $item) {
             $offlineId = $item['offline_id'] ?? null;
@@ -58,20 +60,34 @@ class OfflineSyncController extends Controller
                 if ($offlineId !== null) {
                     $syncedIds[] = $offlineId;
                 }
+            } catch (ValidationException $e) {
+                // Violação de regra de negócio (limites, contador, cloro
+                // total < livre, ...): o registo não entra no livro sanitário
+                // sem as guardas do formulário. Fica 422 em vez de 200 — o
+                // cliente offline tem de saber que este registo foi recusado,
+                // não sincronizado em silêncio.
+                Log::warning('Registo diário offline rejeitado por violar regras de negócio', [
+                    'offline_id' => $offlineId,
+                    'user_id' => $user->id,
+                    'errors' => $e->errors(),
+                ]);
+                $failed[] = ['offline_id' => $offlineId, 'errors' => $e->errors()];
             } catch (\Throwable $e) {
                 Log::error('Erro na sincronização offline do registo', [
                     'offline_id' => $offlineId,
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
+                $failed[] = ['offline_id' => $offlineId, 'motivo' => $e->getMessage()];
             }
         }
 
         return response()->json([
-            'success' => true,
+            'success' => $failed === [],
             'synced_count' => $syncedCount,
             'synced_ids' => $syncedIds,
-        ]);
+            'failed' => $failed,
+        ], $failed === [] ? 200 : 422);
     }
 
     /**

@@ -34,6 +34,40 @@ class DailyRecordService
     ];
 
     /**
+     * Limites por campo, replicados dos bounds já vigentes no wizard do
+     * Filament (`DailyRecordFormBuilder`) e na ação "Corrigir"
+     * (`DailyRecordTableBuilder`). Vivem aqui porque o sync offline
+     * (`OfflineSyncController`) nunca passa pelo formulário — sem isto um
+     * `ns_ph = 99` ou uma `temperatura = 9999` entravam no livro sanitário
+     * sem nenhuma guarda. `max: null` = sem teto (ex.: o contador só sobe).
+     *
+     * @var array<string, array{min: float, max: float|null}>
+     */
+    private const LIMITES_CAMPOS = [
+        'ph' => ['min' => 0.0, 'max' => 14.0],
+        'ns_ph' => ['min' => 0.0, 'max' => 14.0],
+        'cloro_livre' => ['min' => 0.0, 'max' => 20.0],
+        'ns_cloro_livre' => ['min' => 0.0, 'max' => 20.0],
+        'cloro_total' => ['min' => 0.0, 'max' => 20.0],
+        'ns_cloro_total' => ['min' => 0.0, 'max' => 20.0],
+        'temperatura' => ['min' => 0.0, 'max' => 60.0],
+        'ns_temperatura' => ['min' => 0.0, 'max' => 60.0],
+        'transparencia' => ['min' => 0.0, 'max' => 99.99],
+        'pressao_filtro' => ['min' => 0.0, 'max' => 10.0],
+        'contador_valor' => ['min' => 0.0, 'max' => null],
+        'banhistas' => ['min' => 0.0, 'max' => null],
+        'numero_lavagens_filtro' => ['min' => 1.0, 'max' => null],
+    ];
+
+    /**
+     * Um 0/0.00 nestes campos é quase sempre sonda avariada, falta de
+     * reagente ou "não medido" — não uma leitura real. Mesma lista de
+     * `DailyRecordFormBuilder::algumValorZero()`; só os campos do NS, porque
+     * é o passo que existe em todos os registos (o técnico é opcional).
+     */
+    private const CAMPOS_ZERO_SUSPEITO = ['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'];
+
+    /**
      * Cria os registos diários para uma ou várias piscinas em nome do utilizador autenticado ou especificado.
      */
     public function createRecords(?User $user, array $data): ?DailyRecord
@@ -80,6 +114,7 @@ class DailyRecordService
             }
         }
 
+        $this->validarRegrasNegocio($poolsData);
         $this->recusarPiscinasParadas(array_keys($poolsData), $registadoEm);
 
         DB::transaction(function () use ($poolsData, $commonData, $userId, &$lastRecord): void {
@@ -117,6 +152,87 @@ class DailyRecordService
         });
 
         return $lastRecord;
+    }
+
+    /**
+     * Regras de negócio por piscina — a mesma validação já feita pelo wizard
+     * Filament (limites por campo, "cloro total >= cloro livre", "contador só
+     * avança", "zero suspeito exige observações"), mas centralizada aqui para
+     * cobrir também o sync offline, que nunca passa pelo formulário. Corre
+     * ANTES da whitelist de campos ($poolData "cru"): um valor fora do
+     * intervalo num campo conhecido é rejeitado com erro, não descartado em
+     * silêncio pelo array_intersect_key.
+     *
+     * Requiredness fica no formulário — aqui só se valida o que está
+     * preenchido (intervalos e consistência entre campos), nunca a
+     * obrigatoriedade de um campo.
+     *
+     * @param  array<int|string, mixed>  $poolsData
+     *
+     * @throws ValidationException
+     */
+    private function validarRegrasNegocio(array $poolsData): void
+    {
+        $erros = [];
+
+        foreach ($poolsData as $poolId => $poolData) {
+            if (! is_array($poolData)) {
+                continue;
+            }
+
+            foreach (self::LIMITES_CAMPOS as $campo => $limites) {
+                if (! array_key_exists($campo, $poolData) || ! filled($poolData[$campo]) || ! is_numeric($poolData[$campo])) {
+                    continue;
+                }
+
+                $valor = (float) $poolData[$campo];
+                if ($valor < $limites['min'] || ($limites['max'] !== null && $valor > $limites['max'])) {
+                    $erros["pools.{$poolId}.{$campo}"][] = "O valor de \"{$campo}\" está fora do intervalo permitido.";
+                }
+            }
+
+            // Um combinado negativo é impossível — mesma regra de
+            // CreateDailyRecord::validatePoolsCloro() e da ação "Corrigir".
+            foreach ([['cloro_total', 'cloro_livre'], ['ns_cloro_total', 'ns_cloro_livre']] as [$totalKey, $livreKey]) {
+                $total = $poolData[$totalKey] ?? null;
+                $livre = $poolData[$livreKey] ?? null;
+
+                if (filled($total) && filled($livre) && is_numeric($total) && is_numeric($livre) && (float) $total < (float) $livre) {
+                    $erros["pools.{$poolId}.{$totalKey}"][] = 'O cloro total não pode ser inferior ao cloro livre.';
+                }
+            }
+
+            $temZeroSuspeito = false;
+            foreach (self::CAMPOS_ZERO_SUSPEITO as $campo) {
+                if (array_key_exists($campo, $poolData) && filled($poolData[$campo]) && is_numeric($poolData[$campo]) && (float) $poolData[$campo] === 0.0) {
+                    $temZeroSuspeito = true;
+                    break;
+                }
+            }
+
+            if ($temZeroSuspeito && blank($poolData['observacoes'] ?? null)) {
+                $erros["pools.{$poolId}.observacoes"][] = 'Um valor a 0 num parâmetro precisa de justificação em observações.';
+            }
+
+            // O contador só avança — mesma regra de
+            // DailyRecordFormBuilder::ultimoRegisto().
+            if (array_key_exists('contador_valor', $poolData) && filled($poolData['contador_valor']) && is_numeric($poolData['contador_valor'])) {
+                $ultimo = DailyRecord::query()
+                    ->where('pool_id', (int) $poolId)
+                    ->whereDoesntHave('correcoes')
+                    ->orderByDesc('registado_em')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($ultimo && $ultimo->contador_valor !== null && (float) $poolData['contador_valor'] < (float) $ultimo->contador_valor) {
+                    $erros["pools.{$poolId}.contador_valor"][] = 'A leitura do contador ('.$poolData['contador_valor'].') é inferior à última registada ('.$ultimo->contador_valor.'). O contador só avança.';
+                }
+            }
+        }
+
+        if ($erros !== []) {
+            throw ValidationException::withMessages($erros);
+        }
     }
 
     /**

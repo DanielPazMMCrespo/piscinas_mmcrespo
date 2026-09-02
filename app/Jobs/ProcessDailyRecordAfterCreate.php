@@ -57,6 +57,16 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
         $this->gerirTorneira($registo);
     }
 
+    /**
+     * As 3 tentativas esgotaram-se: stock não foi descontado, a torneira não
+     * foi aberta/fechada e a não-conformidade (se houver) nunca chegou a
+     * notificar ninguém. Um `Log::error` sozinho não chega — `storage/logs` é
+     * efémero no Railway e ninguém tem acesso a ele pelo painel. Escreve-se
+     * na Auditoria (fica visível e permanente) e avisa-se os admins pelo
+     * mesmo canal usado noutras falhas de processamento em fila (ver
+     * `HannaCloudSync::notificarFalhaDeAutenticacao()` e `descontarStock()`
+     * acima, no mesmo ficheiro).
+     */
     public function failed(Throwable $exception): void
     {
         Log::error('daily_record_post_processing_failed', [
@@ -65,6 +75,30 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             'exception_class' => $exception::class,
             'exception_code' => $exception->getCode(),
         ]);
+
+        $registo = DailyRecord::query()->with('piscina')->find($this->dailyRecordId);
+        $nomePiscina = $registo?->piscina?->nome_completo ?? "piscina #{$registo?->pool_id}";
+
+        Auditoria::sistema(
+            "Processamento pós-registo falhou definitivamente (registo #{$this->dailyRecordId}, {$nomePiscina}): {$exception->getMessage()}",
+            [
+                'daily_record_id' => $this->dailyRecordId,
+                'pool_id' => $registo?->pool_id,
+                'actor_user_id' => $this->actorUserId,
+                'exception_class' => $exception::class,
+            ],
+        );
+
+        $destinatarios = User::role('admin')->get();
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        Notification::make()
+            ->danger()
+            ->title('Processamento do registo diário falhou')
+            ->body("Registo #{$this->dailyRecordId} ({$nomePiscina}) esgotou as tentativas. Stock, torneira e não-conformidade podem não ter sido processados. Erro: {$exception->getMessage()}")
+            ->sendToDatabase($destinatarios);
     }
 
     private function gerirTorneira(DailyRecord $registo): void

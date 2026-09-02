@@ -1,7 +1,11 @@
 <?php
 
+use App\Models\User;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -49,6 +53,43 @@ Schedule::command('activitylog:clean')
 Schedule::command('queue:work --queue=daily-records,sensor-sync,default --stop-when-empty --max-time=50')
     ->everyMinute()
     ->withoutOverlapping(5);
+
+// ProcessDailyRecordAfterCreate::failed() já avisa os admins quando UM job
+// esgota as tentativas, mas isso não cobre um cenário mais largo (ex: a
+// tabela de stock ficou indisponível e vários registos falham seguidos).
+// Este comando olha para failed_jobs e avisa se houver falhas novas na fila
+// 'daily-records' desde a última verificação — dedup pelo maior id já visto,
+// em cache "forever" (não há tabela própria para isto, e não vale a pena
+// criar uma só para um contador).
+Artisan::command('daily-records:verificar-falhas', function () {
+    $ultimoIdVisto = (int) Cache::get('daily_records_falhas_ultimo_id', 0);
+
+    $novasFalhas = DB::table('failed_jobs')
+        ->where('queue', 'daily-records')
+        ->where('id', '>', $ultimoIdVisto)
+        ->get();
+
+    if ($novasFalhas->isEmpty()) {
+        return;
+    }
+
+    Cache::forever('daily_records_falhas_ultimo_id', (int) $novasFalhas->max('id'));
+
+    $destinatarios = User::role('admin')->get();
+    if ($destinatarios->isEmpty()) {
+        return;
+    }
+
+    Notification::make()
+        ->danger()
+        ->title('Falhas na fila de registos diários')
+        ->body($novasFalhas->count().' job(s) da fila "daily-records" falharam definitivamente. Stock, torneira e alertas de não-conformidade podem estar por processar nesses registos.')
+        ->sendToDatabase($destinatarios);
+})->purpose('Avisa os admins quando a fila daily-records acumula falhas permanentes por processar');
+
+Schedule::command('daily-records:verificar-falhas')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
 
 // Push dos timers de retrolavagem vencidos. Faz polling curto (~50s, ciclos de 5s)
 // para latência baixa sem worker dedicado — mesmo padrão do queue:work acima.
