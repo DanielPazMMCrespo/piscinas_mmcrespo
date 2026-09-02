@@ -7,6 +7,8 @@
     @endphp
 
     <div x-data="countdownTimer('{{ $getStatePath() }}', {{ $defaultMinutes * 60 }})"
+         x-on:mmc-timer-terminar.window="if ($event.detail.statePath === statePath) terminar()"
+         data-mmc-timer="{{ $getStatePath() }}"
          class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm w-full transition-all">
         
         <!-- Ajustes de tempo -->

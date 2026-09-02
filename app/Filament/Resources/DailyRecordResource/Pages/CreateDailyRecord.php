@@ -77,48 +77,56 @@ class CreateDailyRecord extends CreateRecord
         $this->isCreating = true;
         $this->authorizeAccess();
 
-        $lockKey = 'create_record_'.auth()->id();
+        // Lock adquirido à mão em vez de Cache::lock()->get($closure): a forma com
+        // closure devolve false tanto quando o lock não é adquirido como quando o
+        // closure devolve false, e uma falha de validação do cloro acabava a
+        // mostrar "Submissão duplicada" em vez do erro real.
+        $lock = Cache::lock('create_record_'.auth()->id(), 10);
+
+        if (! $lock->get()) {
+            $this->isCreating = false;
+
+            Notification::make()
+                ->danger()
+                ->title('Submissão duplicada')
+                ->body('O registo já está a ser processado. Por favor aguarde.')
+                ->send();
+
+            return;
+        }
+
         try {
-            $success = Cache::lock($lockKey, 10)->get(function () {
-                $this->beginDatabaseTransaction();
-                $this->callHook('beforeValidate');
-                $data = $this->form->getState();
-                $this->callHook('afterValidate');
+            $this->beginDatabaseTransaction();
+            $this->callHook('beforeValidate');
+            $data = $this->form->getState();
+            $this->callHook('afterValidate');
 
-                if (! $this->validatePoolsCloro($data)) {
-                    $this->rollBackDatabaseTransaction();
-                    $this->isCreating = false;
-
-                    return false;
-                }
-
-                $data = $this->mutateFormDataBeforeCreate($data);
-                $this->callHook('beforeCreate');
-
-                $this->record = $this->handleRecordCreation($data);
-
-                $this->callHook('afterCreate');
-
-                $this->commitDatabaseTransaction();
-                $this->rememberData();
-
-                $this->form->model($this->getRecord()::class);
-                $this->record = null;
-                $this->fillForm();
-
-                return true;
-            });
-
-            if (! $success) {
+            if (! $this->validatePoolsCloro($data)) {
+                $this->rollBackDatabaseTransaction();
                 $this->isCreating = false;
+
                 Notification::make()
                     ->danger()
-                    ->title('Submissão duplicada')
-                    ->body('O registo já está a ser processado. Por favor aguarde.')
+                    ->title('Corrija os campos assinalados')
+                    ->body('O cloro total não pode ser inferior ao cloro livre.')
                     ->send();
 
                 return;
             }
+
+            $data = $this->mutateFormDataBeforeCreate($data);
+            $this->callHook('beforeCreate');
+
+            $this->record = $this->handleRecordCreation($data);
+
+            $this->callHook('afterCreate');
+
+            $this->commitDatabaseTransaction();
+            $this->rememberData();
+
+            $this->form->model($this->getRecord()::class);
+            $this->record = null;
+            $this->fillForm();
         } catch (Halt $exception) {
             $exception->shouldRollbackDatabaseTransaction()
                 ? $this->rollBackDatabaseTransaction()
@@ -130,6 +138,8 @@ class CreateDailyRecord extends CreateRecord
             $this->rollBackDatabaseTransaction();
             $this->isCreating = false;
             throw $exception;
+        } finally {
+            $lock->release();
         }
 
         $this->isCreating = false;
@@ -163,7 +173,7 @@ class CreateDailyRecord extends CreateRecord
     public function validarERegistosGuardar(): void
     {
         try {
-            $this->form->getState();
+            $data = $this->form->getState();
         } catch (ValidationException $e) {
             $mensagens = collect($e->errors())->flatten()->unique()->values();
 
@@ -179,6 +189,18 @@ class CreateDailyRecord extends CreateRecord
                 ->danger()
                 ->title('Erro ao validar formulário')
                 ->body('O formulário expirou ou contém dados inválidos. Por favor, recarregue a página.')
+                ->send();
+
+            return;
+        }
+
+        // Antes esta verificação só corria dentro do create(), ou seja depois do
+        // slide-over de confirmação: o técnico confirmava e só aí levava com o erro.
+        if (! $this->validatePoolsCloro($data)) {
+            Notification::make()
+                ->danger()
+                ->title('Corrija os campos assinalados')
+                ->body('O cloro total não pode ser inferior ao cloro livre.')
                 ->send();
 
             return;
