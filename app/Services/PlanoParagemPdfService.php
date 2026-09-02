@@ -353,11 +353,12 @@ class PlanoParagemPdfService
 
     /**
      * Videos das tarefas. O dompdf nao reproduz video, por isso o relatorio
-     * legal referencia-os pelo nome e pelo SHA-256 do conteudo — a prova de
-     * integridade do ficheiro arquivado, tal como se faz nos boletins.
+     * legal referencia-os por uma ligacao absoluta ao ficheiro arquivado e
+     * pelo SHA-256 do conteudo — quem le o relatorio abre o video e confirma
+     * pelo hash que e o mesmo que o documento cita.
      *
      * @param  Collection<int, PoolClosureTask>  $trabalhos
-     * @return array<int, array{tarefa_label: string, data: ?string, nome_ficheiro: string, tamanho_mb: string, sha256: string}>
+     * @return array<int, array{tarefa_label: string, data: ?string, nome_ficheiro: string, tamanho_mb: string, sha256: string, url: ?string}>
      */
     private function processarVideos($trabalhos): array
     {
@@ -386,12 +387,19 @@ class PlanoParagemPdfService
                     $tamanhoMb = number_format($disk->size($path) / 1048576, 1, ',', '').' MB';
                 }
 
+                // Só uma URL absoluta serve num PDF: o documento é lido fora da app.
+                $url = $existe ? DailyRecord::getStorageUrl($path) : null;
+                if ($url !== null && ! str_starts_with($url, 'http')) {
+                    $url = null;
+                }
+
                 $videos[] = [
                     'tarefa_label' => $t->tipoLabel(),
                     'data' => $t->executado_em?->format('d/m/Y H:i'),
                     'nome_ficheiro' => basename($path),
                     'tamanho_mb' => $existe ? $tamanhoMb : 'ficheiro não encontrado',
                     'sha256' => $sha256,
+                    'url' => $url,
                 ];
             }
         }

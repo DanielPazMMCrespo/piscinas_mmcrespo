@@ -19,6 +19,7 @@ use App\Services\PlanoParagemPdfService;
 use App\Services\PlanoParagemService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -245,6 +246,67 @@ class RelatorioParagemConteudoTest extends TestCase
         // O texto nao pode ficar espremido na celula de Observacoes do ponto 1.
         $this->assertStringContainsString('Ver Anexo A.1', $html);
         $this->assertSame(1, substr_count($html, 'os filtros foram lavados diariamente'));
+    }
+
+    public function test_video_sai_com_ligacao_clicavel_e_hash_completo(): void
+    {
+        [$closure, $admin] = $this->cenario();
+
+        $disco = DailyRecord::getStorageDisk();
+        Storage::fake($disco, ['url' => 'https://provas.example.test']);
+
+        $caminho = 'paragens/videos/tanque-compensacao.mp4';
+        Storage::disk($disco)->put($caminho, 'bytes-do-video');
+        $shaEsperado = hash('sha256', 'bytes-do-video');
+
+        /** @var PoolClosureTask $tarefa */
+        $tarefa = $closure->trabalhos()->where('tipo', TrabalhoParagem::LIMPEZA_TANQUE_COMPENSACAO)->first();
+        $tarefa->update([
+            'estado' => TrabalhoParagem::ESTADO_EXECUTADO,
+            'executado_em' => Carbon::parse('2026-08-15 10:00:00'),
+            'executado_por' => $admin->id,
+            'videos' => [$caminho],
+        ]);
+
+        $dados = app(PlanoParagemPdfService::class)->prepararDadosRelatorio($closure->fresh(), $admin);
+        $html = view('pdf.paragem.relatorio', $dados)->render();
+
+        $url = $dados['videosIndex'][0]['url'];
+
+        // Um caminho relativo nao abre a partir de um PDF lido fora da app.
+        $this->assertStringStartsWith('https://', $url);
+        $this->assertStringContainsString('<a href="'.$url.'"', $html);
+
+        // O hash sai inteiro: truncado nao serve para confrontar o ficheiro aberto.
+        $this->assertStringContainsString($shaEsperado, $html);
+        $this->assertStringNotContainsString('ligação indisponível', $html);
+    }
+
+    public function test_video_sem_url_absoluta_declara_a_falta_em_vez_de_a_esconder(): void
+    {
+        [$closure, $admin] = $this->cenario();
+
+        $disco = DailyRecord::getStorageDisk();
+        Storage::fake($disco, ['url' => null]);
+
+        $caminho = 'paragens/videos/sem-dominio.mp4';
+        Storage::disk($disco)->put($caminho, 'bytes-do-video');
+
+        /** @var PoolClosureTask $tarefa */
+        $tarefa = $closure->trabalhos()->where('tipo', TrabalhoParagem::LIMPEZA_TANQUE_COMPENSACAO)->first();
+        $tarefa->update([
+            'estado' => TrabalhoParagem::ESTADO_EXECUTADO,
+            'executado_em' => Carbon::parse('2026-08-15 10:00:00'),
+            'executado_por' => $admin->id,
+            'videos' => [$caminho],
+        ]);
+
+        $dados = app(PlanoParagemPdfService::class)->prepararDadosRelatorio($closure->fresh(), $admin);
+        $html = view('pdf.paragem.relatorio', $dados)->render();
+
+        $this->assertNull($dados['videosIndex'][0]['url']);
+        $this->assertStringContainsString('ligação indisponível', $html);
+        $this->assertStringContainsString('sem-dominio.mp4', $html);
     }
 
     public function test_sugerir_evidencia_nao_marca_executado_quando_nao_ha_evidencia(): void
