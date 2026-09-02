@@ -192,7 +192,7 @@
                                 <th style="width: 26%;">Trabalho Associado</th>
                                 <th style="width: 13%;">Data / Hora</th>
                                 <th style="width: 10%;">Dimensão</th>
-                                <th style="width: 46%;">Ligação de Visualização &amp; Hash SHA-256</th>
+                                <th style="width: 46%;">Ligação de Visualização</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -202,22 +202,20 @@
                                     <td>{{ $video['tarefa_label'] }}</td>
                                     <td>{{ $video['data'] ?? '—' }}</td>
                                     <td>{{ $video['tamanho_mb'] }}</td>
-                                    <td style="font-size: 6px;">
+                                    <td style="font-size: 6.5px;">
                                         @if(filled($video['url'] ?? null))
-                                            <a href="{{ $video['url'] }}" style="color: #1e40af; font-family: monospace; word-break: break-all;">{{ $video['url'] }}</a><br>
+                                            <a href="{{ $video['url'] }}" style="color: #1e40af; font-family: monospace; word-break: break-all;">{{ $video['url'] }}</a>
                                         @else
                                             <span style="font-family: monospace;">{{ $video['nome_ficheiro'] }}</span>
-                                            <span style="color: #991b1b;">(ligação indisponível — ficheiro arquivado no sistema)</span><br>
+                                            <span style="color: #991b1b;">(ligação indisponível — ficheiro arquivado no sistema)</span>
                                         @endif
-                                        <span style="color: #6b7280; font-family: monospace;">SHA-256: {{ $video['sha256'] ?? '—' }}</span>
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                     <p style="font-size: 6.5px; color: #4b5563; margin-top: 3px;">
-                        A ligação abre o ficheiro original tal como arquivado. O hash SHA-256 permite confirmar que o
-                        vídeo aberto é exactamente o que este relatório cita.
+                        A ligação abre o ficheiro de vídeo original, tal como arquivado no sistema no momento da execução do trabalho.
                     </p>
                 </div>
             @endif
