@@ -7,6 +7,7 @@ namespace App\Filament\Pages;
 use App\Constants\UserRole;
 use App\Models\AppSetting;
 use App\Models\CustomBroadcast;
+use App\Models\DailyRecord;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
 use App\Notifications\PedidoAtivacaoPushNotification;
@@ -284,6 +285,11 @@ class Definicoes extends Page implements HasForms, HasTable
         // AppSetting não entra no trilho por trait — a PK é uma string e a
         // coluna `subject_id` do activity_log é inteira.
         $antes = AppSetting::all()->pluck('value', 'key')->all();
+
+        if (! $this->validarLimitesCruzados($data, $antes)) {
+            return;
+        }
+
         $alteracoes = [];
 
         foreach ($data as $key => $value) {
@@ -338,6 +344,53 @@ class Definicoes extends Page implements HasForms, HasTable
             ->body('As definições do sistema foram guardadas com sucesso e a cache foi limpa.')
             ->success()
             ->send();
+    }
+
+    /**
+     * Um mínimo >= máximo (nalgum destes pares) põe `DailyRecord::avaliarConformidade()`
+     * a testar isBelowMin antes de isAboveMax e a devolver sempre "abaixo do mínimo"
+     * para todos os valores, em todas as piscinas — falso alarme permanente no
+     * dashboard, no semáforo do formulário, nos incidentes automáticos e no livro
+     * sanitário. Compara o valor "efetivo" (o que vem agora do form, senão o que já
+     * estava gravado, senão o padrão) porque só olhar para o form deixava passar
+     * "só mudei o máximo e ficou abaixo do mínimo que continua gravado".
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $antes
+     */
+    private function validarLimitesCruzados(array $data, array $antes): bool
+    {
+        $efetivo = function (string $chave, float $default) use ($data, $antes): float {
+            foreach ([$data[$chave] ?? null, $antes[$chave] ?? null] as $candidato) {
+                if ($candidato !== null && $candidato !== '' && $candidato !== []) {
+                    return (float) $candidato;
+                }
+            }
+
+            return $default;
+        };
+
+        $pares = [
+            ['min' => 'ph_min', 'max' => 'ph_max', 'label' => 'pH', 'default_min' => DailyRecord::PH_MIN, 'default_max' => DailyRecord::PH_MAX],
+            ['min' => 'cloro_livre_min', 'max' => 'cloro_livre_max', 'label' => 'Cloro Livre', 'default_min' => DailyRecord::CLORO_LIVRE_MIN, 'default_max' => DailyRecord::CLORO_LIVRE_MAX],
+        ];
+
+        foreach ($pares as $par) {
+            $min = $efetivo($par['min'], $par['default_min']);
+            $max = $efetivo($par['max'], $par['default_max']);
+
+            if ($min >= $max) {
+                Notification::make()
+                    ->title('Erro de validação')
+                    ->body("{$par['label']} Mínimo ({$min}) tem de ser inferior ao {$par['label']} Máximo ({$max}).")
+                    ->danger()
+                    ->send();
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ==================================================================

@@ -10,7 +10,6 @@ use App\Models\Pool;
 use App\Models\StockInstallation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 /**
  * Endpoint de métricas para integração com BI externo (Grafana/Metabase).
@@ -22,8 +21,15 @@ class MetricsController extends Controller
     public function index(Request $request): JsonResponse
     {
         $token = config('services.metrics.token');
+        $bearer = (string) $request->bearerToken();
 
-        if (empty($token) || ! Str::equals((string) $request->bearerToken(), $token)) {
+        // `Illuminate\Support\Str` não tem método `equals()` — isto dava 500 em
+        // todos os pedidos (erro fatal, nunca 401/200). `hash_equals()` é a
+        // primitiva certa para comparar segredos: tempo constante, evita side
+        // channel de timing. Sem token configurado o endpoint fica fechado
+        // (nunca aberto por omissão) — reporta internos de todas as piscinas,
+        // incidentes e stock, não se justifica um default público.
+        if ($token === null || $token === '' || $bearer === '' || ! hash_equals($token, $bearer)) {
             return response()->json(['message' => 'Não autorizado.'], 401);
         }
 

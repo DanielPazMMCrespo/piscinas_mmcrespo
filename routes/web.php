@@ -45,18 +45,34 @@ Route::middleware(['auth', RequirePasswordChange::class])->group(function (): vo
         ->middleware('throttle:5,1');
 
     // Web Push: subscrição do dispositivo e timers de retrolavagem.
+    //
+    // 60/min e não 5/min: a app chama estes endpoints sozinha, muito mais do
+    // que um humano. O push.js sincroniza a subscrição a cada `window load`, e
+    // este painel não tem SPA mode, logo é uma chamada por página visitada.
+    // O timer chama em iniciar, parar e reiniciar. Com 5/min um técnico a
+    // passar pela sidebar ou a mexer no cronómetro levava 429 — e as duas
+    // chamadas acabam em `.catch(() => {})`, logo a recusa era invisível: não
+    // recebia o aviso do fim da lavagem e nunca sabia porquê.
+    // O throttle do Laravel já é por utilizador, logo 60 não abre nada.
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])
-        ->name('push.subscribe');
+        ->name('push.subscribe')
+        ->middleware('throttle:60,1');
     Route::delete('/push/subscriptions', [PushSubscriptionController::class, 'destroyAll'])
-        ->name('push.unsubscribe.all');
+        ->name('push.unsubscribe.all')
+        ->middleware('throttle:60,1');
     Route::post('/push/timer', [TimerPushController::class, 'store'])
-        ->name('push.timer.store');
+        ->name('push.timer.store')
+        ->middleware('throttle:60,1');
     Route::delete('/push/timer', [TimerPushController::class, 'destroy'])
-        ->name('push.timer.destroy');
+        ->name('push.timer.destroy')
+        ->middleware('throttle:60,1');
 
-    // Sincronização offline de registos diários e ações operacionais.
+    // Sincronização offline: um dispositivo que esteve sem rede pode ter vários
+    // lotes em fila e envia-os seguidos.
     Route::post('/offline-sync/daily-records', [OfflineSyncController::class, 'storeDailyRecords'])
-        ->name('offline-sync.daily-records');
+        ->name('offline-sync.daily-records')
+        ->middleware('throttle:20,1');
     Route::post('/offline-sync/operational-actions', [OfflineSyncController::class, 'storeOperationalActions'])
-        ->name('offline-sync.operational-actions');
+        ->name('offline-sync.operational-actions')
+        ->middleware('throttle:20,1');
 });
