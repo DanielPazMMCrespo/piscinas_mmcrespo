@@ -8,6 +8,8 @@ use Filament\Facades\Filament;
 use Filament\GlobalSearch\Contracts\GlobalSearchProvider;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\GlobalSearch\GlobalSearchResults;
+use Filament\Pages\Page;
+use Filament\Pages\SimplePage;
 use Illuminate\Support\Str;
 
 /**
@@ -78,9 +80,16 @@ class PaginasGlobalSearchProvider implements GlobalSearchProvider
         $resultados = [];
 
         foreach (Filament::getPages() as $pagina) {
-            // shouldRegisterNavigation() exclui as páginas de autenticação, que
-            // o discoverPages também apanha mas não são destinos de navegação.
-            if (! $pagina::shouldRegisterNavigation() || ! $pagina::canAccess()) {
+            // Antes usava-se shouldRegisterNavigation() para excluir as páginas
+            // de autenticação, que o discoverPages também apanha. Era o teste
+            // errado para esse trabalho: shouldRegisterNavigation() é também o
+            // interruptor de "esconder da sidebar", por isso tirar uma página do
+            // menu tirava-a da pesquisa ao mesmo tempo — e deixava-a sem
+            // nenhum caminho. É o oposto do que a regra 14 do CLAUDE.md promete.
+            //
+            // O que exclui uma página de autenticação é ser uma página de
+            // autenticação, e isso lê-se no namespace e na classe base.
+            if (self::ePaginaDeAutenticacao($pagina) || ! $pagina::canAccess()) {
                 continue;
             }
 
@@ -108,6 +117,18 @@ class PaginasGlobalSearchProvider implements GlobalSearchProvider
         }
 
         return $resultados;
+    }
+
+    /**
+     * Login, registo, recuperação de password: alcançáveis, mas não são
+     * destinos que alguém procure no Ctrl+K de dentro do painel.
+     *
+     * @param  class-string<Page>  $pagina
+     */
+    private static function ePaginaDeAutenticacao(string $pagina): bool
+    {
+        return str_contains($pagina, '\\Pages\\Auth\\')
+            || is_subclass_of($pagina, SimplePage::class);
     }
 
     /** Minúsculas sem acentos: "definicoes" tem de encontrar "Definições". */

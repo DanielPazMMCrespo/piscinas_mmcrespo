@@ -64,6 +64,24 @@ class EsquemaPiscina extends Page
     #[Url(as: 'pool')]
     public ?int $poolId = null;
 
+    /**
+     * Fora da sidebar por decisão de auditoria.
+     *
+     * Julgado pelos quatro papéis, nenhum conseguiu nomear uma tarefa do dia a
+     * dia que só esta página resolva: os atalhos que tem duplicam os cartões do
+     * dashboard, um toque mais longe. Mas é o único mapa visual do circuito da
+     * água, e isso vale para quem entra novo ou recebe a instalação.
+     *
+     * Logo: sai da vista diária, fica a rota. Chega-se por Ctrl+K ("esquema",
+     * "circuito", "bomba", "filtro"...) — o PaginasGlobalSearchProvider filtra
+     * por canAccess(), não pela navegação, por isso continua a aparecer a quem
+     * tem acesso.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         // É o técnico que trabalha no circuito de água; o NS entra mas só vê as
