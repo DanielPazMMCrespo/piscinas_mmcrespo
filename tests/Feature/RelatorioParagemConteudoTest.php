@@ -248,7 +248,7 @@ class RelatorioParagemConteudoTest extends TestCase
         $this->assertSame(1, substr_count($html, 'os filtros foram lavados diariamente'));
     }
 
-    public function test_video_sai_com_ligacao_clicavel_e_hash_completo(): void
+    public function test_video_sai_com_ligacao_clicavel_e_sem_hash(): void
     {
         [$closure, $admin] = $this->cenario();
 
@@ -257,7 +257,6 @@ class RelatorioParagemConteudoTest extends TestCase
 
         $caminho = 'paragens/videos/tanque-compensacao.mp4';
         Storage::disk($disco)->put($caminho, 'bytes-do-video');
-        $shaEsperado = hash('sha256', 'bytes-do-video');
 
         /** @var PoolClosureTask $tarefa */
         $tarefa = $closure->trabalhos()->where('tipo', TrabalhoParagem::LIMPEZA_TANQUE_COMPENSACAO)->first();
@@ -276,10 +275,12 @@ class RelatorioParagemConteudoTest extends TestCase
         // Um caminho relativo nao abre a partir de um PDF lido fora da app.
         $this->assertStringStartsWith('https://', $url);
         $this->assertStringContainsString('<a href="'.$url.'"', $html);
-
-        // O hash sai inteiro: truncado nao serve para confrontar o ficheiro aberto.
-        $this->assertStringContainsString($shaEsperado, $html);
         $this->assertStringNotContainsString('ligação indisponível', $html);
+
+        // Hash fora do documento, por decisao do responsavel tecnico.
+        $this->assertArrayNotHasKey('sha256', $dados['videosIndex'][0]);
+        $this->assertStringNotContainsString('SHA-256:', $html);
+        $this->assertStringNotContainsString(hash('sha256', 'bytes-do-video'), $html);
     }
 
     public function test_video_sem_url_absoluta_declara_a_falta_em_vez_de_a_esconder(): void

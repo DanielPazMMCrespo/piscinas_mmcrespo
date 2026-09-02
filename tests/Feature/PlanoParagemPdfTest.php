@@ -172,7 +172,7 @@ class PlanoParagemPdfTest extends TestCase
         $this->assertStringContainsString('data:image/jpeg;base64,', $html);
     }
 
-    public function test_video_de_evidencia_e_referenciado_no_relatorio_com_hash(): void
+    public function test_video_de_evidencia_e_referenciado_no_relatorio_sem_ser_embutido(): void
     {
         Storage::fake(DailyRecord::getStorageDisk());
 
@@ -208,8 +208,8 @@ class PlanoParagemPdfTest extends TestCase
         $this->assertStringContainsString('tanque_limpo.mp4', $html);
         // O video nunca e embutido: o dompdf nao o reproduz.
         $this->assertStringNotContainsString('data:video/', $html);
-        // O hash prova que o ficheiro arquivado e o mesmo que o relatorio cita.
-        $this->assertStringContainsString(substr(hash('sha256', $conteudo), 0, 16), $html);
+        // Hash do video fora do documento, por decisao do responsavel tecnico.
+        $this->assertStringNotContainsString(substr(hash('sha256', $conteudo), 0, 16), $html);
     }
 
     public function test_header_actions_de_download_em_edit_pool_closure(): void

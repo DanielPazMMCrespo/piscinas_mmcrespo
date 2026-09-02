@@ -353,12 +353,15 @@ class PlanoParagemPdfService
 
     /**
      * Videos das tarefas. O dompdf nao reproduz video, por isso o relatorio
-     * legal referencia-os por uma ligacao absoluta ao ficheiro arquivado e
-     * pelo SHA-256 do conteudo — quem le o relatorio abre o video e confirma
-     * pelo hash que e o mesmo que o documento cita.
+     * referencia-os por uma ligacao absoluta ao ficheiro arquivado.
+     *
+     * Sem hash de integridade, por decisao do responsavel tecnico: nao e
+     * exigido pela CN 14/DA e nao vale sujar o documento. Por isso tambem nao
+     * se descarrega o ficheiro — so se le o tamanho, em vez de trazer ate
+     * 60 MB do R2 a cada geracao do relatorio.
      *
      * @param  Collection<int, PoolClosureTask>  $trabalhos
-     * @return array<int, array{tarefa_label: string, data: ?string, nome_ficheiro: string, tamanho_mb: string, sha256: string, url: ?string}>
+     * @return array<int, array{tarefa_label: string, data: ?string, nome_ficheiro: string, tamanho_mb: string, url: ?string}>
      */
     private function processarVideos($trabalhos): array
     {
@@ -376,16 +379,9 @@ class PlanoParagemPdfService
                 }
 
                 $existe = $disk->exists($path);
-                $sha256 = '—';
-                $tamanhoMb = '—';
-
-                if ($existe) {
-                    $conteudo = $disk->get($path);
-                    if ($conteudo !== null && $conteudo !== '') {
-                        $sha256 = hash('sha256', $conteudo);
-                    }
-                    $tamanhoMb = number_format($disk->size($path) / 1048576, 1, ',', '').' MB';
-                }
+                $tamanhoMb = $existe
+                    ? number_format($disk->size($path) / 1048576, 1, ',', '').' MB'
+                    : 'ficheiro não encontrado';
 
                 // Só uma URL absoluta serve num PDF: o documento é lido fora da app.
                 $url = $existe ? DailyRecord::getStorageUrl($path) : null;
@@ -397,8 +393,7 @@ class PlanoParagemPdfService
                     'tarefa_label' => $t->tipoLabel(),
                     'data' => $t->executado_em?->format('d/m/Y H:i'),
                     'nome_ficheiro' => basename($path),
-                    'tamanho_mb' => $existe ? $tamanhoMb : 'ficheiro não encontrado',
-                    'sha256' => $sha256,
+                    'tamanho_mb' => $tamanhoMb,
                     'url' => $url,
                 ];
             }
