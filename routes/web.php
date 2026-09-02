@@ -9,24 +9,10 @@ use App\Http\Controllers\PoolAccessController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TimerPushController;
 use App\Http\Middleware\RequirePasswordChange;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // A app é o painel Filament — a raiz vai direta para lá.
 Route::redirect('/', '/admin');
-
-// Wrapper mobile PWA (Mobile Dashboard)
-
-// API fictícia para download de PDF via Alpine (evita perda de User Gesture no Safari)
-Route::get('/api/pdf/export', function (Request $request) {
-    $period = $request->query('period', 'atual');
-    $content = "Relatorio gerado para o periodo: {$period}";
-
-    return response($content, 200, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="relatorio_'.$period.'.pdf"',
-    ]);
-});
 
 // Prevenção de MethodNotAllowedHttpException no login:
 // Quando gestores de palavras-passe (ex.: Bitwarden, 1Password, Chrome Autofill)
