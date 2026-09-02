@@ -2,6 +2,7 @@ import './bootstrap';
 import './push';
 import './gsap-transitions';
 import GLightbox from 'glightbox';
+import { normalizarNumeroPt } from './numero-pt';
 
 // Empacotado em vez de vir do CDN: era um CSS render-blocking e um JS de
 // terceiros carregados em todas as páginas, mesmo nas que não têm fotos.
@@ -964,18 +965,7 @@ const setupDecimalInputs = () => {
 
         const start = el.selectionStart ?? 0;
         const originalValue = el.value;
-
-        // Substituir qualquer vírgula por ponto
-        let newValue = originalValue.replace(/,/g, '.');
-
-        // Remover qualquer caracter que não seja número ou ponto
-        newValue = newValue.replace(/[^0-9.]/g, '');
-
-        // Garantir que existe no máximo um ponto
-        const parts = newValue.split('.');
-        if (parts.length > 2) {
-            newValue = parts[0] + '.' + parts.slice(1).join('');
-        }
+        const newValue = normalizarNumeroPt(originalValue);
 
         if (originalValue !== newValue) {
             el.value = newValue;
@@ -995,22 +985,18 @@ const setupDecimalInputs = () => {
         if (!texto) return;
 
         e.preventDefault();
-        const corrigido = texto.replace(/,/g, '.').replace(/[^0-9.]/g, '');
 
         const start = el.selectionStart ?? 0;
         const end = el.selectionEnd ?? 0;
         const val = el.value;
 
-        let newValue = val.slice(0, start) + corrigido + val.slice(end);
-
-        // Garantir no máximo um ponto
-        const parts = newValue.split('.');
-        if (parts.length > 2) {
-            newValue = parts[0] + '.' + parts.slice(1).join('');
-        }
+        // Normaliza a junção, e não o pedaço colado isolado: é a junção que
+        // pode ter separadores de milhares (colar "1.234,56" num campo vazio,
+        // ou colar ",56" depois de já lá estar "1.234").
+        const newValue = normalizarNumeroPt(val.slice(0, start) + texto + val.slice(end));
 
         el.value = newValue;
-        const newPos = start + corrigido.length;
+        const newPos = newValue.length - (val.length - end);
         el.setSelectionRange(newPos, newPos);
         el.dispatchEvent(new Event('input', { bubbles: true }));
     }, { capture: true, passive: false });
