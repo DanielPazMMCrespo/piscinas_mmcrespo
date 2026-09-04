@@ -18,12 +18,15 @@ use Illuminate\Support\Facades\Notification;
 
 /**
  * Bloqueia a conta do nadador-salvador quando todas as piscinas atribuídas
- * estão encerradas, e gere o pedido de acesso temporário ao administrador.
+ * estão paradas, e gere o pedido de acesso temporário ao administrador.
  *
  * [AI_CONTEXT]
  * - Fonte única do bloqueio: o middleware BlockClosedPoolAccess e o
  *   PoolAccessController usam sempre estaBloqueado()/piscinasBloqueantes().
  *   Nunca recalcular a condição noutro sítio.
+ * - O critério é Pool::estaParadaEm() (encerrada E sem tratamento de água),
+ *   nunca estaEncerradaEm(): com a água em tratamento o registo diário
+ *   continua obrigatório e o NS tem de conseguir entrar.
  * - Uma aprovação só cobre o(s) encerramento(s) vigente(s) no momento da
  *   decisão. Se a piscina reabrir e voltar a encerrar depois, é um
  *   PoolClosure novo com 'inicio' mais recente do que a aprovação — o
@@ -31,7 +34,7 @@ use Illuminate\Support\Facades\Notification;
  */
 class PoolAccessRequestService
 {
-    /** Piscinas atribuídas ao NS que estão encerradas — vazio se tiver pelo menos uma aberta. */
+    /** Piscinas atribuídas ao NS que estão paradas — vazio se tiver pelo menos uma com trabalho a fazer. */
     public function piscinasBloqueantes(User $user): Collection
     {
         if (! $user->hasRole(UserRole::NADADOR_SALVADOR)) {
@@ -40,7 +43,12 @@ class PoolAccessRequestService
 
         $piscinas = $user->piscinas()->with('encerramentos')->get();
 
-        if ($piscinas->isEmpty() || $piscinas->contains(fn (Pool $p) => ! $p->estaEncerradaEm())) {
+        // Pelo regime, não pelo encerramento: uma piscina fechada ao público
+        // com a água em tratamento mantém a química e o registo diário
+        // obrigatório, logo o NS tem de continuar a entrar. Bloquear por
+        // estaEncerradaEm() punha-o fora do painel numa paragem técnica, ao
+        // contrário do que o formulário e o DailyRecordService já assumiam.
+        if ($piscinas->isEmpty() || $piscinas->contains(fn (Pool $p) => ! $p->estaParadaEm())) {
             return collect();
         }
 
