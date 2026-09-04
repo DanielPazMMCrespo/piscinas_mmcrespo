@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 
 class DailyRecordFormBuilder
 {
@@ -138,6 +139,215 @@ class DailyRecordFormBuilder
      * A vírgula é tratada aqui de propósito: os campos são `type="text"` e a
      * conversão no JS pode não ter corrido ainda quando o semáforo é avaliado.
      */
+    /**
+     * Uma linha so, com as duas coisas que decidem "tenho de lavar hoje?": o
+     * que o manometro diz agora, e ha quantos dias foi a ultima retrolavagem.
+     *
+     * Antes eram dois blocos separados dentro de uma seccao fechada -- um
+     * placeholder de historico e o campo. Juntos aqui, a informacao chega sem
+     * custar um toque nem um bloco de scroll.
+     */
+    /**
+     * Parametros para os quais o DosageCalculatorService sabe sugerir uma dose,
+     * mapeados para o campo do formulario onde a leitura e escrita.
+     */
+    private const PARAMETROS_COM_DOSE = [
+        'ph' => 'ns_ph',
+        'cloro_livre' => 'ns_cloro_livre',
+    ];
+
+    /**
+     * A dose sugerida para um parametro, ja convertida para a unidade em que o
+     * produto e stockado. Devolve null quando nao ha nada a sugerir ou quando a
+     * conversao de unidade nao esta definida (ver
+     * DosageCalculatorService::doseNaUnidadeDoProduto).
+     *
+     * @return array{dose: array<string, mixed>, quantidade: float}|null
+     */
+    private static function doseSugerida(Pool $pool, string $parametro, mixed $valor): ?array
+    {
+        if (! filled($valor)) {
+            return null;
+        }
+
+        $numero = str_replace(',', '.', (string) $valor);
+
+        if (! is_numeric($numero)) {
+            return null;
+        }
+
+        $calculadora = app(DosageCalculatorService::class);
+        $dose = $calculadora->calcularDose($pool, $parametro, (float) $numero);
+
+        if ($dose === null || ($dose['dose_com_fator_ml'] ?? 0) <= 0 || ! isset($dose['produto'])) {
+            return null;
+        }
+
+        $quantidade = $calculadora->doseNaUnidadeDoProduto($dose);
+
+        if ($quantidade === null) {
+            return null;
+        }
+
+        return ['dose' => $dose, 'quantidade' => $quantidade];
+    }
+
+    /**
+     * Sugestao de dose posta onde a leitura acaba de ser escrita, com um botao
+     * que a aplica de uma vez.
+     *
+     * Antes o banner vivia dentro de "Quimicos e Observacoes", que vem fechada:
+     * o semaforo dizia ao tecnico que o pH estava fora dos limites, mas quanto
+     * produto usar estava uma seccao abaixo, atras de um toque. E aplica-la a
+     * mao custava oito gestos: abrir a seccao, acrescentar linha, escolher
+     * produto, escrever quantidade, escrever a acao corretiva.
+     *
+     * A quantidade escrita vem sempre da conversao testada no servico. Escrever
+     * ml num campo que o stock le em litros seria um erro de 1000x a entrar no
+     * livro sanitario.
+     *
+     * @return array<int, Forms\Components\Component>
+     */
+    private static function sugestaoDosagemSchema(Pool $pool): array
+    {
+        $acoes = [];
+
+        foreach (self::PARAMETROS_COM_DOSE as $parametro => $campo) {
+            $acoes[] = Forms\Components\Actions\Action::make("aplicar_dose_{$parametro}_{$pool->id}")
+                ->label(fn (Get $get): string => self::rotuloAplicar($pool, $parametro, $get($campo)))
+                ->icon('heroicon-m-bolt')
+                ->color('warning')
+                ->size('sm')
+                ->visible(fn (Get $get): bool => self::doseSugerida($pool, $parametro, $get($campo)) !== null)
+                ->action(function (Get $get, Set $set) use ($pool, $parametro, $campo): void {
+                    $sugestao = self::doseSugerida($pool, $parametro, $get($campo));
+
+                    if ($sugestao === null) {
+                        return;
+                    }
+
+                    $produto = $sugestao['dose']['produto'];
+                    $adicoes = $get('adicoes') ?? [];
+
+                    // O repeater do Filament guarda os itens numa chave
+                    // aleatoria; usar um indice numerico faria colidir com
+                    // linhas que o tecnico acrescente a mao depois.
+                    $adicoes[(string) Str::uuid()] = [
+                        'product_id' => $produto->id,
+                        'quantity' => $sugestao['quantidade'],
+                        'acao_corretiva' => self::textoAcaoCorretiva($parametro, $get($campo), $sugestao),
+                    ];
+
+                    $set('adicoes', $adicoes);
+
+                    Notification::make()
+                        ->title('Dose aplicada')
+                        ->body($sugestao['dose']['dose_formatada'].' de '.$produto->name.' - confirme antes de gravar.')
+                        ->success()
+                        ->send();
+                });
+        }
+
+        return [
+            Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
+                ->hiddenLabel()
+                ->content(fn (Get $get): ?HtmlString => self::bannerDosagem($pool, $get))
+                ->visible(fn (Get $get): bool => self::bannerDosagem($pool, $get) !== null)
+                ->columnSpanFull(),
+            Forms\Components\Actions::make($acoes)
+                ->columnSpanFull(),
+        ];
+    }
+
+    private static function rotuloAplicar(Pool $pool, string $parametro, mixed $valor): string
+    {
+        $sugestao = self::doseSugerida($pool, $parametro, $valor);
+        $nome = $parametro === 'ph' ? 'pH' : 'cloro';
+
+        return $sugestao === null
+            ? 'Aplicar dose de '.$nome
+            : 'Aplicar '.$sugestao['dose']['dose_formatada'].' ('.$nome.')';
+    }
+
+    /**
+     * A acao corretiva e um campo legal: tem de dizer o que se fez e porque.
+     * Escrita aqui a partir dos numeros reais, nao um texto vago.
+     */
+    private static function textoAcaoCorretiva(string $parametro, mixed $valor, array $sugestao): string
+    {
+        $lido = number_format((float) str_replace(',', '.', (string) $valor), 2, ',', '');
+        $nome = $parametro === 'ph' ? 'pH' : 'cloro livre';
+
+        return 'Correcao de '.$nome.' (lido: '.$lido.'). '
+            .$sugestao['dose']['explicacao'].' '
+            .'Dose aplicada: '.$sugestao['dose']['dose_formatada']
+            .' de '.$sugestao['dose']['produto']->name.'.';
+    }
+
+    private static function bannerDosagem(Pool $pool, Get $get): ?HtmlString
+    {
+        $linhas = [];
+
+        foreach (self::PARAMETROS_COM_DOSE as $parametro => $campo) {
+            $sugestao = self::doseSugerida($pool, $parametro, $get($campo));
+
+            if ($sugestao === null) {
+                continue;
+            }
+
+            $lido = number_format((float) str_replace(',', '.', (string) $get($campo)), 2, ',', '');
+            $nome = $parametro === 'ph' ? 'pH' : 'Cloro livre';
+            $produto = e($sugestao['dose']['produto']->name);
+
+            $linhas[] = '<div>&bull; <strong>'.$nome.' ('.$lido.'):</strong> '
+                .e($sugestao['dose']['explicacao'])
+                .' Dose sugerida: <strong>'.e($sugestao['dose']['dose_formatada']).'</strong> de <em>'.$produto.'</em></div>';
+        }
+
+        if ($linhas === []) {
+            return null;
+        }
+
+        $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1">'
+            .'<div class="font-semibold flex items-center gap-1.5"><span class="text-base">&#9889;</span> <span>Sugestao de dosagem (acao corretiva recomendada)</span></div>'
+            .implode('', $linhas)
+            .'</div>';
+
+        return new HtmlString($html);
+    }
+
+    private static function ajudaPressaoFiltro(Pool $pool, mixed $valor): ?string
+    {
+        $partes = [];
+
+        if (filled($valor) && is_numeric(str_replace(',', '.', (string) $valor))) {
+            $pressao = (float) str_replace(',', '.', (string) $valor);
+
+            $partes[] = match (true) {
+                $pressao >= 1.5 => '⚠️ Pressao elevada ('.$pressao.' bar) — retrolavagem urgente.',
+                $pressao >= 1.2 => 'ℹ️ Pressao moderada ('.$pressao.' bar) — programar lavagem.',
+                default => '✅ Pressao normal ('.$pressao.' bar).',
+            };
+        }
+
+        $ultima = DailyRecord::query()
+            ->where('pool_id', $pool->id)
+            ->where('filtro_faz_retrolavagem', true)
+            ->orderByDesc('registado_em')
+            ->first();
+
+        if ($ultima === null) {
+            $partes[] = 'Sem retrolavagem registada.';
+        } else {
+            $dias = (int) $ultima->registado_em->diffInDays(now());
+            $partes[] = 'Ultima lavagem ha '.$dias.' dia(s)'
+                .($dias >= 7 ? ' ⚠️ passou de 7' : '')
+                .'.';
+        }
+
+        return $partes === [] ? null : implode(' ', $partes);
+    }
+
     private static function phDaLeitura(Get $get): ?float
     {
         $ph = $get('ns_ph');
@@ -660,7 +870,7 @@ class DailyRecordFormBuilder
                     $poolsByBombas = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_bombas')->get();
                     $poolsByFiltros = self::piscinasPermitidas($installation->piscinas())->orderBy('ordem_filtros')->get();
 
-                    $bombasSchema = fn (Pool $pool) => [
+                    $bombasSchema = fn (Pool $pool, bool $temFiltro) => [
                         Forms\Components\Toggle::make('bomba_ferrada')
                             ->id("bomba_ferrada_{$pool->id}")
                             ->label('Bomba ferrada')
@@ -691,6 +901,28 @@ class DailyRecordFormBuilder
                                     }
                                 },
                             ]),
+                        // A pressao do filtro estava atras de "Lavagem de filtros", que vem
+                        // fechada. Verificar o manometro e rotina diaria e lavar e semanal:
+                        // o tecnico pagava um toque por piscina, todos os dias, para chegar
+                        // a um campo que preenche sempre. O historico de retrolavagens que
+                        // vivia num placeholder proprio passa para esta mesma linha de ajuda,
+                        // porque e a mesma decisao ("tenho de lavar hoje?") e assim nao gasta
+                        // um bloco de scroll so para si.
+                        Forms\Components\TextInput::make('pressao_filtro')
+                            ->id("pressao_filtro_{$pool->id}")
+                            ->label('Pressao do Filtro (bar)')
+                            ->numeric()
+                            ->step(0.05)
+                            // Um manometro de filtro nao passa dos 4 bar. Sem maximo,
+                            // 4 digitos estouram a coluna decimal(5,2) e o registo
+                            // rebenta com 500 depois de tudo estar preenchido.
+                            ->minValue(0)
+                            ->maxValue(10)
+                            ->visible($temFiltro)
+                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
+                            ->live(onBlur: true)
+                            ->helperText(fn (Get $get): ?string => self::ajudaPressaoFiltro($pool, $get('pressao_filtro'))),
                         Forms\Components\Select::make('agua_modo')
                             ->id("agua_modo_{$pool->id}")
                             ->label('Água')
@@ -723,51 +955,6 @@ class DailyRecordFormBuilder
                     ];
 
                     $lavagemSchema = fn (Pool $pool) => [
-                        Forms\Components\Placeholder::make("historico_lavagem_{$pool->id}")
-                            ->label('Histórico de Retrolavagens')
-                            ->content(function () use ($pool): HtmlString {
-                                $ultima = DailyRecord::query()
-                                    ->where('pool_id', $pool->id)
-                                    ->where('filtro_faz_retrolavagem', true)
-                                    ->orderByDesc('registado_em')
-                                    ->first();
-                                if (! $ultima) {
-                                    return new HtmlString('<span class="text-sm text-slate-500">Sem registo anterior de retrolavagem.</span>');
-                                }
-                                $dias = (int) $ultima->registado_em->diffInDays(now());
-                                $alerta = $dias >= 7 ? ' <span class="text-amber-600 dark:text-amber-400 font-bold">⚠️ Recomendada lavagem (>7 dias)</span>' : '';
-
-                                return new HtmlString(
-                                    "<span class=\"text-sm font-medium\">Última: há {$dias} dia(s) ({$ultima->registado_em->format('d/m/Y')}) — {$ultima->numero_lavagens_filtro} ciclo(s){$alerta}</span>"
-                                );
-                            }),
-                        Forms\Components\TextInput::make('pressao_filtro')
-                            ->id("pressao_filtro_{$pool->id}")
-                            ->label('Pressão do Filtro (bar)')
-                            ->numeric()
-                            ->step(0.05)
-                            // Um manómetro de filtro não passa dos 4 bar. Sem máximo,
-                            // 4 dígitos estouram a coluna decimal(5,2) e o registo
-                            // rebenta com 500 depois de tudo estar preenchido.
-                            ->minValue(0)
-                            ->maxValue(10)
-                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
-                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                            ->live(onBlur: true)
-                            ->helperText(function (Get $get): ?string {
-                                $val = $get('pressao_filtro');
-                                if (blank($val)) {
-                                    return null;
-                                }
-                                $pressao = (float) $val;
-                                if ($pressao >= 1.5) {
-                                    return '⚠️ Pressão elevada ('.$pressao.' bar)! Recomendada retrolavagem urgente do filtro.';
-                                } elseif ($pressao >= 1.2) {
-                                    return 'ℹ️ Pressão moderada ('.$pressao.' bar). Considere programar lavagem brevemente.';
-                                }
-
-                                return '✅ Pressão normal ('.$pressao.' bar).';
-                            }),
                         Forms\Components\Toggle::make('filtro_faz_retrolavagem')
                             ->id("filtro_faz_retrolavagem_{$pool->id}")
                             ->label('Fazer retrolavagem?')->default(false)->live(),
@@ -896,55 +1083,10 @@ class DailyRecordFormBuilder
                             ->extraInputAttributes(['class' => 'neo-input-large'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->columnSpanFull(),
+                        ...self::sugestaoDosagemSchema($pool),
                     ];
 
                     $observacoesSchema = fn (Pool $pool, $installation) => [
-                        Forms\Components\Placeholder::make("sugestao_dosagem_banner_{$pool->id}")
-                            ->hiddenLabel()
-                            ->content(function (Get $get) use ($pool) {
-                                // Caminho RELATIVO: este placeholder vive dentro da
-                                // Section com statePath("pools.{id}"). O caminho
-                                // absoluto resolvia para pools.1.pools.1.ns_ph e
-                                // devolvia sempre null — o banner nunca aparecia.
-                                $ph = $get('ns_ph');
-                                $cl = $get('ns_cloro_livre');
-
-                                $sugestoes = [];
-                                $calculator = app(DosageCalculatorService::class);
-
-                                if (filled($ph)) {
-                                    $dosePh = $calculator->calcularDose($pool, 'ph', (float) $ph);
-                                    if ($dosePh && ($dosePh['dose_com_fator_ml'] ?? 0) > 0) {
-                                        $prod = e($dosePh['produto']?->name ?? 'Produto pH');
-                                        $sugestoes[] = '• <strong>pH ('.number_format((float) $ph, 2, ',', '')."):</strong> {$dosePh['explicacao']} Dose sugerida: <strong>{$dosePh['dose_formatada']}</strong> de <em>{$prod}</em>";
-                                    }
-                                }
-
-                                if (filled($cl)) {
-                                    $doseCl = $calculator->calcularDose($pool, 'cloro_livre', (float) $cl);
-                                    if ($doseCl && ($doseCl['dose_com_fator_ml'] ?? 0) > 0) {
-                                        $prod = e($doseCl['produto']?->name ?? 'Cloro');
-                                        $sugestoes[] = '• <strong>Cloro Livre ('.number_format((float) $cl, 2, ',', '')." ppm):</strong> {$doseCl['explicacao']} Dose sugerida: <strong>{$doseCl['dose_formatada']}</strong> de <em>{$prod}</em>";
-                                    }
-                                }
-
-                                if (empty($sugestoes)) {
-                                    return null;
-                                }
-
-                                $html = '<div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-lg text-amber-900 dark:text-amber-200 text-sm space-y-1 mb-2">';
-                                $html .= '<div class="font-semibold flex items-center gap-1.5"><span class="text-base">⚡</span> <span>Sugestões Automáticas de Dosagem (Ação Corretiva Recomendada)</span></div>';
-                                foreach ($sugestoes as $sug) {
-                                    $html .= "<div>{$sug}</div>";
-                                }
-                                $html .= '</div>';
-
-                                return new HtmlString($html);
-                            })
-                            ->visible(function (Get $get): bool {
-                                return filled($get('ns_ph')) || filled($get('ns_cloro_livre'));
-                            })
-                            ->columnSpanFull(),
                         Forms\Components\Repeater::make('adicoes')
                             ->id("adicoes_{$pool->id}")
                             ->label('Adições de Químicos')
@@ -1107,8 +1249,8 @@ class DailyRecordFormBuilder
                         $sections = [];
 
                         if (! self::isNS() && ! $modoRapido) {
-                            $sections[] = Forms\Components\Section::make('Bombas e contadores')
-                                ->schema($bombasSchema($pool))
+                            $sections[] = Forms\Components\Section::make('Bomba, contador e filtro')
+                                ->schema($bombasSchema($pool, $poolsByFiltros->contains('id', $pool->id)))
                                 ->columns(['default' => 2, 'sm' => 3, 'lg' => 4]);
 
                             if ((bool) $installation->tanques_verificaveis) {
@@ -1138,7 +1280,10 @@ class DailyRecordFormBuilder
                             $sections[] = Forms\Components\Section::make('Químicos e Observações')
                                 ->icon('heroicon-o-beaker')
                                 ->collapsible()
-                                ->collapsed(true)
+                                // Abre-se sozinha quando ja ha uma adicao: sem isto, a
+                                // linha que o botao "Aplicar" acabou de criar ficava
+                                // escondida e o tecnico nao a podia confirmar.
+                                ->collapsed(fn (Get $get): bool => blank($get('adicoes')))
                                 ->compact()
                                 ->schema($observacoesSchema($pool, $installation));
                         }

@@ -103,6 +103,37 @@ class DosageCalculatorService
      * L ou kg, por isso imprimir o número cru com a unidade do produto dava um
      * valor 1000x maior do que o real ("+24.438 kg" em vez de "24,4 L").
      */
+    /**
+     * A dose convertida para a unidade em que o produto e de facto stockado.
+     *
+     * `calcularDose()` devolve ml ou g; o stock (e o campo "Quantidade" das
+     * adicoes de quimicos) esta em L, kg ou un -- as tres unicas unidades que
+     * o ProductResource permite. Sem esta conversao, escrever a dose no campo
+     * de quantidade dava um erro de 1000x no desconto de stock e no livro
+     * sanitario. E a mesma classe de erro que a sessao 20 apanhou na sugestao
+     * impressa.
+     *
+     * Devolve null quando a conversao nao esta definida: um produto vendido a
+     * unidade (pastilhas) nao tem equivalencia com uma dose em mililitros, e
+     * inventar uma seria pior do que nao sugerir nada.
+     *
+     * @param  array{dose_com_fator_ml: float, unidade?: string|null}  $dose
+     */
+    public function doseNaUnidadeDoProduto(array $dose): ?float
+    {
+        $ml = (float) ($dose['dose_com_fator_ml'] ?? 0.0);
+
+        if ($ml <= 0) {
+            return null;
+        }
+
+        return match (strtolower(trim((string) ($dose['unidade'] ?? '')))) {
+            'l', 'litro', 'litros', 'kg' => round($ml / 1000, 3),
+            'g', 'ml' => round($ml, 2),
+            default => null,
+        };
+    }
+
     private function formatarDose(float $doseMlOuG, ?string $unidade): string
     {
         return match (strtolower(trim((string) $unidade))) {
