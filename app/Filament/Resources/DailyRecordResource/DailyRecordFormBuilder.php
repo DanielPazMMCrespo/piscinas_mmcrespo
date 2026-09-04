@@ -316,6 +316,70 @@ class DailyRecordFormBuilder
         return new HtmlString($html);
     }
 
+    /**
+     * Os quatro parametros legais CN 14/DA desta piscina. Ficam numa constante
+     * porque tres sitios precisam de saber se a piscina esta feita: o resumo do
+     * cabecalho, o fecho automatico do cartao, e o contador de gestos dos testes.
+     */
+    public const CAMPOS_LEITURA_LEGAL = [
+        'ns_ph',
+        'ns_cloro_livre',
+        'ns_cloro_total',
+        'ns_temperatura',
+    ];
+
+    /**
+     * ATENCAO ao caminho, e ao contrario do que a regra 9 do CLAUDE.md diz para
+     * os campos: os closures do PROPRIO cartao (description, collapsed) correm
+     * no container PAI, nao no dele. O statePath que o cartao declara aplica-se
+     * aos filhos, nao a si mesmo. Aqui o caminho certo e o absoluto.
+     *
+     * Isto foi encontrado com um teste a falhar: com o nome curto, $get devolvia
+     * null em silencio e o cartao nunca fechava -- a mesma classe de bug que
+     * manteve o banner de dose invisivel durante meses, so do lado inverso.
+     */
+    private static function leiturasLegaisCompletas(Pool $pool, Get $get): bool
+    {
+        foreach (self::CAMPOS_LEITURA_LEGAL as $campo) {
+            if (blank($get("pools.{$pool->id}.{$campo}"))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * O que se le no cabecalho do cartao.
+     *
+     * Enquanto a piscina nao esta feita, mostra o volume (que e o que o tecnico
+     * precisa para conferir a dose). Depois de estar feita, o cartao fecha-se e
+     * o cabecalho passa a ser a unica coisa visivel: tem de mostrar o que ficou
+     * registado, senao nao se consegue reconferir sem reabrir.
+     */
+    private static function resumoCartaoPiscina(Pool $pool, Get $get): ?string
+    {
+        $volume = $pool->volume
+            ? 'Volume: '.number_format((float) $pool->volume, 0, ',', ' ').' m³'
+            : null;
+
+        if (! self::leiturasLegaisCompletas($pool, $get)) {
+            return $volume;
+        }
+
+        $fmt = static function (mixed $valor, int $casas = 2): string {
+            $numero = str_replace(',', '.', (string) $valor);
+
+            return is_numeric($numero) ? number_format((float) $numero, $casas, ',', '') : '—';
+        };
+
+        $prefixo = "pools.{$pool->id}.";
+
+        return 'pH '.$fmt($get($prefixo.'ns_ph'))
+            .'  ·  Cl '.$fmt($get($prefixo.'ns_cloro_livre')).' mg/L'
+            .'  ·  '.$fmt($get($prefixo.'ns_temperatura'), 1).' °C';
+    }
+
     private static function ajudaPressaoFiltro(Pool $pool, mixed $valor): ?string
     {
         $partes = [];
@@ -1289,8 +1353,16 @@ class DailyRecordFormBuilder
                         }
 
                         return Forms\Components\Section::make("🏊 {$pool->name}")
-                            ->description($pool->volume ? 'Volume: '.number_format((float) $pool->volume, 0, ',', ' ').' m³' : null)
+                            ->description(fn (Get $get): ?string => self::resumoCartaoPiscina($pool, $get))
                             ->statePath("pools.{$pool->id}")
+                            ->collapsible()
+                            // Fecha-se sozinha quando as quatro leituras legais desta
+                            // piscina estao escritas. Em Leiria sao tres cartoes: sem
+                            // isto o tecnico faz scroll pelo cartao inteiro da
+                            // Competicao para chegar a Lazer -- 8 ecras para as tres.
+                            // Os campos sao live(onBlur), logo o cartao fecha ao sair
+                            // do ultimo, e o cabecalho passa a mostrar o resumo.
+                            ->collapsed(fn (Get $get): bool => self::leiturasLegaisCompletas($pool, $get))
                             ->schema($sections)
                             ->columnSpanFull();
                     })->toArray();
