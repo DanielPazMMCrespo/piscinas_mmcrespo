@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
@@ -154,14 +155,75 @@ class CartaoPiscinaFechaQuandoFeitoTest extends TestCase
         );
     }
 
-    public function test_fecha_se_quando_as_quatro_leituras_legais_estao_escritas(): void
+    /**
+     * O que fecha o cartao no browser e o evento `collapse-section`, que a
+     * seccao do Filament ouve por id. O `collapsed()` do schema so e lido ao
+     * MONTAR -- verificado em staging: com so o closure, a descricao mudava
+     * para o resumo mas o cartao ficava aberto.
+     *
+     * Por isso este teste segue o evento, nao o valor calculado.
+     */
+    public function test_despacha_o_fecho_quando_a_quarta_leitura_entra(): void
+    {
+        $prefixo = "pools.{$this->competicao->id}";
+
+        $this->abrirCom($this->leiturasDe($this->competicao, [
+            'ns_ph' => 7.4,
+            'ns_cloro_livre' => 1.1,
+            'ns_cloro_total' => 1.3,
+        ]))
+            // A quarta entra sozinha, para o `$old` do campo estar vazio.
+            ->set("data.{$prefixo}.ns_temperatura", 27.5)
+            ->assertDispatched(
+                'collapse-section',
+                id: DailyRecordFormBuilder::ID_CARTAO_PISCINA.$this->competicao->id,
+            );
+    }
+
+    public function test_nao_despacha_o_fecho_com_leituras_a_meio(): void
+    {
+        $prefixo = "pools.{$this->competicao->id}";
+
+        $this->abrirCom($this->leiturasDe($this->competicao, ['ns_ph' => 7.4]))
+            ->set("data.{$prefixo}.ns_cloro_livre", 1.1)
+            ->assertNotDispatched('collapse-section');
+    }
+
+    /**
+     * Corrigir um valor ja escrito nao pode fechar o cartao na cara de quem o
+     * esta a corrigir.
+     */
+    public function test_corrigir_uma_leitura_ja_escrita_nao_fecha_o_cartao(): void
+    {
+        $prefixo = "pools.{$this->competicao->id}";
+
+        $this->abrirCom($this->leiturasCompletasDe($this->competicao))
+            ->set("data.{$prefixo}.ns_ph", 7.6)
+            ->assertNotDispatched('collapse-section');
+    }
+
+    /**
+     * Guarda o id: se mudar, o evento deixa de encontrar a seccao e o cartao
+     * nunca mais fecha -- sem erro nenhum.
+     */
+    public function test_o_cartao_tem_o_id_que_o_evento_procura(): void
+    {
+        $cartao = $this->cartao($this->abrirCom(), $this->competicao);
+
+        $this->assertSame(
+            DailyRecordFormBuilder::ID_CARTAO_PISCINA.$this->competicao->id,
+            $cartao->getId(),
+        );
+    }
+
+    /**
+     * Um formulario remontado com as leituras ja preenchidas abre fechado.
+     */
+    public function test_remontado_com_as_leituras_feitas_ja_vem_fechado(): void
     {
         $pagina = $this->abrirCom($this->leiturasCompletasDe($this->competicao));
 
-        $this->assertTrue(
-            $this->cartao($pagina, $this->competicao)->isCollapsed(),
-            'Com as quatro leituras escritas o cartão fecha-se e a piscina seguinte sobe ao topo.'
-        );
+        $this->assertTrue($this->cartao($pagina, $this->competicao)->isCollapsed());
     }
 
     /**

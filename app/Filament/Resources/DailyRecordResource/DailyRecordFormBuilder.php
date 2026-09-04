@@ -321,6 +321,12 @@ class DailyRecordFormBuilder
      * porque tres sitios precisam de saber se a piscina esta feita: o resumo do
      * cabecalho, o fecho automatico do cartao, e o contador de gestos dos testes.
      */
+    /**
+     * Prefixo do id do cartao de cada piscina no DOM. E por este id que a secao
+     * do Filament reconhece o evento `collapse-section`.
+     */
+    public const ID_CARTAO_PISCINA = 'cartao_piscina_';
+
     public const CAMPOS_LEITURA_LEGAL = [
         'ns_ph',
         'ns_cloro_livre',
@@ -750,6 +756,26 @@ class DailyRecordFormBuilder
     {
         return $campo
             ->live(onBlur: true)
+            // Fecha o cartao desta piscina no instante em que a quarta leitura
+            // legal entra, para a piscina seguinte subir ao topo do ecra sem um
+            // gesto. Em Leiria sao tres cartoes e sem isto sao 8 ecras de scroll.
+            //
+            // So dispara quando o campo estava VAZIO antes: sem essa guarda,
+            // voltar atras para corrigir um valor fechava o cartao na cara de
+            // quem o estava a corrigir.
+            ->afterStateUpdated(function ($state, $old, Get $get, $livewire) use ($pool): void {
+                if (filled($old) || blank($state)) {
+                    return;
+                }
+
+                foreach (self::CAMPOS_LEITURA_LEGAL as $legal) {
+                    if (blank($get($legal))) {
+                        return;
+                    }
+                }
+
+                $livewire->dispatch('collapse-section', id: self::ID_CARTAO_PISCINA.$pool->id);
+            })
             ->extraInputAttributes(['inputmode' => 'decimal', 'class' => 'neo-input-large'])
             ->suffix(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?HtmlString {
                 $val = $get($campo->getName());
@@ -1355,15 +1381,21 @@ class DailyRecordFormBuilder
                         }
 
                         return Forms\Components\Section::make("🏊 {$pool->name}")
+                            ->id(self::ID_CARTAO_PISCINA.$pool->id)
                             ->description(fn (Get $get): ?string => self::resumoCartaoPiscina($pool, $get))
                             ->statePath("pools.{$pool->id}")
                             ->collapsible()
-                            // Fecha-se sozinha quando as quatro leituras legais desta
-                            // piscina estao escritas. Em Leiria sao tres cartoes: sem
-                            // isto o tecnico faz scroll pelo cartao inteiro da
-                            // Competicao para chegar a Lazer -- 8 ecras para as tres.
-                            // Os campos sao live(onBlur), logo o cartao fecha ao sair
-                            // do ultimo, e o cabecalho passa a mostrar o resumo.
+                            // O `collapsed()` do Filament so e lido ao MONTAR a secao;
+                            // dai para a frente o estado e do Alpine e um update do
+                            // Livewire nao o mexe. Verificado no browser: com o
+                            // closure aqui, a descricao mudava para o resumo mas o
+                            // cartao ficava aberto.
+                            //
+                            // Quem fecha de facto e o evento `collapse-section`, que a
+                            // secao do Filament ouve por id -- despachado em
+                            // comSemaforo() quando a quarta leitura entra. O
+                            // `collapsed()` fica so para o caso de o formulario ser
+                            // remontado com as leituras ja preenchidas.
                             ->collapsed(fn (Get $get): bool => self::leiturasLegaisCompletas($pool, $get))
                             ->schema($sections)
                             ->columnSpanFull();
