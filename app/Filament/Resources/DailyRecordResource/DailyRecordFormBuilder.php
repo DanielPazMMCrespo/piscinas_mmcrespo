@@ -219,7 +219,7 @@ class DailyRecordFormBuilder
                 ->color('warning')
                 ->size('sm')
                 ->visible(fn (Get $get): bool => self::doseSugerida($pool, $parametro, $get($campo)) !== null)
-                ->action(function (Get $get, Set $set) use ($pool, $parametro, $campo): void {
+                ->action(function (Get $get, Set $set, $livewire) use ($pool, $parametro, $campo): void {
                     $sugestao = self::doseSugerida($pool, $parametro, $get($campo));
 
                     if ($sugestao === null) {
@@ -239,6 +239,10 @@ class DailyRecordFormBuilder
                     ];
 
                     $set('adicoes', $adicoes);
+
+                    // Sem isto a linha nascia dentro de uma seccao fechada e o
+                    // tecnico nao a via para confirmar antes de gravar.
+                    $livewire->dispatch('open-section', id: self::ID_SECCAO_QUIMICOS.$pool->id);
 
                     Notification::make()
                         ->title('Dose aplicada')
@@ -278,7 +282,7 @@ class DailyRecordFormBuilder
         $lido = number_format((float) str_replace(',', '.', (string) $valor), 2, ',', '');
         $nome = $parametro === 'ph' ? 'pH' : 'cloro livre';
 
-        return 'Correcao de '.$nome.' (lido: '.$lido.'). '
+        return 'Correção de '.$nome.' (lido: '.$lido.'). '
             .$sugestao['dose']['explicacao'].' '
             .'Dose aplicada: '.$sugestao['dose']['dose_formatada']
             .' de '.$sugestao['dose']['produto']->name.'.';
@@ -326,6 +330,12 @@ class DailyRecordFormBuilder
      * do Filament reconhece o evento `collapse-section`.
      */
     public const ID_CARTAO_PISCINA = 'cartao_piscina_';
+
+    /**
+     * Id da seccao de quimicos de cada piscina. Como o cartao, e por este id
+     * que a seccao reconhece os eventos `open-section`/`collapse-section`.
+     */
+    public const ID_SECCAO_QUIMICOS = 'quimicos_piscina_';
 
     public const CAMPOS_LEITURA_LEGAL = [
         'ns_ph',
@@ -1370,11 +1380,15 @@ class DailyRecordFormBuilder
 
                         if (! self::isNS()) {
                             $sections[] = Forms\Components\Section::make('Químicos e Observações')
+                                ->id(self::ID_SECCAO_QUIMICOS.$pool->id)
                                 ->icon('heroicon-o-beaker')
                                 ->collapsible()
-                                // Abre-se sozinha quando ja ha uma adicao: sem isto, a
-                                // linha que o botao "Aplicar" acabou de criar ficava
-                                // escondida e o tecnico nao a podia confirmar.
+                                // Como no cartao da piscina, o `collapsed()` so e lido ao
+                                // MONTAR: verificado no browser, a linha que o botao
+                                // "Aplicar" criava ficava escondida numa seccao que nao
+                                // se abria. Quem a abre de facto e o evento
+                                // `open-section`, despachado pela propria acao. Isto
+                                // fica para o formulario remontado com adicoes.
                                 ->collapsed(fn (Get $get): bool => blank($get('adicoes')))
                                 ->compact()
                                 ->schema($observacoesSchema($pool, $installation));

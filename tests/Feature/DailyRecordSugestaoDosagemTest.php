@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
@@ -12,6 +13,7 @@ use App\Models\User;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions\ActionContainer;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Section;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -204,6 +206,41 @@ class DailyRecordSugestaoDosagemTest extends TestCase
         $this->assertTrue($acao->isVisible());
     }
 
+    /**
+     * A linha nasce dentro de "Quimicos e Observacoes", que vem fechada. O
+     * `collapsed()` do Filament so e lido ao MONTAR a seccao -- verificado no
+     * browser: a linha era criada e ficava escondida, e o tecnico nao a via
+     * para confirmar antes de gravar. Quem abre e o evento `open-section`.
+     */
+    public function test_aplicar_abre_a_seccao_de_quimicos(): void
+    {
+        $this->criarProdutoDeCloro();
+
+        $nome = "aplicar_dose_cloro_livre_{$this->competicao->id}";
+
+        $this->abrirCom(['ns_cloro_livre' => 0.1])
+            ->callFormComponentAction("pools.{$this->competicao->id}.{$nome}Action", $nome)
+            ->assertDispatched(
+                'open-section',
+                id: DailyRecordFormBuilder::ID_SECCAO_QUIMICOS.$this->competicao->id,
+            );
+    }
+
+    public function test_a_seccao_de_quimicos_tem_o_id_que_o_evento_procura(): void
+    {
+        // Uma Section nao tem getName(); procura-se pelo id diretamente.
+        $encontrada = null;
+        foreach ($this->abrirCom([])->instance()->getForm('form')->getFlatComponents(withHidden: true) as $c) {
+            if ($c instanceof Section
+                && $c->getId() === DailyRecordFormBuilder::ID_SECCAO_QUIMICOS.$this->competicao->id) {
+                $encontrada = $c;
+                break;
+            }
+        }
+
+        $this->assertNotNull($encontrada, 'Sem este id o evento nao encontra a seccao e ela nunca abre.');
+    }
+
     public function test_aplicar_escreve_a_adicao_com_produto_quantidade_e_acao_corretiva(): void
     {
         $produto = $this->criarProdutoDeCloro();
@@ -219,7 +256,7 @@ class DailyRecordSugestaoDosagemTest extends TestCase
 
         $this->assertSame($produto->id, $linha['product_id']);
         $this->assertNotEmpty($linha['acao_corretiva'], 'A ação corretiva é um campo legal — não pode ficar vazia.');
-        $this->assertStringContainsString('cloro livre', $linha['acao_corretiva']);
+        $this->assertStringContainsString('Correção de cloro livre', $linha['acao_corretiva']);
         $this->assertStringContainsString($produto->name, $linha['acao_corretiva']);
     }
 
