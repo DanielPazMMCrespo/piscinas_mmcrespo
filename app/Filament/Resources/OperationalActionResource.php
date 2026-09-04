@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\OperationalActionResource\Pages;
 use App\Models\DailyRecord;
@@ -46,7 +47,7 @@ class OperationalActionResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+        return self::userCanManageOperationalActions();
     }
 
     public static function getEloquentQuery(): Builder
@@ -62,7 +63,19 @@ class OperationalActionResource extends Resource
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+        return self::userCanManageOperationalActions();
+    }
+
+    private static function userCanManageOperationalActions(): bool
+    {
+        $user = auth()->user();
+
+        if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+            return true;
+        }
+
+        return $user?->hasRole(UserRole::NADADOR_SALVADOR)
+            && $user->podeVer(NSPermission::ANALISE_PARAMETROS);
     }
 
     public static function canEdit($record): bool
@@ -187,6 +200,20 @@ class OperationalActionResource extends Resource
         }
     }
 
+    private static function tiposDisponiveis(): array
+    {
+        $user = auth()->user();
+
+        // Nadadores-salvadores (lifeguards) só podem registar análises pontuais.
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            return [
+                OperationalAction::TIPO_ANALISE_PONTUAL => OperationalAction::TIPOS[OperationalAction::TIPO_ANALISE_PONTUAL],
+            ];
+        }
+
+        return OperationalAction::TIPOS;
+    }
+
     private static function piscinasOptions(): array
     {
         // Piscinas encerradas ficam na lista de propósito: é durante o
@@ -232,8 +259,10 @@ class OperationalActionResource extends Resource
 
             Forms\Components\Select::make('tipo')
                 ->label('Tipo de ação')
-                ->options(OperationalAction::TIPOS)
-                ->default(fn () => in_array(request()->query('tipo'), array_keys(OperationalAction::TIPOS), true) ? request()->query('tipo') : null)
+                ->options(fn () => self::tiposDisponiveis())
+                ->default(fn () => request()->query('tipo') === OperationalAction::TIPO_ANALISE_PONTUAL
+                    ? OperationalAction::TIPO_ANALISE_PONTUAL
+                    : (in_array(request()->query('tipo'), array_keys(self::tiposDisponiveis()), true) ? request()->query('tipo') : null))
                 ->required()
                 ->live()
                 ->afterStateUpdated(fn (Get $get, Set $set) => self::preencherOrpDaSonda($get, $set)),

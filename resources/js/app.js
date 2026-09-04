@@ -503,6 +503,8 @@ document.addEventListener('alpine:init', () => {
 
             if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
 
+            this.saveState();
+
             if (this.fase === 'lavagem' && this.poolId) {
                 const inputLavagens = document.getElementById('numero_lavagens_filtro_' + this.poolId);
                 if (inputLavagens) {
@@ -538,6 +540,10 @@ document.addEventListener('alpine:init', () => {
                     const data = JSON.parse(saved);
                     this.initialSeconds = data.initialSeconds ?? defaultSeconds;
                     this.isRunning = data.isRunning ?? false;
+                    // Sem persistir isto, um timer restaurado ja expirado volta a
+                    // chamar avisarFim() em cada carregamento da pagina e soma +1
+                    // ao "Nº de lavagens" — que vai mesmo para o livro sanitario.
+                    this.alertado = data.alertado ?? false;
 
                     if (this.isRunning && data.endTime) {
                         this.endTime = data.endTime;
@@ -585,6 +591,9 @@ document.addEventListener('alpine:init', () => {
                 // órfão. O autosave do rascunho tem debounce; sem isto um timer
                 // iniciado antes da primeira gravação seria morto ao segundo.
                 startedAt: this.startedAt ?? null,
+                // Se o aviso de "expirou" já foi dado. Sem isto, recarregar a
+                // página voltava a avisar de um timer já anunciado.
+                alertado: this.alertado,
             };
             if (this.isRunning) {
                 data.endTime = this.endTime;
@@ -640,6 +649,13 @@ document.addEventListener('alpine:init', () => {
             this.alertado = false;
             this.startedAt = null;
         },
+
+        // Chamado pelo X da barra global (evento mmc-timer-terminar). Apagar so a
+        // chave do localStorage nao chegava: com o campo montado, o $watch deste
+        // componente reescreve-a no tick seguinte.
+        terminar() {
+            this.resetTimer();
+        },
         
         adjustTime(seconds) {
             this.initialSeconds += seconds;
@@ -671,6 +687,7 @@ document.addEventListener('alpine:init', () => {
         timers: [],
         poll: null,
         notificadosTimers: new Map(), // Rastreia timers já notificados
+        candidatosOrfaos: new Map(), // Ver a deteção de órfãos em refresh()
 
         init() {
             this.refresh();
@@ -701,6 +718,36 @@ document.addEventListener('alpine:init', () => {
                 const match = statePath.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
                 const poolId = match ? parseInt(match[1], 10) : null;
                 const fase = match ? match[2] : (statePath.match(/timer_(lavagem|enxaguamento)/) || [])[1];
+
+                // Primeira detecao de orfao: desligar "Fazer retrolavagem?" faz
+                // desaparecer o campo do timer, mas nao a chave em localStorage --
+                // sobrava um chip permanente sem componente nenhum que o pudesse
+                // parar. A detecao por rascunho (mais abaixo) nao apanha este caso.
+                //
+                // Exige duas passagens seguidas (>=1s) antes de apagar. O toggle do
+                // Filament comeca com aria-checked="false" no HTML e so passa a
+                // "true" quando o x-bind corre: sem esta espera, o primeiro tick a
+                // seguir ao load apagava um timer legitimo antes de o Alpine ligar.
+                const toggle = poolId
+                    ? document.getElementById('filtro_faz_retrolavagem_' + poolId)
+                    : null;
+                const orfaoSemCampo = toggle
+                    && toggle.getAttribute('aria-checked') !== 'true'
+                    && !document.querySelector(`[data-mmc-timer="${statePath}"]`);
+
+                if (orfaoSemCampo) {
+                    if (this.candidatosOrfaos.get(key)) {
+                        this.candidatosOrfaos.delete(key);
+                        keysParaRemover.push(key);
+                        if (poolId) {
+                            orfaosParaCancelar.push({ poolId, fase });
+                        }
+                        continue;
+                    }
+                    this.candidatosOrfaos.set(key, true);
+                } else {
+                    this.candidatosOrfaos.delete(key);
+                }
 
                 // O carimbo `formKey` só existe em timers gravados depois desta
                 // correção; uma chave antiga sem carimbo cai no rascunho atual.
@@ -754,7 +801,15 @@ document.addEventListener('alpine:init', () => {
             }
 
             // Remove timers expirados após iteração (evita problemas com índices)
-            keysParaRemover.forEach(key => localStorage.removeItem(key));
+            keysParaRemover.forEach((key) => {
+                localStorage.removeItem(key);
+
+                const sp = key.replace('mmc_timer_', '');
+                const m = sp.match(/pools\.(\d+)\.timer_(lavagem|enxaguamento)/);
+                if (m) {
+                    window.mmcPush?.cancelarTimer(parseInt(m[1], 10), m[2]);
+                }
+            });
 
             // Um timer órfão também tem um TimerPush no servidor à espera de
             // disparar. Cancelar aqui evita a notificação de um registo que
@@ -765,6 +820,19 @@ document.addEventListener('alpine:init', () => {
 
             ativos.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
             this.timers = ativos;
+
+            // O prompt de notificacoes e a barra sao ambos overlays fixos no fundo
+            // e ficavam sobrepostos (o prompt roubava os cliques da barra). A barra
+            // publica quanto espaco ocupa a contar do fundo do ecra — a altura dela
+            // mais o proprio afastamento — e quem fica por cima empilha-se com isso.
+            this.$nextTick(() => {
+                let espaco = 0;
+                if (ativos.length > 0) {
+                    const caixa = this.$el.getBoundingClientRect();
+                    espaco = Math.max(0, window.innerHeight - caixa.top + 12);
+                }
+                document.documentElement.style.setProperty('--mmc-timer-bar-space', espaco + 'px');
+            });
         },
 
         enviarNotificacao(poolNome, fase, tempoExcedidoSegundos) {
@@ -802,69 +870,67 @@ document.addEventListener('alpine:init', () => {
             return `${isNeg ? '-' : ''}${m}:${s}`;
         },
 
-        navegar(statePath, poolId) {
-            // Lavagem e enxaguamento são passos distintos do Wizard. Antes de fazer
-            // scroll é preciso trocar para o passo certo — senão o fieldset está num
-            // passo escondido (display:none) e o scrollIntoView cai numa posição vazia.
-            const fase = String(statePath).includes('timer_enxaguamento') ? 'enxaguamento' : 'lavagem';
-            const stepLabel = fase === 'enxaguamento' ? 'Enxaguamento' : 'Lavagem filtros';
+        // O painel deixou de ter Wizard (sessao 25): o codigo antigo procurava
+        // botoes de passo "Lavagem filtros"/"Enxaguamento" e elementos <fieldset>
+        // que o Filament 3 nao renderiza, por isso clicar no chip nao fazia
+        // absolutamente nada. O campo do timer identifica-se agora por
+        // data-mmc-timer, posto pela propria view do campo.
+        navegar(timer) {
+            if (!window.location.pathname.includes('/daily-records/create')) {
+                window.location.href = '/admin/daily-records/create';
 
-            this.irParaPasso(stepLabel);
-
-            // Aguarda o Alpine terminar a transição do passo — em vez de um timeout
-            // fixo, espera (com retries) até existir um fieldset realmente visível.
-            this.focarFieldsetComRetry(poolId);
-        },
-
-        // Clica no header do passo do Wizard cujo label corresponde. Devolve true se
-        // encontrou o botão do passo (e portanto vale a pena esperar pela transição).
-        irParaPasso(stepLabel) {
-            const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-            const wizardRoot = document.querySelector('[class*="fi-fo-wizard"], [class*="wizard"]') || document;
-            const stepButton = Array.from(wizardRoot.querySelectorAll('button')).find((b) =>
-                norm(b.getAttribute('aria-label')) === stepLabel || norm(b.textContent).includes(stepLabel)
-            );
-            if (stepButton) {
-                stepButton.click();
-                return true;
-            }
-            return false;
-        },
-
-        focarFieldsetComRetry(poolId, tentativa = 0) {
-            const visivel = (el) => el && el.offsetParent !== null;
-            const candidatos = [];
-
-            document.querySelectorAll(`[data-pools-fieldset="${poolId}"]`).forEach((el) => candidatos.push(el));
-            document.querySelectorAll('fieldset').forEach((fs) => {
-                if (fs.querySelector(`[name*="pools.${poolId}"]`)) candidatos.push(fs);
-            });
-            const poolName = window.__poolNomes?.[poolId];
-            if (poolName) {
-                document.querySelectorAll('fieldset').forEach((fs) => {
-                    if (fs.textContent.includes(poolName)) candidatos.push(fs);
-                });
-            }
-
-            // Vários passos têm fieldsets da mesma piscina — só o do passo ativo está visível.
-            const fieldset = candidatos.find(visivel);
-
-            if (!fieldset) {
-                // A transição do Wizard ainda não terminou (ou o passo ainda não montou
-                // os fieldsets). Tenta de novo por até ~2s antes de desistir.
-                if (tentativa < 20) {
-                    setTimeout(() => this.focarFieldsetComRetry(poolId, tentativa + 1), 100);
-                } else {
-                    console.warn(`Fieldset visível não encontrado para pool ${poolId}`);
-                }
                 return;
             }
 
-            fieldset.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            fieldset.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
+            this.focarCampo(timer.statePath);
+        },
+
+        focarCampo(statePath, tentativa = 0) {
+            const campo = document.querySelector(`[data-mmc-timer="${statePath}"]`);
+
+            if (!campo) {
+                if (tentativa < 10) {
+                    setTimeout(() => this.focarCampo(statePath, tentativa + 1), 100);
+                }
+
+                return;
+            }
+
+            // A seccao "Lavagem de filtros" abre fechada e o seu conteudo fica
+            // `absolute h-0` — sem a expandir o scrollIntoView cai numa caixa
+            // sem altura. `expand` e o listener do proprio componente Section.
+            let seccao = campo.closest('.fi-section');
+            while (seccao) {
+                if (seccao.classList.contains('fi-collapsed')) {
+                    seccao.dispatchEvent(new CustomEvent('expand'));
+                }
+                seccao = seccao.parentElement?.closest('.fi-section') ?? null;
+            }
+
             setTimeout(() => {
-                fieldset.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
-            }, 2000);
+                campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                campo.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
+                setTimeout(() => {
+                    campo.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
+                }, 2000);
+            }, 120);
+        },
+
+        // Valvula de escape que faltava: para o cronometro (se o campo estiver
+        // montado), apaga o estado local e cancela o push agendado no servidor.
+        parar(timer) {
+            const fase = timer.fase === 'Enxaguamento' ? 'enxaguamento' : 'lavagem';
+
+            window.dispatchEvent(new CustomEvent('mmc-timer-terminar', {
+                detail: { statePath: timer.statePath },
+            }));
+
+            localStorage.removeItem(timer.key);
+            this.notificadosTimers.delete(timer.key);
+            this.candidatosOrfaos.delete(timer.key);
+            window.mmcPush?.cancelarTimer(timer.poolId, fase);
+
+            this.timers = this.timers.filter((t) => t.key !== timer.key);
         },
 
         destroy() {
@@ -1586,7 +1652,7 @@ const setupDirtyStateWarning = () => {
         formEl.addEventListener('click', (e) => {
             const target = e.target.closest('button, input, select, [role="switch"]');
             if (target) {
-                if (target.type === 'submit' || target.innerText.includes('Criar') || target.innerText.includes('Confirmar')) {
+                if (target.type === 'submit' || target.innerText.includes('Gravar Registos') || target.innerText.includes('Criar') || target.innerText.includes('Confirmar')) {
                     window.mmcFormDirty = false;
                 } else {
                     window.mmcFormDirty = true;
@@ -1987,7 +2053,7 @@ const mmcSetup = () => {
     document.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn || navigator.onLine) return;
-        if (window.location.pathname.includes('/daily-records/create') && (btn.innerText.includes('Criar') || btn.innerText.includes('Confirmar e guardar'))) {
+        if (window.location.pathname.includes('/daily-records/create') && (btn.innerText.includes('Gravar Registos') || btn.innerText.includes('Criar') || btn.innerText.includes('Confirmar e guardar'))) {
             e.preventDefault();
             e.stopPropagation();
             const formKey = 'daily_record_form_draft_' + (window.__userId ?? 'anon');

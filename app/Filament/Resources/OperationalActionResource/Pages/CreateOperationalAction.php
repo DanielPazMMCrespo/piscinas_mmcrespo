@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\OperationalActionResource\Pages;
 
+use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\Installation;
@@ -18,7 +19,15 @@ class CreateOperationalAction extends CreateRecord
 
     public function mount(): void
     {
-        if (! auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+        $user = auth()->user();
+
+        if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+            parent::mount();
+
+            return;
+        }
+
+        if (! $user?->hasRole(UserRole::NADADOR_SALVADOR) || ! $user->podeVer(NSPermission::ANALISE_PARAMETROS)) {
             throw new AuthorizationException('Sem acesso a ações operacionais.');
         }
 
@@ -34,6 +43,13 @@ class CreateOperationalAction extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
+        $user = auth()->user();
+
+        // NSs (lifeguards) can only create quick analysis records.
+        if ($user?->hasRole(UserRole::NADADOR_SALVADOR) && $data['tipo'] !== OperationalAction::TIPO_ANALISE_PONTUAL) {
+            throw new AuthorizationException('Nadadores-salvadores podem apenas registar análises pontuais.');
+        }
+
         if ($data['tipo'] !== OperationalAction::TIPO_REABASTECIMENTO_BIDAO || ! ($this->data['reabastecer_todas_leiria'] ?? false)) {
             return parent::handleRecordCreation($data);
         }

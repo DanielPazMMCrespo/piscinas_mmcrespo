@@ -126,8 +126,16 @@ class NSDashboardRestrictionTest extends TestCase
         $poolData = $viewData['piscinas']->first();
         $acoes = collect($poolData['acoes_rapidas']);
 
-        $this->assertCount(1, $acoes);
-        $this->assertEquals('Registo Rápido', $acoes->first()['label']);
+        // O nadador-salvador passou a poder registar uma analise pontual
+        // (commit f1f923b), e sem `ns_permissions` definidas o `podeVer()`
+        // devolve tudo -- por isso sao duas acoes e nao uma. O que continua a
+        // ter de ficar de fora sao as operacoes de equipamento.
+        $rotulos = $acoes->pluck('label')->all();
+
+        $this->assertEqualsCanonicalizing(['Registo Rápido', 'Análise rápida'], $rotulos);
+        $this->assertNotContains('Lavar filtro', $rotulos);
+        $this->assertNotContains('Torneira', $rotulos);
+        $this->assertNotContains('Contador', $rotulos);
     }
 
     public function test_admin_widget_quick_actions_contains_all_actions(): void

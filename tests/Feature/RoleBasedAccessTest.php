@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Constants\NSPermission;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
@@ -388,13 +389,34 @@ class RoleBasedAccessTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_swimmer_cannot_access_operational_actions(): void
+    /**
+     * O nadador-salvador passou a poder registar uma analise pontual (commit
+     * f1f923b), por isso ja NAO leva 403 nas acoes operacionais. Antes desta
+     * atualizacao o teste afirmava o comportamento antigo e so passava porque a
+     * ListOperationalActions tinha uma lista de papeis escrita a mao que
+     * contradizia o canAccess() do proprio Resource.
+     *
+     * O que continua a valer e a permissao fina: sem ANALISE_PARAMETROS, nao entra.
+     */
+    public function test_swimmer_with_analise_parametros_can_access_operational_actions(): void
     {
         $data = $this->createTestData();
         $swimmer = $data['swimmer'];
+        $swimmer->update(['ns_permissions' => [NSPermission::ANALISE_PARAMETROS]]);
 
-        $response = $this->actingAs($swimmer)->get('/admin/operational-actions');
+        $this->actingAs($swimmer)
+            ->get('/admin/operational-actions')
+            ->assertSuccessful();
+    }
 
-        $response->assertStatus(403);
+    public function test_swimmer_without_analise_parametros_cannot_access_operational_actions(): void
+    {
+        $data = $this->createTestData();
+        $swimmer = $data['swimmer'];
+        $swimmer->update(['ns_permissions' => [NSPermission::REGISTO_DIARIO]]);
+
+        $this->actingAs($swimmer)
+            ->get('/admin/operational-actions')
+            ->assertStatus(403);
     }
 }

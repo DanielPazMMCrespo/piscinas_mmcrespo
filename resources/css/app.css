@@ -112,11 +112,18 @@ body {
     }
 }
 
-/* No telemóvel, a navegação fica fixa no fundo do ecrã — evita scrollar até ao fim para gravar. */
+/* No telemóvel, a navegação fica fixa no fundo do ecrã — evita scrollar até ao fim para gravar.
+ *
+ * O `bottom: 0` que aqui estava punha esta barra debaixo da bottom nav
+ * (`fixed bottom-4`, z-50): medido em 390 px, o botão "Gravar Registos" ficava
+ * em 792..832 e a nav em 759..828 — `elementFromPoint` no centro do botão
+ * devolvia a nav, ou seja o registo diário não se conseguia gravar no
+ * telemóvel em nenhuma posição de scroll. Empilha agora acima da nav e, quando
+ * há timers a correr, acima também da barra deles. */
 @media (max-width: 768px) {
     .fi-fo-wizard-footer, .fi-form-actions {
         position: sticky;
-        bottom: 0;
+        bottom: max(5.5rem + env(safe-area-inset-bottom, 0px), var(--mmc-timer-bar-space, 0px));
         z-index: 20;
         margin: 0 -1rem -1rem;
         padding: 0.75rem 1rem;
@@ -153,6 +160,46 @@ body {
     .fi-fo-wizard-step {
         flex-basis: 0 !important;
     }
+}
+
+/* Barra dos timers de retrolavagem. Vive no fundo e nao no topo: em cima era
+   `fixed top-0 z-50` e pintava por cima do topbar (botao da sidebar, pesquisa
+   global, sino) — com 6 timers ativos empilhava 3 linhas e o painel ficava sem
+   navegacao ate os timers expirarem. Fica abaixo do z-50 das notificacoes do
+   Filament para nunca tapar um aviso. */
+.mmc-timer-bar {
+    position: fixed;
+    inset-inline: 0;
+    /* Acima da bottom nav (bottom-4 + 64px de altura + safe area). */
+    bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #ffffff;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* A bottom nav e `md:hidden`; a partir dai a barra encosta ao fundo. */
+@media (min-width: 768px) {
+    .mmc-timer-bar {
+        bottom: 0;
+    }
+}
+
+/* As notificacoes do Filament sao `fixed inset-4 z-50`, ou seja comecam a 1rem
+   do topo — num telemovel de 390px passam do max-w-sm, ficam a largura toda e
+   assentam em cima do topbar, com pointer-events ativos. Empurra-las para
+   debaixo do cabecalho mantem o aviso visivel sem roubar o botao da sidebar. */
+.fi-no {
+    top: 4.5rem !important;
 }
 
 /* Alpine x-cloak utility to prevent FOUC and hide failed elements */

@@ -185,3 +185,73 @@ it('so admin acede aos pedidos de acesso', function (): void {
     $this->actingAs($gestor);
     expect(PoolAccessRequestResource::canAccess())->toBeFalse();
 });
+
+// Regressão: o toggle "a água continua em tratamento" liga por defeito em
+// qualquer motivo que não seja época balnear, e promete em três sítios da UI
+// que "os registos diários continuam possíveis". O bloqueio usava
+// estaEncerradaEm(), que ignora o regime, e punha o NS fora de todo o /admin
+// durante uma paragem técnica — sem conseguir gravar a leitura que a lei exige.
+it('nao bloqueia o nadador-salvador quando a piscina esta encerrada mas com agua em tratamento', function (): void {
+    $piscina = Pool::factory()->create();
+    PoolClosure::factory()->comTratamento()->create(['pool_id' => $piscina->id]);
+
+    $ns = nadadorNaPiscina($piscina);
+
+    expect(app(PoolAccessRequestService::class)->estaBloqueado($ns))->toBeFalse();
+});
+
+it('continua a bloquear quando a piscina esta parada, sem tratamento de agua', function (): void {
+    $piscina = Pool::factory()->create();
+    PoolClosure::factory()->create(['pool_id' => $piscina->id, 'agua_em_tratamento' => false]);
+
+    $ns = nadadorNaPiscina($piscina);
+
+    expect(app(PoolAccessRequestService::class)->estaBloqueado($ns))->toBeTrue();
+});
+
+it('nao bloqueia se ao menos uma piscina estiver com agua em tratamento', function (): void {
+    $parada = Pool::factory()->create();
+    $emTratamento = Pool::factory()->create();
+    PoolClosure::factory()->create(['pool_id' => $parada->id, 'agua_em_tratamento' => false]);
+    PoolClosure::factory()->comTratamento()->create(['pool_id' => $emTratamento->id]);
+
+    $ns = nadadorNaPiscina($parada);
+    $ns->piscinas()->attach($emTratamento);
+
+    expect(app(PoolAccessRequestService::class)->estaBloqueado($ns))->toBeFalse();
+});
+
+it('distingue piscina encerrada de piscina parada', function (): void {
+    $emTratamento = Pool::factory()->create();
+    PoolClosure::factory()->comTratamento()->create(['pool_id' => $emTratamento->id]);
+
+    $parada = Pool::factory()->create();
+    PoolClosure::factory()->create(['pool_id' => $parada->id, 'agua_em_tratamento' => false]);
+
+    $aberta = Pool::factory()->create();
+
+    expect($emTratamento->estaEncerradaEm())->toBeTrue()
+        ->and($emTratamento->estaParadaEm())->toBeFalse()
+        ->and($parada->estaEncerradaEm())->toBeTrue()
+        ->and($parada->estaParadaEm())->toBeTrue()
+        ->and($aberta->estaEncerradaEm())->toBeFalse()
+        ->and($aberta->estaParadaEm())->toBeFalse();
+});
+
+it('deixa o nadador-salvador chegar ao painel com a agua em tratamento', function (): void {
+    $piscina = Pool::factory()->create();
+    PoolClosure::factory()->comTratamento()->create(['pool_id' => $piscina->id]);
+
+    $ns = nadadorNaPiscina($piscina);
+
+    // `assertNoRedirect` nao existe no Laravel: dava BadMethodCallException e
+    // o teste nunca chegou a verificar nada. O que se quer e que o NS NAO seja
+    // desviado para /piscinas-encerradas com a agua em tratamento.
+    $resposta = $this->actingAs($ns)->get('/admin');
+
+    $this->assertNotSame(
+        '/piscinas-encerradas',
+        parse_url((string) $resposta->headers->get('Location'), PHP_URL_PATH),
+        'Com a agua em tratamento o nadador-salvador entra no painel.'
+    );
+});

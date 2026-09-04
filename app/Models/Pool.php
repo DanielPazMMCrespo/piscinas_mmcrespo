@@ -157,6 +157,20 @@ class Pool extends Model
         return $this->encerramentoEm($data) !== null;
     }
 
+    /**
+     * Piscina parada (encerrada E sem tratamento de água) no dia indicado.
+     *
+     * Distinta de estaEncerradaEm(): um encerramento com 'agua_em_tratamento'
+     * mantém a química e por isso mantém o registo diário obrigatório — é o
+     * regime, não o encerramento, que decide se há trabalho a fazer. Quem
+     * bloqueia acesso ou recusa registos usa este método; estaEncerradaEm()
+     * responde só "está fechada ao público?".
+     */
+    public function estaParadaEm(?CarbonInterface $data = null): bool
+    {
+        return $this->encerramentoEm($data)?->agua_em_tratamento === false;
+    }
+
     public function getEstadoOperacionalAttribute(): string
     {
         if (! $this->active) {
