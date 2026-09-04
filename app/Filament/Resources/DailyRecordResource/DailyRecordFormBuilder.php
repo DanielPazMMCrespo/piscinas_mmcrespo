@@ -380,7 +380,7 @@ class DailyRecordFormBuilder
             .'  ·  '.$fmt($get($prefixo.'ns_temperatura'), 1).' °C';
     }
 
-    private static function ajudaPressaoFiltro(Pool $pool, mixed $valor): ?string
+    private static function ajudaPressaoFiltro(Pool $pool, mixed $valor): string
     {
         $partes = [];
 
@@ -409,7 +409,9 @@ class DailyRecordFormBuilder
                 .'.';
         }
 
-        return $partes === [] ? null : implode(' ', $partes);
+        // O historico acrescenta sempre uma linha, mesmo sem retrolavagem
+        // registada, por isso ha sempre algo a dizer.
+        return implode(' ', $partes);
     }
 
     private static function phDaLeitura(Get $get): ?float
@@ -986,7 +988,7 @@ class DailyRecordFormBuilder
                             ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->live(onBlur: true)
-                            ->helperText(fn (Get $get): ?string => self::ajudaPressaoFiltro($pool, $get('pressao_filtro'))),
+                            ->helperText(fn (Get $get): string => self::ajudaPressaoFiltro($pool, $get('pressao_filtro'))),
                         Forms\Components\Select::make('agua_modo')
                             ->id("agua_modo_{$pool->id}")
                             ->label('Água')

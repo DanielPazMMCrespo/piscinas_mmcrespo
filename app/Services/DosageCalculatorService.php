@@ -121,7 +121,7 @@ class DosageCalculatorService
      */
     public function doseNaUnidadeDoProduto(array $dose): ?float
     {
-        $ml = (float) ($dose['dose_com_fator_ml'] ?? 0.0);
+        $ml = (float) $dose['dose_com_fator_ml'];
 
         if ($ml <= 0) {
             return null;

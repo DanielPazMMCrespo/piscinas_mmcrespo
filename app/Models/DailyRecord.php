@@ -198,8 +198,7 @@ class DailyRecord extends Model
      * Avalia um valor contra os limites legais (semáforo do formulário em tempo real).
      * Fonte única usada pelos hints reativos do DailyRecordResource.
      *
-     * @return array{estado: string, mensagem: string}
-     *                                                 estado: \App\Enums\EstadoConformidade (verde|amarelo|vermelho|neutro)
+     * @return array{estado: EstadoConformidade, mensagem: string}
      */
     public static function avaliarConformidade(
         string $campo,
