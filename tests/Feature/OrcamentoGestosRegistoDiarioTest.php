@@ -48,9 +48,10 @@ class OrcamentoGestosRegistoDiarioTest extends TestCase
      * este teste diz logo qual foi e quanto custou.
      *
      * Historico: 45 (antes da auditoria) -> 42 (pressao do filtro fora da
-     * seccao fechada).
+     * seccao fechada) -> 39 (a entrada eram 2 gestos e nao 4, medido; e a
+     * confirmacao ao gravar passou a aparecer so quando ha violacao).
      */
-    private const ORCAMENTO_ATUAL = 42;
+    private const ORCAMENTO_ATUAL = 39;
 
     private User $tecnico;
 

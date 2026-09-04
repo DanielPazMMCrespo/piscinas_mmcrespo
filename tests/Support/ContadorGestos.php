@@ -52,16 +52,31 @@ final class ContadorGestos
     ];
 
     /**
-     * Gestos fixos antes de chegar ao formulário: abrir "Registos Diários",
-     * tocar "Criar", abrir o select de instalação, escolher a instalação.
+     * Gestos fixos antes de chegar ao formulário: abrir "Registos Diários" e
+     * tocar "Criar".
+     *
+     * Eram quatro na primeira contagem, porque se assumiu que o técnico abre o
+     * select de instalação e escolhe. Nao abre: o `default()` do campo tem uma
+     * cascata (atalho ?pool, piscinas atribuídas, última instalação registada,
+     * primeira ativa) que o resolve em todos os caminhos reais. Medido em
+     * EntradaNoRegistoDiarioTest, nao assumido.
+     *
+     * Pelos atalhos do dashboard ("Registo Rápido" no cartão da piscina) é 1,
+     * mas esse caminho é para uma piscina só, não para a visita às três.
      */
-    public const GESTOS_DE_ENTRADA = 4;
+    public const GESTOS_DE_ENTRADA = 2;
 
     /**
-     * Gestos para gravar: "Gravar Registos" e depois "Confirmar e guardar" no
-     * slide-over de resumo.
+     * Gestos para gravar num dia conforme: só "Gravar Registos".
+     *
+     * O slide-over de "Confirmar e guardar" era sempre o segundo toque. Passa a
+     * aparecer só quando ha uma leitura fora dos limites CN 14/DA -- que e onde
+     * serve para algo. Medido em ConfirmacaoSoQuandoHaViolacaoTest.
+     *
+     * Num dia com violacao volta a ser 2, e e o que se quer: um valor ilegal
+     * nao entra no livro sanitario sem alguem o reler.
      */
-    public const GESTOS_DE_GRAVACAO = 2;
+    public const GESTOS_DE_GRAVACAO = 1;
 
     /**
      * @return array{

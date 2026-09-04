@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\DailyRecordResource\Pages;
 
+use App\Enums\EstadoConformidade;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
+use App\Models\DailyRecord;
 use App\Models\Pool;
 use App\Services\CacheService;
 use App\Services\DailyRecordService;
@@ -184,7 +186,58 @@ class CreateDailyRecord extends CreateRecord
             return;
         }
 
-        $this->mountAction('confirmarCriacao');
+        // A confirmacao existe para o tecnico reler o que vai entrar no livro
+        // sanitario antes de entrar. Num dia em que tudo esta dentro dos
+        // limites, os valores ja foram validados campo a campo pelo semaforo e
+        // o passo extra nao acrescenta nada -- e ceremonia, tres vezes por dia.
+        // E o mesmo critero que o Kanban ja usa, onde so o vermelho exige
+        // confirmacao (QuadroOperacionalWidget::resolveViolationAction).
+        if ($this->algumaLeituraForaDosLimites()) {
+            $this->mountAction('confirmarCriacao');
+
+            return;
+        }
+
+        $this->create();
+    }
+
+    /**
+     * Alguma piscina do formulario tem uma leitura fora dos limites CN 14/DA?
+     *
+     * Usa a fonte unica (DailyRecord::avaliarConformidade), com o pH da mesma
+     * leitura -- a banda legal do cloro livre depende dele -- e a data de hoje,
+     * para o registo ser avaliado pelo regime em vigor.
+     */
+    public function algumaLeituraForaDosLimites(): bool
+    {
+        foreach (($this->data['pools'] ?? []) as $poolId => $dadosPiscina) {
+            $piscina = Pool::find($poolId);
+
+            if ($piscina === null) {
+                continue;
+            }
+
+            $ph = $dadosPiscina['ns_ph'] ?? null;
+            $ph = filled($ph) && is_numeric(str_replace(',', '.', (string) $ph))
+                ? (float) str_replace(',', '.', (string) $ph)
+                : null;
+
+            foreach (DailyRecordFormBuilder::CAMPOS_LEITURA_LEGAL as $campo) {
+                $valor = $dadosPiscina[$campo] ?? null;
+
+                if (blank($valor)) {
+                    continue;
+                }
+
+                $estado = DailyRecord::avaliarConformidade($campo, $valor, $piscina, ph: $ph, data: now())['estado'];
+
+                if ($estado === EstadoConformidade::VERMELHO) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function validatePoolsCloro(array $data): bool
