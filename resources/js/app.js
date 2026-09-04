@@ -3,6 +3,7 @@ import './push';
 import './gsap-transitions';
 import GLightbox from 'glightbox';
 import { normalizarNumeroPt } from './numero-pt';
+import { deveAvancar, idDoCampoSeguinte } from './avanco-campos';
 import {
     avaliarTimer,
     chaveRascunho,
@@ -986,28 +987,44 @@ const setupDecimalInputs = () => {
 };
 
 // Registo NS: ao completar 3 dígitos num campo, avança automaticamente para o seguinte
+// Registo NS: avanca para o campo seguinte quando o valor esta pronto.
+//
+// A decisao vive em ./avanco-campos.js, como funcao pura, porque a versao
+// anterior errava nas duas direcoes: nao avancava em "7,4" (o pH escrito como
+// se escreve sempre) e roubava o cursor a meio de "7,42". Testada em tests/js/.
 const setupNsAutoAdvance = () => {
-    const CAMPOS = ['ns_ph', 'ns_cloro_livre', 'ns_cloro_total', 'ns_temperatura'];
+    const avancar = (id) => {
+        const proximoId = idDoCampoSeguinte(id);
+        if (!proximoId) return;
+
+        const proximoEl = document.getElementById(proximoId);
+        if (proximoEl) {
+            proximoEl.focus();
+            proximoEl.select();
+        }
+    };
 
     document.addEventListener('input', (e) => {
         const el = e.target;
         if (el.tagName !== 'INPUT') return;
 
-        const match = CAMPOS.find((campo) => el.id.startsWith(`${campo}_`));
-        if (!match) return;
+        // `isTrusted` distingue uma tecla real do evento sintetico que o
+        // normalizador de virgula dispara ao trocar , por .
+        if (deveAvancar({ id: el.id, valor: el.value, confiavel: e.isTrusted })) {
+            avancar(el.id);
+        }
+    });
 
-        const digitos = el.value.replace(/[^0-9]/g, '');
-        if (digitos.length < 3) return;
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
 
-        const indiceAtual = CAMPOS.indexOf(match);
-        const proximoCampo = CAMPOS[indiceAtual + 1];
-        if (!proximoCampo) return;
+        const el = e.target;
+        if (el.tagName !== 'INPUT') return;
 
-        const sufixo = el.id.slice(match.length);
-        const proximoEl = document.getElementById(`${proximoCampo}${sufixo}`);
-        if (proximoEl && proximoEl !== el) {
-            proximoEl.focus();
-            proximoEl.select();
+        if (deveAvancar({ id: el.id, valor: el.value, enter: true })) {
+            // Sem isto o Enter submetia o formulario a meio das leituras.
+            e.preventDefault();
+            avancar(el.id);
         }
     });
 };
