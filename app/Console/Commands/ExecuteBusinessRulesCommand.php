@@ -45,7 +45,10 @@ class ExecuteBusinessRulesCommand extends Command
     {
         $this->info('A executar regras de negócio...');
 
-        $this->rule1_autoCreateIncidents();
+        // A regra de criação automática de incidentes por violações repetidas de parâmetros
+        // foi desativada: oscilações normais não devem gerar tickets automáticos que sobrecarregam
+        // a gestão de incidentes. Incidentes são para anomalias físicas reais criadas pela equipa.
+        // $this->rule1_autoCreateIncidents();
         $this->rule2_autoEscalateIncidents();
         $this->rule3_autoCloseStockIncidents();
 

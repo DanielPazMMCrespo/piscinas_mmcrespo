@@ -1176,15 +1176,6 @@ class DailyRecordFormBuilder
                             ->extraInputAttributes(['inputmode' => 'numeric', 'class' => 'neo-input-large'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->helperText('Nº de banhistas desde o último registo.'),
-                        Forms\Components\Textarea::make('observacoes')
-                            ->id("observacoes_zero_{$pool->id}")
-                            ->label('Motivo do valor 0')
-                            ->helperText('Um dos parâmetros está a 0. Indique o motivo (sonda avariada, sem reagente, não medido, etc.).')
-                            ->required(fn (Get $get) => self::algumValorZero($get))
-                            ->visible(fn (Get $get) => self::algumValorZero($get))
-                            ->extraInputAttributes(['class' => 'neo-input-large'])
-                            ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                            ->columnSpanFull(),
                         ...self::sugestaoDosagemSchema($pool),
                     ];
 

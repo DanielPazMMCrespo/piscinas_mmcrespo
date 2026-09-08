@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\OperationalActionResource\Pages;
 use App\Models\DailyRecord;
@@ -70,12 +69,7 @@ class OperationalActionResource extends Resource
     {
         $user = auth()->user();
 
-        if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-            return true;
-        }
-
-        return $user?->hasRole(UserRole::NADADOR_SALVADOR)
-            && $user->podeVer(NSPermission::ANALISE_PARAMETROS);
+        return (bool) $user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]);
     }
 
     public static function canEdit($record): bool
@@ -202,15 +196,6 @@ class OperationalActionResource extends Resource
 
     private static function tiposDisponiveis(): array
     {
-        $user = auth()->user();
-
-        // Nadadores-salvadores (lifeguards) só podem registar análises pontuais.
-        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-            return [
-                OperationalAction::TIPO_ANALISE_PONTUAL => OperationalAction::TIPOS[OperationalAction::TIPO_ANALISE_PONTUAL],
-            ];
-        }
-
         return OperationalAction::TIPOS;
     }
 

@@ -210,9 +210,7 @@ class DailyRecordService
                 }
             }
 
-            if ($temZeroSuspeito && blank($poolData['observacoes'] ?? null)) {
-                $erros["pools.{$poolId}.observacoes"][] = 'Um valor a 0 num parâmetro precisa de justificação em observações.';
-            }
+            // Valor zero é aceite diretamente sem obrigar a preenchimento de observações
 
             // O contador só avança — mesma regra de
             // DailyRecordFormBuilder::ultimoRegisto().

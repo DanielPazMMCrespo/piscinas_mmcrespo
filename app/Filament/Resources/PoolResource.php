@@ -98,6 +98,16 @@ class PoolResource extends Resource
                     ->step(0.01)
                     ->minValue(0)
                     ->suffix('m³'),
+                Forms\Components\TextInput::make('ordem_bombas')
+                    ->label('Ordem das Bombas')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText('Ordem física das bombas/contadores no percurso da casa das máquinas.'),
+                Forms\Components\TextInput::make('ordem_filtros')
+                    ->label('Ordem dos Filtros')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText('Ordem física dos filtros no percurso da casa das máquinas.'),
                 Forms\Components\Toggle::make('active')
                     ->label('Ativo')
                     ->default(true)

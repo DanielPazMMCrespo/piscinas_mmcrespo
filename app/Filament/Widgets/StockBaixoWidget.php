@@ -24,13 +24,18 @@ class StockBaixoWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $ids = Cache::remember('cache_low_stock_ids', 300, function () {
+        $user = auth()->user();
+        $cacheKey = $user?->hasRole(UserRole::NADADOR_SALVADOR)
+            ? "cache_low_stock_ids_ns_{$user->id}"
+            : 'cache_low_stock_ids_admin';
+
+        $ids = Cache::remember($cacheKey, 300, function () use ($user) {
             $query = StockInstallation::query()
                 ->whereColumn('quantity', '<=', 'limite_minimo');
 
-            if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
+            if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
                 $instalacaoIds = Pool::query()
-                    ->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'))
+                    ->whereIn('id', $user->piscinas()->pluck('pools.id'))
                     ->pluck('installation_id')
                     ->unique();
                 $query->whereIn('installation_id', $instalacaoIds);
