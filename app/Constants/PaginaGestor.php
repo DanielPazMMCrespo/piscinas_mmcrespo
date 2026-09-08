@@ -68,7 +68,7 @@ final class PaginaGestor
             self::UTILIZADORES => 'Utilizadores',
             self::CONVITES => 'Convites',
             self::ENCERRAMENTOS => 'Encerramentos',
-            self::STOCK_VISAO_GERAL => 'Stock — Visão Geral',
+            self::STOCK_VISAO_GERAL => 'Stock',
             self::STOCK_ARMAZEM => 'Stock Armazém',
             self::STOCK_INSTALACAO => 'Stock Instalação',
             self::PRODUTOS => 'Produtos',

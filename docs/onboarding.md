@@ -125,15 +125,16 @@ Por gravidade, e todos abertos:
 1. **A Paragem Técnica inteira não está documentada.** `PoolClosureTask`,
    `PlanoParagemService`, `PlanoParagemPdfService`, `TrabalhosRelationManager` (~700 linhas).
    Quem pegar nisto não tem mapa.
-2. **O PWA `/m` não tem `auth` e não grava nada.** E o `start_url` do manifest aponta
-   para lá — quem instalar a app cai no protótipo.
-3. **`/api/pdf/export`** devolve texto falso com `Content-Type: application/pdf`, sem login.
-4. **Dois geradores de livro sanitário** (`RelatorioPdf` e `DgsPdfReportService`).
-   O segundo ignora correções e encerramentos.
-5. **Nove worktrees ativas** neste repositório, várias com trabalho não commitado.
+2. **Quatro páginas sem documentação local**: `PoolClosureResource`,
+   `PoolAccessRequestResource`, `CustomActivitylogResource` e `StockHub`.
+3. **Nove worktrees ativas** neste repositório, várias com trabalho não commitado.
    Já houve uma reestruturação de 15 ficheiros fora do controlo de versões durante dias.
-6. **Ficheiros-lixo de heredoc do PowerShell** aparecem na raiz quase todas as sessões,
+4. **Ficheiros-lixo de heredoc do PowerShell** aparecem na raiz quase todas as sessões,
    sempre com 0 bytes. Verificar `git status` antes de qualquer commit.
+5. **A duração do vídeo de evidência não é validada.** O servidor não tem `ffmpeg`.
+   O que trava mesmo é o tamanho (60 MB), não os "10-15 segundos" do formulário.
+6. **Enxaguamento e posição normal nunca foram testados no terreno.** A condição de
+   visibilidade esteve errada desde o início e só ficou correta na sessão 25.
 
 A lista completa de dívida está no `CLAUDE.md`, secção "Dívida técnica em aberto".
 
@@ -144,13 +145,16 @@ O que falta é dívida técnica, não features.
 
 ## 13. Testes
 
-Pest 3, SQLite em memória. 121 ficheiros.
+Pest 3, SQLite em memória. **706 testes em 121 ficheiros**, ~292 s a correr.
 
 ```bash
-composer test                          # config:clear + toda a suite
-php artisan test --filter=NomeDoTeste  # um teste
-vendor/bin/pest tests/Feature/Foo.php  # um ficheiro
+php artisan config:clear; php artisan test   # toda a suite
+php artisan test --filter=NomeDoTeste        # um teste
+vendor/bin/pest tests/Feature/Foo.php        # um ficheiro
 ```
+
+Não usar `composer test` para a suite inteira: o Composer mata o processo
+aos 300 s e a suite leva mais do que isso.
 
 Três regras da casa, todas pagas com bugs em produção:
 

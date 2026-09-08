@@ -16,7 +16,7 @@ php artisan migrate --seed             # schema + dados iniciais (users, piscina
 composer run dev                       # serve + queue:listen + pail + vite, tudo junto
 npm run dev                            # só Vite (hot reload)
 
-composer test                          # == php artisan config:clear && php artisan test
+php artisan config:clear; php artisan test   # suite inteira (~292 s) — ver nota abaixo
 php artisan test --filter=NomeDoTeste  # correr um teste único
 vendor/bin/pest tests/Feature/Foo.php  # idem, via Pest diretamente
 
@@ -28,13 +28,15 @@ php artisan hanna:sync --discover      # descobrir sensores Hanna Cloud da conta
 php artisan hanna:sync                 # sincronizar leituras (agendado a cada 15min)
 ```
 
-Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ver "Regras de Sessão" mais abaixo. `test`/`pest` acima são só para a suite automatizada (SQLite in-memory).
+`composer test` **não serve para a suite inteira**: o Composer mata qualquer processo aos 300 s e a suite leva ~292 s de testes mais o arranque. Serve para um ficheiro ou um filtro.
+
+Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção ou staging — ver "Regras de Sessão" mais abaixo. `test`/`pest` acima são só para a suite automatizada (SQLite in-memory).
 
 ---
 
 # Arquitetura
 
-- **Só admin**: a app inteira vive dentro do painel Filament em `/admin` (`AdminPanelProvider`). Não há front-end público separado — a raiz `/` redireciona para `/admin`. Exceção nova: o wrapper PWA em `/m` (ver "PWA mobile (`/m`)" mais abaixo), que é uma casca Livewire separada e **ainda é protótipo**.
+- **Só admin**: a app inteira vive dentro do painel Filament em `/admin` (`AdminPanelProvider`). Não há front-end público separado — a raiz `/` redireciona para `/admin`. O protótipo `/m` foi apagado; a app instalada abre o painel real (ver "PWA" mais abaixo).
 - **Padrão append-only**: `DailyRecord`, `FilterCheck` e `Incident` nunca apagam o registo original numa edição. Uma correção cria uma nova linha com `e_correcao=true` + `corrige_registo_id` a apontar para a original; `razao_correcao` documenta o porquê. Gráficos e relatórios filtram sempre com `whereDoesntHave('correcoes')` para não contar o registo substituído duas vezes.
 - **Duas fontes de verdade por piscina, escolhidas num único sítio**: `SourceSelectionService::selectSource()` é a cascata central — sonda fresca (≤60 min) → último registo manual (≤8h) → sonda com avaria declarada → sonda stale → sem dados. Devolve `source`, `reading`, `record`, `age_minutes`, `is_artifact`, `artifact_reason` e `outage`. Usada por `PainelPiscinasWidget` e `EsquemaPiscina`. Não recalcular esta decisão noutro sítio. O valor "atual" manual vem dos accessors `_efetivo` do `DailyRecord` (combinam campos manuais + `ns_`). Hoje todas as 5 piscinas têm sonda Hanna instalada.
 - **Leituras que não contam (artefactos)**: `LeituraArtefactoService` calcula as janelas em que a leitura do controlador é inválida — lavagem/enxaguamento de filtro (duração assumida de 20 min + 10 min de estabilização), bomba parada, e o período de uma `SensorOutage` declarada. Uma leitura dentro dessas janelas não gera não-conformidade em nenhum ecrã, gráfico ou no livro sanitário. Fonte única — não duplicar a regra.
@@ -68,7 +70,7 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 - **Animações/UI:** GSAP, GLightbox (empacotado no `app.js`, já não vem de CDN).
 - **Sensores:** Hanna Cloud API (sondas BL132), uma por piscina, todas as 5 piscinas cobertas. `HannaCircuitBreaker` protege a integração: 5 falhas em 5 min abrem o circuito, 1 min depois passa a half-open, e em circuito aberto devolve a última leitura em cache.
 - **Fotos:** Cloudflare R2 (S3-compatible) via `league/flysystem-aws-s3-v3` — Railway tem filesystem efémero, uploads vão para o disco `r2`. `LIVEWIRE_TMP_DISK=local`.
-- **Qualidade:** Laravel Pint + larastan/phpstan, Pest 3 (121 ficheiros: 90 em `tests/Feature`, 31 em `tests/Unit` por models/services/policies/middleware).
+- **Qualidade:** Laravel Pint + larastan/phpstan, Pest 3 — **706 testes em 121 ficheiros** (90 em `tests/Feature`, 31 em `tests/Unit` por models/services/policies/middleware), ~292 s a correr. O `composer test` estoura no *process timeout* de 300 s do próprio Composer: para a suite inteira usar `php artisan config:clear; php artisan test`.
 - **Deploy:** Railway. Produção: `https://piscinasmmcrespo.up.railway.app`. Staging/testes: `https://piscinasmmcrespo-testes.up.railway.app`.
 
 ---
@@ -85,7 +87,7 @@ Cada Resource com pasta própria tem um `CLAUDE.md` local mais detalhado (propó
 - `app/Filament/Resources/StockWarehouseResource/CLAUDE.md` (+ StockService), `StockInstallationResource/CLAUDE.md`, `ProductResource/CLAUDE.md`, `DosingContainerResource/CLAUDE.md`, `StockWarehouseLogResource/CLAUDE.md`, `StockInstallationLogResource/CLAUDE.md`
 - `app/Filament/Resources/UserResource/CLAUDE.md`, `UserInvitationResource/CLAUDE.md`, `HannaDeviceResource/CLAUDE.md`, `PoolResource/CLAUDE.md`, `InstallationResource/CLAUDE.md`
 - `docs/paginas/custom-activitylog.md`, `dashboard.md`, `analise-parametros.md`, `definicoes-sistema.md` (⚠️ tem um bug confirmado por corrigir), `encerramentos.md`, `esquema-piscina.md`, `notificacoes.md`, `relatorio-pdf.md`, `auth-login.md`
-- **Sem documentação local ainda** (dívida a fechar): `PoolClosureResource`, `PoolAccessRequestResource`, `CustomActivitylogResource` (pasta), `StockHub`, e o wrapper PWA `/m`.
+- **Sem documentação local ainda** (dívida a fechar): `PoolClosureResource` (incluindo todo o plano de paragem técnica), `PoolAccessRequestResource`, `CustomActivitylogResource` (pasta) e `StockHub`.
 
 ## Registo Diário (grupo)
 - **Registos Diários** (`DailyRecordResource`, sort 1): página núcleo, uso diário. Semáforo de conformidade em tempo real por campo, smart defaults (última piscina/bomba/água/tanque), lookback real no contador/água/bomba/hora, adições de químicos descontam stock da instalação. Pesquisa global própria aceita frases com data ("registo dia 2").
@@ -109,7 +111,7 @@ Estes quatro continuam com rota, policies e pesquisa global; só saíram do menu
 - **Bidões de Dosagem** (`DosingContainerResource`, sort 40): capacidade e nível de cada bidão de reagente (cloro/pH-) por piscina. O nível desce automaticamente com a dosagem sincronizada do controlador Hanna; aqui configura-se capacidade e registam-se reabastecimentos (que debitam stock via `dosing_containers.product_id`).
 
 ## Estrutura (recolhido)
-- **Piscinas** (`PoolResource`, admin only) / **Instalações** (`InstallationResource`): CRUD dos dados físicos (volume, temp_min/max, orp_min/max, ordem, tanques) usados em todos os cálculos de conformidade. A tabela de Piscinas tem ainda a ação **"Livro Sanitário (PDF)"** por linha, que gera um PDF mensal em A4 landscape via `DgsPdfReportService` + `resources/views/pdf/dgs-report.blade.php` (termo de abertura/encerramento, coluna Cloro Combinado, numeração legal "X de Y"). ⚠️ Este caminho é **paralelo** ao `RelatorioPdf` e, ao contrário dele, **não exclui registos corrigidos nem tem em conta encerramentos** — decidir se se unifica ou se se corrige.
+- **Piscinas** (`PoolResource`, admin only) / **Instalações** (`InstallationResource`): CRUD dos dados físicos (volume, temp_min/max, orp_min/max, ordem, tanques) usados em todos os cálculos de conformidade. A ação por linha **"Livro Sanitário (PDF)"** (`DgsPdfReportService`) **foi removida** — era um segundo gerador do mesmo documento legal que, ao contrário do `RelatorioPdf`, não excluía registos corrigidos nem tinha em conta encerramentos. O livro sanitário sai por um caminho só: Gestão → Relatórios PDF. Ver o comentário em `PoolResource.php:236`.
 
 ## Sistema (recolhido)
 - **Definições** (`Definicoes`, sort 10): três separadores — "Minhas Notificações" (todos), "Sistema" e "Avisos" (só admin). Sistema: limites CN 14/DA (pH, cloro livre, cloro combinado, turbidez, tolerância de aviso), tempos/prazos (validade de leitura, timeout de sonda, validade de convite, aviso de torneira aberta, horários de digest), automação operacional (fator de compensação de dosagem). A fonte de verdade dos números é o código + `AppSetting`, não este documento.
@@ -127,24 +129,13 @@ Estes quatro continuam com rota, policies e pesquisa global; só saíram do menu
 
 ---
 
-# PWA mobile (`/m`) — ESTADO: PROTÓTIPO, NÃO LIGADO AOS DADOS
+# PWA
 
-A app é instalável (`public/manifest.json`: nome "Gestão Piscinas", `start_url: /m`, `display: standalone`, `portrait-primary`, tema preto, ícones 192/512 + maskable com o logótipo oficial branco sobre azul; `sw.js` com timeout em Promise). No painel `/admin` há render hooks para as tags PWA, bottom nav mobile e prompt de ativação de notificações.
+A app é instalável no telemóvel: `public/manifest.json` (nome "Gestão Piscinas", `start_url: /admin`, `scope: /`, `display: standalone`, `portrait-primary`, tema preto, ícones 192/512 + maskable com o logótipo oficial branco sobre azul, e dois screenshots) mais `public/sw.js` (com timeout em Promise) e `nginx` a servir o `/sw.js` com `no-cache`. As tags vão para o `<head>` por render hook do `AdminPanelProvider` (`filament.pwa-head`), a par da bottom nav mobile e do prompt de ativação de notificações.
 
-Além disso existe uma **casca mobile separada** (`resources/views/components/layouts/mobile.blade.php`, dark, `100dvh`, safe-area insets, bottom nav própria de 4 itens) com estas rotas em `routes/web.php`:
+**A app instalada abre o painel real.** O protótipo `/m` — casca Livewire dark com 5 componentes de dados fictícios, sem `auth` e sem persistência, mais o `/api/pdf/export` que devolvia texto fingido — **foi todo apagado**. Já não existem `app/Livewire/`, `layouts/mobile.blade.php` nem rotas `/m`, e o `start_url` passou de `/m` para `/admin`. Era a dívida mais grave do projeto; está fechada.
 
-| Rota | Componente | Estado real |
-|---|---|---|
-| `/m` | `App\Livewire\MobileDashboard` | só renderiza a view |
-| `/m/diario` | `Mobile\DailyLog` | `save()` **valida e faz reset, mas não grava nada** ("em um cenário real, gravaríamos no modelo DailyRecord") |
-| `/m/analise` | `Mobile\Analysis` | gráficos com **dados hardcoded** (7 dias fictícios) |
-| `/m/incidentes/novo` | `Mobile\ReportIncident` | "simula guardar" — **não cria Incident** |
-| `/m/exportar` | `Mobile\ExportPdf` | usa `/api/pdf/export`, que devolve **texto fingido de PDF** |
-| `mobile.profile` | — | rota **não existe**, o item da bottom nav aponta para `#` |
-
-⚠️ **Dois problemas a resolver antes de isto ir para uso real:**
-1. Nenhuma destas rotas (nem `/api/pdf/export`) está atrás de `auth` — qualquer pessoa não autenticada abre `/m` e o formulário de registo.
-2. Nada persiste. É desenho, não funcionalidade. Quem abrir a app instalada cai em `/m` (é o `start_url`), ou seja no protótipo, não no painel real.
+Mobile hoje é o painel Filament em ecrã pequeno, não uma segunda app. Ver as regras 20, 21 e 22 em "Regras de Código" — são todas sobre overlays fixos a disputar píxeis no telemóvel.
 
 ---
 
@@ -197,7 +188,8 @@ Return exactly:
 ---
 
 # Contexto Completo — Projeto Piscinas MMCrespo
-> Última atualização: 2026-09-01 (sessão 26: vídeo curto de evidência nos trabalhos de paragem técnica, dois travões silenciosos ao upload corrigidos, `main` alinhado com `test`)
+> Última atualização: 2026-09-08 (revisão da dívida técnica contra o código: `/m`, `/api/pdf/export`, `DgsPdfReportService` e o bug das Definições já estavam fechados; `docs/onboarding.md` criado)
+> Sessão 26 (2026-09-01): vídeo curto de evidência nos trabalhos de paragem técnica, dois travões silenciosos ao upload corrigidos, `main` alinhado com `test`.
 
 ## Sessão 26 — Vídeo curto de evidência na paragem técnica (2026-09-01)
 
@@ -258,8 +250,8 @@ Duas metades: a reestruturação em si (feita noutra sessão, noutra pasta de tr
 - **Formulários de registo para uma mão** (`8553df8`, `270c4a4`): `DailyRecordFormBuilder` + CSS reorganizados para alcance do polegar.
 - **Tabs em scroll horizontal** em vez de wrap no telemóvel (`de9fb0e`, `24b2b9e`); grelha responsiva nos seletores do gráfico para não esmagar em mobile (`557cb32`).
 - **Resolução de alertas simplificada** (`5a33082`, `c041464`): modal glassmorphic no `QuadroOperacionalWidget` a substituir o `confirm()` nativo, alvos de toque maiores, ligação direta ao `IncidentResource`.
-- **Livro Sanitário DGS por piscina** (`8030c7f`, `5431dce`, `8f75d13`): `DgsPdfReportService` + `pdf/dgs-report.blade.php`, ação por linha em `PoolResource`, A4 landscape, termo de abertura/encerramento, coluna Cloro Combinado, numeração "X de Y". **Não exclui correções nem encerramentos** — ver aviso na secção Estrutura.
-- **Transformação PWA** (`5adc0a2`, `7ec5666`): `manifest.json` com `start_url: /m`, ícones oficiais (branco sobre azul, e mais leves: 16 KB → 7 KB no 192), casca `layouts/mobile`, bottom nav de 4 itens, e 5 componentes Livewire em `/m`. **Tudo com dados fictícios e sem `auth`** — ver a secção "PWA mobile (`/m`)". É a dívida mais grave em aberto.
+- **Livro Sanitário DGS por piscina** (`8030c7f`, `5431dce`, `8f75d13`): `DgsPdfReportService` + `pdf/dgs-report.blade.php`, ação por linha em `PoolResource`, A4 landscape, termo de abertura/encerramento, coluna Cloro Combinado, numeração "X de Y". Não excluía correções nem encerramentos. **Removido depois** — era um segundo gerador do mesmo documento legal; ver a secção Estrutura.
+- **Transformação PWA** (`5adc0a2`, `7ec5666`): `manifest.json` com `start_url: /m`, ícones oficiais (branco sobre azul, e mais leves: 16 KB → 7 KB no 192), casca `layouts/mobile`, bottom nav de 4 itens, e 5 componentes Livewire em `/m`. Tudo com dados fictícios e sem `auth`. **A casca `/m` foi apagada depois** e o `start_url` passou a `/admin`; só o manifest, o `sw.js` e os ícones sobreviveram. Ver a secção "PWA".
 - **Merge de `main` para `test`** (`4d2dcd2`).
 
 ## Sessão 23 — Permissões por página, pedidos de acesso e endurecimento (2026-08-04 → 2026-08-05)
@@ -416,25 +408,31 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 | Plano 5 — Relatórios PDF (CN 14/DA) | **CONCLUÍDO** | `RelatorioPdf` + `pdf/livro-sanitario.blade.php`. Geração síncrona. |
 | Plano 6 — UI de Audit Trail | **CONCLUÍDO** | Trilho único ("Auditoria"), sessão 21. |
 | Plano 7 — Transformação UX (Sessão 7) | **CONCLUÍDO** | Ver secção da sessão 7. |
-| PWA `/m` (Sessão 24) | **PROTÓTIPO** | Desenho pronto, dados e autenticação por ligar. Ver secção própria. |
+| PWA `/m` (Sessão 24) | **REMOVIDO** | O protótipo foi apagado. O `start_url` do manifest passou a `/admin` — a app instalada abre o painel real. Ver secção "PWA". |
 | Reestruturação de navegação (Sessão 25) | **CONCLUÍDO** | Sidebar de 6 grupos, 9 resources fora do menu, cards verticais no registo diário. Auditado, 3 regressões corrigidas, 535 testes a passar, validado em browser. `main` = `test` em `7a687fe`. |
 | Vídeo de evidência na paragem (Sessão 26) | **CONCLUÍDO** | 1 clipe de 60 MB por trabalho, ação "Evidências" para o ver, índice com SHA-256 no relatório. 555 testes, validado em browser. `main` = `test` em `dc4a287`. |
 
 ---
 
 ## Dívida técnica em aberto (por ordem de gravidade)
-0. **A Paragem Técnica inteira não está documentada.** `PoolClosureTask`, `TrabalhoParagem` (13 trabalhos do template legal), `PlanoParagemService`, `EvidenciaParagemService`, `PlanoParagemPdfService` e o `TrabalhosRelationManager` (~700 linhas) foram construídos nas sessões entre a 25 e a 26 e **nunca chegaram a este ficheiro nem a um `CLAUDE.md` local**. A sessão 26 documenta só o vídeo, que é uma fatia. Quem pegar nisto a seguir não tem mapa.
-1. **`/m` sem `auth` e sem persistência** — qualquer pessoa não autenticada abre o protótipo, e o `start_url` do manifest aponta para lá.
-2. **`/api/pdf/export`** devolve texto fingido com `Content-Type: application/pdf`, sem autenticação.
-3. **Dois geradores de livro sanitário** (`RelatorioPdf` vs `DgsPdfReportService`), e o segundo ignora correções e encerramentos.
-4. **`docs/paginas/definicoes-sistema.md`** documenta um bug confirmado ainda por corrigir.
-5. **Ficheiros-lixo de heredoc** já reapareceram três vezes na raiz (`({`, `p.slug`, `hasRole('admin'))`, `data`, `fim`, `halt()`, …), sempre com 0 bytes. Verificar `git status` antes de qualquer commit.
-6. **`PersistenceTest`** falha por ambiente (`SESSION_LIFETIME` 120 no `.env` local vs 43200 no `.env.example`).
-7. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `StockHub` e a casca `/m`. O `docs/paginas/encerramentos.md` e o `stock` estão desatualizados desde a sessão 25 (grupo, botões novos).
-8. **Enxaguamento e posição normal nunca foram testados no terreno** — a condição de visibilidade estava errada desde o início e só ficou correta na sessão 25. Confirmar com a equipa se os campos fazem sentido como estão, agora que aparecem de facto.
-9. **Nove worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
-10. **A duração do vídeo de evidência não é validada.** Os "10-15 segundos" são só texto no formulário; o servidor não tem `ffmpeg` para medir. O que trava mesmo é o tamanho (60 MB). Um clipe de 2 minutos a 1080p passa.
-11. **`PaginaGestor::STOCK_VISAO_GERAL` continua rotulado "Stock — Visão Geral"** no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" (título "Gestão de Stock") na sessão 25. O admin vê dois nomes para a mesma coisa.
+> Lista revista e verificada contra o código em 2026-09-08. Quatro itens que aqui estavam
+> abertos já estavam feitos — ver "Fechado" no fim da secção.
+
+1. **A Paragem Técnica inteira não está documentada.** `PoolClosureTask`, `TrabalhoParagem` (13 trabalhos do template legal), `PlanoParagemService`, `EvidenciaParagemService`, `PlanoParagemPdfService` e o `TrabalhosRelationManager` (**723 linhas**) foram construídos nas sessões entre a 25 e a 26 e **nunca chegaram a este ficheiro nem a um `CLAUDE.md` local**. A sessão 26 documenta só o vídeo, que é uma fatia. Quem pegar nisto a seguir não tem mapa. É a maior dívida em aberto.
+2. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `CustomActivitylogResource` (pasta) e `StockHub`. O `docs/paginas/encerramentos.md` e o `stock` estão desatualizados desde a sessão 25 (grupo, botões novos).
+3. **Ficheiros-lixo de heredoc** já reapareceram várias vezes na raiz (`({`, `p.slug`, `hasRole('admin'))`, `data`, `fim`, `halt()`, `videos`, `$(curl`, …), sempre com 0 bytes. Verificar `git status` antes de qualquer commit.
+4. **Nove worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
+5. **Enxaguamento e posição normal nunca foram testados no terreno** — a condição de visibilidade estava errada desde o início e só ficou correta na sessão 25. Confirmar com a equipa se os campos fazem sentido como estão, agora que aparecem de facto.
+6. **A duração do vídeo de evidência não é validada.** Os "10-15 segundos" são só texto no formulário; o servidor não tem `ffmpeg` para medir. O que trava mesmo é o tamanho (60 MB). Um clipe de 2 minutos a 1080p passa.
+7. **`OrcamentoGestosRegistoDiarioTest::test_o_alvo_de_trinta_gestos` fica `incomplete`, de propósito.** É um alvo em aberto: o registo diário ainda leva mais de 30 gestos. É o único `incomplete` da suite — não é uma falha, mas também não está atingido.
+8. **`PaginaGestor::STOCK_VISAO_GERAL`** estava rotulado "Stock — Visão Geral" no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" na sessão 25. Rótulo corrigido para "Stock", igual ao `$navigationLabel` do `StockHub`; confirmar que não há mais nomes divergentes no painel.
+
+**Fechado** (estava escrito como aberto e já não é):
+- `/m` sem `auth` e sem persistência — **a casca foi apagada**, `start_url` passou a `/admin`.
+- `/api/pdf/export` a devolver texto fingido — **rota apagada**; o `routes/api.php` só tem `/health` e `/metrics`.
+- Dois geradores de livro sanitário — **`DgsPdfReportService` apagado**, sobra o `RelatorioPdf`.
+- Bug do `Select` sem import nas Definições — **corrigido** (ver `docs/paginas/definicoes-sistema.md`).
+- `PersistenceTest` a falhar por `SESSION_LIFETIME` no `.env` local — **passa**; a suite inteira corre com 0 falhas.
 
 ---
 
@@ -472,7 +470,7 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 - [x] PostgreSQL em produção (feito na sessão 15).
 - [x] CSP no `SecurityHeaders` (feito na sessão 17).
 - [x] Backups automáticos da DB (`backup:database`, diário às 03:00).
-- [ ] `/m` fechado com `auth` ou removido do `start_url` do manifest.
+- [x] `/m` fora do `start_url` do manifest (a casca foi apagada; `start_url` é `/admin`).
 - [ ] Domínio custom configurado.
 
 ---
