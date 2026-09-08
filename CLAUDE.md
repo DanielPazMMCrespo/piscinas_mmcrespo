@@ -58,7 +58,7 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 - **Framework:** Laravel 12 LTS, `composer.json` exige `php ^8.2` (dev local corre PHP 8.5.6 NTS VS17 x64 em `C:\php\php.exe`; NÃO usar Herd Lite).
 - **Admin/UI:** Filament 3.3.x. Tema: light mode por defeito, primary `#0284c7`, success `#059669`, danger `#f43f5e`, gray Zinc. Sidebar recolhível em desktop, largura máxima `ScreenTwoExtraLarge`.
 - **Fontes:** o painel Filament é registado com `->font('Lato', provider: LocalFontProvider::class)` (sem `<link>` externo), mas o CSS da app define `--font-sans`/`--font-heading` como **Inter** com `!important` — logo o que se vê é Inter. Ficheiros vêm todos do bundle (`@fontsource/inter`, `@fontsource/lato`, `@fontsource/montserrat`), zero pedidos a CDN.
-- **DB:** SQLite (dev) / PostgreSQL 16 (produção, Railway). 102 migrações.
+- **DB:** SQLite (dev) / PostgreSQL 16 (produção, Railway). 105 migrações.
 - **Roles:** `spatie/laravel-permission`.
 - **Audit Trail:** `spatie/laravel-activitylog` + `rmsramos/activitylog` (UI em `CustomActivitylogResource`, item de menu "Auditoria").
 - **PDF:** `barryvdh/laravel-dompdf`.
@@ -68,7 +68,7 @@ Testes funcionais/manuais (browser, mobile) fazem-se sempre em produção — ve
 - **Animações/UI:** GSAP, GLightbox (empacotado no `app.js`, já não vem de CDN).
 - **Sensores:** Hanna Cloud API (sondas BL132), uma por piscina, todas as 5 piscinas cobertas. `HannaCircuitBreaker` protege a integração: 5 falhas em 5 min abrem o circuito, 1 min depois passa a half-open, e em circuito aberto devolve a última leitura em cache.
 - **Fotos:** Cloudflare R2 (S3-compatible) via `league/flysystem-aws-s3-v3` — Railway tem filesystem efémero, uploads vão para o disco `r2`. `LIVEWIRE_TMP_DISK=local`.
-- **Qualidade:** Laravel Pint + larastan/phpstan, Pest 3 (57 ficheiros em `tests/Feature`, mais `tests/Unit` por models/services/policies/middleware).
+- **Qualidade:** Laravel Pint + larastan/phpstan, Pest 3 (121 ficheiros: 90 em `tests/Feature`, 31 em `tests/Unit` por models/services/policies/middleware).
 - **Deploy:** Railway. Produção: `https://piscinasmmcrespo.up.railway.app`. Staging/testes: `https://piscinasmmcrespo-testes.up.railway.app`.
 
 ---
@@ -162,7 +162,7 @@ Além disso existe uma **casca mobile separada** (`resources/views/components/la
 
 ## Higiene do repositório
 - O `git add -A` em PowerShell com heredocs mal interpretados já criou **três vezes** ficheiros-lixo com nomes como `({`, `p.slug`, `hasRole('admin'))`, `data`, `fim`, `halt()`, `map(function`. Foram limpos em `4d3d393` e outra vez na sessão 25. Nunca usar `git add -A`; usar `git commit --only <lista>` para commits parciais (o index é partilhado com outras sessões a correr no mesmo repositório). Para ficheiros novos, `git add <caminho>` explícito antes do `--only`.
-- **Há 5 worktrees ativas** neste repositório (`git worktree list`), várias com alterações não commitadas. Uma reestruturação de 15 ficheiros esteve fora do controlo de versões durante dias porque vivia numa delas. Ao começar uma auditoria ou uma revisão, correr `git status` **e** `git worktree list` — e nesse caso, fazer commit de segurança antes de tocar em código.
+- **Há 9 worktrees ativas** neste repositório (`git worktree list`), várias com alterações não commitadas. Uma reestruturação de 15 ficheiros esteve fora do controlo de versões durante dias porque vivia numa delas. Ao começar uma auditoria ou uma revisão, correr `git status` **e** `git worktree list` — e nesse caso, fazer commit de segurança antes de tocar em código.
 - Uma worktree criada pelo Antigravity pode não ter `vendor/` — nela não se corre `artisan`, `pest`, `pint` nem `phpstan`. Trazer o trabalho para o checkout principal (ou criar uma worktree própria com `vendor` ligado por junção) antes de verificar.
 
 ## Persona e Estilo de Resposta
@@ -238,7 +238,7 @@ Duas metades: a reestruturação em si (feita noutra sessão, noutra pasta de tr
 - **Registo Diário sem Tabs**: `DailyRecordFormBuilder` troca `Tabs::make('Piscinas')` por uma `Section` vertical por piscina (`🏊 Nome` + `Volume: X m³` na descrição), `statePath("pools.{id}")` mantido igual. Filtros e químicos passam a secções `collapsible()->collapsed()`. O técnico preenche as 3 piscinas de Leiria com scroll, sem tocar em separadores.
 - `CreateDailyRecord`: botão "Criar" passa a **"Gravar Registos"** (`size('lg')`, primary, ícone de check).
 
-**A auditoria encontrou o trabalho fora do repositório.** Os 15 ficheiros estavam **não commitados** numa worktree do Antigravity (`C:\Users\danie\.gemini\antigravity\worktrees\piscinas_mmcrespo-main\optimize_pool_measurement_flow`), que não tem `vendor/`. Lição: antes de auditar, confirmar `git status` **e** `git worktree list` — há 5 worktrees ativas neste repositório e o trabalho pode estar em qualquer uma.
+**A auditoria encontrou o trabalho fora do repositório.** Os 15 ficheiros estavam **não commitados** numa worktree do Antigravity (`C:\Users\danie\.gemini\antigravity\worktrees\piscinas_mmcrespo-main\optimize_pool_measurement_flow`), que não tem `vendor/`. Lição: antes de auditar, confirmar `git status` **e** `git worktree list` — havia 5 worktrees ativas nesse momento (são 9 hoje) e o trabalho pode estar em qualquer uma.
 
 **Três regressões corrigidas (`7a687fe`)**:
 1. **Risco legal.** Ao fundir "Lavagem filtros" + "Enxaguamento" + "Posição normal" numa só secção, a condição `->visible(...)` das duas últimas desapareceu. Como `filtro_foto_enxaguamento` e `filtro_foto_posicao_normal` estão na whitelist do `DailyRecordService`, o técnico podia gravar a prova de um enxaguamento que nunca aconteceu no livro sanitário. **A condição antiga também estava errada**: usava o caminho absoluto `$get("pools.{$pool->id}.filtro_faz_retrolavagem")` dentro de um container cujo statePath já era `pools.{id}`, logo resolvia para `pools.1.pools.1.…` e devolvia sempre null — antes da reestruturação estes campos estavam **sempre escondidos**. Corrigido com o caminho relativo `$get('filtro_faz_retrolavagem')`, colocado dentro dos closures dos schemas para não se perder outra vez.
@@ -432,7 +432,7 @@ Trata-me como profissional. Vai direto à resposta. Output técnico funcional pr
 6. **`PersistenceTest`** falha por ambiente (`SESSION_LIFETIME` 120 no `.env` local vs 43200 no `.env.example`).
 7. **Sem `CLAUDE.md`/doc local** para `PoolClosureResource`, `PoolAccessRequestResource`, `StockHub` e a casca `/m`. O `docs/paginas/encerramentos.md` e o `stock` estão desatualizados desde a sessão 25 (grupo, botões novos).
 8. **Enxaguamento e posição normal nunca foram testados no terreno** — a condição de visibilidade estava errada desde o início e só ficou correta na sessão 25. Confirmar com a equipa se os campos fazem sentido como estão, agora que aparecem de facto.
-9. **Cinco worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
+9. **Nove worktrees ativas** (`git worktree list`) com trabalho não commitado. Antes de auditar ou de dar por concluída uma feature, verificar todas — a reestruturação da sessão 25 esteve fora do repositório durante dias.
 10. **A duração do vídeo de evidência não é validada.** Os "10-15 segundos" são só texto no formulário; o servidor não tem `ffmpeg` para medir. O que trava mesmo é o tamanho (60 MB). Um clipe de 2 minutos a 1080p passa.
 11. **`PaginaGestor::STOCK_VISAO_GERAL` continua rotulado "Stock — Visão Geral"** no painel de páginas visíveis do `UserResource`, mas a página passou a chamar-se "Stock" (título "Gestão de Stock") na sessão 25. O admin vê dois nomes para a mesma coisa.
 

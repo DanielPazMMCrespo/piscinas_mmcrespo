@@ -23,6 +23,7 @@
 | Doc | Descrição | Audience |
 |---|---|---|
 | **[README.md](../README.md)** | Visão geral, stack, quick start local | Todos |
+| **[onboarding.md](onboarding.md)** | Contexto de entrada: propósito, arquitetura, dívida, regras da casa | Novos programadores |
 | **[DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)** | 15-min deployment em Railway | DevOps/Admin |
 | **[POSTGRESQL_MIGRATION.md](../POSTGRESQL_MIGRATION.md)** | Migrar SQLite → PostgreSQL | DevOps |
 | **[RAILWAY_QUICK_START.md](../RAILWAY_QUICK_START.md)** | CLI Railway (alternativa ao dashboard) | DevOps |
