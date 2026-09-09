@@ -147,10 +147,20 @@ class IncidentResource extends Resource
                     ->preload()
                     ->searchable()
                     ->live()
-                    // Vir do dashboard/registo com a piscina já escolhida evita
-                    // repetir o que o utilizador acabou de ver noutro ecrã.
-                    ->default(fn () => request()->integer('installation')
-                        ?: Pool::find(request()->integer('pool'))?->installation_id)
+                    ->default(function () {
+                        if ($instId = request()->integer('installation')) {
+                            return $instId;
+                        }
+                        if ($poolId = request()->integer('pool')) {
+                            return Pool::find($poolId)?->installation_id;
+                        }
+                        $user = auth()->user();
+                        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+                            return $user->piscinas()->first()?->installation_id;
+                        }
+
+                        return null;
+                    })
                     ->afterStateUpdated(fn (Forms\Set $set) => $set('pool_id', null)),
                 Forms\Components\Select::make('pool_id')
                     ->label('Piscina (opcional)')
@@ -167,7 +177,20 @@ class IncidentResource extends Resource
                     )
                     ->preload()
                     ->searchable()
-                    ->default(fn () => request()->integer('pool') ?: null)
+                    ->default(function () {
+                        if ($poolId = request()->integer('pool')) {
+                            return $poolId;
+                        }
+                        $user = auth()->user();
+                        if ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
+                            $pools = $user->piscinas()->get();
+                            if ($pools->count() === 1) {
+                                return $pools->first()->id;
+                            }
+                        }
+
+                        return null;
+                    })
                     ->disabled(fn (Get $get): bool => ! $get('installation_id')),
                 Forms\Components\Hidden::make('user_id')
                     ->default(auth()->id())
@@ -179,20 +202,82 @@ class IncidentResource extends Resource
                     ->native(false)
                     ->displayFormat('d/m/Y H:i')
                     ->required(),
-                Forms\Components\Select::make('type')
-                    ->label('Tipo de Incidente')
+                Forms\Components\ToggleButtons::make('type')
+                    ->label('Tipo de Ocorrência')
                     ->options(IncidentType::options())
-                    ->required(),
+                    ->icons([
+                        IncidentType::AVARIA_EQUIPAMENTO => 'heroicon-o-wrench-screwdriver',
+                        IncidentType::FUGA_AGUA => 'heroicon-o-cloud',
+                        IncidentType::QUALIDADE_AGUA => 'heroicon-o-beaker',
+                        IncidentType::OUTRO => 'heroicon-o-ellipsis-horizontal-circle',
+                    ])
+                    ->colors([
+                        IncidentType::AVARIA_EQUIPAMENTO => 'warning',
+                        IncidentType::FUGA_AGUA => 'info',
+                        IncidentType::QUALIDADE_AGUA => 'danger',
+                        IncidentType::OUTRO => 'gray',
+                    ])
+                    ->inline()
+                    ->required()
+                    ->live()
+                    ->columnSpanFull(),
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('preset_fecal')
+                        ->label('💩 Fezes na água')
+                        ->color('danger')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Contaminação fecal detetada na água. Procedido ao isolamento imediato da piscina para tratamento de choque / hipercloração.')),
+                    Forms\Components\Actions\Action::make('preset_vomito')
+                        ->label('🤢 Vómito na água')
+                        ->color('danger')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Contaminação por vómito na piscina. Retirados os banhistas para higienização e filtração.')),
+                    Forms\Components\Actions\Action::make('preset_turva')
+                        ->label('🌫️ Água turva')
+                        ->color('warning')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Água turva com perda acentuada de transparência. Fundo da piscina não visível.')),
+                    Forms\Components\Actions\Action::make('preset_bomba')
+                        ->label('⚡ Bomba parada / disjuntor')
+                        ->color('warning')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::AVARIA_EQUIPAMENTO, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Bomba de recirculação parou de funcionar. Disjuntor no quadro elétrico desarmado.')),
+                    Forms\Components\Actions\Action::make('preset_ruido')
+                        ->label('🔊 Ruído anormal')
+                        ->color('warning')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::AVARIA_EQUIPAMENTO, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Ruído metálico / vibração anormal detetada no equipamento de bombagem.')),
+                    Forms\Components\Actions\Action::make('preset_fuga')
+                        ->label('🌊 Inundação / Fuga')
+                        ->color('info')
+                        ->button()
+                        ->size('xs')
+                        ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::FUGA_AGUA, null], true))
+                        ->action(fn (Forms\Set $set) => $set('descricao', 'Fuga de água ativa na tubagem / válvula com acumulação de água no piso da casa das máquinas.')),
+                ])
+                    ->columnSpanFull()
+                    ->visible(fn (?Incident $record) => $record === null),
                 Forms\Components\Textarea::make('descricao')
                     ->label('Descrição do Problema')
+                    ->placeholder('Selecione um atalho acima ou descreva a ocorrência...')
                     ->required()
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('observacoes')
                     ->label('Observações Adicionais')
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('fotos')
-                    ->label('Fotos')
-                    ->helperText('Evidência da avaria/ocorrência (até 5 fotos).')
+                    ->label('Fotos da Ocorrência')
+                    ->helperText('Evidência visual opcional (até 5 fotos). Toque para abrir a câmara.')
                     ->disk(DailyRecord::getStorageDisk())
                     ->visibility('private')
                     ->directory('incidentes')
@@ -201,6 +286,7 @@ class IncidentResource extends Resource
                     ->maxFiles(5)
                     ->maxSize(20480)
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                    ->extraInputAttributes(['capture' => 'environment'])
                     ->columnSpanFull(),
                 Forms\Components\Section::make('Resolução')
                     ->icon('heroicon-o-check-circle')
@@ -372,10 +458,6 @@ class IncidentResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('Estado')
-                    ->options([IncidentStatus::ABERTO => 'Aberto', IncidentStatus::RESOLVIDO => 'Resolvido'])
-                    ->default(IncidentStatus::ABERTO),
                 Tables\Filters\SelectFilter::make('installation_id')
                     ->label('Instalação')
                     ->relationship('instalacao', 'name')
@@ -390,7 +472,7 @@ class IncidentResource extends Resource
                 static::filtroPeriodo('ocorreu_em', mesCorrentePorOmissao: false),
             ], layout: FiltersLayout::Modal)
             ->emptyStateHeading('Sem incidentes')
-            ->emptyStateDescription('A lista mostra apenas os incidentes abertos por omissão — abra os filtros para ver os resolvidos.')
+            ->emptyStateDescription('Não foram encontrados incidentes nesta vista.')
             ->actions([
                 static::resolverTableAction(),
                 Tables\Actions\ActionGroup::make([
@@ -472,9 +554,35 @@ class IncidentResource extends Resource
     private static function resolverFormSchema(): array
     {
         return [
+            Forms\Components\Actions::make([
+                Forms\Components\Actions\Action::make('preset_resolvido_agua')
+                    ->label('✅ Parâmetros repostos')
+                    ->color('success')
+                    ->button()
+                    ->size('xs')
+                    ->action(fn (Forms\Set $set) => $set('resolucao', 'Tratamento de choque efetuado, parâmetros de pH e cloro normalizados e água transparente.')),
+                Forms\Components\Actions\Action::make('preset_resolvido_equip')
+                    ->label('🔧 Equipamento reparado')
+                    ->color('success')
+                    ->button()
+                    ->size('xs')
+                    ->action(fn (Forms\Set $set) => $set('resolucao', 'Equipamento inspecionado, reiniciado e a funcionar normalmente.')),
+                Forms\Components\Actions\Action::make('preset_resolvido_fuga')
+                    ->label('💧 Fuga estancada')
+                    ->color('success')
+                    ->button()
+                    ->size('xs')
+                    ->action(fn (Forms\Set $set) => $set('resolucao', 'Válvula/junta ajustada e estanqueidade reposta. Piso limpo e seco.')),
+                Forms\Components\Actions\Action::make('preset_resolvido_limpeza')
+                    ->label('🧹 Aspirado e limpo')
+                    ->color('success')
+                    ->button()
+                    ->size('xs')
+                    ->action(fn (Forms\Set $set) => $set('resolucao', 'Aspiração de fundo concluída, retrolavagem de filtros efetuada e recinto limpo.')),
+            ])->columnSpanFull(),
             Forms\Components\Textarea::make('resolucao')
-                ->hiddenLabel()
-                ->placeholder('Ex: Filtro retrolavado, valores normais.')
+                ->label('Nota de Resolução')
+                ->placeholder('Selecione uma ação rápida acima ou escreva a resolução...')
                 ->required()
                 ->minLength(5)
                 ->rows(3)

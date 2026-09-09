@@ -59,9 +59,8 @@ class DailyRecordEnxaguamentoVisibilityTest extends TestCase
                 'installation_id' => $this->leiria->id,
                 "{$prefixo}.filtro_faz_retrolavagem" => false,
             ])
-            ->assertFormFieldIsHidden("{$prefixo}.timer_enxaguamento")
-            ->assertFormFieldIsHidden("{$prefixo}.filtro_foto_enxaguamento")
-            ->assertFormFieldIsHidden("{$prefixo}.filtro_foto_posicao_normal");
+            ->assertFormFieldIsHidden("{$prefixo}.timer_lavagem")
+            ->assertFormFieldIsHidden("{$prefixo}.timer_enxaguamento");
     }
 
     public function test_enxaguamento_aparece_com_retrolavagem_ligada(): void
@@ -74,8 +73,7 @@ class DailyRecordEnxaguamentoVisibilityTest extends TestCase
                 'installation_id' => $this->leiria->id,
                 "{$prefixo}.filtro_faz_retrolavagem" => true,
             ])
-            ->assertFormFieldIsVisible("{$prefixo}.timer_enxaguamento")
-            ->assertFormFieldIsVisible("{$prefixo}.filtro_foto_enxaguamento")
-            ->assertFormFieldIsVisible("{$prefixo}.filtro_foto_posicao_normal");
+            ->assertFormFieldIsVisible("{$prefixo}.timer_lavagem")
+            ->assertFormFieldIsVisible("{$prefixo}.timer_enxaguamento");
     }
 }

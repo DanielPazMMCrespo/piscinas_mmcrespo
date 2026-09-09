@@ -56,7 +56,7 @@
                 @if ($this->isNS())
                     <span class="px-4 py-2 text-xs font-bold rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">Últimas 12h</span>
                 @else
-                    @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', 'custom' => 'Personalizado'] as $key => $label)
+                    @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', '30d' => '30d', 'custom' => 'Personalizado'] as $key => $label)
                         <button
                             type="button"
                             wire:click="setPeriod('{{ $key }}')"

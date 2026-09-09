@@ -12,12 +12,12 @@ use App\Models\Pool;
 use App\Services\CacheService;
 use App\Services\DailyRecordService;
 use Filament\Actions\Action;
-use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CreateDailyRecord extends CreateRecord
@@ -59,7 +59,9 @@ class CreateDailyRecord extends CreateRecord
         $record = $service->createRecords($user, $data);
 
         if ($record === null) {
-            throw new \RuntimeException('Nenhum registo de piscina foi criado.');
+            throw ValidationException::withMessages([
+                'pools' => 'Nenhum registo de piscina foi criado. Verifique se tem piscinas atribuídas.',
+            ]);
         }
 
         return $record;
@@ -68,6 +70,21 @@ class CreateDailyRecord extends CreateRecord
     protected function afterCreate(): void
     {
         app(CacheService::class)->invalidateAlerts(auth()->id());
+    }
+
+    protected function beforeValidate(): void
+    {
+        if (isset($this->data['pools']) && is_array($this->data['pools'])) {
+            foreach ($this->data['pools'] as $poolId => $poolData) {
+                if (is_array($poolData)) {
+                    foreach ($poolData as $k => $v) {
+                        if (is_string($v) && str_contains($v, ',')) {
+                            $this->data['pools'][$poolId][$k] = str_replace(',', '.', $v);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public function create(bool $another = false): void
@@ -99,6 +116,7 @@ class CreateDailyRecord extends CreateRecord
 
         try {
             $this->beginDatabaseTransaction();
+            $this->beforeValidate();
             $this->callHook('beforeValidate');
             $data = $this->form->getState();
             $this->callHook('afterValidate');
@@ -136,44 +154,55 @@ class CreateDailyRecord extends CreateRecord
             $this->isCreating = false;
 
             return;
+        } catch (ValidationException $exception) {
+            $this->rollBackDatabaseTransaction();
+            $this->isCreating = false;
+
+            throw $exception;
         } catch (\Throwable $exception) {
             $this->rollBackDatabaseTransaction();
             $this->isCreating = false;
-            throw $exception;
+
+            Log::error('Erro ao criar registo diário: '.$exception->getMessage(), [
+                'user_id' => auth()->id(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            Notification::make()
+                ->danger()
+                ->title('Erro ao gravar o registo')
+                ->body('Ocorreu um erro ao processar o registo: '.$exception->getMessage())
+                ->send();
+
+            return;
         } finally {
             $lock->release();
         }
 
         $this->isCreating = false;
 
-        $notificacao = Notification::make()
-            ->success()
-            ->title('Registo guardado!')
-            ->body('Os registos das piscinas foram guardados. O que pretende fazer a seguir?')
-            ->persistent()
-            ->actions([
-                NotificationAction::make('novoRegisto')
-                    ->label('Novo Registo')
-                    ->button()
-                    ->close(),
-                NotificationAction::make('dashboard')
-                    ->label('Ir para o Dashboard')
-                    ->button()
-                    ->color('gray')
-                    ->url('/admin'),
-            ]);
+        if ($another) {
+            Notification::make()
+                ->success()
+                ->title('Registo guardado com sucesso!')
+                ->body('O formulário foi reiniciado para um novo registo.')
+                ->send();
+        } else {
+            Notification::make()
+                ->success()
+                ->title('Registo guardado!')
+                ->body('Os parâmetros das piscinas foram registados com sucesso.')
+                ->send();
 
-        $notificacao->send();
-        $notificationData = $notificacao->toArray();
-        $this->dispatch('dailyRecordSaved', notification: [
-            'title' => $notificationData['title'] ?? null,
-            'body' => $notificationData['body'] ?? null,
-            'status' => $notificationData['status'] ?? null,
-        ]);
+            $this->redirect('/admin');
+        }
+
+        $this->dispatch('dailyRecordSaved');
     }
 
-    public function validarERegistosGuardar(): void
+    public function validarERegistosGuardar(bool $another = false): void
     {
+        $this->beforeValidate();
         try {
             $data = $this->form->getState();
         } catch (ValidationException $e) {
@@ -221,7 +250,7 @@ class CreateDailyRecord extends CreateRecord
             return;
         }
 
-        $this->create();
+        $this->create($another);
     }
 
     /**
@@ -343,6 +372,24 @@ class CreateDailyRecord extends CreateRecord
                 ->keyBindings(['mod+s'])
                 // Sem piscinas no formulário não há nada para gravar — o botão
                 // só levava ao erro de "nenhum registo criado".
+                ->hidden(function (): bool {
+                    $pools = $this->data['pools'] ?? [];
+                    if (blank($pools)) {
+                        return true;
+                    }
+
+                    $selecionadas = $this->getPiscinasSelecionadasIds();
+                    if ($selecionadas !== null && blank($selecionadas)) {
+                        return true;
+                    }
+
+                    return false;
+                }),
+            Action::make('createAnother')
+                ->label('Gravar e Novo')
+                ->icon('heroicon-o-plus-circle')
+                ->color('gray')
+                ->action(fn () => $this->validarERegistosGuardar(another: true))
                 ->hidden(function (): bool {
                     $pools = $this->data['pools'] ?? [];
                     if (blank($pools)) {

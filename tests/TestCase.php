@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Filament\Resources\DailyRecordResource\DailyRecordFormBuilder;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -16,5 +17,13 @@ abstract class TestCase extends BaseTestCase
         // reinicia os IDs das piscinas. Sem isto, o que um ficheiro de teste
         // memoiza para a "piscina 1" contamina o ficheiro seguinte.
         DailyRecordFormBuilder::limparMemos();
+    }
+
+    public function createApplication()
+    {
+        $app = require dirname(__DIR__).'/bootstrap/app.php';
+        $app->make(Kernel::class)->bootstrap();
+
+        return $app;
     }
 }

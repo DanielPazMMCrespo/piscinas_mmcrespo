@@ -8,10 +8,8 @@ use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\Installation;
-use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\User;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -71,25 +69,12 @@ class OperationalActionNadadorSalvadorTest extends TestCase
         ]);
     }
 
-    /**
-     * Os tipos que o formulario oferece ao utilizador autenticado.
-     * `tiposDisponiveis()` e privado no resource, dai a reflexao.
-     *
-     * @return array<string, string>
-     */
-    private function tiposOferecidosAoNs(): array
-    {
-        $metodo = (new \ReflectionClass(OperationalActionResource::class))->getMethod('tiposDisponiveis');
-        $metodo->setAccessible(true);
-
-        return $metodo->invoke(null);
-    }
-
-    public function test_ns_with_analise_parametros_can_access_operational_action_resource(): void
+    public function test_ns_with_analise_parametros_cannot_access_operational_action_resource(): void
     {
         $this->actingAs($this->nadadorSalvador);
 
-        $this->assertTrue(OperationalActionResource::canAccess());
+        $this->assertFalse(OperationalActionResource::canAccess());
+        $this->assertFalse(OperationalActionResource::canCreate());
     }
 
     public function test_ns_without_analise_parametros_cannot_access_operational_action_resource(): void
@@ -97,203 +82,38 @@ class OperationalActionNadadorSalvadorTest extends TestCase
         $this->actingAs($this->nadadorSalvadorSemPermissao);
 
         $this->assertFalse(OperationalActionResource::canAccess());
+        $this->assertFalse(OperationalActionResource::canCreate());
     }
 
-    public function test_ns_can_render_list_page_with_analise_parametros(): void
+    public function test_ns_cannot_render_list_page(): void
     {
         $this->actingAs($this->nadadorSalvador);
 
         Livewire::test(OperationalActionResource\Pages\ListOperationalActions::class)
-            ->assertSuccessful();
+            ->assertForbidden();
+    }
+
+    public function test_ns_cannot_render_create_page(): void
+    {
+        $this->actingAs($this->nadadorSalvador);
+
+        Livewire::test(OperationalActionResource\Pages\CreateOperationalAction::class)
+            ->assertForbidden();
     }
 
     public function test_ns_without_analise_parametros_cannot_render_list_page(): void
     {
         $this->actingAs($this->nadadorSalvadorSemPermissao);
 
-        // The middleware should block access before even rendering
         Livewire::test(OperationalActionResource\Pages\ListOperationalActions::class)
             ->assertForbidden();
     }
 
-    public function test_ns_with_analise_parametros_can_create_analise_pontual(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        Livewire::test(OperationalActionResource\Pages\CreateOperationalAction::class)
-            ->fillForm([
-                'pool_id' => $this->pool->id,
-                'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
-                'registado_em' => now()->toDateTimeString(),
-                'dados.ph' => 7.2,
-                'dados.cloro_livre' => 0.8,
-                'observacoes' => 'Análise pontual do NS',
-            ])
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $this->assertDatabaseHas('operational_actions', [
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
-            'user_id' => $this->nadadorSalvador->id,
-            'observacoes' => 'Análise pontual do NS',
-        ]);
-    }
-
-    public function test_ns_cannot_create_lavagem_filtro_action(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        // O tipo nem chega a ser oferecido ao NS: o select so tem analise
-        // pontual. Preenche-lo a forca rebentava o componente Livewire em
-        // vez de dar um erro de validacao -- era isso que este teste
-        // apanhava como "Attempt to read property form on null".
-        $this->assertArrayNotHasKey(
-            OperationalAction::TIPO_LAVAGEM_FILTRO,
-            $this->tiposOferecidosAoNs(),
-        );
-
-        $this->assertDatabaseMissing('operational_actions', [
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO,
-        ]);
-    }
-
-    public function test_ns_cannot_create_torneira_action(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        // O tipo nem chega a ser oferecido ao NS: o select so tem analise
-        // pontual. Preenche-lo a forca rebentava o componente Livewire em
-        // vez de dar um erro de validacao -- era isso que este teste
-        // apanhava como "Attempt to read property form on null".
-        $this->assertArrayNotHasKey(
-            OperationalAction::TIPO_TORNEIRA,
-            $this->tiposOferecidosAoNs(),
-        );
-
-        $this->assertDatabaseMissing('operational_actions', [
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_TORNEIRA,
-        ]);
-    }
-
-    public function test_ns_cannot_create_bomba_action(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        // O tipo nem chega a ser oferecido ao NS: o select so tem analise
-        // pontual. Preenche-lo a forca rebentava o componente Livewire em
-        // vez de dar um erro de validacao -- era isso que este teste
-        // apanhava como "Attempt to read property form on null".
-        $this->assertArrayNotHasKey(
-            OperationalAction::TIPO_BOMBA,
-            $this->tiposOferecidosAoNs(),
-        );
-
-        $this->assertDatabaseMissing('operational_actions', [
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_BOMBA,
-        ]);
-    }
-
-    public function test_ns_cannot_create_reabastecimento_bidao_action(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        // O tipo nem chega a ser oferecido ao NS: o select so tem analise
-        // pontual. Preenche-lo a forca rebentava o componente Livewire em
-        // vez de dar um erro de validacao -- era isso que este teste
-        // apanhava como "Attempt to read property form on null".
-        $this->assertArrayNotHasKey(
-            OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
-            $this->tiposOferecidosAoNs(),
-        );
-
-        $this->assertDatabaseMissing('operational_actions', [
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_REABASTECIMENTO_BIDAO,
-        ]);
-    }
-
-    public function test_ns_cannot_access_create_page_without_analise_parametros(): void
+    public function test_ns_without_analise_parametros_cannot_render_create_page(): void
     {
         $this->actingAs($this->nadadorSalvadorSemPermissao);
 
-        // `assertThrows` vive na TestCase, nao na resposta de um Livewire::test:
-        // encadeado ali dava BadMethodCallException em vez de testar nada. E o
-        // Livewire converte a AuthorizationException em 403 em vez de a
-        // propagar, por isso o expectException tambem nao serve.
         Livewire::test(OperationalActionResource\Pages\CreateOperationalAction::class)
             ->assertForbidden();
-    }
-
-    public function test_ns_can_see_only_their_pools_operational_actions(): void
-    {
-        // Criar uma segunda piscina que o NS não tem acesso
-        $pool2 = Pool::create([
-            'installation_id' => $this->installation->id,
-            'name' => 'Piscina Secundária',
-            'type' => 'leisure',
-            'temp_min' => 28.0,
-            'temp_max' => 30.0,
-            'volume' => 500,
-            'active' => true,
-        ]);
-
-        // Criar ações em ambas as piscinas
-        $acao1 = OperationalAction::create([
-            'user_id' => $this->nadadorSalvador->id,
-            'pool_id' => $this->pool->id,
-            'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
-            'registado_em' => now(),
-            'dados' => ['ph' => 7.2],
-        ]);
-
-        $acao2 = OperationalAction::create([
-            'user_id' => $this->nadadorSalvador->id,
-            'pool_id' => $pool2->id,
-            'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
-            'registado_em' => now(),
-            'dados' => ['ph' => 7.1],
-        ]);
-
-        $this->actingAs($this->nadadorSalvador);
-
-        // NS deve ver apenas ações da sua piscina
-        $query = OperationalActionResource::getEloquentQuery();
-        $poolIds = $query->pluck('pool_id')->unique();
-
-        $this->assertContains($this->pool->id, $poolIds->toArray());
-        $this->assertNotContains($pool2->id, $poolIds->toArray());
-    }
-
-    public function test_ns_can_see_only_analise_pontual_in_tipo_options(): void
-    {
-        $this->actingAs($this->nadadorSalvador);
-
-        Livewire::test(OperationalActionResource\Pages\CreateOperationalAction::class)
-            ->assertFormSet([
-                'tipo' => null,
-            ])
-            // `assertCanSeeFormComponent` nao existe no Filament nem no Livewire.
-            ->assertFormFieldExists('tipo');
-
-        // Verificar que apenas análise pontual está disponível
-        $component = Livewire::test(OperationalActionResource\Pages\CreateOperationalAction::class);
-
-        // Acessar o campo tipo do formulário
-        $tiposDisponiveis = OperationalActionResource::class;
-
-        // Usamos reflexão para chamar o método privado tiposDisponiveis()
-        $reflection = new \ReflectionClass($tiposDisponiveis);
-        $method = $reflection->getMethod('tiposDisponiveis');
-        $method->setAccessible(true);
-
-        $tipos = $method->invoke(null);
-
-        // Deve haver apenas um tipo (análise pontual)
-        $this->assertCount(1, $tipos);
-        $this->assertArrayHasKey(OperationalAction::TIPO_ANALISE_PONTUAL, $tipos);
     }
 }

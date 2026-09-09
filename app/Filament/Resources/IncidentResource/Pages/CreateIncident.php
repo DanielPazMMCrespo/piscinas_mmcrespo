@@ -19,10 +19,15 @@ class CreateIncident extends CreateRecord
     protected function getFormActions(): array
     {
         return [
-            $this->getCreateFormAction(),
+            $this->getCreateFormAction()->label('Reportar Incidente')->icon('heroicon-m-exclamation-triangle'),
             $this->getCreateAnotherFormAction(),
             $this->getCancelFormAction(),
         ];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return IncidentResource::getUrl('view', ['record' => $this->record]);
     }
 
     protected function afterCreate(): void

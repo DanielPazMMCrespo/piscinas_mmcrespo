@@ -101,7 +101,13 @@ class DailyRecordService
         ];
 
         if (isset($data['ns_foto'])) {
-            $commonData['ns_foto'] = is_array($data['ns_foto']) ? array_values($data['ns_foto'])[0] : $data['ns_foto'];
+            if (is_array($data['ns_foto'])) {
+                $commonData['ns_foto'] = ! empty($data['ns_foto']) ? array_values($data['ns_foto'])[0] : null;
+            } elseif ($data['ns_foto'] === '') {
+                $commonData['ns_foto'] = null;
+            } else {
+                $commonData['ns_foto'] = $data['ns_foto'];
+            }
         }
 
         $poolsData = $data['pools'] ?? [];
@@ -112,16 +118,21 @@ class DailyRecordService
         // Acontece quando todas as piscinas do utilizador estão encerradas com a
         // água parada: piscinasPermitidas() não devolve nenhuma, o formulário
         // fica sem cartões e a submissão explodia em vez de explicar o motivo.
-        if ($poolsData === []) {
+        if (empty($poolsData)) {
             throw ValidationException::withMessages([
+                'pools' => 'Nenhuma piscina selecionada para registo. Verifique se tem piscinas atribuídas ou se estão em funcionamento.',
                 'data.pools' => 'Nenhuma das piscinas disponíveis aceita registo diário: estão encerradas com a água parada. Se já reabriram, feche o encerramento em Gestão → Encerramentos.',
             ]);
         }
 
         if ($user !== null && $user->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
+            $poolIdsPermitidos = array_map('intval', $user->piscinas()->pluck('pools.id')->all());
             foreach (array_keys($poolsData) as $poolId) {
-                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403, 'Acesso não autorizado a uma ou mais piscinas.');
+                if (! in_array((int) $poolId, $poolIdsPermitidos, true)) {
+                    throw ValidationException::withMessages([
+                        'pools' => 'Acesso não autorizado a uma ou mais piscinas selecionadas.',
+                    ]);
+                }
             }
         }
 

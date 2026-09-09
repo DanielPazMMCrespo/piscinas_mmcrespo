@@ -31,9 +31,9 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public ?string $poolSelecionada = null;
 
-    public string $leftMetric = 'controlador_ph';
+    public string $leftMetric = 'ph';
 
-    public string $rightMetric = 'controlador_orp';
+    public string $rightMetric = 'cloro_livre';
 
     public string $period = '7d';
 
@@ -45,7 +45,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private const NS_CAMPOS = ['ph', 'cloro_livre', 'cloro_total', 'temperatura'];
 
-    private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', 'custom'];
+    private const PERIODOS_VALIDOS = ['12h', '6h', '24h', '7d', '14d', '30d', 'custom'];
 
     private const TABS_VALIDAS = ['graph', 'table'];
 
@@ -266,6 +266,7 @@ class CloroPhChartWidget extends Widget implements HasForms
             '24h' => now()->subHours(24),
             '7d' => now()->subDays(7)->startOfDay(),
             '14d' => now()->subDays(14)->startOfDay(),
+            '30d' => now()->subDays(30)->startOfDay(),
             'custom' => $this->customStartDate ? Carbon::parse($this->customStartDate)->startOfDay() : now()->subDays(7)->startOfDay(),
             default => now()->subDays(7)->startOfDay(),
         };

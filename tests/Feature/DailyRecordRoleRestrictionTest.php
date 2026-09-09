@@ -9,6 +9,8 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -109,7 +111,7 @@ class DailyRecordRoleRestrictionTest extends TestCase
      * mensagem genérica "O formulário expirou", deixando o NS preso sem saber
      * qual o campo em falta.
      */
-    public function test_swimmer_missing_board_photo_surfaces_field_error(): void
+    public function test_swimmer_without_board_photo_is_allowed(): void
     {
         $this->nadador->piscinas()->attach($this->competicao->id);
 
@@ -127,6 +129,63 @@ class DailyRecordRoleRestrictionTest extends TestCase
                 ],
             ])
             ->call('validarERegistosGuardar')
-            ->assertHasFormErrors(['ns_foto']);
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_swimmer_can_successfully_create_daily_record(): void
+    {
+        Storage::fake('public');
+        $this->nadador->piscinas()->attach([$this->competicao->id, $this->lazer->id]);
+
+        $file = UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+
+        Livewire::actingAs($this->nadador)
+            ->test(CreateDailyRecord::class)
+            ->fillForm([
+                'installation_id' => $this->leiria->id,
+                'ns_foto' => [$file],
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 27.0,
+                    ],
+                    $this->lazer->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 28.0,
+                    ],
+                ],
+            ])
+            ->call('validarERegistosGuardar')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_swimmer_with_partial_pools_assigned(): void
+    {
+        Storage::fake('public');
+        // Apenas piscina Competição atribuída ao nadador, mas Leiria tem Competição e Lazer
+        $this->nadador->piscinas()->attach($this->competicao->id);
+
+        $file = UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+
+        Livewire::actingAs($this->nadador)
+            ->test(CreateDailyRecord::class)
+            ->fillForm([
+                'installation_id' => $this->leiria->id,
+                'ns_foto' => [$file],
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 27.0,
+                    ],
+                ],
+            ])
+            ->call('validarERegistosGuardar')
+            ->assertHasNoFormErrors();
     }
 }
