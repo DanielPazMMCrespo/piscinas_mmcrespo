@@ -186,7 +186,7 @@ it('nao abre incidente automatico numa piscina encerrada', function (): void {
     expect(Incident::where('pool_id', $piscina->id)->count())->toBe(0);
 });
 
-it('abre incidente automatico numa piscina aberta', function (): void {
+it('nao abre incidente automatico por oscilacoes de agua mesmo em piscina aberta (regra desativada)', function (): void {
     $piscina = Pool::factory()->create();
 
     DailyRecord::factory()->count(3)->create([
@@ -198,6 +198,7 @@ it('abre incidente automatico numa piscina aberta', function (): void {
 
     $this->artisan('regras:executar')->assertSuccessful();
 
+    // Incidentes por oscilações foram desativados no commit 305b97e para evitar sobrecarga/fadiga de alarmes
     expect(Incident::where('pool_id', $piscina->id)->where('status', IncidentStatus::ABERTO)->count())
-        ->toBeGreaterThan(0);
+        ->toBe(0);
 });
