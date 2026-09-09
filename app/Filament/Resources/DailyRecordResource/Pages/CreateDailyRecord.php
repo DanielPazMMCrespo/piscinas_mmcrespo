@@ -59,7 +59,9 @@ class CreateDailyRecord extends CreateRecord
         $record = $service->createRecords($user, $data);
 
         if ($record === null) {
-            throw new \RuntimeException('Nenhum registo de piscina foi criado.');
+            throw ValidationException::withMessages([
+                'pools' => 'Nenhum registo de piscina foi criado. Verifique se tem piscinas atribuídas.',
+            ]);
         }
 
         return $record;
@@ -136,10 +138,27 @@ class CreateDailyRecord extends CreateRecord
             $this->isCreating = false;
 
             return;
+        } catch (ValidationException $exception) {
+            $this->rollBackDatabaseTransaction();
+            $this->isCreating = false;
+
+            throw $exception;
         } catch (\Throwable $exception) {
             $this->rollBackDatabaseTransaction();
             $this->isCreating = false;
-            throw $exception;
+
+            \Illuminate\Support\Facades\Log::error('Erro ao criar registo diário: '.$exception->getMessage(), [
+                'user_id' => auth()->id(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            Notification::make()
+                ->danger()
+                ->title('Erro ao gravar o registo')
+                ->body('Ocorreu um erro ao processar o registo: '.$exception->getMessage())
+                ->send();
+
+            return;
         } finally {
             $lock->release();
         }

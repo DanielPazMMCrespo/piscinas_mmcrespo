@@ -101,16 +101,32 @@ class DailyRecordService
         ];
 
         if (isset($data['ns_foto'])) {
-            $commonData['ns_foto'] = is_array($data['ns_foto']) ? array_values($data['ns_foto'])[0] : $data['ns_foto'];
+            if (is_array($data['ns_foto'])) {
+                $commonData['ns_foto'] = ! empty($data['ns_foto']) ? array_values($data['ns_foto'])[0] : null;
+            } elseif ($data['ns_foto'] === '') {
+                $commonData['ns_foto'] = null;
+            } else {
+                $commonData['ns_foto'] = $data['ns_foto'];
+            }
         }
 
         $poolsData = $data['pools'] ?? [];
         $lastRecord = null;
 
+        if (empty($poolsData)) {
+            throw ValidationException::withMessages([
+                'pools' => 'Nenhuma piscina selecionada para registo. Verifique se tem piscinas atribuídas.',
+            ]);
+        }
+
         if ($user !== null && $user->hasRole(UserRole::NADADOR_SALVADOR)) {
-            $poolIdsPermitidos = $user->piscinas()->pluck('pools.id')->all();
+            $poolIdsPermitidos = array_map('intval', $user->piscinas()->pluck('pools.id')->all());
             foreach (array_keys($poolsData) as $poolId) {
-                abort_unless(in_array((int) $poolId, $poolIdsPermitidos, true), 403, 'Acesso não autorizado a uma ou mais piscinas.');
+                if (! in_array((int) $poolId, $poolIdsPermitidos, true)) {
+                    throw ValidationException::withMessages([
+                        'pools' => 'Acesso não autorizado a uma ou mais piscinas selecionadas.',
+                    ]);
+                }
             }
         }
 

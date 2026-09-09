@@ -17,4 +17,12 @@ abstract class TestCase extends BaseTestCase
         // memoiza para a "piscina 1" contamina o ficheiro seguinte.
         DailyRecordFormBuilder::limparMemos();
     }
+
+    public function createApplication()
+    {
+        $app = require dirname(__DIR__).'/bootstrap/app.php';
+        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        return $app;
+    }
 }

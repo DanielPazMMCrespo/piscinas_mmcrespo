@@ -129,4 +129,61 @@ class DailyRecordRoleRestrictionTest extends TestCase
             ->call('validarERegistosGuardar')
             ->assertHasFormErrors(['ns_foto']);
     }
+
+    public function test_swimmer_can_successfully_create_daily_record(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $this->nadador->piscinas()->attach([$this->competicao->id, $this->lazer->id]);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+
+        Livewire::actingAs($this->nadador)
+            ->test(CreateDailyRecord::class)
+            ->fillForm([
+                'installation_id' => $this->leiria->id,
+                'ns_foto' => [$file],
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 27.0,
+                    ],
+                    $this->lazer->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 28.0,
+                    ],
+                ],
+            ])
+            ->call('validarERegistosGuardar')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_swimmer_with_partial_pools_assigned(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        // Apenas piscina Competição atribuída ao nadador, mas Leiria tem Competição e Lazer
+        $this->nadador->piscinas()->attach($this->competicao->id);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+
+        Livewire::actingAs($this->nadador)
+            ->test(CreateDailyRecord::class)
+            ->fillForm([
+                'installation_id' => $this->leiria->id,
+                'ns_foto' => [$file],
+                'pools' => [
+                    $this->competicao->id => [
+                        'ns_ph' => 7.4,
+                        'ns_cloro_livre' => 1.2,
+                        'ns_cloro_total' => 1.5,
+                        'ns_temperatura' => 27.0,
+                    ],
+                ],
+            ])
+            ->call('validarERegistosGuardar')
+            ->assertHasNoFormErrors();
+    }
 }
