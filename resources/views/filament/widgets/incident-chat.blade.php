@@ -61,6 +61,7 @@
                 type="submit" 
                 icon="heroicon-m-paper-airplane"
                 wire:loading.attr="disabled"
+                class="min-h-[44px] px-5 flex items-center justify-center text-sm font-semibold"
             >
                 Enviar
             </x-filament::button>

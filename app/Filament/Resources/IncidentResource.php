@@ -66,9 +66,14 @@ class IncidentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with('piscina.encerramentos');
+        $query = parent::getEloquentQuery()->with([
+            'piscina.encerramentos',
+            'piscina.instalacao',
+            'utilizador',
+            'resolvidoPor',
+        ]);
 
-        if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->where('user_id', auth()->id());
         }
 
@@ -226,42 +231,42 @@ class IncidentResource extends Resource
                         ->label('💩 Fezes na água')
                         ->color('danger')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Contaminação fecal detetada na água. Procedido ao isolamento imediato da piscina para tratamento de choque / hipercloração.')),
                     Forms\Components\Actions\Action::make('preset_vomito')
                         ->label('🤢 Vómito na água')
                         ->color('danger')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Contaminação por vómito na piscina. Retirados os banhistas para higienização e filtração.')),
                     Forms\Components\Actions\Action::make('preset_turva')
                         ->label('🌫️ Água turva')
                         ->color('warning')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::QUALIDADE_AGUA, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Água turva com perda acentuada de transparência. Fundo da piscina não visível.')),
                     Forms\Components\Actions\Action::make('preset_bomba')
                         ->label('⚡ Bomba parada / disjuntor')
                         ->color('warning')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::AVARIA_EQUIPAMENTO, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Bomba de recirculação parou de funcionar. Disjuntor no quadro elétrico desarmado.')),
                     Forms\Components\Actions\Action::make('preset_ruido')
                         ->label('🔊 Ruído anormal')
                         ->color('warning')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::AVARIA_EQUIPAMENTO, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Ruído metálico / vibração anormal detetada no equipamento de bombagem.')),
                     Forms\Components\Actions\Action::make('preset_fuga')
                         ->label('🌊 Inundação / Fuga')
                         ->color('info')
                         ->button()
-                        ->size('xs')
+                        ->size('sm')
                         ->visible(fn (Get $get) => in_array($get('type'), [IncidentType::FUGA_AGUA, null], true))
                         ->action(fn (Forms\Set $set) => $set('descricao', 'Fuga de água ativa na tubagem / válvula com acumulação de água no piso da casa das máquinas.')),
                 ])
@@ -559,25 +564,25 @@ class IncidentResource extends Resource
                     ->label('✅ Parâmetros repostos')
                     ->color('success')
                     ->button()
-                    ->size('xs')
+                    ->size('sm')
                     ->action(fn (Forms\Set $set) => $set('resolucao', 'Tratamento de choque efetuado, parâmetros de pH e cloro normalizados e água transparente.')),
                 Forms\Components\Actions\Action::make('preset_resolvido_equip')
                     ->label('🔧 Equipamento reparado')
                     ->color('success')
                     ->button()
-                    ->size('xs')
+                    ->size('sm')
                     ->action(fn (Forms\Set $set) => $set('resolucao', 'Equipamento inspecionado, reiniciado e a funcionar normalmente.')),
                 Forms\Components\Actions\Action::make('preset_resolvido_fuga')
                     ->label('💧 Fuga estancada')
                     ->color('success')
                     ->button()
-                    ->size('xs')
+                    ->size('sm')
                     ->action(fn (Forms\Set $set) => $set('resolucao', 'Válvula/junta ajustada e estanqueidade reposta. Piso limpo e seco.')),
                 Forms\Components\Actions\Action::make('preset_resolvido_limpeza')
                     ->label('🧹 Aspirado e limpo')
                     ->color('success')
                     ->button()
-                    ->size('xs')
+                    ->size('sm')
                     ->action(fn (Forms\Set $set) => $set('resolucao', 'Aspiração de fundo concluída, retrolavagem de filtros efetuada e recinto limpo.')),
             ])->columnSpanFull(),
             Forms\Components\Textarea::make('resolucao')

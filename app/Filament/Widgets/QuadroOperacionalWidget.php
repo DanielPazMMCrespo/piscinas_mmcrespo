@@ -97,9 +97,25 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
                     ->extraInputAttributes(['class' => 'neo-input-large']),
             ])
             ->action(function (array $data, array $arguments): void {
-                $incident = Incident::find($arguments['id']);
+                $incident = Incident::find($arguments['id'] ?? null);
                 if (! $incident || $incident->status === IncidentStatus::RESOLVIDO) {
                     return;
+                }
+
+                $user = auth()->user();
+                if (! $user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
+                    Notification::make()->danger()->title('Sem permissão para resolver incidentes.')->send();
+
+                    return;
+                }
+
+                // Se for técnico com piscinas específicas atribuídas, só resolve das suas piscinas
+                if ($user->hasRole(UserRole::TECNICO) && $user->piscinas()->exists() && $incident->pool_id !== null) {
+                    if (! $user->piscinas()->where('pools.id', $incident->pool_id)->exists()) {
+                        Notification::make()->danger()->title('Sem permissão para este incidente.')->send();
+
+                        return;
+                    }
                 }
 
                 $resolucao = filled($data['resolucao'] ?? null) ? $data['resolucao'] : 'Resolvido no painel de controlo.';

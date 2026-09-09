@@ -8,24 +8,41 @@
         </div>
 
         @unless ($this->isNS())
-            {{-- Atalhos: comparar leitura do controlador Hanna com a leitura manual do técnico --}}
+            {{-- Atalhos táteis de 1 toque: trocar eixos sem abrir dropdowns --}}
             <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide whitespace-nowrap items-center">
-                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest self-center mr-1">Comparar</span>
+                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest self-center mr-1">Predefinições</span>
+                <button
+                    type="button"
+                    wire:click="presetSensorVsManual('ph', 'cloro_livre')"
+                    class="shrink-0 min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                    <span>📊</span>
+                    <span>pH + Cloro Livre</span>
+                </button>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_ph', 'ph')"
-                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
-                >pH</button>
+                    class="shrink-0 min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                    <span>🔄</span>
+                    <span>pH (Sonda vs Manual)</span>
+                </button>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_orp', 'cloro_livre')"
-                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
-                >Cloro (ORP vs Livre)</button>
+                    class="shrink-0 min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                    <span>⚡</span>
+                    <span>Cloro (ORP vs Livre)</span>
+                </button>
                 <button
                     type="button"
                     wire:click="presetSensorVsManual('controlador_temp', 'temperatura')"
-                    class="shrink-0 px-4 py-2 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
-                >Temperatura</button>
+                    class="shrink-0 min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                    <span>🌡️</span>
+                    <span>Temperatura (Sonda vs Manual)</span>
+                </button>
             </div>
         @endunless
 
@@ -36,7 +53,7 @@
                     type="button"
                     wire:click="setTab('graph')"
                     @class([
-                        'flex-1 sm:flex-none px-6 py-2 text-sm font-semibold rounded-xl transition-all',
+                        'flex-1 sm:flex-none min-h-[44px] px-6 py-2 text-sm font-semibold rounded-xl transition-all flex items-center justify-center',
                         'bg-white text-slate-800 dark:bg-slate-600 dark:text-white shadow-sm' => $this->tabAtiva === 'graph',
                         'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200' => $this->tabAtiva !== 'graph',
                     ])
@@ -45,7 +62,7 @@
                     type="button"
                     wire:click="setTab('table')"
                     @class([
-                        'flex-1 sm:flex-none px-6 py-2 text-sm font-semibold rounded-xl transition-all',
+                        'flex-1 sm:flex-none min-h-[44px] px-6 py-2 text-sm font-semibold rounded-xl transition-all flex items-center justify-center',
                         'bg-white text-slate-800 dark:bg-slate-600 dark:text-white shadow-sm' => $this->tabAtiva === 'table',
                         'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200' => $this->tabAtiva !== 'table',
                     ])
@@ -54,14 +71,14 @@
 
             <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
                 @if ($this->isNS())
-                    <span class="px-4 py-2 text-xs font-bold rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">Últimas 12h</span>
+                    <span class="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400 flex items-center">Últimas 12h</span>
                 @else
                     @foreach(['6h' => '6h', '24h' => '24h', '7d' => '7d', '14d' => '14d', '30d' => '30d', 'custom' => 'Personalizado'] as $key => $label)
                         <button
                             type="button"
                             wire:click="setPeriod('{{ $key }}')"
                             @class([
-                                'shrink-0 px-4 py-2 text-xs font-semibold rounded-xl transition-all active:scale-95',
+                                'shrink-0 min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center',
                                 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-md' => $this->period === $key,
                                 'bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700' => $this->period !== $key,
                             ])

@@ -792,7 +792,7 @@ class DailyRecordFormBuilder
 
                 $livewire->dispatch('collapse-section', id: self::ID_CARTAO_PISCINA.$pool->id);
             })
-            ->extraInputAttributes(['inputmode' => 'decimal', 'class' => 'neo-input-large'])
+            ->extraInputAttributes(['inputmode' => 'decimal', 'pattern' => '[0-9.,]*', 'class' => 'neo-input-large'])
             ->suffix(function (Get $get, $livewire) use ($campo, $metrica, $pool): ?HtmlString {
                 $val = $get($campo->getName());
                 if (! filled($val)) {
@@ -987,7 +987,7 @@ class DailyRecordFormBuilder
                             ->id("contador_valor_{$pool->id}")
                             ->label('Contador (m³)')
                             ->numeric()->step(0.01)->minValue(0)
-                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal', 'pattern' => '[0-9.,]*'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->live(onBlur: true)
                             ->helperText(function (Get $get) use ($pool): ?string {
@@ -1037,7 +1037,7 @@ class DailyRecordFormBuilder
                             ->minValue(0)
                             ->maxValue(10)
                             ->visible($temFiltro)
-                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                            ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal', 'pattern' => '[0-9.,]*'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->live(onBlur: true)
                             ->helperText(fn (Get $get): string => self::ajudaPressaoFiltro($pool, $get('pressao_filtro'))),
@@ -1205,7 +1205,7 @@ class DailyRecordFormBuilder
                                     ->minValue(0.01)
                                     ->step(0.01)
                                     ->required()
-                                    ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal', 'pattern' => '[0-9.,]*'])
                                     ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                     ->live(onBlur: true)
                                     ->hint(function (Get $get) use ($installation) {

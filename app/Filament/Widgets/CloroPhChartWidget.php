@@ -390,7 +390,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     private function calcularChartPayload(): array
     {
-        if ($this->poolSelecionada === null) {
+        if ($this->poolSelecionada === null || ! $this->poolsQuery()->where('pools.id', (int) $this->poolSelecionada)->exists()) {
             return [];
         }
 
@@ -435,7 +435,7 @@ class CloroPhChartWidget extends Widget implements HasForms
 
     public function getTableRows(): array
     {
-        if ($this->poolSelecionada === null) {
+        if ($this->poolSelecionada === null || ! $this->poolsQuery()->where('pools.id', (int) $this->poolSelecionada)->exists()) {
             return ['manual' => [], 'sensor' => []];
         }
 
