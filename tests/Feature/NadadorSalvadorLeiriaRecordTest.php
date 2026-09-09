@@ -7,13 +7,14 @@ namespace Tests\Feature;
 use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Resources\DailyRecordResource\Pages\CreateDailyRecord;
-use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
+use App\Services\DailyRecordService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -24,9 +25,13 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
     use RefreshDatabase;
 
     private User $ns;
+
     private Installation $leiria;
+
     private Pool $competicao;
+
     private Pool $lazer;
+
     private Pool $infantil;
 
     protected function setUp(): void
@@ -158,9 +163,9 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
         // Swimmer has only Competição assigned, but not Infantil
         $this->ns->piscinas()->attach([$this->competicao->id]);
 
-        $service = app(\App\Services\DailyRecordService::class);
+        $service = app(DailyRecordService::class);
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
 
         $service->createRecords($this->ns, [
             'installation_id' => $this->leiria->id,
@@ -180,9 +185,9 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
     {
         $this->ns->piscinas()->attach([$this->competicao->id]);
 
-        $service = app(\App\Services\DailyRecordService::class);
+        $service = app(DailyRecordService::class);
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
 
         $service->createRecords($this->ns, [
             'installation_id' => $this->leiria->id,
@@ -195,7 +200,7 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
     {
         $this->ns->piscinas()->attach([$this->competicao->id]);
 
-        $service = app(\App\Services\DailyRecordService::class);
+        $service = app(DailyRecordService::class);
 
         $record = $service->createRecords($this->ns, [
             'installation_id' => $this->leiria->id,
@@ -218,7 +223,7 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
     {
         $this->ns->piscinas()->attach([$this->competicao->id]);
 
-        $service = app(\App\Services\DailyRecordService::class);
+        $service = app(DailyRecordService::class);
 
         // When PostgreSQL PDO returns pool IDs as strings e.g. ['1']
         // We simulate the service check with string keys or string IDs in user_pools

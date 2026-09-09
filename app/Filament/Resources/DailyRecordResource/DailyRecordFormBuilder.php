@@ -715,6 +715,7 @@ class DailyRecordFormBuilder
             ->imageResizeTargetWidth('1024')
             ->maxSize(20480)
             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            ->extraAttributes(['capture' => 'environment'])
             ->required($required)
             ->columnSpanFull();
 
@@ -983,23 +984,36 @@ class DailyRecordFormBuilder
                             ->numeric()->step(0.01)->minValue(0)
                             ->extraInputAttributes(['class' => 'neo-input-large', 'inputmode' => 'decimal'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
-                            // A última leitura só aparecia na mensagem de erro, depois de
-                            // falhar a validação e voltar 5 passos atrás no wizard.
-                            ->helperText(function () use ($pool): ?string {
+                            ->live(onBlur: true)
+                            ->helperText(function (Get $get) use ($pool): ?string {
                                 $ultimo = self::ultimoRegisto($pool->id);
                                 if (! $ultimo || $ultimo->contador_valor === null) {
                                     return null;
                                 }
 
-                                return 'Última: '.number_format((float) $ultimo->contador_valor, 2, ',', ' ')
+                                $ultimoValor = (float) $ultimo->contador_valor;
+                                $texto = 'Última: '.number_format($ultimoValor, 2, ',', ' ')
                                     .' m³ ('.$ultimo->registado_em->format('d/m H:i').')';
+
+                                $atual = $get('contador_valor');
+                                if (filled($atual)) {
+                                    $atualValor = (float) str_replace(',', '.', (string) $atual);
+                                    $delta = $atualValor - $ultimoValor;
+                                    if ($delta >= 0) {
+                                        $texto .= ' | Consumo: +'.number_format($delta, 2, ',', ' ').' m³';
+                                    }
+                                }
+
+                                return $texto;
                             })
                             ->rules([
                                 fn (): Closure => function (string $attribute, $value, Closure $fail) use ($pool) {
                                     $ultimo = self::ultimoRegisto($pool->id);
-                                    if (filled($value) && $ultimo && $ultimo->contador_valor !== null
-                                        && (float) $value < (float) $ultimo->contador_valor) {
-                                        $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
+                                    if (filled($value) && $ultimo && $ultimo->contador_valor !== null) {
+                                        $val = (float) str_replace(',', '.', (string) $value);
+                                        if ($val < (float) $ultimo->contador_valor) {
+                                            $fail('A leitura ('.$value.') é inferior à última ('.$ultimo->contador_valor.'). O contador só avança.');
+                                        }
                                     }
                                 },
                             ]),
@@ -1015,9 +1029,6 @@ class DailyRecordFormBuilder
                             ->label('Pressao do Filtro (bar)')
                             ->numeric()
                             ->step(0.05)
-                            // Um manometro de filtro nao passa dos 4 bar. Sem maximo,
-                            // 4 digitos estouram a coluna decimal(5,2) e o registo
-                            // rebenta com 500 depois de tudo estar preenchido.
                             ->minValue(0)
                             ->maxValue(10)
                             ->visible($temFiltro)
@@ -1038,9 +1049,7 @@ class DailyRecordFormBuilder
                             ->extraInputAttributes(['class' => 'neo-input-large'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large']),
                         self::fotosSection([
-                            self::fotoField('bomba_foto', 'Foto bomba', 'bomba', false, "bomba_foto_{$pool->id}"),
-                            self::fotoField('contador_foto', 'Foto contador da água', 'contador', false, "contador_foto_{$pool->id}"),
-                            self::fotoField('torneira_foto', 'Foto da torneira', 'torneira', false, "torneira_foto_{$pool->id}"),
+                            self::fotoField('contador_foto', 'Foto contador da água (opcional)', 'contador', false, "contador_foto_{$pool->id}"),
                         ]),
                     ];
 
@@ -1051,9 +1060,6 @@ class DailyRecordFormBuilder
                         Forms\Components\Textarea::make('tanque_observacoes')
                             ->id("tanque_observacoes_{$pool->id}")
                             ->label('Observações'),
-                        self::fotosSection([
-                            self::fotoField('tanque_foto', 'Foto Tanque', 'tanque', false, "tanque_foto_{$pool->id}"),
-                        ]),
                     ];
 
                     $lavagemSchema = fn (Pool $pool) => [
@@ -1072,33 +1078,14 @@ class DailyRecordFormBuilder
                             ->view('filament.timer-retrolavagem')
                             ->default(3)
                             ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                        self::fotosSection([
-                            self::fotoField('filtro_foto_retrolavagem', 'Foto da lavagem', 'filtros', false, "filtro_foto_retrolavagem_{$pool->id}"),
-                        ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
                     ];
 
-                    // O enxaguamento e a reposição em posição normal só existem
-                    // como etapas de uma retrolavagem. A condição vive aqui, junto
-                    // dos campos, e não no sítio onde o schema é montado: sem isso
-                    // uma foto de enxaguamento que nunca aconteceu entra no livro
-                    // sanitário. O caminho é relativo ao statePath da piscina.
                     $enxaguamentoSchema = fn (Pool $pool) => [
                         Forms\Components\ViewField::make('timer_enxaguamento')
                             ->id("timer_enxaguamento_{$pool->id}")
                             ->view('filament.timer-retrolavagem')
                             ->default(2)
                             ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                        self::fotosSection([
-                            self::fotoField('filtro_foto_enxaguamento', 'Foto do enxaguamento', 'filtros', false, "filtro_foto_enxaguamento_{$pool->id}"),
-                        ])->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
-                    ];
-
-                    $posicaoNormalSchema = fn (Pool $pool) => [
-                        Forms\Components\Group::make(
-                            self::fotoField('filtro_foto_posicao_normal', 'Foto posição normal', 'filtros', false, "filtro_foto_posicao_normal_{$pool->id}")
-                        )
-                            ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem'))
-                            ->columnSpanFull(),
                     ];
 
                     $globaisSchema = [
@@ -1108,7 +1095,7 @@ class DailyRecordFormBuilder
                             ->seconds(false)
                             ->default(now())
                             ->live(onBlur: true),
-                        ...self::fotoField('ns_foto', 'Foto do quadro NS', 'ns-fotos', self::isNS(), 'ns_foto_global'),
+                        ...self::fotoField('ns_foto', 'Foto do quadro de análises (opcional)', 'ns-fotos', false, 'ns_foto_global'),
                     ];
 
                     $nsSchema = fn (Pool $pool) => [
@@ -1173,6 +1160,7 @@ class DailyRecordFormBuilder
                             ->integer()
                             ->minValue(0)
                             ->default(0)
+                            ->visible(fn () => self::isNS())
                             ->extraInputAttributes(['inputmode' => 'numeric', 'class' => 'neo-input-large'])
                             ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                             ->helperText('Nº de banhistas desde o último registo.'),
@@ -1325,9 +1313,12 @@ class DailyRecordFormBuilder
                                                     ->send();
                                             }),
                                     ),
-                                Forms\Components\Textarea::make('acao_corretiva')
-                                    ->label('Ação corretiva')
-                                    ->helperText('Motivo/correção associada a esta adição (ex.: corrigir pH).')
+                                Forms\Components\TextInput::make('acao_corretiva')
+                                    ->label('Ação corretiva (opcional)')
+                                    ->placeholder('Ex: Reposição de cloro ou correção de pH')
+                                    ->nullable()
+                                    ->extraInputAttributes(['class' => 'neo-input-large'])
+                                    ->extraAttributes(['class' => 'neo-input-wrapper-large'])
                                     ->columnSpanFull(),
                             ])
                             // Sem isto, entrar pelo atalho da piscina abria uma linha
@@ -1338,7 +1329,7 @@ class DailyRecordFormBuilder
                         Forms\Components\Textarea::make('observacoes')->id("observacoes_{$pool->id}")->label('Observações gerais'),
                     ];
 
-                    $poolCards = $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $posicaoNormalSchema, $nsSchema, $observacoesSchema) {
+                    $poolCards = $poolsByBombas->map(function (Pool $pool) use ($installation, $modoRapido, $poolsByFiltros, $bombasSchema, $tanquesSchema, $lavagemSchema, $enxaguamentoSchema, $nsSchema, $observacoesSchema) {
                         $sections = [];
 
                         if (! self::isNS() && ! $modoRapido) {
@@ -1360,7 +1351,6 @@ class DailyRecordFormBuilder
                                     ->schema([
                                         ...$lavagemSchema($pool),
                                         ...$enxaguamentoSchema($pool),
-                                        ...$posicaoNormalSchema($pool),
                                     ]);
                             }
                         }

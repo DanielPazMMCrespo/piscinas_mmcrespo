@@ -9,6 +9,8 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -109,7 +111,7 @@ class DailyRecordRoleRestrictionTest extends TestCase
      * mensagem genérica "O formulário expirou", deixando o NS preso sem saber
      * qual o campo em falta.
      */
-    public function test_swimmer_missing_board_photo_surfaces_field_error(): void
+    public function test_swimmer_without_board_photo_is_allowed(): void
     {
         $this->nadador->piscinas()->attach($this->competicao->id);
 
@@ -127,15 +129,15 @@ class DailyRecordRoleRestrictionTest extends TestCase
                 ],
             ])
             ->call('validarERegistosGuardar')
-            ->assertHasFormErrors(['ns_foto']);
+            ->assertHasNoFormErrors();
     }
 
     public function test_swimmer_can_successfully_create_daily_record(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         $this->nadador->piscinas()->attach([$this->competicao->id, $this->lazer->id]);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+        $file = UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
 
         Livewire::actingAs($this->nadador)
             ->test(CreateDailyRecord::class)
@@ -163,11 +165,11 @@ class DailyRecordRoleRestrictionTest extends TestCase
 
     public function test_swimmer_with_partial_pools_assigned(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         // Apenas piscina Competição atribuída ao nadador, mas Leiria tem Competição e Lazer
         $this->nadador->piscinas()->attach($this->competicao->id);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
+        $file = UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
 
         Livewire::actingAs($this->nadador)
             ->test(CreateDailyRecord::class)

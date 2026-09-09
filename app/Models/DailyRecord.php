@@ -217,7 +217,7 @@ class DailyRecord extends Model
             return ['estado' => EstadoConformidade::NEUTRO, 'mensagem' => ''];
         }
 
-        $valor = (float) $valor;
+        $valor = is_string($valor) ? (float) str_replace(',', '.', $valor) : (float) $valor;
         $min = $meta['min'];
         $max = $meta['max'];
         $label = $meta['label'];
