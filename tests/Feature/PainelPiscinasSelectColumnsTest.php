@@ -101,4 +101,41 @@ class PainelPiscinasSelectColumnsTest extends TestCase
 
         $this->assertSame([], $desconhecidas, 'Colunas inexistentes num select() do painel (accessors não são colunas): '.implode(', ', $desconhecidas));
     }
+
+    public function test_metricas_contem_limites_e_autor_da_analise_manual(): void
+    {
+        $tecnico = User::factory()->create(['name' => 'Carlos Silva']);
+
+        DailyRecord::factory()->create([
+            'pool_id' => $this->piscina->id,
+            'user_id' => $tecnico->id,
+            'registado_em' => now()->subHours(2),
+            'ph' => 7.30,
+            'cloro_livre' => 1.27,
+            'cloro_total' => 1.48,
+            'temperatura' => 28.5,
+        ]);
+
+        $this->actingAs($this->admin);
+
+        $widget = new PainelPiscinasWidget;
+        $metodo = new \ReflectionMethod($widget, 'buildPoolData');
+        $dados = $metodo->invoke($widget);
+
+        $item = collect($dados['piscinas'])->firstWhere(fn (array $i) => $i['piscina']->id === $this->piscina->id);
+
+        $this->assertNotNull($item);
+        dump($item['metricas4']['livre']);
+        $this->assertSame('1,27 mg/L', $item['metricas4']['livre']['valor']);
+        $this->assertFalse($item['metricas4']['livre']['ok']); // Alerta porque 1.27 > 1.20 a pH 7.30
+        $this->assertSame('0,5–1,2', $item['metricas4']['livre']['limite_resumo']);
+        $this->assertSame('Carlos Silva', $item['metricas4']['livre']['autor']);
+        $this->assertSame('Carlos S.', $item['metricas4']['livre']['autor_curto']);
+        $this->assertStringContainsString('0,5–1,2', $item['metricas4']['livre']['tooltip']);
+        $this->assertStringContainsString('pH 7,30', $item['metricas4']['livre']['tooltip']);
+        $this->assertStringContainsString('Carlos Silva', $item['metricas4']['livre']['tooltip']);
+
+        $this->assertNotNull($item['ultimo_registo_manual']);
+        $this->assertSame('Carlos Silva', $item['ultimo_registo_manual']['autor']);
+    }
 }

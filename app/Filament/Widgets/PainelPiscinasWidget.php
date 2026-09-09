@@ -141,7 +141,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 5;
+    private const CACHE_SHAPE_VERSION = 6;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -197,12 +197,14 @@ class PainelPiscinasWidget extends Widget
 
         // Otimização: obter apenas o último registo válido de cada piscina numa só query.
         $ultimosRegistos = DailyRecord::latestPerPool()
+            ->with('user:id,name')
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->get()
             ->keyBy('pool_id');
 
         // Otimização: obter as últimas ações operacionais (análises rápidas)
         $ultimasAcoes = OperationalAction::query()
+            ->with('user:id,name')
             ->whereIn('pool_id', $piscinas->pluck('id'))
             ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
             ->orderBy('registado_em', 'desc')
@@ -303,6 +305,10 @@ class PainelPiscinasWidget extends Widget
             if ($usarAcao) {
                 $registo = new DailyRecord;
                 $registo->pool_id = $acao->pool_id;
+                $registo->user_id = $acao->user_id;
+                if ($acao->relationLoaded('user') && $acao->user) {
+                    $registo->setRelation('user', $acao->user);
+                }
                 $registo->registado_em = $acao->registado_em;
                 $registo->ph = $parseValue($acao->dados['ph'] ?? null);
                 $registo->cloro_livre = $parseValue($acao->dados['cloro_livre'] ?? null);
@@ -362,6 +368,13 @@ class PainelPiscinasWidget extends Widget
             // Garante que a avaliação de temperatura conhece os limites da piscina.
             $registo?->setRelation('piscina', $piscina);
 
+            $autorNome = $registo?->user?->name;
+            $autorCurto = null;
+            if ($autorNome) {
+                $partes = explode(' ', trim($autorNome));
+                $autorCurto = count($partes) > 1 ? $partes[0].' '.mb_substr($partes[count($partes) - 1], 0, 1).'.' : $partes[0];
+            }
+
             $device = $sondas->get($piscina->id);
             $leitura = $device ? $ultimasLeituras->get($device->hanna_device_id) : null;
 
@@ -394,13 +407,18 @@ class PainelPiscinasWidget extends Widget
             $cloroOkConformes = null;
             $tempOkConformes = null;
 
+            $phMinFmt = number_format(DailyRecord::getPhMin(), 1, ',', '');
+            $phMaxFmt = number_format(DailyRecord::getPhMax(), 1, ',', '');
+            $limiteResumoPh = "{$phMinFmt}–{$phMaxFmt}";
+
             // 1. pH
             if ($controladorOnline) {
                 $phOk = $ph !== null ? ($ph >= DailyRecord::getPhMin() && $ph <= DailyRecord::getPhMax()) : null;
                 $phOkConformes = $phOk;
+                $phValFmt = $ph !== null ? number_format($ph, 2, ',', '') : null;
                 $metricas4['ph'] = [
                     'label' => 'pH',
-                    'valor' => $ph !== null ? number_format($ph, 2, ',', '') : '—',
+                    'valor' => $phValFmt ?? '—',
                     'ok' => $phOk,
                     'origem' => 'controlador',
                     'idade' => match (true) {
@@ -408,31 +426,67 @@ class PainelPiscinasWidget extends Widget
                         $idadeMin < 60 => "há {$idadeMin}m",
                         default => $leitura->lida_em->locale('pt')->diffForHumans(),
                     },
+                    'autor' => null,
+                    'autor_curto' => null,
+                    'limite_resumo' => $limiteResumoPh,
+                    'tooltip' => match (true) {
+                        $ph === null => 'pH sem leitura',
+                        $phOk === false => "Alerta: pH {$phValFmt} fora do limite legal ({$limiteResumoPh} — CN 14/DA)",
+                        default => "Conforme: pH {$phValFmt} (limite: {$limiteResumoPh} — CN 14/DA)",
+                    },
                 ];
             } elseif ($usarRegistoManual) {
                 $phOk = $registo?->ph_efetivo !== null ? $registo->phConforme() : null;
                 $phOkConformes = $phOk;
+                $phValFmt = $registo?->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : null;
                 $metricas4['ph'] = [
                     'label' => 'pH',
-                    'valor' => $registo?->ph_efetivo !== null ? number_format((float) $registo->ph_efetivo, 2, ',', '') : '—',
+                    'valor' => $phValFmt ?? '—',
                     'ok' => $phOk,
                     'origem' => 'manual',
                     'idade' => $registo->registado_em->locale('pt')->diffForHumans(),
+                    'autor' => $autorNome,
+                    'autor_curto' => $autorCurto,
+                    'limite_resumo' => $limiteResumoPh,
+                    'tooltip' => match (true) {
+                        $phValFmt === null => 'pH sem registo',
+                        $phOk === false => "Alerta: pH {$phValFmt} fora do limite legal ({$limiteResumoPh} — CN 14/DA)".($autorNome ? " · por {$autorNome}" : ''),
+                        default => "Conforme: pH {$phValFmt} (limite: {$limiteResumoPh} — CN 14/DA)".($autorNome ? " · por {$autorNome}" : ''),
+                    },
                 ];
             } else {
                 // Tenta controlador offline ou artefacto
                 if ($leitura !== null) {
                     $phOk = $artefacto === null && $ph !== null ? ($ph >= DailyRecord::getPhMin() && $ph <= DailyRecord::getPhMax()) : null;
                     $phOkConformes = $phOk;
+                    $phValFmt = $ph !== null ? number_format($ph, 2, ',', '') : null;
                     $metricas4['ph'] = [
                         'label' => 'pH',
-                        'valor' => $ph !== null ? number_format($ph, 2, ',', '') : '—',
+                        'valor' => $phValFmt ?? '—',
                         'ok' => $phOk,
                         'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
                         'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans(),
+                        'autor' => null,
+                        'autor_curto' => null,
+                        'limite_resumo' => $limiteResumoPh,
+                        'tooltip' => match (true) {
+                            $ph === null => 'pH sem leitura',
+                            $phOk === false => "Alerta: pH {$phValFmt} fora do limite legal ({$limiteResumoPh} — CN 14/DA)",
+                            default => "Conforme: pH {$phValFmt} (limite: {$limiteResumoPh} — CN 14/DA)",
+                        },
                     ];
                 } else {
-                    $metricas4['ph'] = ['label' => 'pH', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
+                    $metricas4['ph'] = [
+                        'label' => 'pH',
+                        'valor' => '—',
+                        'ok' => null,
+                        'origem' => 'sem_dados',
+                        'idade' => '',
+                        'autor' => null,
+                        'autor_curto' => null,
+                        'limite_resumo' => $limiteResumoPh,
+                        'tooltip' => "pH sem dados (limite legal: {$limiteResumoPh})",
+                    ];
                 }
             }
 
@@ -441,6 +495,9 @@ class PainelPiscinasWidget extends Widget
             $orpOk = null;
             $orpOrigem = 'sem_dados';
             $orpIdade = '';
+            $orpMin = (int) ($piscina->orp_min ?? self::ORP_MIN);
+            $orpMax = (int) ($piscina->orp_max ?? self::ORP_MAX);
+            $limiteResumoOrp = "{$orpMin}–{$orpMax} mV";
 
             if ($controladorOnline) {
                 $orpOk = $orp !== null ? ($orp >= ($piscina->orp_min ?? self::ORP_MIN) && $orp <= ($piscina->orp_max ?? self::ORP_MAX)) : null;
@@ -476,16 +533,47 @@ class PainelPiscinasWidget extends Widget
                 'ok' => $orpOk,
                 'origem' => $orpOrigem,
                 'idade' => $orpIdade,
+                'autor' => $orpOrigem === 'manual' ? $autorNome : null,
+                'autor_curto' => $orpOrigem === 'manual' ? $autorCurto : null,
+                'limite_resumo' => $limiteResumoOrp,
+                'tooltip' => match (true) {
+                    $valorOrp === null => 'Redox (ORP) sem leitura',
+                    $orpOk === false => "Alerta: {$valorOrp} fora do intervalo recomendado ({$limiteResumoOrp})".($orpOrigem === 'manual' && $autorNome ? " · por {$autorNome}" : ''),
+                    default => "Conforme: {$valorOrp} (intervalo recomendado: {$limiteResumoOrp})".($orpOrigem === 'manual' && $autorNome ? " · por {$autorNome}" : ''),
+                },
             ];
 
             // 3. Cloro Livre
             $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
+            $clLivreVal = $registo?->cloro_livre_efetivo !== null ? (float) $registo->cloro_livre_efetivo : null;
+
+            // Banda legal aplicável em função do pH da leitura e da data (CN 14/DA)
+            $phParaBanda = $registo?->ph_efetivo !== null ? (float) $registo->ph_efetivo : ($controladorOnline ? $ph : null);
+            $bandaLivre = LimitesLegaisService::bandaCloroLivre($phParaBanda, $registo?->registado_em);
+            $bandaMinFmt = number_format($bandaLivre['min'], 1, ',', '');
+            $bandaMaxFmt = number_format($bandaLivre['max'], 1, ',', '');
+            $limiteResumoLivre = "{$bandaMinFmt}–{$bandaMaxFmt}";
+
+            $clLivreValFmt = $clLivreVal !== null ? number_format($clLivreVal, 2, ',', '') : null;
+            $phFmt = $phParaBanda !== null ? number_format($phParaBanda, 2, ',', '') : null;
+            $contextoPh = $phFmt !== null ? " para pH {$phFmt}" : '';
+
+            $tooltipLivre = match (true) {
+                $clLivreVal === null => 'Cloro livre sem registo',
+                $livreOk === false => "Alerta: {$clLivreValFmt} mg/L fora da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L{$contextoPh} — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+                default => "Conforme: {$clLivreValFmt} mg/L dentro da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L{$contextoPh} — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+            };
+
             $metricas4['livre'] = [
                 'label' => 'Cl. Livre',
-                'valor' => $registo?->cloro_livre_efetivo !== null ? number_format((float) $registo->cloro_livre_efetivo, 2, ',', '').' mg/L' : '—',
+                'valor' => $clLivreValFmt !== null ? $clLivreValFmt.' mg/L' : '—',
                 'ok' => $livreOk,
                 'origem' => $registo ? 'manual' : 'sem_dados',
                 'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
+                'autor' => $registo ? $autorNome : null,
+                'autor_curto' => $registo ? $autorCurto : null,
+                'limite_resumo' => $limiteResumoLivre,
+                'tooltip' => $tooltipLivre,
             ];
             if ($cloroOkConformes === null) {
                 $cloroOkConformes = $livreOk;
@@ -496,22 +584,60 @@ class PainelPiscinasWidget extends Widget
             // aparecia como "OK" verde. Passa a valor inválido, não a conforme.
             $combinadoValido = $registo?->cloro_combinado !== null && (float) $registo->cloro_combinado >= 0;
             $combOk = $combinadoValido ? $registo->cloroCombinadoConforme() : null;
+            $combMax = LimitesLegaisService::cloroCombinadoMax($registo?->registado_em);
+            $combMaxFmt = number_format($combMax, 1, ',', '');
+            $limiteResumoComb = "≤ {$combMaxFmt}";
+            $clCombVal = $combinadoValido ? (float) $registo->cloro_combinado : null;
+            $clCombValFmt = $clCombVal !== null ? number_format($clCombVal, 2, ',', '') : null;
+
+            $tooltipComb = match (true) {
+                ! $combinadoValido && $registo?->cloro_combinado !== null => 'Medição inválida: cloro combinado negativo (total < livre)',
+                $clCombVal === null => 'Cloro combinado sem registo',
+                $combOk === false => "Alerta: {$clCombValFmt} mg/L acima do máximo legal (≤ {$combMaxFmt} mg/L — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+                default => "Conforme: {$clCombValFmt} mg/L (máximo legal: ≤ {$combMaxFmt} mg/L — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+            };
+
             $metricas4['combinado'] = [
                 'label' => 'Cl. Combinado',
                 'valor' => match (true) {
-                    $combinadoValido => number_format((float) $registo->cloro_combinado, 2, ',', '').' mg/L',
+                    $combinadoValido => $clCombValFmt.' mg/L',
                     $registo?->cloro_combinado !== null => 'verificar medição',
                     default => '—',
                 },
                 'ok' => $combOk,
                 'origem' => $registo ? 'manual' : 'sem_dados',
                 'idade' => $registo ? $registo->registado_em->locale('pt')->diffForHumans() : '',
+                'autor' => $registo ? $autorNome : null,
+                'autor_curto' => $registo ? $autorCurto : null,
+                'limite_resumo' => $limiteResumoComb,
+                'tooltip' => $tooltipComb,
             ];
 
             // 5. Temperatura
+            $tempMin = $piscina->temp_min !== null ? (float) $piscina->temp_min : null;
+            $tempMax = $piscina->temp_max !== null ? (float) $piscina->temp_max : null;
+            $limiteResumoTemp = ($tempMin !== null && $tempMax !== null)
+                ? number_format($tempMin, 1, ',', '').'–'.number_format($tempMax, 1, ',', '').' °C'
+                : null;
+
+            $buildTempTooltip = function (?float $v, ?bool $ok, ?string $autor) use ($limiteResumoTemp): string {
+                if ($v === null) {
+                    return 'Temperatura da água sem leitura';
+                }
+                $vFmt = number_format($v, 1, ',', '').' °C';
+                if ($limiteResumoTemp === null) {
+                    return "Temperatura: {$vFmt}".($autor ? " · por {$autor}" : '');
+                }
+                $sufixo = $autor ? " · por {$autor}" : '';
+
+                return $ok === false
+                    ? "Alerta: {$vFmt} fora dos limites da piscina ({$limiteResumoTemp}){$sufixo}"
+                    : "Conforme: {$vFmt} (limites da piscina: {$limiteResumoTemp}){$sufixo}";
+            };
+
             if ($controladorOnline) {
-                $tempOk = $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
-                    ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                $tempOk = $tempAgua !== null && $tempMin !== null && $tempMax !== null
+                    ? ($tempAgua >= $tempMin && $tempAgua <= $tempMax)
                     : null;
                 $tempOkConformes = $tempOk;
                 $metricas4['temp'] = [
@@ -524,21 +650,30 @@ class PainelPiscinasWidget extends Widget
                         $idadeMin < 60 => "há {$idadeMin}m",
                         default => $leitura->lida_em->locale('pt')->diffForHumans(),
                     },
+                    'autor' => null,
+                    'autor_curto' => null,
+                    'limite_resumo' => $limiteResumoTemp,
+                    'tooltip' => $buildTempTooltip($tempAgua, $tempOk, null),
                 ];
             } elseif ($usarRegistoManual) {
                 $tempOk = $registo?->temperatura_efetivo !== null ? $registo->temperaturaConforme() : null;
                 $tempOkConformes = $tempOk;
+                $tempVal = $registo?->temperatura_efetivo !== null ? (float) $registo->temperatura_efetivo : null;
                 $metricas4['temp'] = [
                     'label' => 'Temp.',
-                    'valor' => $registo?->temperatura_efetivo !== null ? number_format((float) $registo->temperatura_efetivo, 1, ',', '').' °C' : '—',
+                    'valor' => $tempVal !== null ? number_format($tempVal, 1, ',', '').' °C' : '—',
                     'ok' => $tempOk,
                     'origem' => 'manual',
                     'idade' => $registo->registado_em->locale('pt')->diffForHumans(),
+                    'autor' => $autorNome,
+                    'autor_curto' => $autorCurto,
+                    'limite_resumo' => $limiteResumoTemp,
+                    'tooltip' => $buildTempTooltip($tempVal, $tempOk, $autorNome),
                 ];
             } else {
                 if ($leitura !== null) {
-                    $tempOk = $artefacto === null && $tempAgua !== null && $piscina->temp_min !== null && $piscina->temp_max !== null
-                        ? ($tempAgua >= (float) $piscina->temp_min && $tempAgua <= (float) $piscina->temp_max)
+                    $tempOk = $artefacto === null && $tempAgua !== null && $tempMin !== null && $tempMax !== null
+                        ? ($tempAgua >= $tempMin && $tempAgua <= $tempMax)
                         : null;
                     $tempOkConformes = $tempOk;
                     $metricas4['temp'] = [
@@ -547,22 +682,52 @@ class PainelPiscinasWidget extends Widget
                         'ok' => $tempOk,
                         'origem' => $artefacto !== null ? 'artefacto' : 'controlador_offline',
                         'idade' => $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans(),
+                        'autor' => null,
+                        'autor_curto' => null,
+                        'limite_resumo' => $limiteResumoTemp,
+                        'tooltip' => $buildTempTooltip($tempAgua, $tempOk, null),
                     ];
                 } else {
-                    $metricas4['temp'] = ['label' => 'Temp.', 'valor' => '—', 'ok' => null, 'origem' => 'sem_dados', 'idade' => ''];
+                    $metricas4['temp'] = [
+                        'label' => 'Temp.',
+                        'valor' => '—',
+                        'ok' => null,
+                        'origem' => 'sem_dados',
+                        'idade' => '',
+                        'autor' => null,
+                        'autor_curto' => null,
+                        'limite_resumo' => $limiteResumoTemp,
+                        'tooltip' => 'Temperatura sem dados',
+                    ];
                 }
             }
 
             // 6. Turbidez (só manual — sem variante de sonda/NS)
+            $turbidezMax = LimitesLegaisService::transparenciaMax($registo?->registado_em);
+            $turbMaxFmt = number_format($turbidezMax, 1, ',', '');
+            $limiteResumoTurb = "≤ {$turbMaxFmt}";
             $turbidezOk = $registo?->transparencia !== null
-                ? (float) $registo->transparencia <= LimitesLegaisService::transparenciaMax($registo->registado_em)
+                ? (float) $registo->transparencia <= $turbidezMax
                 : null;
+            $turbVal = $registo?->transparencia !== null ? (float) $registo->transparencia : null;
+            $turbValFmt = $turbVal !== null ? number_format($turbVal, 2, ',', '') : null;
+
+            $tooltipTurb = match (true) {
+                $turbVal === null => 'Turbidez sem registo',
+                $turbidezOk === false => "Alerta: {$turbValFmt} FNU acima do máximo legal (≤ {$turbMaxFmt} FNU — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+                default => "Conforme: {$turbValFmt} FNU (máximo legal: ≤ {$turbMaxFmt} FNU — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+            };
+
             $metricas4['turbidez'] = [
                 'label' => 'Turbidez',
-                'valor' => $registo?->transparencia !== null ? number_format((float) $registo->transparencia, 2, ',', '').' FNU' : '—',
+                'valor' => $turbValFmt !== null ? $turbValFmt.' FNU' : '—',
                 'ok' => $turbidezOk,
                 'origem' => $registo?->transparencia !== null ? 'manual' : 'sem_dados',
                 'idade' => $registo?->transparencia !== null ? $registo->registado_em->locale('pt')->diffForHumans() : '',
+                'autor' => $registo?->transparencia !== null ? $autorNome : null,
+                'autor_curto' => $registo?->transparencia !== null ? $autorCurto : null,
+                'limite_resumo' => $limiteResumoTurb,
+                'tooltip' => $tooltipTurb,
             ];
 
             $getSparklineData = function (?string $origem, string $key) use ($piscina, $device, $historicoManualArray, $historicoSensoresArray) {
@@ -614,6 +779,12 @@ class PainelPiscinasWidget extends Widget
                         'desde_humano' => $avaria->desdeHumano(),
                     ],
                 ],
+                'ultimo_registo_manual' => $registo && $registo->registado_em ? [
+                    'autor' => $autorNome ?? 'Técnico',
+                    'autor_curto' => $autorCurto ?? 'Técnico',
+                    'idade' => $registo->registado_em->locale('pt')->diffForHumans(),
+                    'hora' => $registo->registado_em->format('H:i'),
+                ] : null,
                 'metricas4' => $metricas4,
                 'parametros_conformes' => [$phOkConformes, $cloroOkConformes, $tempOkConformes],
                 'tem_dados_conformes' => $metricas4['ph']['valor'] !== '—' || $metricas4['redox']['valor'] !== '—' || $metricas4['livre']['valor'] !== '—',
