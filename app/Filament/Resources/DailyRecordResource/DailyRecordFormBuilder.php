@@ -701,6 +701,11 @@ class DailyRecordFormBuilder
         // A hora da colheita perde-se quando o schema é remontado; sem isto o
         // técnico tem de a reintroduzir sempre que muda de instalação.
         $set('hora_colheita', now()->format('H:i'));
+
+        $poolIds = $installation
+            ? self::piscinasPermitidas($installation->piscinas())->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        $set('piscinas_selecionadas', $poolIds);
     }
 
     private static function fotoField(string $field, string $label, string $directory, bool $required = false, ?string $uniqueId = null): array
@@ -1088,6 +1093,9 @@ class DailyRecordFormBuilder
                             ->visible(fn (Get $get) => $get('filtro_faz_retrolavagem')),
                     ];
 
+                    $piscinasOpcoes = $poolsByBombas->pluck('name', 'id')->map(fn ($name) => "🏊 {$name}")->toArray();
+                    $piscinasIds = $poolsByBombas->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+
                     $globaisSchema = [
                         Forms\Components\TimePicker::make('hora_colheita')
                             ->label('Hora da colheita')
@@ -1096,6 +1104,18 @@ class DailyRecordFormBuilder
                             ->default(now())
                             ->live(onBlur: true),
                         ...self::fotoField('ns_foto', 'Foto do quadro de análises (opcional)', 'ns-fotos', false, 'ns_foto_global'),
+                        Forms\Components\CheckboxList::make('piscinas_selecionadas')
+                            ->label('Piscinas a analisar')
+                            ->helperText('Selecione as piscinas a registar nesta análise. Desmarque as que não foram medidas.')
+                            ->options($piscinasOpcoes)
+                            ->default($piscinasIds)
+                            ->columns(['default' => 1, 'sm' => 2, 'md' => 3])
+                            ->bulkToggleable()
+                            ->live()
+                            ->required()
+                            ->minItems(1, 'Selecione pelo menos uma piscina para registar.')
+                            ->visible(fn () => count($piscinasOpcoes) > 1)
+                            ->columnSpanFull(),
                     ];
 
                     $nsSchema = fn (Pool $pool) => [
@@ -1379,6 +1399,14 @@ class DailyRecordFormBuilder
                             ->id(self::ID_CARTAO_PISCINA.$pool->id)
                             ->description(fn (Get $get): ?string => self::resumoCartaoPiscina($pool, $get))
                             ->statePath("pools.{$pool->id}")
+                            ->visible(function (Get $get) use ($pool): bool {
+                                $selecionadas = $get('piscinas_selecionadas');
+                                if ($selecionadas === null) {
+                                    return true;
+                                }
+
+                                return in_array($pool->id, array_map('intval', (array) $selecionadas), true);
+                            })
                             ->collapsible()
                             // O `collapsed()` do Filament so e lido ao MONTAR a secao;
                             // dai para a frente o estado e do Alpine e um update do

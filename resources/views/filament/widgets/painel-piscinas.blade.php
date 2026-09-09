@@ -158,9 +158,18 @@
                     <div class="neo-metrics-grid">
                         @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
                             @php($metrica = $item['metricas4'][$key])
-                            <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif">
-                                <div class="neo-metric-label">{{ $metrica['label'] }}</div>
-                                <div class="neo-metric-value" title="{{ $metrica['valor'] }}">{{ $metrica['valor'] }}</div>
+                            <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif"
+                                 title="{{ $metrica['tooltip'] ?? $metrica['valor'] }}">
+                                <div class="neo-metric-label flex items-center justify-between gap-1">
+                                    <span>{{ $metrica['label'] }}</span>
+                                    @if(!empty($metrica['limite_resumo']))
+                                        <span class="text-[10px] font-normal tracking-tight {{ $metrica['ok'] === false ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-400 dark:text-slate-500' }}"
+                                              title="{{ $metrica['tooltip'] ?? '' }}">
+                                            {{ $metrica['limite_resumo'] }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="neo-metric-value" title="{{ $metrica['tooltip'] ?? $metrica['valor'] }}">{{ $metrica['valor'] }}</div>
                                 <!-- Sparkline -->
                                 @if(isset($metrica['sparkline']) && $metrica['sparkline'])
                                     <svg class="neo-metric-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
@@ -172,7 +181,8 @@
                                 @endif
 
                                 <div class="neo-metric-footer">
-                                    <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif">
+                                    <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif"
+                                         title="{{ $metrica['tooltip'] ?? '' }}">
                                         @if($metrica['ok'] !== null)
                                             <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @else bg-emerald-500 @endif"></div>
                                             {{ $metrica['ok'] === false ? 'Alerta' : 'OK' }}
@@ -182,16 +192,24 @@
                                         @endif
                                     </div>
                                     @if($metrica['origem'] !== 'sem_dados')
-                                        @php($origemLabel = match ($metrica['origem']) {
-                                            'controlador' => 'Sonda',
-                                            'manual' => 'Manual',
-                                            'artefacto' => 'Lavagem',
-                                            'controlador_offline' => 'Inativa',
-                                            default => null,
-                                        })
-                                        @if($origemLabel)
-                                            <div class="neo-metric-origem" title="{{ $origemLabel }} • {{ $metrica['idade'] }}">
-                                                {{ $origemLabel }} • {{ $metrica['idade'] }}
+                                        @php
+                                            $origemBase = match ($metrica['origem']) {
+                                                'controlador' => 'Sonda',
+                                                'manual' => 'Manual',
+                                                'artefacto' => 'Lavagem',
+                                                'controlador_offline' => 'Inativa',
+                                                default => null,
+                                            };
+                                            $origemBadge = ($metrica['origem'] === 'manual' && !empty($metrica['autor_curto']))
+                                                ? 'Manual (' . $metrica['autor_curto'] . ')'
+                                                : $origemBase;
+                                            $origemTitle = ($metrica['origem'] === 'manual' && !empty($metrica['autor']))
+                                                ? 'Análise manual por ' . $metrica['autor'] . ' • ' . $metrica['idade']
+                                                : ($origemBase . ' • ' . $metrica['idade']);
+                                        @endphp
+                                        @if($origemBadge)
+                                            <div class="neo-metric-origem" title="{{ $origemTitle }}">
+                                                {{ $origemBadge }} • {{ $metrica['idade'] }}
                                             </div>
                                         @endif
                                     @endif
@@ -199,6 +217,20 @@
                             </div>
                         @endforeach
                     </div>
+
+                    {{-- Última análise manual e autor --}}
+                    @if (! empty($item['ultimo_registo_manual']))
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                            <span>
+                                Análise manual por <strong class="font-medium text-slate-700 dark:text-slate-200">{{ $item['ultimo_registo_manual']['autor'] }}</strong>
+                                · {{ $item['ultimo_registo_manual']['idade'] }}
+                                @if(!empty($item['ultimo_registo_manual']['hora']))
+                                    ({{ $item['ultimo_registo_manual']['hora'] }})
+                                @endif
+                            </span>
+                        </div>
+                    @endif
 
                     {{-- Estado da sonda, sempre visível: com um registo manual fresco a
                          cascata de fontes escolhe "manual" e o estado da sonda deixava
