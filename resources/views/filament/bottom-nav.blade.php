@@ -10,7 +10,8 @@
             ->orderByDesc('registado_em')
             ->value('pool_id')
     );
-    $urlRegistar = '/admin/daily-records/create'.($ultimaPiscinaId ? '?pool='.$ultimaPiscinaId.'&quick=1' : '');
+    $isNS = auth()->user()?->hasRole(\App\Constants\UserRole::NADADOR_SALVADOR) ?? false;
+    $urlRegistar = '/admin/daily-records/create'.(! $isNS && $ultimaPiscinaId ? '?pool='.$ultimaPiscinaId.'&quick=1' : '');
     $podeVerEsquema = \App\Filament\Pages\EsquemaPiscina::canAccess();
 @endphp
 

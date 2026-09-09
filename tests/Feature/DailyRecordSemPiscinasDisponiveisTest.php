@@ -125,4 +125,25 @@ class DailyRecordSemPiscinasDisponiveisTest extends TestCase
 
         $this->assertDatabaseCount('daily_records', 2);
     }
+
+    public function test_ns_sem_piscinas_atribuidas_nesta_instalacao_mostra_mensagem_especifica(): void
+    {
+        $outraInstalacao = Installation::factory()->create(['name' => 'Maceira']);
+        $piscinaMaceira = Pool::factory()->create(['installation_id' => $outraInstalacao->id, 'name' => 'Maceira']);
+        $this->ns->piscinas()->sync([$piscinaMaceira->id]);
+
+        Livewire::actingAs($this->ns)
+            ->test(CreateDailyRecord::class)
+            ->set('data.installation_id', $this->competicao->installation_id)
+            ->assertSee('Não tem piscinas atribuídas nesta instalação');
+    }
+
+    public function test_ns_com_quick_e_pool_na_query_continua_a_ver_todas_as_suas_piscinas(): void
+    {
+        Livewire::withQueryParams(['pool' => $this->competicao->id, 'quick' => '1'])
+            ->actingAs($this->ns)
+            ->test(CreateDailyRecord::class)
+            ->assertSee('Competicao')
+            ->assertSee('Lazer');
+    }
 }

@@ -624,11 +624,11 @@ class DailyRecordFormBuilder
     private static function piscinasPermitidas(Builder|HasMany $query): Builder|HasMany
     {
         if (self::isNS()) {
-            $query->whereIn('id', auth()->user()->piscinas()->pluck('pools.id'));
+            $query->whereIn('pools.id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
-        if (self::modoRapido() && self::poolFixo()) {
-            $query->where('id', self::poolFixo());
+        if (! self::isNS() && self::modoRapido() && self::poolFixo()) {
+            $query->where('pools.id', self::poolFixo());
         }
 
         // Piscina encerrada e parada não tem registo diário para fazer. Com a
@@ -1429,15 +1429,26 @@ class DailyRecordFormBuilder
                     // mostrava-se "Dados Globais" mais o botão Gravar, e a
                     // submissão devolvia 500 em vez de dizer o motivo.
                     if ($poolCards === []) {
+                        $semPiscinasAtribuidas = self::isNS() && $installation->piscinas()
+                            ->whereIn('pools.id', auth()->user()->piscinas()->pluck('pools.id'))
+                            ->count() === 0;
+
+                        if ($semPiscinasAtribuidas) {
+                            $mensagem = '<strong>Não tem piscinas atribuídas nesta instalação.</strong><br>'
+                                .'Peça a um administrador ou gestor para atribuir as piscinas desta instalação ao seu utilizador em <em>Gestão &rarr; Utilizadores</em>.';
+                        } else {
+                            $mensagem = '<strong>Não há registo diário a fazer nesta instalação.</strong><br>'
+                                .'As piscinas estão encerradas com a água parada, e uma piscina parada não tem parâmetros para medir.<br>'
+                                .'Se já reabriram ou estão em tratamento de água, o encerramento deve ser ajustado em <em>Gestão &rarr; Encerramentos</em>.';
+                        }
+
                         return [
                             Forms\Components\Placeholder::make('sem_piscinas_disponiveis')
                                 ->hiddenLabel()
                                 ->columnSpanFull()
                                 ->content(new HtmlString(
                                     '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 text-sm">'
-                                    .'<strong>Não há registo diário a fazer nesta instalação.</strong><br>'
-                                    .'As piscinas estão encerradas com a água parada, e uma piscina parada não tem parâmetros para medir.<br>'
-                                    .'Se já reabriram, o encerramento tem de ser fechado em <em>Gestão &rarr; Encerramentos</em>.'
+                                    .$mensagem
                                     .'</div>'
                                 )),
                         ];
