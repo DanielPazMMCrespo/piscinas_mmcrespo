@@ -68,12 +68,12 @@ it('nao bloqueia outros cargos mesmo com a piscina encerrada', function (): void
     expect(app(PoolAccessRequestService::class)->estaBloqueado($tecnico))->toBeFalse();
 });
 
-it('redireciona o nadador-salvador bloqueado para o ecra de encerramento e deixa os outros cargos passar', function (): void {
+it('permite ao nadador-salvador com piscina encerrada aceder ao painel sem ecra bloqueador e deixa os outros cargos passar', function (): void {
     $piscina = Pool::factory()->create();
     PoolClosure::factory()->create(['pool_id' => $piscina->id]);
     $ns = nadadorNaPiscina($piscina);
 
-    $this->actingAs($ns)->get('/admin')->assertRedirect('/piscinas-encerradas');
+    $this->actingAs($ns)->get('/admin')->assertSuccessful();
 
     $admin = User::factory()->create();
     $admin->assignRole(UserRole::ADMIN);

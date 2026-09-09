@@ -21,7 +21,7 @@
                         :class="tab === 'evolucao'
                             ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'"
-                        class="flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl transition-all duration-150 active:scale-95 focus:outline-none"
+                        class="flex items-center gap-2 px-6 py-3 min-h-[44px] text-sm rounded-xl transition-all duration-150 active:scale-95 focus:outline-none"
                     >
                         <x-heroicon-o-chart-bar class="w-4 h-4 text-primary-500" />
                         <span>Evolução &amp; Gráficos</span>
@@ -35,7 +35,7 @@
                         :class="tab === 'conformidade'
                             ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'"
-                        class="flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl transition-all duration-150 active:scale-95 focus:outline-none"
+                        class="flex items-center gap-2 px-6 py-3 min-h-[44px] text-sm rounded-xl transition-all duration-150 active:scale-95 focus:outline-none"
                     >
                         <x-heroicon-o-shield-check class="w-4 h-4 text-emerald-500" />
                         <span>Auditoria DGS (CN 14/DA)</span>

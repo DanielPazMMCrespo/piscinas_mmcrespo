@@ -56,7 +56,7 @@ class DailyRecordResource extends Resource
     {
         $query = parent::getEloquentQuery()->with(['piscina.instalacao', 'piscina.encerramentos']);
 
-        if (auth()->user()->hasRole(UserRole::NADADOR_SALVADOR)) {
+        if (auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR)) {
             $query->whereIn('pool_id', auth()->user()->piscinas()->pluck('pools.id'));
         }
 
@@ -91,17 +91,22 @@ class DailyRecordResource extends Resource
         return ['observacoes', 'piscina.name', 'utilizador.name'];
     }
 
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['piscina.instalacao', 'utilizador']);
+    }
+
     public static function getGlobalSearchResultTitle(Model $record): string
     {
-        return $record->piscina->name.' — '.$record->registado_em->format('d/m/Y H:i');
+        return ($record->piscina?->name ?? 'Piscina').' — '.$record->registado_em->format('d/m/Y H:i');
     }
 
     /** @return array<string, string> */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            'Instalação' => $record->piscina->instalacao->name,
-            'Técnico' => $record->utilizador->name,
+            'Instalação' => $record->piscina?->instalacao?->name ?? '—',
+            'Técnico' => $record->utilizador?->name ?? '—',
         ];
     }
 

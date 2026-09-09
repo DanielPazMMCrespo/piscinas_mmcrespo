@@ -130,7 +130,7 @@
                         @else
                             <span class="text-[11px] font-semibold uppercase tracking-wider {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
                         @endif
-                        <button type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 transition-transform duration-300 ease-out" :class="open ? 'rotate-180' : ''">
+                        <button type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center transition-transform duration-300 ease-out" :class="open ? 'rotate-180' : ''">
                             <x-filament::icon icon="heroicon-m-chevron-down" class="w-5 h-5" />
                         </button>
                     </div>

@@ -398,7 +398,7 @@ class RoleBasedAccessTest extends TestCase
      *
      * O que continua a valer e a permissao fina: sem ANALISE_PARAMETROS, nao entra.
      */
-    public function test_swimmer_with_analise_parametros_can_access_operational_actions(): void
+    public function test_swimmer_cannot_access_operational_actions(): void
     {
         $data = $this->createTestData();
         $swimmer = $data['swimmer'];
@@ -406,7 +406,7 @@ class RoleBasedAccessTest extends TestCase
 
         $this->actingAs($swimmer)
             ->get('/admin/operational-actions')
-            ->assertSuccessful();
+            ->assertStatus(403);
     }
 
     public function test_swimmer_without_analise_parametros_cannot_access_operational_actions(): void
