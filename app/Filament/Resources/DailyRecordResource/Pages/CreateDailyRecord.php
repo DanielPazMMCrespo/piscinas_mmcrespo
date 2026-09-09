@@ -225,6 +225,37 @@ class CreateDailyRecord extends CreateRecord
     }
 
     /**
+     * IDs das piscinas selecionadas para registo.
+     * Devolve null se a chave não existir no payload (ex.: formulário de piscina única).
+     *
+     * @return array<int, int>|null
+     */
+    private function getPiscinasSelecionadasIds(?array $data = null): ?array
+    {
+        $selecionadas = ($data ?? $this->data)['piscinas_selecionadas'] ?? null;
+        if ($selecionadas === null) {
+            return null;
+        }
+
+        return array_values(array_map('intval', (array) $selecionadas));
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $selecionadas = $this->getPiscinasSelecionadasIds($data);
+
+        if ($selecionadas !== null && isset($data['pools']) && is_array($data['pools'])) {
+            $data['pools'] = array_filter(
+                $data['pools'],
+                fn ($poolData, $poolId) => in_array((int) $poolId, $selecionadas, true),
+                ARRAY_FILTER_USE_BOTH
+            );
+        }
+
+        return $data;
+    }
+
+    /**
      * Alguma piscina do formulario tem uma leitura fora dos limites CN 14/DA?
      *
      * Usa a fonte unica (DailyRecord::avaliarConformidade), com o pH da mesma
@@ -233,7 +264,13 @@ class CreateDailyRecord extends CreateRecord
      */
     public function algumaLeituraForaDosLimites(): bool
     {
+        $selecionadas = $this->getPiscinasSelecionadasIds();
+
         foreach (($this->data['pools'] ?? []) as $poolId => $dadosPiscina) {
+            if ($selecionadas !== null && ! in_array((int) $poolId, $selecionadas, true)) {
+                continue;
+            }
+
             $piscina = Pool::find($poolId);
 
             if ($piscina === null) {
@@ -266,9 +303,14 @@ class CreateDailyRecord extends CreateRecord
     private function validatePoolsCloro(array $data): bool
     {
         $pools = $data['pools'] ?? [];
+        $selecionadas = $this->getPiscinasSelecionadasIds($data);
         $hasErrors = false;
 
         foreach ($pools as $poolId => $poolData) {
+            if ($selecionadas !== null && ! in_array((int) $poolId, $selecionadas, true)) {
+                continue;
+            }
+
             $cloroTotal = $poolData['ns_cloro_total'] ?? null;
             $cloroLivre = $poolData['ns_cloro_livre'] ?? null;
 
@@ -301,7 +343,19 @@ class CreateDailyRecord extends CreateRecord
                 ->keyBindings(['mod+s'])
                 // Sem piscinas no formulário não há nada para gravar — o botão
                 // só levava ao erro de "nenhum registo criado".
-                ->hidden(fn (): bool => blank($this->data['pools'] ?? [])),
+                ->hidden(function (): bool {
+                    $pools = $this->data['pools'] ?? [];
+                    if (blank($pools)) {
+                        return true;
+                    }
+
+                    $selecionadas = $this->getPiscinasSelecionadasIds();
+                    if ($selecionadas !== null && blank($selecionadas)) {
+                        return true;
+                    }
+
+                    return false;
+                }),
             Action::make('confirmarCriacao')
                 ->label('Confirmar e guardar')
                 ->extraAttributes(['class' => 'hidden'])
@@ -312,9 +366,14 @@ class CreateDailyRecord extends CreateRecord
                 ->modalContent(function () {
                     $data = $this->data;
                     $poolsData = $data['pools'] ?? [];
+                    $selecionadas = $this->getPiscinasSelecionadasIds();
                     $valores = [];
 
                     foreach ($poolsData as $poolId => $poolData) {
+                        if ($selecionadas !== null && ! in_array((int) $poolId, $selecionadas, true)) {
+                            continue;
+                        }
+
                         $pool = Pool::find($poolId);
                         if (! $pool) {
                             continue;

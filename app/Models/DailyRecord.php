@@ -409,6 +409,11 @@ class DailyRecord extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->utilizador();
+    }
+
     public function adicoes(): HasMany
     {
         return $this->hasMany(RecordAddition::class);

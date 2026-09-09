@@ -84,6 +84,11 @@ class OperationalAction extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->utilizador();
+    }
+
     public function tipoLabel(): string
     {
         return self::TIPOS[$this->tipo] ?? $this->tipo;

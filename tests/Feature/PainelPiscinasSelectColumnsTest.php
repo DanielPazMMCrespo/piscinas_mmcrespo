@@ -125,7 +125,6 @@ class PainelPiscinasSelectColumnsTest extends TestCase
         $item = collect($dados['piscinas'])->firstWhere(fn (array $i) => $i['piscina']->id === $this->piscina->id);
 
         $this->assertNotNull($item);
-        dump($item['metricas4']['livre']);
         $this->assertSame('1,27 mg/L', $item['metricas4']['livre']['valor']);
         $this->assertFalse($item['metricas4']['livre']['ok']); // Alerta porque 1.27 > 1.20 a pH 7.30
         $this->assertSame('0,5–1,2', $item['metricas4']['livre']['limite_resumo']);
