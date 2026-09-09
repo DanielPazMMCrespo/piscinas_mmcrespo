@@ -92,10 +92,8 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
             ->form([
                 Forms\Components\Textarea::make('resolucao')
                     ->hiddenLabel()
-                    ->placeholder('Ex: Filtro retrolavado, valores normais.')
-                    ->required()
-                    ->minLength(5)
-                    ->rows(3)
+                    ->placeholder('Opcional: nota sobre como solucionou (ou deixe em branco para arquivar).')
+                    ->rows(2)
                     ->extraInputAttributes(['class' => 'neo-input-large']),
             ])
             ->action(function (array $data, array $arguments): void {
@@ -104,14 +102,16 @@ class QuadroOperacionalWidget extends Widget implements HasActions, HasForms
                     return;
                 }
 
+                $resolucao = filled($data['resolucao'] ?? null) ? $data['resolucao'] : 'Resolvido no painel de controlo.';
+
                 $incident->update([
                     'status' => IncidentStatus::RESOLVIDO,
                     'resolvido_em' => now(),
                     'resolvido_por' => auth()->id(),
-                    'resolucao' => $data['resolucao'],
+                    'resolucao' => $resolucao,
                 ]);
 
-                $texto = "Estado alterado para: Resolvido — {$data['resolucao']}";
+                $texto = "Estado alterado para: Resolvido — {$resolucao}";
 
                 IncidentMessage::create([
                     'incident_id' => $incident->id,

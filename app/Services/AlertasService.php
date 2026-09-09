@@ -14,14 +14,12 @@ use App\Filament\Pages\EsquemaPiscina;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\OperationalActionResource;
-use App\Filament\Resources\StockInstallationResource;
 use App\Models\AlertState;
 use App\Models\DailyRecord;
 use App\Models\Incident;
 use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorOutage;
-use App\Models\StockInstallation;
 use App\Models\TapAlert;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -262,22 +260,6 @@ class AlertasService
                 ];
             }
 
-            $stockBaixo = StockInstallation::query()
-                ->whereColumn('quantity', '<=', 'limite_minimo')
-                ->count();
-
-            if ($stockBaixo > 0) {
-                $alertas[AlertType::STOCK."|{$hoje}"] = [
-                    'nivel' => AlertLevel::AMARELO,
-                    'icone' => 'heroicon-o-archive-box-x-mark',
-                    'titulo' => $stockBaixo === 1
-                        ? '1 produto com stock abaixo do mínimo'
-                        : "{$stockBaixo} produtos com stock abaixo do mínimo",
-                    'detalhe' => 'Detalhe na tabela "Alertas de Stock Baixo" mais abaixo',
-                    'url' => StockInstallationResource::getUrl('index'),
-                    'acao' => 'Ver stock',
-                ];
-            }
         }
 
         // Prioridade visual: vermelho > amarelo > neutro (ordem estável).
@@ -330,9 +312,10 @@ class AlertasService
         $alertas = [];
         $conformesHoje = 0;
 
-        if (! $temRegistoHoje) {
+        $horaCritica = $this->settings->getInt('sem_registo_hora_critica', 12);
+        if (! $temRegistoHoje && now()->hour >= $horaCritica) {
             $alertas[AlertType::SEM_REGISTO."|{$piscina->id}|{$hoje}"] = [
-                'nivel' => now()->hour >= $this->settings->getInt('sem_registo_hora_critica', 12) ? AlertLevel::VERMELHO : AlertLevel::AMARELO,
+                'nivel' => AlertLevel::VERMELHO,
                 'icone' => 'heroicon-o-clipboard-document-list',
                 'titulo' => "{$nome}: sem registo diário hoje",
                 'detalhe' => $registo

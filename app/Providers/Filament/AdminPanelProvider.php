@@ -124,7 +124,7 @@ class AdminPanelProvider extends PanelProvider
             // (visível em qualquer página/passo do wizard, não só no fieldset de origem)
             ->renderHook(
                 PanelsRenderHook::BODY_START,
-                fn (): string => (auth()->check() ? view('filament.timer-bar')->render() : '').(view()->exists('filament.preloader') ? view('filament.preloader')->render() : '')
+                fn (): string => auth()->check() ? view('filament.timer-bar')->render() : ''
             )
             // Tags PWA (manifest, ícones, service worker) — torna a app instalável no telemóvel.
             ->renderHook(

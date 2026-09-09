@@ -44,17 +44,10 @@
                             @php($incId = explode('|', $a['key'])[1])
                             <button type="button" wire:click="mountAction('resolveIncident', { id: {{ $incId }} })" class="mmc-alert-resolve-btn">Resolver</button>
                         @else
-                            @if (\App\Filament\Widgets\QuadroOperacionalWidget::exigeConfirmacao($a))
-                                <button type="button" class="mmc-alert-resolve-btn"
-                                        wire:click="mountAction('resolveViolation', { key: '{{ $a['key'] }}' })">
-                                    Resolver
-                                </button>
-                            @else
-                                <button type="button" class="mmc-alert-resolve-btn"
-                                        wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')">
-                                    Resolver
-                                </button>
-                            @endif
+                            <button type="button" class="mmc-alert-resolve-btn"
+                                    wire:click="moverAlerta('{{ $a['key'] }}', 'resolvido')">
+                                Resolver
+                            </button>
                         @endif
                     </div>
                 @endif

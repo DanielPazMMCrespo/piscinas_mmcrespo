@@ -125,6 +125,8 @@
                             <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 whitespace-nowrap border border-slate-200 dark:border-slate-700">Encerrada</span>
                         @elseif (! empty($item['sem_hoje']))
                             <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 whitespace-nowrap border border-amber-200 dark:border-amber-700/50">Falta registar</span>
+                        @elseif ($estadoGeral === 'ok')
+                            <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 whitespace-nowrap border border-emerald-200 dark:border-emerald-700/50">Concluído hoje ✓</span>
                         @else
                             <span class="text-[11px] font-semibold uppercase tracking-wider {{ $statusColor }} text-right" x-show="!open" x-cloak>{{ $statusLabel }}</span>
                         @endif

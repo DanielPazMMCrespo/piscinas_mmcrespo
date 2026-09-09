@@ -26,6 +26,8 @@ class PoolSeeder extends Seeder
                 'temp_min' => 26.0,
                 'temp_max' => 27.0,
                 'volume' => 900.0,
+                'ordem_bombas' => 2,
+                'ordem_filtros' => 3,
             ],
             [
                 'installation_id' => $leiria->id,
@@ -34,6 +36,8 @@ class PoolSeeder extends Seeder
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
                 'volume' => 600.0,
+                'ordem_bombas' => 3,
+                'ordem_filtros' => 2,
             ],
             [
                 'installation_id' => $leiria->id,
@@ -42,6 +46,8 @@ class PoolSeeder extends Seeder
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
                 'volume' => 50.0,
+                'ordem_bombas' => 1,
+                'ordem_filtros' => 1,
             ],
             [
                 'installation_id' => $maceira->id,

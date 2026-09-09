@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\CloroPhChartWidget;
-use App\Filament\Widgets\EstabilidadeMedicoesWidget;
 use App\Filament\Widgets\PainelPiscinasWidget;
 use App\Filament\Widgets\QuadroOperacionalWidget;
 use App\Filament\Widgets\StockBaixoWidget;
@@ -49,8 +47,6 @@ class Dashboard extends \Filament\Pages\Dashboard
             PainelPiscinasWidget::class,
             QuadroOperacionalWidget::class,
             StockBaixoWidget::class,
-            CloroPhChartWidget::class,
-            EstabilidadeMedicoesWidget::class,
         ];
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Constants\NSPermission;
 use App\Constants\UserRole;
 use App\Filament\Pages\EncerramentoPiscinas;
 use App\Filament\Resources\DailyRecordResource;
@@ -103,25 +102,16 @@ class PainelPiscinasWidget extends Widget
             // gestor e técnico, e o gestor não pode criar ações operacionais.
             $podeAcaoOperacional = auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
 
-            $user = auth()->user();
-            $podeAnalise = false;
-            if ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO])) {
-                $podeAnalise = true;
-            } elseif ($user?->hasRole(UserRole::NADADOR_SALVADOR)) {
-                $podeAnalise = $user->podeVer(NSPermission::ANALISE_PARAMETROS);
-            }
-
             $item['sonda']['url_reportar'] = $podeAcaoOperacional
                 ? OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_AVARIA_SONDA])
                 : null;
 
             $item['acoes_rapidas'] = collect([
                 [EncerramentoPiscinas::getUrl(), 'Reabrir', 'heroicon-m-lock-open', true, $podeReabrir],
-                [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registo Rápido', 'heroicon-m-document-check', ! $encerrada, $podeRegistar],
-                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL]), 'Análise rápida', 'heroicon-m-beaker', false, $podeAnalise],
-                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
-                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false],
+                [DailyRecordResource::getUrl('create', ['pool' => $piscinaId, 'quick' => 1]), 'Registar Água', 'heroicon-m-beaker', ! $encerrada, $podeRegistar],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO]), 'Lavar filtro', 'heroicon-m-funnel', false, $podeAcaoOperacional],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_TORNEIRA]), 'Torneira', 'heroicon-m-adjustments-horizontal', false, $podeAcaoOperacional],
+                [OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_CONTADOR]), 'Contador', 'heroicon-m-calculator', false, $podeAcaoOperacional],
             ])->filter(fn (array $a) => $a[4])
                 ->map(fn (array $a) => [
                     'url' => $a[0],

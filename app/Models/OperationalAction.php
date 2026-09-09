@@ -56,7 +56,6 @@ class OperationalAction extends Model
         self::TIPO_BOMBA => 'Bomba',
         self::TIPO_CONTADOR => 'Contador (m³)',
         self::TIPO_TANQUE => 'Tanque de compensação',
-        self::TIPO_ANALISE_PONTUAL => 'Análise rápida',
         self::TIPO_REABASTECIMENTO_BIDAO => 'Reabastecimento de bidão',
         self::TIPO_LIMPEZA_PRAIAS => 'Limpeza de praias / grelhas',
         self::TIPO_ASPIRACAO_FUNDO => 'Aspiração de fundo / robô',
