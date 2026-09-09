@@ -84,7 +84,7 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
     public function test_ns_submits_via_quick_action_for_one_pool(): void
     {
         Storage::fake('public');
-        $this->ns->piscinas()->attach([$this->competicao->id, $this->lazer->id, $this->infantil->id]);
+        $this->ns->piscinas()->attach([$this->competicao->id]);
 
         $file = UploadedFile::fake()->create('board.jpg', 100, 'image/jpeg');
 
