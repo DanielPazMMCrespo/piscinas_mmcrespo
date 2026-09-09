@@ -157,8 +157,10 @@
                     <!-- Metrics Grid 2x2 -->
                     <div class="neo-metrics-grid">
                         @foreach (['ph', 'redox', 'livre', 'combinado', 'temp', 'turbidez'] as $key)
-                            @php($metrica = $item['metricas4'][$key])
-                            <div class="neo-metric-card @if($metrica['ok'] === false) neo-metric-card--alert @endif"
+                            @php
+                                $metrica = $item['metricas4'][$key];
+                            @endphp
+                            <div class="neo-metric-card {{ $metrica['ok'] === false ? 'neo-metric-card--alert' : '' }}"
                                  title="{{ $metrica['tooltip'] ?? $metrica['valor'] }}">
                                 <div class="neo-metric-label flex items-center justify-between gap-1">
                                     <span>{{ $metrica['label'] }}</span>
@@ -181,10 +183,10 @@
                                 @endif
 
                                 <div class="neo-metric-footer">
-                                    <div class="neo-metric-status @if($metrica['ok'] === false) neo-metric-status--bad @elseif($metrica['ok'] === true) neo-metric-status--ok @endif"
+                                    <div class="neo-metric-status {{ $metrica['ok'] === false ? 'neo-metric-status--bad' : ($metrica['ok'] === true ? 'neo-metric-status--ok' : '') }}"
                                          title="{{ $metrica['tooltip'] ?? '' }}">
                                         @if($metrica['ok'] !== null)
-                                            <div class="w-2 h-2 rounded-full @if($metrica['ok'] === false) bg-rose-500 @else bg-emerald-500 @endif"></div>
+                                            <div class="w-2 h-2 rounded-full {{ $metrica['ok'] === false ? 'bg-rose-500' : 'bg-emerald-500' }}"></div>
                                             {{ $metrica['ok'] === false ? 'Alerta' : 'OK' }}
                                         @else
                                             <div class="w-2 h-2 rounded-full bg-slate-300"></div>
@@ -236,8 +238,10 @@
                          cascata de fontes escolhe "manual" e o estado da sonda deixava
                          de aparecer em qualquer sítio a que o técnico tenha acesso. --}}
                     @if (! empty($item['sonda']['instalada']))
-                        @php($idadeSonda = $item['sonda']['idade_min'])
-                        @php($avariaSonda = $item['sonda']['avaria'] ?? null)
+                        @php
+                            $idadeSonda = $item['sonda']['idade_min'];
+                            $avariaSonda = $item['sonda']['avaria'] ?? null;
+                        @endphp
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full {{ $avariaSonda ? 'bg-amber-500' : ($idadeSonda === null ? 'bg-rose-500' : ($idadeSonda <= 60 ? 'bg-emerald-500' : 'bg-amber-500')) }}"></span>
                             @if ($avariaSonda)
@@ -271,7 +275,7 @@
                 @if (\App\Filament\Resources\DailyRecordResource::canCreate() || \App\Filament\Resources\OperationalActionResource::canCreate())
                     <div class="neo-pool-actions">
                         @foreach ($item['acoes_rapidas'] as $acao)
-                            <a href="{{ $acao['url'] }}" class="neo-action-btn @if(!empty($acao['primary'])) neo-action-btn--primary @else neo-action-btn--outline @endif">
+                            <a href="{{ $acao['url'] }}" class="neo-action-btn {{ !empty($acao['primary']) ? 'neo-action-btn--primary' : 'neo-action-btn--outline' }}">
                                 <x-filament::icon :icon="$acao['icon']" class="neo-icon-sm" />
                                 {{ $acao['label'] }}
                             </a>
