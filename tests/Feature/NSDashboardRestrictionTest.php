@@ -126,13 +126,9 @@ class NSDashboardRestrictionTest extends TestCase
         $poolData = $viewData['piscinas']->first();
         $acoes = collect($poolData['acoes_rapidas']);
 
-        // O nadador-salvador passou a poder registar uma analise pontual
-        // (commit f1f923b), e sem `ns_permissions` definidas o `podeVer()`
-        // devolve tudo -- por isso sao duas acoes e nao uma. O que continua a
-        // ter de ficar de fora sao as operacoes de equipamento.
         $rotulos = $acoes->pluck('label')->all();
 
-        $this->assertEqualsCanonicalizing(['Registo Rápido', 'Análise rápida'], $rotulos);
+        $this->assertEqualsCanonicalizing(['Registar Água'], $rotulos);
         $this->assertNotContains('Lavar filtro', $rotulos);
         $this->assertNotContains('Torneira', $rotulos);
         $this->assertNotContains('Contador', $rotulos);
@@ -152,10 +148,9 @@ class NSDashboardRestrictionTest extends TestCase
         $poolData = $viewData['piscinas']->first();
         $acoes = collect($poolData['acoes_rapidas']);
 
-        $this->assertCount(5, $acoes);
+        $this->assertCount(4, $acoes);
         $labels = $acoes->pluck('label')->toArray();
-        $this->assertContains('Registo Rápido', $labels);
-        $this->assertContains('Análise rápida', $labels);
+        $this->assertContains('Registar Água', $labels);
         $this->assertContains('Lavar filtro', $labels);
         $this->assertContains('Torneira', $labels);
         $this->assertContains('Contador', $labels);
