@@ -113,9 +113,15 @@ class DailyRecordService
         $poolsData = $data['pools'] ?? [];
         $lastRecord = null;
 
+        // Sem piscinas no payload não há nada a criar, e devolver null fazia o
+        // chamador rebentar com 500 ("Nenhum registo de piscina foi criado").
+        // Acontece quando todas as piscinas do utilizador estão encerradas com a
+        // água parada: piscinasPermitidas() não devolve nenhuma, o formulário
+        // fica sem cartões e a submissão explodia em vez de explicar o motivo.
         if (empty($poolsData)) {
             throw ValidationException::withMessages([
-                'pools' => 'Nenhuma piscina selecionada para registo. Verifique se tem piscinas atribuídas.',
+                'pools' => 'Nenhuma piscina selecionada para registo. Verifique se tem piscinas atribuídas ou se estão em funcionamento.',
+                'data.pools' => 'Nenhuma das piscinas disponíveis aceita registo diário: estão encerradas com a água parada. Se já reabriram, feche o encerramento em Gestão → Encerramentos.',
             ]);
         }
 

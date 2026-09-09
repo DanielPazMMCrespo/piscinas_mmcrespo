@@ -1406,6 +1406,25 @@ class DailyRecordFormBuilder
                             ->columnSpanFull();
                     })->toArray();
 
+                    // Sem cartões não há registo a fazer: todas as piscinas
+                    // permitidas estão encerradas com a água parada. Antes
+                    // mostrava-se "Dados Globais" mais o botão Gravar, e a
+                    // submissão devolvia 500 em vez de dizer o motivo.
+                    if ($poolCards === []) {
+                        return [
+                            Forms\Components\Placeholder::make('sem_piscinas_disponiveis')
+                                ->hiddenLabel()
+                                ->columnSpanFull()
+                                ->content(new HtmlString(
+                                    '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 text-sm">'
+                                    .'<strong>Não há registo diário a fazer nesta instalação.</strong><br>'
+                                    .'As piscinas estão encerradas com a água parada, e uma piscina parada não tem parâmetros para medir.<br>'
+                                    .'Se já reabriram, o encerramento tem de ser fechado em <em>Gestão &rarr; Encerramentos</em>.'
+                                    .'</div>'
+                                )),
+                        ];
+                    }
+
                     return array_merge(
                         [Forms\Components\Section::make('Dados Globais')->schema($globaisSchema)->columns(['default' => 1, 'sm' => 2])],
                         $poolCards

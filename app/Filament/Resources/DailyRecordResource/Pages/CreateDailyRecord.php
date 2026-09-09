@@ -317,7 +317,10 @@ class CreateDailyRecord extends CreateRecord
                 ->color('primary')
                 ->size('lg')
                 ->action('validarERegistosGuardar')
-                ->keyBindings(['mod+s']),
+                ->keyBindings(['mod+s'])
+                // Sem piscinas no formulário não há nada para gravar — o botão
+                // só levava ao erro de "nenhum registo criado".
+                ->hidden(fn (): bool => blank($this->data['pools'] ?? [])),
             Action::make('confirmarCriacao')
                 ->label('Confirmar e guardar')
                 ->extraAttributes(['class' => 'hidden'])
