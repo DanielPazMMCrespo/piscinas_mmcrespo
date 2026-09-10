@@ -95,6 +95,41 @@ async function run() {
     await page.goto(`${BASE_URL}/admin/daily-records`, { waitUntil: 'networkidle2' });
     await page.waitForSelector('main', { timeout: 10000 });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_registos_timeline.png'), fullPage: true });
+
+    // Test clicking "Ação Técnica"
+    console.log('   A testar clique em Ação Técnica...');
+    const acaoBtn = await page.evaluateHandle(() => {
+      const all = Array.from(document.querySelectorAll('button, a'));
+      return all.find(el => el.innerText.includes('Ação Técnica'));
+    });
+    if (acaoBtn.asElement()) {
+      const btnInfo = await page.evaluate(el => ({
+        tag: el.tagName,
+        wireClick: el.getAttribute('wire:click'),
+        xOn: el.getAttribute('x-on:click'),
+        outerHTML: el.outerHTML
+      }), acaoBtn);
+      console.log('   Botão Ação Técnica info:', JSON.stringify(btnInfo));
+
+      await acaoBtn.asElement().click();
+      await new Promise(r => setTimeout(r, 2000));
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_acao_tecnica_opened.png') });
+      
+      const modalState = await page.evaluate(() => {
+        const modals = Array.from(document.querySelectorAll('.fi-modal, [role="dialog"], .fi-modal-window'));
+        return modals.map(m => ({
+          visible: m.offsetParent !== null && window.getComputedStyle(m).display !== 'none',
+          display: window.getComputedStyle(m).display,
+          opacity: window.getComputedStyle(m).opacity,
+          zIndex: window.getComputedStyle(m).zIndex,
+          classes: m.className,
+          title: m.querySelector('.fi-modal-heading, h2')?.innerText
+        }));
+      });
+      console.log('   Modais detetados:', JSON.stringify(modalState));
+    } else {
+      console.log('   Botão Ação Técnica NÃO encontrado!');
+    }
     results.push({ page: 'Registos / Diário Operacional', status: 'PASS', url: page.url() });
 
     // 4. Formulário de Registo & Rascunhos Offline
