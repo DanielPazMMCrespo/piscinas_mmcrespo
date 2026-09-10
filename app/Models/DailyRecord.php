@@ -324,6 +324,14 @@ class DailyRecord extends Model
     }
 
     /**
+     * Avalia se este registo cumpre na totalidade os limites regulamentares CN 14/DA.
+     */
+    public function conformeComLimitesDGS(): bool
+    {
+        return empty($this->listarViolacoes());
+    }
+
+    /**
      * Fonte única de deteção de violações (sino de notificações + Kanban de alertas).
      *
      * @return array<int, array{parametro: string, mensagem: string}>

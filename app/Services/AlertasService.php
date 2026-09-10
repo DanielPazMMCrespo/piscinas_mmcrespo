@@ -11,17 +11,20 @@ use App\Constants\IncidentType;
 use App\Constants\UserRole;
 use App\Filament\Pages\EncerramentoPiscinas;
 use App\Filament\Pages\EsquemaPiscina;
+use App\Filament\Pages\StockHub;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\IncidentResource;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\AlertState;
 use App\Models\DailyRecord;
+use App\Models\DosingContainer;
 use App\Models\Incident;
 use App\Models\OperationalAction;
 use App\Models\Pool;
 use App\Models\SensorOutage;
 use App\Models\TapAlert;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -260,6 +263,90 @@ class AlertasService
                 ];
             }
 
+            // Autonomia Preditiva de Químicos (Prevenção de Esgotamento / Fim de Semana)
+            $bidoes = DosingContainer::query()
+                ->whereHas('piscina', fn (Builder $q) => $q->where('active', true))
+                ->with(['piscina.instalacao', 'logs'])
+                ->get();
+
+            foreach ($bidoes as $bidao) {
+                $horas = $bidao->horasAutonomia(3);
+                $status = $bidao->statusAutonomia(3);
+                $estaBaixo = $bidao->estaBaixo();
+
+                if ($status === 'critico' || $status === 'aviso' || $estaBaixo) {
+                    $piscinaNome = $bidao->piscina?->nome_completo ?? 'Piscina';
+                    $tipo = $bidao->tipoLabel();
+                    $nivel = ($status === 'critico' || ((float) $bidao->restante_ml <= 0))
+                        ? AlertLevel::VERMELHO
+                        : AlertLevel::AMARELO;
+                    $esgotaFds = $bidao->esgotaNoFimDeSemana(3);
+
+                    $titulo = $esgotaFds
+                        ? "{$piscinaNome}: bidão de {$tipo} esgota no fim de semana!"
+                        : "{$piscinaNome}: autonomia de {$tipo} baixa";
+
+                    $previsao = $bidao->previsaoEsgotamento(3);
+                    $previsaoTexto = $previsao ? ' · Previsão: '.$previsao->format('d/m H:i') : '';
+                    $autonomiaTexto = $horas !== null ? 'Autonomia: ~'.(int) ceil($horas).'h' : 'Nível baixo';
+
+                    $alertas[AlertType::AUTONOMIA_QUIMICA."|{$bidao->id}|{$hoje}"] = [
+                        'nivel' => $nivel,
+                        'icone' => 'heroicon-o-beaker',
+                        'titulo' => $titulo,
+                        'detalhe' => "{$autonomiaTexto}{$previsaoTexto} · Nível: {$bidao->percentagem()}% · Abastecer bidão.",
+                        'url' => StockHub::getUrl(),
+                        'acao' => 'Abastecer bidão',
+                    ];
+                }
+            }
+
+            // Deteção Inteligente de Anomalias de Contador / Possível Fuga de Água
+            foreach ($abertas as $piscina) {
+                $ultimosContadores = OperationalAction::query()
+                    ->where('pool_id', $piscina->id)
+                    ->where('tipo', OperationalAction::TIPO_CONTADOR)
+                    ->whereNotNull('registado_em')
+                    ->orderByDesc('registado_em')
+                    ->limit(2)
+                    ->get();
+
+                if ($ultimosContadores->count() >= 2) {
+                    $maisRecente = $ultimosContadores->first();
+                    $anterior = $ultimosContadores->last();
+
+                    $valRecente = (float) ($maisRecente->dados['contador_valor'] ?? 0);
+                    $valAnterior = (float) ($anterior->dados['contador_valor'] ?? 0);
+                    $deltaV = round($valRecente - $valAnterior, 2);
+
+                    if ($deltaV > 5.0 && $maisRecente->registado_em->greaterThanOrEqualTo(now()->subHours(48))) {
+                        $lavagens = OperationalAction::query()
+                            ->where('pool_id', $piscina->id)
+                            ->where('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO)
+                            ->whereBetween('registado_em', [$anterior->registado_em, $maisRecente->registado_em])
+                            ->count();
+
+                        $banhistas = (int) DailyRecord::query()
+                            ->where('pool_id', $piscina->id)
+                            ->whereBetween('registado_em', [$anterior->registado_em->toDateString(), $maisRecente->registado_em->toDateString()])
+                            ->sum('ns_banhistas');
+
+                        $consumoEsperado = ($lavagens * 3.0) + ($banhistas * 0.03) + 2.0;
+
+                        if ($deltaV > $consumoEsperado + 8.0) {
+                            $inexplicado = round($deltaV - $consumoEsperado, 1);
+                            $alertas[AlertType::ANOMALIA_AGUA."|{$piscina->id}|{$maisRecente->id}"] = [
+                                'nivel' => AlertLevel::AMARELO,
+                                'icone' => 'heroicon-o-exclamation-triangle',
+                                'titulo' => "{$piscina->nome_completo}: consumo de água anómalo ({$deltaV} m³)",
+                                'detalhe' => "Entrada de {$deltaV} m³ registada (~{$inexplicado} m³ não justificados por lavagens). Verificar boia de compensação ou fugas.",
+                                'url' => DailyRecordResource::getUrl('index'),
+                                'acao' => 'Ver registos',
+                            ];
+                        }
+                    }
+                }
+            }
         }
 
         // Prioridade visual: vermelho > amarelo > neutro (ordem estável).

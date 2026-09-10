@@ -120,6 +120,130 @@ class DosingContainer extends Model
     }
 
     /**
+     * Consumo médio diário em ml com base nos logs de consumo dos últimos $dias.
+     * Devolve null se não houver dados de consumo suficientes.
+     */
+    public function consumoMedioDiarioMl(int $dias = 3): ?float
+    {
+        $dias = max(1, $dias);
+        $desde = Carbon::now()->subDays($dias);
+
+        $logs = $this->relationLoaded('logs')
+            ? $this->logs->where('tipo_movimento', 'consumo')->where('registado_em', '>=', $desde)
+            : $this->logs()->where('tipo_movimento', 'consumo')->where('registado_em', '>=', $desde)->get();
+
+        if ($logs->isEmpty()) {
+            return null;
+        }
+
+        $totalConsumidoMl = abs((float) $logs->sum('quantidade_ml'));
+        if ($totalConsumidoMl <= 0) {
+            return null;
+        }
+
+        // Dias com consumo registado dentro da janela
+        $diasComRegisto = $logs->map(fn ($l) => Carbon::parse($l->registado_em)->toDateString())->unique()->count();
+        $diasReais = max(1, min($dias, $diasComRegisto));
+
+        return round($totalConsumidoMl / $diasReais, 2);
+    }
+
+    /**
+     * Estimativa de horas de autonomia restante com base no consumo médio diário.
+     */
+    public function horasAutonomia(int $diasJanela = 3): ?float
+    {
+        $consumoDiario = $this->consumoMedioDiarioMl($diasJanela);
+        if ($consumoDiario === null || $consumoDiario <= 0) {
+            return null;
+        }
+
+        $restante = max(0.0, (float) $this->restante_ml);
+        $diasRestantes = $restante / $consumoDiario;
+
+        return round($diasRestantes * 24, 1);
+    }
+
+    /**
+     * Data e hora estimada para esgotamento do bidão.
+     */
+    public function previsaoEsgotamento(int $diasJanela = 3): ?Carbon
+    {
+        $horas = $this->horasAutonomia($diasJanela);
+        if ($horas === null) {
+            return null;
+        }
+
+        return Carbon::now()->addHours($horas);
+    }
+
+    /**
+     * Indica se o bidão está previsto esgotar durante o próximo fim de semana
+     * ou nas próximas 48 horas.
+     */
+    public function esgotaNoFimDeSemana(int $diasJanela = 3): bool
+    {
+        $previsao = $this->previsaoEsgotamento($diasJanela);
+        if ($previsao === null) {
+            return false;
+        }
+
+        $hoje = Carbon::now();
+        $horas = $this->horasAutonomia($diasJanela);
+
+        if ($horas !== null && $horas <= 48 && in_array($hoje->dayOfWeek, [Carbon::THURSDAY, Carbon::FRIDAY, Carbon::SATURDAY], true)) {
+            return true;
+        }
+
+        return $previsao->isWeekend();
+    }
+
+    /**
+     * Estado preditivo de autonomia: 'critico' (< 24h) | 'aviso' (< 48h ou fim de semana) | 'ok' | 'sem_dados'.
+     */
+    public function statusAutonomia(int $diasJanela = 3): string
+    {
+        $horas = $this->horasAutonomia($diasJanela);
+        if ($horas === null) {
+            return 'sem_dados';
+        }
+
+        if ($horas < 24 || (float) $this->restante_ml <= 0) {
+            return 'critico';
+        }
+
+        if ($horas < 48 || $this->esgotaNoFimDeSemana($diasJanela)) {
+            return 'aviso';
+        }
+
+        return 'ok';
+    }
+
+    /**
+     * Descrição amigável de autonomia para UI e badges.
+     */
+    public function descricaoAutonomia(int $diasJanela = 3): string
+    {
+        $horas = $this->horasAutonomia($diasJanela);
+        if ($horas === null) {
+            $pct = $this->percentagem();
+
+            return $pct !== null ? "{$pct}%" : '—';
+        }
+
+        if ($horas < 24) {
+            return sprintf('~%dh (Esgota hoje/amanhã)', (int) ceil($horas));
+        }
+
+        $dias = round($horas / 24, 1);
+        if ($dias < 3) {
+            return sprintf('~%dh (~%.1f dias)', (int) ceil($horas), $dias);
+        }
+
+        return sprintf('~%d dias', (int) round($dias));
+    }
+
+    /**
      * Notifica Admin/Técnico uma vez por episódio de nível baixo. Fonte única
      * chamada tanto pelo sync do controlador como pelo ajuste manual, para a
      * regra de "está baixo" não divergir entre os dois caminhos. O episódio

@@ -9,6 +9,7 @@ use App\Filament\Pages\EncerramentoPiscinas;
 use App\Filament\Resources\DailyRecordResource;
 use App\Filament\Resources\OperationalActionResource;
 use App\Models\DailyRecord;
+use App\Models\DosingContainer;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
 use App\Models\Pool;
@@ -131,7 +132,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 6;
+    private const CACHE_SHAPE_VERSION = 7;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -176,6 +177,13 @@ class PainelPiscinasWidget extends Widget
             ->orderBy('aberta_em')
             ->get()
             ->keyBy('pool_id');
+
+        // Bidões de dosagem das piscinas para previsão de autonomia.
+        $todosBidoes = DosingContainer::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->with('logs')
+            ->get()
+            ->groupBy('pool_id');
 
         // Otimização: obter as últimas leituras das sondas em batch (evita N+1).
         $ultimasLeituras = SensorReading::query()
@@ -352,7 +360,7 @@ class PainelPiscinasWidget extends Widget
             }
         }
 
-        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento, $historicoManualArray, $historicoSensoresArray, $avarias): array {
+        $piscinasMapped = $piscinas->map(function (Pool $piscina) use ($sondas, $registosUnificados, $ultimasLeituras, $orpsNoMomento, $historicoManualArray, $historicoSensoresArray, $avarias, $todosBidoes): array {
             $registo = $registosUnificados[$piscina->id] ?? null;
 
             // Garante que a avaliação de temperatura conhece os limites da piscina.
@@ -741,9 +749,24 @@ class PainelPiscinasWidget extends Widget
 
             $encerramento = $piscina->encerramentoEm();
 
+            $bidoesPiscina = $todosBidoes->get($piscina->id, collect())->map(function (DosingContainer $b): array {
+                return [
+                    'id' => $b->id,
+                    'tipo' => $b->tipo,
+                    'label' => $b->tipoLabel(),
+                    'percentagem' => $b->percentagem(),
+                    'horas_autonomia' => $b->horasAutonomia(3),
+                    'descricao_autonomia' => $b->descricaoAutonomia(3),
+                    'status' => $b->statusAutonomia(3),
+                    'esta_baixo' => $b->estaBaixo(),
+                    'esgota_fim_de_semana' => $b->esgotaNoFimDeSemana(3),
+                ];
+            })->values()->all();
+
             return [
                 'piscina' => $piscina,
                 'registo' => $registo,
+                'bidoes' => $bidoesPiscina,
                 // Encerrada não é "sem registo": o cartão fica na grelha (o
                 // técnico tem de ver que existe e que está fechada), mas sem o
                 // aviso de falta e fora das percentagens abaixo.
