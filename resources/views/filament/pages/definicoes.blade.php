@@ -190,6 +190,27 @@
                 </x-filament::button>
             </div>
         </form>
+
+        <div class="fi-section rounded-xl bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 max-w-2xl space-y-3 mb-6">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">Histórico de Notificações</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Limpe as notificações já lidas para manter a gaveta de notificações do topo limpa.
+                    </p>
+                </div>
+                <x-filament::button
+                    type="button"
+                    wire:click="limparMinhasNotificacoesLidas"
+                    wire:confirm="Tem a certeza que deseja limpar as notificações já lidas do seu histórico?"
+                    color="gray"
+                    size="sm"
+                    icon="heroicon-m-trash"
+                >
+                    Limpar Lidas
+                </x-filament::button>
+            </div>
+        </div>
     </div>
 
     @endif
@@ -199,6 +220,23 @@
         <div>
             <form wire:submit="save">
                 {{ $this->form }}
+
+                <div class="mt-6 flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Manutenção de Notificações</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Elimina todas as notificações lidas de todos os utilizadores da base de dados.</p>
+                    </div>
+                    <x-filament::button
+                        type="button"
+                        wire:click="limparTodasNotificacoesLidas"
+                        wire:confirm="Tem a certeza que deseja eliminar todas as notificações lidas do sistema?"
+                        color="danger"
+                        size="sm"
+                        icon="heroicon-m-trash"
+                    >
+                        Limpar Notificações Lidas (Sistema)
+                    </x-filament::button>
+                </div>
 
                 {{-- Barra de ações fixa: com o dropdown do último select aberto, o
                      toque em Guardar não disparava nada e nada avisava o utilizador. --}}

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -37,15 +38,20 @@ class HannaSyncFalhouNotification extends Notification
         return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
-        return new DatabaseMessage([
-            'title' => 'Sondas Hanna sem sincronização: login recusado',
-            'body' => 'A Hanna Cloud recusou as credenciais. As leituras das sondas estão paradas até isto ser corrigido. Erro: '.$this->erro,
-            'format' => 'filament',
-            'icon' => 'heroicon-o-signal-slash',
-            'color' => 'danger',
-        ]);
+        return FilamentNotification::make()
+            ->title('Sondas Hanna: login recusado')
+            ->body('A Hanna Cloud recusou as credenciais. As leituras estão paradas. Erro: '.$this->erro)
+            ->icon('heroicon-o-signal-slash')
+            ->color('danger')
+            ->actions([
+                Action::make('ver')
+                    ->label('Ver Sensores')
+                    ->button()
+                    ->url('/admin/hanna-devices'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

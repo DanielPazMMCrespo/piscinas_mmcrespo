@@ -13,6 +13,7 @@ use App\Models\StockInstallationLog;
 use App\Models\User;
 use App\Notifications\ResumoTurnoNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -29,6 +30,10 @@ class SendShiftSummaryCommand extends Command
         $horaAtual = now()->format('H:i');
 
         if (! in_array($horaAtual, $horasConfiguradas)) {
+            return self::SUCCESS;
+        }
+
+        if (app(JanelaSilencio::class)->ativa()) {
             return self::SUCCESS;
         }
 

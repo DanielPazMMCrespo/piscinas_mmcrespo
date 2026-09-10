@@ -68,6 +68,25 @@ class SettingsService
         return is_array($value) ? $value : $default;
     }
 
+    public function getBool(string $key, bool $default = false): bool
+    {
+        $value = $this->get($key, $default);
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (bool) $value;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['1', 'true', 'yes', 'on', 'sim'], true);
+        }
+
+        return $default;
+    }
+
     public function set(string $key, mixed $value, string $group = 'geral', string $type = 'string'): void
     {
         AppSetting::updateOrCreate(

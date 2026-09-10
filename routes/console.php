@@ -125,9 +125,9 @@ Schedule::command('regras:executar')
     ->withoutOverlapping(10);
 
 // Verificação de tendências degradantes nos parâmetros (pH, cloro).
-// Cada 6h é suficiente — tendências são de longo prazo.
+// Corre uma vez por dia às 09:00 (fora da janela de silêncio).
 Schedule::command('tendencias:verificar')
-    ->everySixHours()
+    ->dailyAt('09:00')
     ->withoutOverlapping(30);
 
 // Resumo operacional de fim de turno — horários configuráveis em Definições.
@@ -136,16 +136,16 @@ Schedule::command('notificacoes:resumo-turno')
     ->everyMinute()
     ->withoutOverlapping(5);
 
-// Comparação semanal de conformidade — domingos às 09:00.
+// Comparação semanal de conformidade — segundas-feiras às 08:30 (compara as duas semanas completas anteriores).
 Schedule::command('notificacoes:comparacao-semanal')
-    ->weeklyOn(0, '09:00')
+    ->weeklyOn(1, '08:30')
     ->withoutOverlapping(30);
 
 // ── Fase 3: Analytics & Business Intelligence ───────────────────────────────
 
-// Relatório mensal automático (livro sanitário do mês anterior) — dia 1 às 06:00.
+// Relatório mensal automático (livro sanitário do mês anterior) — dia 1 às 08:30.
 Schedule::command('relatorio:mensal-automatico')
-    ->monthlyOn(1, '06:00')
+    ->monthlyOn(1, '08:30')
     ->withoutOverlapping(60);
 
 // Housekeeping de alert states: poda de >7 dias a cada hora.

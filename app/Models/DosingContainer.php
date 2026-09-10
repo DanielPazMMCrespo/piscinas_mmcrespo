@@ -8,6 +8,7 @@ use App\Constants\UserRole;
 use App\Notifications\DosingContainerLowAlert;
 use App\Services\HannaCloudService;
 use App\Services\StockService;
+use App\Support\JanelaSilencio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -252,6 +253,10 @@ class DosingContainer extends Model
     public function notificarSeBaixo(): void
     {
         if (! $this->estaBaixo() || $this->alerta_notificado_em !== null) {
+            return;
+        }
+
+        if (app(JanelaSilencio::class)->ativa()) {
             return;
         }
 
