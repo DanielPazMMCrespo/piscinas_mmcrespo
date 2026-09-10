@@ -49,6 +49,8 @@ function encerrar(Pool $piscina, bool $comTratamento = false): PoolClosure
 }
 
 it('nao gera alerta de falta de registo numa piscina encerrada', function (): void {
+    Carbon::setTestNow(Carbon::now()->setTime(14, 0));
+
     $aberta = Pool::factory()->create();
     $encerrada = Pool::factory()->create();
     encerrar($encerrada);
