@@ -4,7 +4,7 @@
         {{ $this->form }}
 
         @php
-            $summary = $this->preflightSummary;
+            $summary = $preflightSummary ?? $this->getPreflightSummary();
         @endphp
 
         @if ($summary['valido'])

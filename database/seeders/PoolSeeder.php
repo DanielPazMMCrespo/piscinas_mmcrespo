@@ -25,6 +25,8 @@ class PoolSeeder extends Seeder
                 'type' => 'competicao',
                 'temp_min' => 26.0,
                 'temp_max' => 27.0,
+                'orp_min' => 650,
+                'orp_max' => 850,
                 'volume' => 900.0,
                 'ordem_bombas' => 2,
                 'ordem_filtros' => 3,
@@ -35,6 +37,8 @@ class PoolSeeder extends Seeder
                 'type' => 'lazer',
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
+                'orp_min' => 650,
+                'orp_max' => 850,
                 'volume' => 600.0,
                 'ordem_bombas' => 3,
                 'ordem_filtros' => 2,
@@ -45,6 +49,8 @@ class PoolSeeder extends Seeder
                 'type' => 'infantil',
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
+                'orp_min' => 650,
+                'orp_max' => 850,
                 'volume' => 50.0,
                 'ordem_bombas' => 1,
                 'ordem_filtros' => 1,
@@ -55,7 +61,11 @@ class PoolSeeder extends Seeder
                 'type' => 'polivalente',
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
+                'orp_min' => 650,
+                'orp_max' => 850,
                 'volume' => 170.0,
+                'ordem_bombas' => 1,
+                'ordem_filtros' => 1,
             ],
             [
                 'installation_id' => $caranguejeira->id,
@@ -63,7 +73,11 @@ class PoolSeeder extends Seeder
                 'type' => 'polivalente',
                 'temp_min' => 28.0,
                 'temp_max' => 30.0,
+                'orp_min' => 650,
+                'orp_max' => 850,
                 'volume' => 170.0,
+                'ordem_bombas' => 1,
+                'ordem_filtros' => 1,
             ],
         ];
 
@@ -73,10 +87,16 @@ class PoolSeeder extends Seeder
                 $row + ['active' => true]
             );
 
-            // Preenche o volume em piscinas já existentes (seed anterior sem volume).
-            if ($piscina->volume === null) {
-                $piscina->update(['volume' => $row['volume']]);
-            }
+            // Garante calibração completa em piscinas existentes
+            $piscina->update([
+                'volume' => $row['volume'],
+                'temp_min' => $row['temp_min'],
+                'temp_max' => $row['temp_max'],
+                'orp_min' => $row['orp_min'],
+                'orp_max' => $row['orp_max'],
+                'ordem_bombas' => $row['ordem_bombas'],
+                'ordem_filtros' => $row['ordem_filtros'],
+            ]);
         }
     }
 }

@@ -24,6 +24,8 @@ class CreateDailyRecord extends CreateRecord
 {
     protected static string $resource = DailyRecordResource::class;
 
+    protected static string $view = 'filament.resources.daily-records.pages.create-daily-record';
+
     public bool $isCreating = false;
 
     /**

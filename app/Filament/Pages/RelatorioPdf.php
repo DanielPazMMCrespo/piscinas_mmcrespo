@@ -1072,7 +1072,7 @@ class RelatorioPdf extends Page implements HasForms
      *     encerramentosCount: int,
      * }
      */
-    public function getPreflightSummaryProperty(): array
+    public function getPreflightSummary(): array
     {
         $dados = $this->data ?? [];
         $installationId = $dados['installation_id'] ?? null;
@@ -1204,5 +1204,26 @@ class RelatorioPdf extends Page implements HasForms
             'piscinasCount' => $piscinasCount,
             'encerramentosCount' => $encerramentosCount,
         ];
+    }
+
+    public function getPreflightSummaryProperty(): array
+    {
+        return $this->getPreflightSummary();
+    }
+
+    protected function getViewData(): array
+    {
+        return [
+            'preflightSummary' => $this->getPreflightSummary(),
+        ];
+    }
+
+    public function __get($property): mixed
+    {
+        if ($property === 'preflightSummary') {
+            return $this->getPreflightSummary();
+        }
+
+        return parent::__get($property);
     }
 }
