@@ -44,6 +44,8 @@ class OperationalActionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Ações Operacionais';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function canAccess(): bool
     {
         return self::userCanManageOperationalActions();

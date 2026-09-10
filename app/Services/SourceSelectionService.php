@@ -96,7 +96,7 @@ class SourceSelectionService
         }
 
         // Senão, procura leitura manual fresca (≤8h)
-        $registo = $usarCarregados ? $registoCarregado : DailyRecord::latestPerPool()
+        $registo = $usarCarregados ? $registoCarregado : DailyRecord::latestPerPool(somenteComLeituras: true)
             ->where('pool_id', $pool->id)
             ->first();
 

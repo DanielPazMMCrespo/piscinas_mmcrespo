@@ -114,7 +114,7 @@ class DailyRecord extends Model
     protected $fillable = [
         'pool_id', 'user_id', 'registado_em', 'hora_colheita',
         'cloro_livre', 'cloro_total',
-        'ph', 'temperatura', 'transparencia',
+        'ph', 'temperatura', 'transparencia', 'orp',
         'caleira_feita', 'renovacao_agua',
         'pressao_filtro',
         'observacoes', 'e_correcao',
@@ -138,6 +138,7 @@ class DailyRecord extends Model
         'cloro_total' => 'decimal:2',
         'ph' => 'decimal:2',
         'temperatura' => 'decimal:1',
+        'orp' => 'integer',
         'pressao_filtro' => 'decimal:2',
         'ns_ph' => 'decimal:2',
         'ns_cloro_livre' => 'decimal:2',
@@ -443,13 +444,15 @@ class DailyRecord extends Model
      *
      * @param  int|null  $dias  Limita a janela analisada (a window function varre a
      *                          tabela inteira se não for limitada — custo cresce com o histórico)
+     * @param  bool  $somenteComLeituras  Se verdadeiro, filtra apenas registos com medições de água (pH)
      */
-    public function scopeLatestPerPool(Builder $query, ?int $dias = null): Builder
+    public function scopeLatestPerPool(Builder $query, ?int $dias = null, bool $somenteComLeituras = false): Builder
     {
         return $query->fromSub(
             static::query()
                 ->selectRaw('*, ROW_NUMBER() OVER (PARTITION BY pool_id ORDER BY registado_em DESC, id DESC) as rn')
                 ->when($dias !== null, fn (Builder $q): Builder => $q->where('registado_em', '>=', now()->subDays($dias)))
+                ->when($somenteComLeituras, fn (Builder $q): Builder => $q->where(fn ($sub) => $sub->whereNotNull('ph')->orWhereNotNull('ns_ph')))
                 ->whereDoesntHave('correcoes'),
             'sub'
         )->where('rn', 1);

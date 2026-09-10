@@ -44,11 +44,11 @@ class DailyRecordResource extends Resource
 
     protected static ?string $navigationGroup = 'Registo Diário';
 
-    protected static ?string $navigationLabel = 'Registos Diários';
+    protected static ?string $navigationLabel = 'Registos';
 
-    protected static ?string $modelLabel = 'Registo Diário';
+    protected static ?string $modelLabel = 'Registo';
 
-    protected static ?string $pluralModelLabel = 'Registos Diários';
+    protected static ?string $pluralModelLabel = 'Registos';
 
     protected static ?int $navigationSort = 1;
 
