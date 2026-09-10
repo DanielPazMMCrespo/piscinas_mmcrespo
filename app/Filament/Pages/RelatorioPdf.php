@@ -24,6 +24,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -78,6 +79,44 @@ class RelatorioPdf extends Page implements HasForms
 
     protected static string $view = 'filament.pages.relatorio-pdf';
 
+    public const MODELO_DGS_OFICIAL = 'dgs_oficial';
+
+    public const MODELO_COMPLETO = 'completo';
+
+    public const MODELO_PERSONALIZADO = 'personalizado';
+
+    public const COLUNAS_DGS_OFICIAL = [
+        'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
+        'cloro_combinado', 'temperatura', 'transparencia',
+        'contador_valor', 'bomba_tanque', 'banhistas',
+        'acao_corretiva', 'observacoes', 'conforme',
+    ];
+
+    public const SECCOES_DGS_OFICIAL = [
+        'mostrar_resumo',
+        'mostrar_assinaturas',
+        'mostrar_nota_legal',
+        'mostrar_termo_legal',
+    ];
+
+    public const TODAS_COLUNAS = [
+        'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
+        'cloro_combinado', 'temperatura', 'transparencia',
+        'contador_valor', 'bomba_tanque', 'renovacao_agua',
+        'caleira_feita', 'pressao_filtro', 'lavagens_filtro',
+        'banhistas', 'acao_corretiva', 'observacoes', 'conforme',
+    ];
+
+    public const TODAS_SECCOES = [
+        'mostrar_resumo',
+        'mostrar_controlador_grafico',
+        'mostrar_controlador_tabela',
+        'mostrar_acoes_operacionais',
+        'mostrar_assinaturas',
+        'mostrar_nota_legal',
+        'mostrar_termo_legal',
+    ];
+
     /**
      * Estado do formulário (statePath).
      *
@@ -108,19 +147,11 @@ class RelatorioPdf extends Page implements HasForms
             'pool_id' => 'todas',
             'data_inicio' => $inicioPadrao->toDateString(),
             'data_fim' => $fimPadrao->toDateString(),
+            'modelo_relatorio' => self::MODELO_DGS_OFICIAL,
             'registo_modo' => 'todos',
             'controlador_modo' => 'media_diaria',
-            'colunas_visiveis' => [
-                'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
-                'cloro_combinado', 'temperatura', 'transparencia',
-                'contador_valor', 'bomba_tanque', 'banhistas',
-                'acao_corretiva', 'observacoes', 'conforme',
-            ],
-            'seccoes_visiveis' => [
-                'mostrar_resumo', 'mostrar_controlador_grafico',
-                'mostrar_controlador_tabela', 'mostrar_acoes_operacionais',
-                'mostrar_assinaturas', 'mostrar_nota_legal',
-            ],
+            'colunas_visiveis' => self::COLUNAS_DGS_OFICIAL,
+            'seccoes_visiveis' => self::SECCOES_DGS_OFICIAL,
         ]);
     }
 
@@ -220,6 +251,45 @@ class RelatorioPdf extends Page implements HasForms
     {
         return $form
             ->schema([
+                Section::make('Modelo de Relatório')
+                    ->description('Selecione o modelo oficial regulamentar DGS (CN 14/DA) ou a auditoria técnica de engenharia.')
+                    ->icon('heroicon-o-shield-check')
+                    ->schema([
+                        ToggleButtons::make('modelo_relatorio')
+                            ->label('Tipo de Documento')
+                            ->options([
+                                self::MODELO_DGS_OFICIAL => 'Livro Sanitário Oficial (CN 14/DA DGS)',
+                                self::MODELO_COMPLETO => 'Auditoria Técnica de Engenharia',
+                                self::MODELO_PERSONALIZADO => 'Personalizado',
+                            ])
+                            ->icons([
+                                self::MODELO_DGS_OFICIAL => 'heroicon-o-shield-check',
+                                self::MODELO_COMPLETO => 'heroicon-o-document-chart-bar',
+                                self::MODELO_PERSONALIZADO => 'heroicon-o-wrench-screwdriver',
+                            ])
+                            ->colors([
+                                self::MODELO_DGS_OFICIAL => 'success',
+                                self::MODELO_COMPLETO => 'info',
+                                self::MODELO_PERSONALIZADO => 'warning',
+                            ])
+                            ->default(self::MODELO_DGS_OFICIAL)
+                            ->inline()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::MODELO_DGS_OFICIAL) {
+                                    $set('registo_modo', 'todos');
+                                    $set('controlador_modo', 'media_diaria');
+                                    $set('colunas_visiveis', self::COLUNAS_DGS_OFICIAL);
+                                    $set('seccoes_visiveis', self::SECCOES_DGS_OFICIAL);
+                                } elseif ($state === self::MODELO_COMPLETO) {
+                                    $set('registo_modo', 'todos');
+                                    $set('controlador_modo', 'media_diaria');
+                                    $set('colunas_visiveis', self::TODAS_COLUNAS);
+                                    $set('seccoes_visiveis', self::TODAS_SECCOES);
+                                }
+                            }),
+                    ]),
+
                 Section::make('Parâmetros do relatório')
                     ->description('Selecione a instalação, a piscina e o período a incluir no livro sanitário.')
                     ->icon('heroicon-o-adjustments-horizontal')
@@ -252,7 +322,8 @@ class RelatorioPdf extends Page implements HasForms
 
                                 return $opcoes;
                             })
-                            ->required(),
+                            ->required()
+                            ->live(),
 
                         DatePicker::make('data_inicio')
                             ->label('Data início')
@@ -313,13 +384,13 @@ class RelatorioPdf extends Page implements HasForms
                     ->description('Personalize as colunas e secções que vão constar no documento PDF.')
                     ->icon('heroicon-o-cog-6-tooth')
                     ->collapsible()
-                    ->collapsed()
+                    ->collapsed(fn (Get $get): bool => $get('modelo_relatorio') !== self::MODELO_PERSONALIZADO)
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         Placeholder::make('aviso_customizacao')
-                            ->hidden(fn (Get $get) => $get('registo_modo') === 'todos' &&
-                                count($get('colunas_visiveis') ?? []) === 14 &&
-                                count($get('seccoes_visiveis') ?? []) === 6
+                            ->hidden(fn (Get $get) => $get('modelo_relatorio') === self::MODELO_DGS_OFICIAL &&
+                                $get('registo_modo') === 'todos' &&
+                                count($get('colunas_visiveis') ?? []) === count(self::COLUNAS_DGS_OFICIAL)
                             )
                             ->columnSpanFull()
                             ->content(new HtmlString('
@@ -340,7 +411,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'media_diaria' => 'Média diária (um registo por dia)',
                             ])
                             ->required()
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('modelo_relatorio', self::MODELO_PERSONALIZADO)),
 
                         Select::make('controlador_modo')
                             ->label('Tipo de agrupamento (Controlador)')
@@ -349,7 +421,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'todos' => 'Todos os registos detalhados (pode gerar muitas páginas)',
                             ])
                             ->required()
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('modelo_relatorio', self::MODELO_PERSONALIZADO)),
 
                         CheckboxList::make('colunas_visiveis')
                             ->label('Colunas da tabela de registos')
@@ -374,7 +447,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'conforme' => 'Conformidade',
                             ])
                             ->columns(2)
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('modelo_relatorio', self::MODELO_PERSONALIZADO)),
 
                         CheckboxList::make('seccoes_visiveis')
                             ->label('Outros elementos do PDF')
@@ -388,7 +462,8 @@ class RelatorioPdf extends Page implements HasForms
                                 'mostrar_termo_legal' => 'Termo de abertura/encerramento (Anexo III-b/c, CN 14/DA) — só com 1 piscina e um mês civil completo',
                             ])
                             ->columns(1)
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('modelo_relatorio', self::MODELO_PERSONALIZADO)),
                     ]),
             ])
             ->statePath('data');
@@ -465,10 +540,28 @@ class RelatorioPdf extends Page implements HasForms
 
         ini_set('memory_limit', '1024M');
 
+        $modelo = $estado['modelo_relatorio'] ?? self::MODELO_DGS_OFICIAL;
         $colunasVisiveis = $estado['colunas_visiveis'] ?? [];
         $seccoesVisiveis = $estado['seccoes_visiveis'] ?? [];
+        $modoRegisto = $estado['registo_modo'] ?? 'todos';
 
-        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $estado['registo_modo'] ?? 'todos', $modoControlador);
+        if ($modelo === self::MODELO_DGS_OFICIAL) {
+            if (empty($colunasVisiveis)) {
+                $colunasVisiveis = self::COLUNAS_DGS_OFICIAL;
+            }
+            if (empty($seccoesVisiveis)) {
+                $seccoesVisiveis = self::SECCOES_DGS_OFICIAL;
+            }
+        } elseif ($modelo === self::MODELO_COMPLETO) {
+            if (empty($colunasVisiveis)) {
+                $colunasVisiveis = self::TODAS_COLUNAS;
+            }
+            if (empty($seccoesVisiveis)) {
+                $seccoesVisiveis = self::TODAS_SECCOES;
+            }
+        }
+
+        $seccoes = self::construirSeccoes($piscinas, $inicio, $fim, $modoRegisto, $modoControlador);
 
         $domPdf = PdfRenderer::render('pdf.livro-sanitario', [
             'instalacao' => $instalacao,
@@ -479,7 +572,7 @@ class RelatorioPdf extends Page implements HasForms
             'emitidoPor' => auth()->user()->name,
             'colunasVisiveis' => $colunasVisiveis,
             'seccoesVisiveis' => $seccoesVisiveis,
-            'modo' => $estado['registo_modo'] ?? 'todos',
+            'modo' => $modoRegisto,
             'controladorModo' => $modoControlador,
         ]);
 
@@ -648,15 +741,21 @@ class RelatorioPdf extends Page implements HasForms
             ->get()
             ->groupBy('pool_id');
 
+        // Otimização: Pré-carregamento dos registos diários de todas as piscinas
+        // numa única query para eliminar queries N+1 por piscina.
+        $registosPorPiscina = DailyRecord::query()
+            ->whereIn('pool_id', $piscinas->pluck('id'))
+            ->with(['utilizador', 'piscina', 'adicoes'])
+            ->whereBetween('registado_em', [$inicio, $fim])
+            ->whereDoesntHave('correcoes')
+            ->orderBy('registado_em')
+            ->get()
+            ->groupBy('pool_id');
+
         // Uma secção por piscina: registos do período, sem registos já corrigidos
         // (append-only: a versão válida é a correção; ver regra 4 do CLAUDE.md).
-        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $encerramentos, $modo, $modoControlador): array {
-            $registos = $piscina->registosDiarios()
-                ->with(['utilizador', 'piscina', 'adicoes'])
-                ->whereBetween('registado_em', [$inicio, $fim])
-                ->whereDoesntHave('correcoes')
-                ->orderBy('registado_em')
-                ->get();
+        return $piscinas->map(function (Pool $piscina) use ($inicio, $fim, $artefactoService, $acoesOperacionais, $encerramentos, $registosPorPiscina, $modo, $modoControlador): array {
+            $registos = $registosPorPiscina->get($piscina->id, collect());
 
             // Análises rápidas (OperationalAction::TIPO_ANALISE_PONTUAL) contam tanto
             // quanto um registo diário: entram na mesma tabela/agregação, não numa
@@ -955,5 +1054,155 @@ class RelatorioPdf extends Page implements HasForms
         $orpForaLimites = $orpFloat < WaterQualityThresholds::FILTER_WASH_ORP_MIN || $orpFloat > WaterQualityThresholds::FILTER_WASH_ORP_MAX;
 
         return $phForaLimites && $orpForaLimites;
+    }
+
+    /**
+     * Resumo prévio de conformidade regulamentar para o Pre-Flight Card.
+     *
+     * @return array{
+     *     valido: bool,
+     *     mensagem: ?string,
+     *     totalRegistos: int,
+     *     diasPeriodo: int,
+     *     taxaConformidade: float,
+     *     totalViolacoes: int,
+     *     totalLavagens: int,
+     *     termoElegivel: bool,
+     *     piscinasCount: int,
+     *     encerramentosCount: int,
+     * }
+     */
+    public function getPreflightSummaryProperty(): array
+    {
+        $dados = $this->data ?? [];
+        $installationId = $dados['installation_id'] ?? null;
+        $inicio = $dados['data_inicio'] ?? null;
+        $fim = $dados['data_fim'] ?? null;
+        $poolId = $dados['pool_id'] ?? 'todas';
+
+        if (blank($installationId) || blank($inicio) || blank($fim)) {
+            return [
+                'valido' => false,
+                'mensagem' => 'Selecione a instalação e o período.',
+                'totalRegistos' => 0,
+                'diasPeriodo' => 0,
+                'taxaConformidade' => 100.0,
+                'totalViolacoes' => 0,
+                'totalLavagens' => 0,
+                'termoElegivel' => false,
+                'piscinasCount' => 0,
+                'encerramentosCount' => 0,
+            ];
+        }
+
+        try {
+            $inicioDt = Carbon::parse((string) $inicio)->startOfDay();
+            $fimDt = Carbon::parse((string) $fim)->endOfDay();
+        } catch (\Throwable) {
+            return [
+                'valido' => false,
+                'mensagem' => 'Datas inválidas.',
+                'totalRegistos' => 0,
+                'diasPeriodo' => 0,
+                'taxaConformidade' => 100.0,
+                'totalViolacoes' => 0,
+                'totalLavagens' => 0,
+                'termoElegivel' => false,
+                'piscinasCount' => 0,
+                'encerramentosCount' => 0,
+            ];
+        }
+
+        if ($fimDt->lt($inicioDt)) {
+            return [
+                'valido' => false,
+                'mensagem' => 'A data fim é anterior à data de início.',
+                'totalRegistos' => 0,
+                'diasPeriodo' => 0,
+                'taxaConformidade' => 100.0,
+                'totalViolacoes' => 0,
+                'totalLavagens' => 0,
+                'termoElegivel' => false,
+                'piscinasCount' => 0,
+                'encerramentosCount' => 0,
+            ];
+        }
+
+        $diasPeriodo = (int) $inicioDt->diffInDays($fimDt->copy()->startOfDay()) + 1;
+
+        $piscinasQuery = Pool::query()->where('installation_id', (int) $installationId);
+        if (filled($poolId) && $poolId !== 'todas') {
+            $piscinasQuery->whereKey((int) $poolId);
+        }
+        $piscinas = $piscinasQuery->get();
+        $piscinasCount = $piscinas->count();
+
+        if ($piscinasCount === 0) {
+            return [
+                'valido' => false,
+                'mensagem' => 'A instalação não tem piscinas configuradas.',
+                'totalRegistos' => 0,
+                'diasPeriodo' => $diasPeriodo,
+                'taxaConformidade' => 100.0,
+                'totalViolacoes' => 0,
+                'totalLavagens' => 0,
+                'termoElegivel' => false,
+                'piscinasCount' => 0,
+                'encerramentosCount' => 0,
+            ];
+        }
+
+        $poolIds = $piscinas->pluck('id');
+
+        $registos = DailyRecord::query()
+            ->whereIn('pool_id', $poolIds)
+            ->whereBetween('registado_em', [$inicioDt, $fimDt])
+            ->whereDoesntHave('correcoes')
+            ->with('piscina')
+            ->get();
+
+        $totalRegistos = $registos->count();
+        $totalViolacoes = 0;
+        $totalLavagens = 0;
+
+        foreach ($registos as $registo) {
+            if (! empty($registo->listarViolacoes())) {
+                $totalViolacoes++;
+            }
+            if ($registo->filtro_faz_retrolavagem) {
+                $totalLavagens += max(1, (int) $registo->numero_lavagens_filtro);
+            }
+        }
+
+        $lavagensAcoes = OperationalAction::query()
+            ->whereIn('pool_id', $poolIds)
+            ->whereBetween('registado_em', [$inicioDt, $fimDt])
+            ->where('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO)
+            ->count();
+        $totalLavagens += $lavagensAcoes;
+
+        $taxaConformidade = $totalRegistos > 0
+            ? round((($totalRegistos - $totalViolacoes) / $totalRegistos) * 100, 1)
+            : 100.0;
+
+        $termoElegivel = self::termoLegalElegivel($piscinasCount, $inicioDt, $fimDt);
+
+        $encerramentosCount = PoolClosure::query()
+            ->whereIn('pool_id', $poolIds)
+            ->queIntersetam($inicioDt, $fimDt)
+            ->count();
+
+        return [
+            'valido' => true,
+            'mensagem' => null,
+            'totalRegistos' => $totalRegistos,
+            'diasPeriodo' => $diasPeriodo,
+            'taxaConformidade' => $taxaConformidade,
+            'totalViolacoes' => $totalViolacoes,
+            'totalLavagens' => $totalLavagens,
+            'termoElegivel' => $termoElegivel,
+            'piscinasCount' => $piscinasCount,
+            'encerramentosCount' => $encerramentosCount,
+        ];
     }
 }

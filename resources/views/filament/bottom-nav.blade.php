@@ -12,7 +12,6 @@
     );
     $isNS = auth()->user()?->hasRole(\App\Constants\UserRole::NADADOR_SALVADOR) ?? false;
     $urlRegistar = '/admin/daily-records/create'.(! $isNS && $ultimaPiscinaId ? '?pool='.$ultimaPiscinaId.'&quick=1' : '');
-    $podeVerEsquema = \App\Filament\Pages\EsquemaPiscina::canAccess();
 @endphp
 
 <div class="fixed bottom-4 left-4 right-4 z-50 md:hidden pb-safe" id="mmc-bottom-nav" style="pointer-events: none;">
@@ -44,18 +43,18 @@
             </a>
         @endcan
 
-        <!-- Right Item: Esquema (ou Análise, se não tiver acesso) -->
-        @if ($podeVerEsquema)
-            <a href="/admin/esquema" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
-                <x-heroicon-o-share class="w-6 h-6 mb-1 transition-colors" />
-                <span class="text-[10px] font-medium tracking-wide">Esquema</span>
+        <!-- Right Item: Registos (quando há FAB de registar) ou Análise -->
+        @can('create', \App\Models\DailyRecord::class)
+            <a href="/admin/daily-records" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
+                <x-heroicon-o-clipboard-document-list class="w-6 h-6 mb-1 transition-colors" />
+                <span class="text-[10px] font-medium tracking-wide">Registos</span>
             </a>
         @else
             <a href="/admin/analise-parametros" class="flex flex-col items-center justify-center w-full relative group transition-transform duration-200 active:scale-90 text-slate-400 hover:text-[#004c8c] dark:hover:text-sky-400 z-10 py-1">
                 <x-heroicon-o-chart-bar class="w-6 h-6 mb-1 transition-colors" />
                 <span class="text-[10px] font-medium tracking-wide">Análise</span>
             </a>
-        @endif
+        @endcan
     </div>
 </div>
 
