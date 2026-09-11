@@ -314,10 +314,57 @@ class RelatorioPdfObservacoesTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Cloro Conf. (ORP)', $html);
+        $this->assertStringContainsString('>Conforme</th>', $html);
         $this->assertStringContainsString('Banda ORP (OMS / DIN 19643)', $html);
         $this->assertStringContainsString('735', $html);
         $this->assertStringContainsString('580', $html);
         $this->assertStringContainsString('fora-gama', $html);
+        // 1 de 2 leituras conforme (50,0%)
+        $this->assertStringContainsString('Conformidade Sonda (pH e ORP): <strong>50,0%</strong>', $html);
+    }
+
+    /**
+     * Teste 8b: Tabela do controlador em modo 'todos' também inclui coluna Conforme e resumo global.
+     */
+    public function test_controlador_table_todos_mode_renders_conforme_column(): void
+    {
+        $leitura1 = (object) [
+            'dia' => '2026-09-08',
+            'hora' => '10:00',
+            'leituras' => 1,
+            'ph' => 7.25,
+            'orp' => 730,
+            'manual_cloro_livre' => 1.50,
+            'manual_cloro_conforme' => true,
+            'temp_agua' => 26.5,
+            'sem_leitura_valida' => false,
+            'motivo_exclusao' => null,
+        ];
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect(),
+                    'controlador' => collect([$leitura1]),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => RelatorioPdf::COLUNAS_DGS_OFICIAL,
+            'seccoesVisiveis' => array_merge(RelatorioPdf::SECCOES_DGS_OFICIAL, ['mostrar_controlador_tabela']),
+            'modo' => 'todos',
+            'controladorModo' => 'todos',
+            'observacoesGerais' => null,
+            'fotosObservacoes' => [],
+        ])->render();
+
+        $this->assertStringContainsString('>Conforme</th>', $html);
+        $this->assertStringContainsString('Conformidade Sonda (pH e ORP): <strong>100,0%</strong>', $html);
     }
 
     /**
