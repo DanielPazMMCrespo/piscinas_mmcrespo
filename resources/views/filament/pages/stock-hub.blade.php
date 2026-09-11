@@ -5,6 +5,12 @@
         $ultimosMovimentos = $this->ultimosMovimentos;
     @endphp
 
+    {{-- Ver a nota em list-daily-records.blade.php: os modais das ações são impressos
+         no fim da vista da tabela, que aqui vive dentro do separador "inventario".
+         Nos outros separadores esse contentor fica display:none e o "Reabastecer" dos
+         bidões não abria nada. --}}
+    <x-filament-actions::modals />
+
     <div class="space-y-6" x-data="{ tab: 'inventario' }">
         <!-- Top KPIs Strip (Apple / Tesla HIG) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

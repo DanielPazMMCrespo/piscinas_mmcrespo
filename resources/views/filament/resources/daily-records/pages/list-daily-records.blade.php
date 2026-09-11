@@ -6,6 +6,13 @@
         $isTecnicoOuAdmin = auth()->user()?->hasAnyRole([\App\Constants\UserRole::ADMIN, \App\Constants\UserRole::TECNICO]);
     @endphp
 
+    {{-- Numa página com tabela, o Filament não imprime os modais das ações no
+         componente da página: quem os imprime é o fim da vista da tabela. Com a
+         tabela dentro de um separador x-show, o modal herdava o display:none do
+         contentor e o botão "Ação Técnica" não abria nada. Imprimi-los aqui, antes
+         da tabela, marca as flags has*ModalRendered e anula a impressão duplicada. --}}
+    <x-filament-actions::modals />
+
     <div x-data="{
         activeTab: new URLSearchParams(window.location.search).get('view') || 'timeline'
     }" class="space-y-6">

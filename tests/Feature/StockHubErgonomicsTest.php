@@ -60,6 +60,30 @@ class StockHubErgonomicsTest extends TestCase
             ->assertSee('Últimos Movimentos');
     }
 
+    public function test_modais_das_acoes_sao_impressos_fora_do_separador_do_inventario(): void
+    {
+        $admin = $this->utilizador('admin');
+
+        $html = Livewire::actingAs($admin)
+            ->test(StockHub::class)
+            ->mountAction('criarProduto')
+            ->html();
+
+        $separadorInventario = strpos($html, 'x-show="tab === \'inventario\'"');
+        $modal = strpos($html, 'Adicionar Novo Produto Químico');
+
+        $this->assertNotFalse($separadorInventario, 'O separador do inventário deixou de existir na vista.');
+        $this->assertNotFalse($modal, 'O modal de novo produto não foi impresso.');
+
+        // A tabela (e, com ela, os modais das ações) vive dentro do separador do
+        // inventário; nos outros separadores fica display:none e nada abre.
+        $this->assertLessThan(
+            $separadorInventario,
+            $modal,
+            'Os modais das ações estão dentro do separador do inventário: fora dele não abrem.'
+        );
+    }
+
     public function test_reabastecer_bidao_action_refills_container_and_debits_stock(): void
     {
         $admin = $this->utilizador('admin');
