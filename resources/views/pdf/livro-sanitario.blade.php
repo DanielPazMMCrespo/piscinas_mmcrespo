@@ -909,16 +909,17 @@
                         <thead>
                             <tr>
                                 <th style="width: 8%;">Data</th>
-                                <th style="width: 7%;">Leituras/dia</th>
-                                <th style="width: 7%;">pH Médio</th>
-                                <th style="width: 7%;">pH Mínimo</th>
-                                <th style="width: 7%;">pH Máximo</th>
-                                <th style="width: 9%;">ORP Médio (mV)</th>
+                                <th style="width: 6%;">Leituras/dia</th>
+                                <th style="width: 6%;">pH Médio</th>
+                                <th style="width: 6%;">pH Mínimo</th>
+                                <th style="width: 6%;">pH Máximo</th>
+                                <th style="width: 8%;">ORP Médio (mV)</th>
                                 <th style="width: 10%;">Cl. Livre Manual</th>
-                                <th style="width: 9%;">Temp. Água Média (°C)</th>
+                                <th style="width: 8%;">Temp. Água Média (°C)</th>
                                 <th style="width: 8%;">pH Conforme</th>
-                                <th style="width: 10%;">Cloro Conf. (ORP)</th>
-                                <th style="width: 18%;">Excluído (motivo)</th>
+                                <th style="width: 9%;">Cloro Conf. (ORP)</th>
+                                <th style="width: 8%;">Conforme</th>
+                                <th style="width: 17%;">Excluído (motivo)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -933,6 +934,10 @@
                                     $orpMed = $leitura->orp_avg !== null ? (int) round((float) $leitura->orp_avg, 0) : null;
                                     $orpMedFora = $orpMed !== null && ($orpMed < $orpSanitarioMin || $orpMed > $orpSanitarioMax);
                                     $cloroOrpConforme = $orpMed !== null && !$orpMedFora;
+
+                                    $conformeSonda = ($phMed === null || $phConforme)
+                                        && ($orpMed === null || $cloroOrpConforme)
+                                        && ($phMed !== null || $orpMed !== null);
 
                                     $clManual = $leitura->manual_cloro_livre ?? null;
                                     $clManualConforme = $leitura->manual_cloro_conforme ?? null;
@@ -949,7 +954,7 @@
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     @if ($semLeitura)
-                                        <td colspan="9" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                        <td colspan="10" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
                                     @else
                                         <td>{{ $leitura->leituras }}</td>
                                         <td>
@@ -999,6 +1004,11 @@
                                                 @if ($cloroOrpConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
                                             @else — @endif
                                         </td>
+                                        <td>
+                                            @if ($phMed !== null || $orpMed !== null)
+                                                @if ($conformeSonda) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
                                     @endif
                                     <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
                                 </tr>
@@ -1009,15 +1019,16 @@
                     <table class="registos controlador">
                         <thead>
                             <tr>
-                                <th style="width: 9%;">Data</th>
-                                <th style="width: 7%;">Hora</th>
-                                <th style="width: 8%;">pH</th>
-                                <th style="width: 9%;">ORP (mV)</th>
-                                <th style="width: 13%;">Cl. Livre Manual</th>
-                                <th style="width: 10%;">Temp. Água (°C)</th>
+                                <th style="width: 8%;">Data</th>
+                                <th style="width: 6%;">Hora</th>
+                                <th style="width: 7%;">pH</th>
+                                <th style="width: 8%;">ORP (mV)</th>
+                                <th style="width: 11%;">Cl. Livre Manual</th>
+                                <th style="width: 8%;">Temp. Água (°C)</th>
                                 <th style="width: 8%;">pH Conforme</th>
-                                <th style="width: 11%;">Cloro Conf. (ORP)</th>
-                                <th style="width: 25%;">Excluído (motivo)</th>
+                                <th style="width: 10%;">Cloro Conf. (ORP)</th>
+                                <th style="width: 8%;">Conforme</th>
+                                <th style="width: 26%;">Excluído (motivo)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1032,6 +1043,10 @@
                                     $orp = $leitura->orp !== null ? (int) round((float) $leitura->orp, 0) : null;
                                     $orpFora = $orp !== null && ($orp < $orpSanitarioMin || $orp > $orpSanitarioMax);
                                     $cloroOrpConforme = $orp !== null && !$orpFora;
+
+                                    $conformeSonda = ($ph === null || $phConforme)
+                                        && ($orp === null || $cloroOrpConforme)
+                                        && ($ph !== null || $orp !== null);
 
                                     $clManual = $leitura->manual_cloro_livre ?? null;
                                     $clManualConforme = $leitura->manual_cloro_conforme ?? null;
@@ -1049,7 +1064,7 @@
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     <td>{{ $leitura->hora ?? '—' }}</td>
                                     @if ($semLeitura && $ph === null)
-                                        <td colspan="6" class="texto" style="font-style: italic;">Sem leitura válida</td>
+                                        <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida</td>
                                     @else
                                         <td>
                                             @if ($ph !== null)
@@ -1086,6 +1101,11 @@
                                                 @if ($cloroOrpConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
                                             @else — @endif
                                         </td>
+                                        <td>
+                                            @if ($ph !== null || $orp !== null)
+                                                @if ($conformeSonda) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
                                     @endif
                                     <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
                                 </tr>
@@ -1109,12 +1129,33 @@
                     $diasArtefacto = $isTodos
                         ? $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->unique('dia')->count()
                         : $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
+
+                    if ($isTodos) {
+                        $linhasAvaliadas = $controlador->filter(fn ($l) => ! ($l->sem_leitura_valida ?? false) && (($l->ph ?? null) !== null || ($l->orp ?? null) !== null));
+                        $naoConformesSonda = $linhasAvaliadas->filter(function ($l) use ($phMin, $phMax, $orpSanitarioMin, $orpSanitarioMax) {
+                            $phFora = ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax);
+                            $orpFora = ($l->orp ?? null) !== null && ((float) $l->orp < $orpSanitarioMin || (float) $l->orp > $orpSanitarioMax);
+                            return $phFora || $orpFora;
+                        })->count();
+                    } else {
+                        $linhasAvaliadas = $controlador->filter(fn ($l) => ! ($l->sem_leitura_valida ?? false) && (($l->ph_avg ?? null) !== null || ($l->orp_avg ?? null) !== null));
+                        $naoConformesSonda = $linhasAvaliadas->filter(function ($l) use ($phMin, $phMax, $orpSanitarioMin, $orpSanitarioMax) {
+                            $phFora = ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax);
+                            $orpFora = ($l->orp_avg ?? null) !== null && ((float) $l->orp_avg < $orpSanitarioMin || (float) $l->orp_avg > $orpSanitarioMax);
+                            return $phFora || $orpFora;
+                        })->count();
+                    }
+                    $totalAvaliadasSonda = $linhasAvaliadas->count();
+                    $conformidadeSondaPerc = $totalAvaliadasSonda > 0
+                        ? round((($totalAvaliadasSonda - $naoConformesSonda) / $totalAvaliadasSonda) * 100, 1)
+                        : null;
                 @endphp
                 <p class="resumo">
                     <strong>Controlador — {{ $piscina->name }}:</strong>
                     {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
                     | {{ $isTodos ? 'Leituras com' : 'Dias com' }} pH {{ $isTodos ? '' : 'médio ' }}fora de gama: <strong>{{ $diasFora }}</strong>
                     | {{ $isTodos ? 'Leituras com' : 'Dias com' }} ORP {{ $isTodos ? '' : 'médio ' }}fora de gama (Desinfeção): <strong>{{ $diasOrpFora }}</strong>
+                    | Conformidade Sonda (pH e ORP): <strong>{{ $conformidadeSondaPerc !== null ? number_format($conformidadeSondaPerc, 1, ',', '') . '%' : '—' }}</strong>
                     @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
                     | Intervalo pH: {{ $phMin }} – {{ $phMax }}
                     | Banda ORP (OMS / DIN 19643): {{ $orpSanitarioMin }} – {{ $orpSanitarioMax }} mV
@@ -1123,7 +1164,7 @@
                     Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.
                 </p>
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
-                    Nota (Conformidade Cloro / ORP): a coluna «Cloro Conf. (ORP)» atesta a desinfeção permanente comprovada pelo Potencial Redox (&ge; 650 mV conforme diretrizes da OMS e norma DIN 19643 asseguram destruição de patogénicos em &lt; 1s). A coluna «Cl. Livre Manual» indica o valor e conformidade da colheita manual; eventuais quebras matinais pontuais decorrem de esgotamento noturno dos doseadores repostos no início da manhã, mantendo-se a água em desinfeção contínua ao longo de todo o período.
+                    Nota (Conformidade Sonda / pH e ORP): a coluna «Conforme» sintetiza a conformidade global da sonda simultaneamente por pH e ORP (Potencial Redox &ge; 650 mV conforme diretrizes da OMS e norma DIN 19643 asseguram destruição de patogénicos em &lt; 1s). A coluna «Cl. Livre Manual» indica o valor e conformidade da colheita manual; eventuais quebras matinais pontuais decorrem de esgotamento noturno dos doseadores repostos no início da manhã, mantendo-se a água em desinfeção contínua ao longo de todo o período.
                 </p>
                 @endif
             @endif
