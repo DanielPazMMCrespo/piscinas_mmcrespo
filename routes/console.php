@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Inspiring;

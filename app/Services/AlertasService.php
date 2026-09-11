@@ -194,11 +194,18 @@ class AlertasService
 
         // Uma piscina encerrada com a água em tratamento continua a ter química
         // para cumprir — só deixa de ter registos obrigatórios. Mantém-se o
-        // alerta de violação legal, sem entrar nos denominadores.
+        // alerta de violação legal, sem entrar nos denominadores. Os últimos
+        // registos vêm numa só query (como no caminho das abertas acima), não
+        // um por piscina dentro do loop.
+        $ultimosRegistosEncerradas = $encerradas->isNotEmpty()
+            ? DailyRecord::latestPerPool()
+                ->whereIn('pool_id', $encerradas->pluck('id'))
+                ->get()
+                ->keyBy('pool_id')
+            : collect();
+
         foreach ($encerradas as $piscina) {
-            $registo = DailyRecord::latestPerPool()
-                ->where('pool_id', $piscina->id)
-                ->first();
+            $registo = $ultimosRegistosEncerradas->get($piscina->id);
 
             if ($piscina->encerramentoEm()?->agua_em_tratamento && $registo?->registado_em->isToday()) {
                 $registo->setRelation('piscina', $piscina);

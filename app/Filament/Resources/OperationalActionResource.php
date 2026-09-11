@@ -491,7 +491,7 @@ class OperationalActionResource extends Resource
                 ->imageResizeMode('cover')
                 ->imageResizeTargetWidth('1024')
                 ->maxSize(20480)
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                 ->columnSpanFull(),
         ])->columns(2);
     }

@@ -290,7 +290,7 @@ class IncidentResource extends Resource
                     ->multiple()
                     ->maxFiles(5)
                     ->maxSize(20480)
-                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
                     ->extraInputAttributes(['capture' => 'environment'])
                     ->columnSpanFull(),
                 Forms\Components\Section::make('Resolução')

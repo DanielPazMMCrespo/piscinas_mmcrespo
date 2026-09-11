@@ -77,7 +77,7 @@
 
             <template x-if="estado === 'granted'">
                 <div class="space-y-2">
-                    <div class="rounded-lg bg-success-50 dark:bg-success-950 border border-success-200 dark:border-success-800 p-4 text-sm text-success-700 dark:text-success-400">
+                    <div class="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 text-sm text-success-700 dark:text-success-400">
                         Notificações ativas neste dispositivo.
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -95,7 +95,7 @@
             </template>
 
             <template x-if="estado === 'ios-instalar'">
-                <div class="rounded-lg bg-warning-50 dark:bg-warning-950 border border-warning-200 dark:border-warning-800 p-4 text-sm text-warning-700 dark:text-warning-400 space-y-2">
+                <div class="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 text-sm text-warning-700 dark:text-warning-400 space-y-2">
                     <p class="font-medium">No iPhone/iPad é preciso instalar a app primeiro:</p>
                     <ol class="list-decimal list-inside space-y-1">
                         <li>Abra este site no Safari.</li>
@@ -108,7 +108,7 @@
 
             <template x-if="estado === 'denied'">
                 <div class="space-y-2">
-                    <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400">
+                    <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 text-sm text-danger-700 dark:text-danger-400">
                         As notificações foram bloqueadas. Ative-as nas definições do navegador/telemóvel para este site e recarregue a página.
                     </div>
                     <template x-if="!limpou">
@@ -120,7 +120,7 @@
                         </p>
                     </template>
                     <template x-if="limpou">
-                        <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-3 text-xs text-info-700 dark:text-info-400">
+                        <div class="rounded-lg bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 p-3 text-xs text-info-700 dark:text-info-400">
                             Subscrição antiga removida do servidor. Ainda precisa de ativar as notificações nas definições do navegador/telemóvel para este site antes de recarregar a página.
                         </div>
                     </template>
@@ -134,13 +134,13 @@
             </template>
 
             <template x-if="estado === 'sem-vapid'">
-                <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400">
+                <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 text-sm text-danger-700 dark:text-danger-400">
                     As chaves de notificação (VAPID) não estão configuradas no servidor. Contacte o administrador.
                 </div>
             </template>
 
             <template x-if="estado === 'erro-subscricao'">
-                <div class="rounded-lg bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-800 p-4 text-sm text-danger-700 dark:text-danger-400 space-y-2">
+                <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 text-sm text-danger-700 dark:text-danger-400 space-y-2">
                     <p class="font-semibold text-base">Falha ao registar o dispositivo no serviço de push:</p>
                     <p class="text-xs font-mono bg-white/10 p-2 rounded" x-text="erroMsg"></p>
                     <p class="text-xs mt-2">
@@ -174,7 +174,7 @@
             </template>
 
             @if(auth()->user()->push_notifications_requested_at !== null)
-                <div class="rounded-lg bg-info-50 dark:bg-info-950 border border-info-200 dark:border-info-800 p-4 text-sm text-info-700 dark:text-info-400 space-y-2">
+                <div class="rounded-lg bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 p-4 text-sm text-info-700 dark:text-info-400 space-y-2">
                     <p class="font-medium">Pedido pendente</p>
                     <p>O seu pedido de ativação foi registado em {{ auth()->user()->push_notifications_requested_at->format('d/m/Y H:i') }}. O administrador será notificado.</p>
                 </div>
@@ -375,13 +375,13 @@
                                     </td>
                                     <td class="py-3">
                                         @if($usuario->push_status === 'ativo')
-                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-success-50 dark:bg-success-950 px-2 py-1 text-xs font-medium text-success-700 dark:text-success-300 ring-1 ring-inset ring-success-600/10 dark:ring-success-500/20">
-                                                <span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>
+                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 px-2 py-1 text-xs font-medium text-success-700 dark:text-success-300 ring-1 ring-inset ring-green-600/10 dark:ring-green-500/20">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                                                 {{ $usuario->push_subscriptions_count }} {{ $usuario->push_subscriptions_count === 1 ? 'dispositivo' : 'dispositivos' }}
                                             </span>
                                         @elseif($usuario->push_status === 'solicitado')
-                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-warning-50 dark:bg-warning-950 px-2 py-1 text-xs font-medium text-warning-700 dark:text-warning-300 ring-1 ring-inset ring-warning-600/10 dark:ring-warning-500/20">
-                                                <span class="h-1.5 w-1.5 rounded-full bg-warning-500"></span>
+                                            <span class="inline-flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950 px-2 py-1 text-xs font-medium text-warning-700 dark:text-warning-300 ring-1 ring-inset ring-amber-600/10 dark:ring-amber-500/20">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
                                                 Solicitado
                                             </span>
                                         @else

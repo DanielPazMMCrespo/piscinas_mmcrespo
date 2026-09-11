@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\AuditLabels;
+use App\Constants\UserRole;
 use App\Filament\Resources\CustomActivitylogResource\Pages\ListActivitylog;
 use App\Filament\Resources\CustomActivitylogResource\Pages\ViewActivitylog;
 use App\Models\User;
@@ -22,7 +23,7 @@ class CustomActivitylogResource extends ActivitylogResource
 {
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function getPages(): array

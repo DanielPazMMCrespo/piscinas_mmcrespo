@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\AnaliseParametros;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Notification;
@@ -49,7 +50,7 @@ class TendenciaAlertaNotification extends Notification
                 Action::make('ver')
                     ->label('Ver Análise')
                     ->button()
-                    ->url('/admin/analise-parametros'),
+                    ->url(AnaliseParametros::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -66,7 +67,7 @@ class TendenciaAlertaNotification extends Notification
             ->badge('/images/icon-192.png')
             ->tag('tendencia-'.md5($this->nomePiscina.$this->parametro))
             ->vibrate([200, 100, 200])
-            ->data(['url' => '/admin/analise-parametros']);
+            ->data(['url' => AnaliseParametros::getUrl()]);
     }
 
     private function label(): string

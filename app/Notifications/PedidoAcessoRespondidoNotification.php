@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Constants\PoolAccessRequestStatus;
+use App\Filament\Pages\Dashboard;
 use App\Models\PoolAccessRequest;
 use Filament\Notifications\Actions\Action;
 use Illuminate\Notifications\Notification;
@@ -28,7 +29,7 @@ class PedidoAcessoRespondidoNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        $url = $this->pedido->status === PoolAccessRequestStatus::APROVADO ? '/admin' : '/piscinas-encerradas';
+        $url = $this->pedido->status === PoolAccessRequestStatus::APROVADO ? Dashboard::getUrl(isAbsolute: false) : '/piscinas-encerradas';
 
         return \Filament\Notifications\Notification::make()
             ->title($this->titulo())
@@ -50,7 +51,7 @@ class PedidoAcessoRespondidoNotification extends Notification
             ->title($this->titulo())
             ->body($this->corpo())
             ->icon('/images/icon-192.png')
-            ->action('Ver', $this->pedido->status === PoolAccessRequestStatus::APROVADO ? '/admin' : '/piscinas-encerradas');
+            ->action('Ver', $this->pedido->status === PoolAccessRequestStatus::APROVADO ? Dashboard::getUrl() : '/piscinas-encerradas');
     }
 
     private function titulo(): string

@@ -21,6 +21,7 @@ class AcaoTecnicaListDailyRecordsTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Pool $pool;
 
     protected function setUp(): void

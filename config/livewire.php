@@ -71,7 +71,7 @@ return [
         // video de evidencia das paragens ate mp4/mov entrarem nesta lista.
         // O tecto e o do maior campo (video, 60 MB); cada campo continua a
         // impor o seu proprio maxSize (as fotos ficam nos 20 MB).
-        'rules' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,pdf,mp4,mov', 'max:61440'],
+        'rules' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,heif,pdf,mp4,mov', 'max:61440'],
         'directory' => null,
         'middleware' => ['auth', 'throttle:10,1'],
         'preview_mimes' => [

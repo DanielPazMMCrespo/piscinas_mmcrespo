@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\Dashboard;
 use App\Models\HannaDevice;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
@@ -54,7 +55,7 @@ class HannaOvertimeAlert extends Notification
                 Action::make('ver')
                     ->label('Ver Painel')
                     ->button()
-                    ->url('/admin'),
+                    ->url(Dashboard::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -68,7 +69,7 @@ class HannaOvertimeAlert extends Notification
         return (new WebPushMessage)
             ->title("Sensor Hanna — {$poolName}: pH em overtime")
             ->body("pH {$fmt($this->ph)} fora do setpoint {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])} há mais de {$horas}h.")
-            ->data(['url' => '/admin'])
+            ->data(['url' => Dashboard::getUrl()])
             ->tag("hanna-overtime-{$this->device->id}");
     }
 
@@ -84,7 +85,7 @@ class HannaOvertimeAlert extends Notification
             ->line("O controlador automático da piscina {$poolName} está a reportar pH em overtime há mais de {$horas}h.")
             ->line("Valor Atual: {$fmt($this->ph)}")
             ->line("Setpoint Configurado: {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])}")
-            ->action('Ver Painel de Controlo', url('/admin'))
+            ->action('Ver Painel de Controlo', Dashboard::getUrl())
             ->line('Isto indica que a dosagem automática não está a conseguir corrigir o desvio. Por favor, verifique as bombas doseadoras e os níveis de produto químico.')
             ->salutation('Cumprimentos, Equipa MMCrespo');
     }

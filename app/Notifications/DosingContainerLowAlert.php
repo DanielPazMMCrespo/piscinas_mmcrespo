@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\StockHub;
+use App\Filament\Resources\DosingContainerResource;
 use App\Models\DosingContainer;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
@@ -47,7 +49,7 @@ class DosingContainerLowAlert extends Notification
                 Action::make('ver')
                     ->label('Ver no Stock Hub')
                     ->button()
-                    ->url('/admin/stock'),
+                    ->url(StockHub::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -61,7 +63,7 @@ class DosingContainerLowAlert extends Notification
         return (new WebPushMessage)
             ->title("Bidão de {$this->container->tipoLabel()} — {$piscina}: repor")
             ->body("Nível a {$pctTxt}. Reabastecer o bidão de {$this->container->tipoLabel()}.")
-            ->data(['url' => '/admin/dosing-containers'])
+            ->data(['url' => DosingContainerResource::getUrl()])
             ->tag("dosing-low-{$this->container->id}");
     }
 
@@ -75,7 +77,7 @@ class DosingContainerLowAlert extends Notification
             ->subject("Alerta: Nível Baixo no Bidão de {$this->container->tipoLabel()} — {$piscina}")
             ->greeting("Olá, {$notifiable->name}.")
             ->line("O bidão de doseamento de {$this->container->tipoLabel()} da {$piscina} atingiu o nível crítico de {$pctTxt}.")
-            ->action('Ver Bidões de Doseamento', url('/admin/dosing-containers'))
+            ->action('Ver Bidões de Doseamento', DosingContainerResource::getUrl())
             ->line('Por favor, efetue o reabastecimento o quanto antes para garantir o tratamento correto da água.')
             ->salutation('Cumprimentos, Equipa MMCrespo');
     }

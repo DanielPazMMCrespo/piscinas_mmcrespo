@@ -7,7 +7,7 @@
                 </span>
 
                 @if ($encerramento->esta_vigente)
-                    <span class="rounded-full bg-warning-50 dark:bg-warning-950 px-2 py-0.5 text-xs font-medium text-warning-700 dark:text-warning-400">
+                    <span class="rounded-full bg-amber-50 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-warning-700 dark:text-warning-400">
                         Em vigor
                     </span>
                 @endif

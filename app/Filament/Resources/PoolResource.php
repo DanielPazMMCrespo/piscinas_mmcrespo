@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\PoolResource\Pages;
 use App\Models\Pool;
 use Filament\Forms;
@@ -33,7 +34,7 @@ class PoolResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     /** @return array<string> */

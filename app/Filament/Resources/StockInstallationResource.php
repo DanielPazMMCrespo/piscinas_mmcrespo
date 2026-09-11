@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\PaginaGestor;
+use App\Constants\UserRole;
 use App\Filament\Resources\StockInstallationResource\Pages;
 use App\Models\StockInstallation;
 use App\Models\StockInstallationLog;
@@ -68,12 +69,12 @@ class StockInstallationResource extends Resource
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     /** @return array<string> */

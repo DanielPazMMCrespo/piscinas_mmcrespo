@@ -549,6 +549,8 @@ class DailyRecordFormBuilder
      */
     public static function limparMemos(): void
     {
+        self::$modoRapido = false;
+        self::$poolFixo = null;
         self::$sondaMemo = [];
         self::$sondaMomentoMemo = [];
         self::$ultimoRegistoMemo = [];
@@ -719,7 +721,7 @@ class DailyRecordFormBuilder
             ->imageResizeMode('cover')
             ->imageResizeTargetWidth('1024')
             ->maxSize(20480)
-            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
             ->extraAttributes(['capture' => 'environment'])
             ->required($required)
             ->columnSpanFull();

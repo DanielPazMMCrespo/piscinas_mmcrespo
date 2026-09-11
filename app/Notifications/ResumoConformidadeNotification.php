@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\InspecaoDgs;
 use Filament\Notifications\Actions\Action;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -63,7 +65,7 @@ class ResumoConformidadeNotification extends Notification
                 Action::make('inspecao')
                     ->label('Ver Conformidade')
                     ->button()
-                    ->url('/admin/inspecao-dgs'),
+                    ->url(InspecaoDgs::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -77,7 +79,7 @@ class ResumoConformidadeNotification extends Notification
             ->badge('/images/icon-192.png')
             ->tag('digest-'.now()->toDateString().'-'.$this->horario)
             ->vibrate([200, 100, 200])
-            ->data(['url' => '/admin']);
+            ->data(['url' => Dashboard::getUrl()]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -86,6 +88,6 @@ class ResumoConformidadeNotification extends Notification
             ->subject($this->titulo())
             ->greeting('Atenção,')
             ->line($this->corpo())
-            ->action('Ver Dashboard', url('/admin'));
+            ->action('Ver Dashboard', Dashboard::getUrl());
     }
 }

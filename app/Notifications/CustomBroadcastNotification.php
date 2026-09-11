@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\Dashboard;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -48,7 +49,7 @@ class CustomBroadcastNotification extends Notification
                 Action::make('view')
                     ->label('Abrir Aplicação')
                     ->button()
-                    ->url('/admin'),
+                    ->url(Dashboard::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -62,7 +63,7 @@ class CustomBroadcastNotification extends Notification
             ->badge('/images/icon-192.png')
             ->tag($this->tag)
             ->vibrate([200, 100, 200])
-            ->data(['url' => '/admin']);
+            ->data(['url' => Dashboard::getUrl()]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -71,6 +72,6 @@ class CustomBroadcastNotification extends Notification
             ->subject($this->titulo)
             ->greeting($this->titulo)
             ->line($this->corpo)
-            ->action('Ver Dashboard', url('/admin'));
+            ->action('Ver Dashboard', Dashboard::getUrl());
     }
 }

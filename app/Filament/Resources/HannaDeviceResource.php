@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\HannaDeviceResource\Pages;
 use App\Models\HannaDevice;
 use App\Models\OperationalAction;
@@ -45,7 +46,7 @@ class HannaDeviceResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('admin');
+        return auth()->check() && auth()->user()->hasRole(UserRole::ADMIN);
     }
 
     /** @return array<string> */

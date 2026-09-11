@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Constants\UserRole;
 use App\Filament\GlobalSearch\PaginasGlobalSearchProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
@@ -165,7 +166,7 @@ class AdminPanelProvider extends PanelProvider
                 ActivitylogPlugin::make()
                     ->navigationGroup('Logs')
                     ->navigationSort(99)
-                    ->authorize(fn () => auth()->user()?->hasRole('admin')),
+                    ->authorize(fn () => auth()->user()?->hasRole(UserRole::ADMIN)),
             ]);
     }
 }

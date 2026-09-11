@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Constants\UserRole;
 use App\Filament\Resources\InstallationResource\Pages;
 use App\Models\Installation;
 use Filament\Forms;
@@ -32,7 +33,7 @@ class InstallationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     /** @return array<string> */

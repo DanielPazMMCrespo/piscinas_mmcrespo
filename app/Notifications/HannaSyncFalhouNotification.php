@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Resources\HannaDeviceResource;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -49,7 +50,7 @@ class HannaSyncFalhouNotification extends Notification
                 Action::make('ver')
                     ->label('Ver Sensores')
                     ->button()
-                    ->url('/admin/hanna-devices'),
+                    ->url(HannaDeviceResource::getUrl('index', [], isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -59,7 +60,7 @@ class HannaSyncFalhouNotification extends Notification
         return (new WebPushMessage)
             ->title('Sondas Hanna sem sincronização')
             ->body('Login na Hanna Cloud recusado. As leituras estão paradas.')
-            ->data(['url' => '/admin/hanna-devices'])
+            ->data(['url' => HannaDeviceResource::getUrl()])
             ->tag('hanna-sync-falhou');
     }
 
@@ -71,7 +72,7 @@ class HannaSyncFalhouNotification extends Notification
             ->line('A sincronização automática das sondas Hanna não consegue autenticar na Hanna Cloud.')
             ->line('Enquanto isto durar, nenhuma leitura nova entra no sistema e as sondas aparecem como "em falha" no painel.')
             ->line("Erro devolvido pela Hanna Cloud: {$this->erro}")
-            ->action('Ver Sensores Hanna', url('/admin/hanna-devices'))
+            ->action('Ver Sensores Hanna', HannaDeviceResource::getUrl())
             ->line('Verifique as credenciais da conta Hanna Cloud (HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD).')
             ->salutation('Cumprimentos, Equipa MMCrespo');
     }

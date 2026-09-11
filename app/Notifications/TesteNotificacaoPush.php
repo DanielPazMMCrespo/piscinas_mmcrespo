@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\Dashboard;
 use Filament\Notifications\Actions\Action;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -34,7 +35,7 @@ class TesteNotificacaoPush extends Notification
                 Action::make('ok')
                     ->label('Confirmar')
                     ->button()
-                    ->url('/admin'),
+                    ->url(Dashboard::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -48,6 +49,6 @@ class TesteNotificacaoPush extends Notification
             ->badge('/images/icon-192.png')
             ->tag('teste-push-'.time())
             ->vibrate([200, 100, 200])
-            ->data(['url' => '/admin']);
+            ->data(['url' => Dashboard::getUrl()]);
     }
 }

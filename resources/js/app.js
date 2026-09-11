@@ -54,18 +54,27 @@ document.addEventListener('livewire:init', () => {
                           document.querySelector('[role="alert"]');
 
         if (notificacao && notificacao.parentElement) {
-            // Cria elemento de notificação (fallback simples)
+            // Cria elemento de notificação (fallback simples). Texto via
+            // textContent de propósito: poolNome/fase vêm do servidor e o
+            // innerHTML com interpolação seria XSS armazenado técnico→técnico.
             const div = document.createElement('div');
             div.className = 'fi-notification fi-danger p-4 rounded text-sm bg-red-50 border border-red-200 text-red-700 mb-3';
-            div.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">⏱️</span>
-                    <div>
-                        <strong>${poolNome} - ${fase}</strong><br>
-                        Timer expirou há <strong>${tempoExcedido}</strong>
-                    </div>
-                </div>
-            `;
+            const linha = document.createElement('div');
+            linha.className = 'flex items-center gap-2';
+            const icone = document.createElement('span');
+            icone.className = 'text-lg';
+            icone.textContent = '⏱️';
+            const corpo = document.createElement('div');
+            const titulo = document.createElement('strong');
+            titulo.textContent = `${poolNome} - ${fase}`;
+            const detalhe = document.createElement('div');
+            detalhe.append(document.createTextNode('Timer expirou há '));
+            const tempo = document.createElement('strong');
+            tempo.textContent = tempoExcedido;
+            detalhe.append(tempo);
+            corpo.append(titulo, document.createElement('br'), detalhe);
+            linha.append(icone, corpo);
+            div.append(linha);
             notificacao.parentElement.insertBefore(div, notificacao);
 
             // Remove após 8 segundos

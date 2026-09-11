@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Constants\PaginaGestor;
+use App\Constants\UserRole;
 use App\Filament\Resources\StockWarehouseResource\Pages;
 use App\Models\Installation;
 use App\Models\StockWarehouse;
@@ -67,12 +68,12 @@ class StockWarehouseResource extends Resource
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->hasRole('admin') ?? false;
+        return auth()->user()?->hasRole(UserRole::ADMIN) ?? false;
     }
 
     /** @return array<string> */
@@ -181,7 +182,7 @@ class StockWarehouseResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->visible(fn () => auth()->user()->hasRole('admin')),
+                    ->visible(fn () => auth()->user()->hasRole(UserRole::ADMIN)),
                 Tables\Actions\Action::make('entrada_stock')
                     ->label('Entrada')
                     ->icon('heroicon-o-plus-circle')

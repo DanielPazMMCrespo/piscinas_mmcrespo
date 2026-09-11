@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\AnaliseParametros;
+use App\Filament\Pages\Dashboard;
 use App\Models\HannaDevice;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
@@ -47,7 +49,7 @@ class HannaThresholdAlert extends Notification
                 Action::make('ver')
                     ->label('Ver Parâmetros')
                     ->button()
-                    ->url('/admin/analise-parametros'),
+                    ->url(AnaliseParametros::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -60,7 +62,7 @@ class HannaThresholdAlert extends Notification
         return (new WebPushMessage)
             ->title("Sensor Hanna — {$poolName}: fora dos limites")
             ->body($lista)
-            ->data(['url' => '/admin'])
+            ->data(['url' => Dashboard::getUrl()])
             ->tag("hanna-threshold-{$this->device->id}");
     }
 
@@ -74,7 +76,7 @@ class HannaThresholdAlert extends Notification
             ->greeting("Olá, {$notifiable->name}.")
             ->line("O controlador automático da piscina {$poolName} reportou violações nos parâmetros de qualidade da água:")
             ->line($lista)
-            ->action('Ver Painel de Controlo', url('/admin'))
+            ->action('Ver Painel de Controlo', Dashboard::getUrl())
             ->line('Por favor, efetue uma verificação local para repor os parâmetros dentro dos limites regulamentares.')
             ->salutation('Cumprimentos, Equipa MMCrespo');
     }

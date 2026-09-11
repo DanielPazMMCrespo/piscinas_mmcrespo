@@ -60,6 +60,12 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "lint": [
+            "@php vendor/bin/pint --test"
+        ],
+        "stan": [
+            "@php vendor/bin/phpstan analyse --no-progress"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",

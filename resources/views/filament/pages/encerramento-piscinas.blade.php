@@ -4,13 +4,13 @@
 
 <x-filament-panels::page>
     <div class="flex flex-wrap items-center gap-3 -mt-2 text-sm">
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 dark:bg-success-950 px-3 py-1 font-medium text-success-700 dark:text-success-400">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-50 dark:bg-green-950 px-3 py-1 font-medium text-success-700 dark:text-success-400">
             <x-filament::icon icon="heroicon-m-check-circle" class="h-4 w-4" />
             {{ $resumo['abertas'] }} {{ $resumo['abertas'] === 1 ? 'piscina aberta' : 'piscinas abertas' }}
         </span>
 
         @if ($resumo['encerradas'] > 0)
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-warning-50 dark:bg-warning-950 px-3 py-1 font-medium text-warning-700 dark:text-warning-400">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950 px-3 py-1 font-medium text-warning-700 dark:text-warning-400">
                 <x-filament::icon icon="heroicon-m-lock-closed" class="h-4 w-4" />
                 {{ $resumo['encerradas'] }} {{ $resumo['encerradas'] === 1 ? 'encerrada' : 'encerradas' }}
             </span>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Resources\DailyRecordResource;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -53,7 +54,7 @@ class TimerFinishedNotification extends Notification
                 Action::make('abrir')
                     ->label('Abrir Registo')
                     ->button()
-                    ->url('/admin/daily-records/create'),
+                    ->url(DailyRecordResource::getUrl('create', [], isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -74,7 +75,7 @@ class TimerFinishedNotification extends Notification
             ->tag("timer-{$this->fase}")
             ->requireInteraction()
             ->vibrate([300, 150, 300])
-            ->data(['url' => '/admin/daily-records/create']);
+            ->data(['url' => DailyRecordResource::getUrl('create')]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -88,6 +89,6 @@ class TimerFinishedNotification extends Notification
             ->subject($titulo)
             ->greeting($titulo)
             ->line('O tempo definido terminou. Pode passar à fase seguinte.')
-            ->action('Abrir Registo', url('/admin/daily-records/create'));
+            ->action('Abrir Registo', DailyRecordResource::getUrl('create'));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Filament\Pages\Definicoes;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Notification;
@@ -28,7 +29,7 @@ class PedidoAtivacaoPushNotification extends Notification
                 Action::make('definicoes')
                     ->label('Ver Definições')
                     ->button()
-                    ->url('/admin/definicoes'),
+                    ->url(Definicoes::getUrl(isAbsolute: false)),
             ])
             ->getDatabaseMessage();
     }
@@ -38,7 +39,7 @@ class PedidoAtivacaoPushNotification extends Notification
         return (new WebPushMessage)
             ->title('Ativar notificações')
             ->body('O administrador solicitou a ativação das notificações push.')
-            ->action('Ativar', '/admin/definicoes')
+            ->action('Ativar', Definicoes::getUrl())
             ->icon('/images/icon-192.png');
     }
 }
