@@ -89,10 +89,10 @@ class RelatorioPdfInvalidDateTest extends TestCase
             ->assertHasNoFormErrors();
     }
 
-    public function test_pdf_rejeita_mais_de_7_dias_em_modo_todos_registos_controlador(): void
+    public function test_pdf_permite_mais_de_7_dias_e_limita_a_31_dias_em_modo_todos_registos_controlador(): void
     {
-        $startDate = now()->subDays(10)->toDateString();
-        $expectedEndDate = now()->subDays(10)->addDays(6)->toDateString();
+        $startDate = now()->subDays(40)->toDateString();
+        $expectedEndDate = now()->subDays(40)->addDays(RelatorioPdf::MAX_DIAS_CONTROLADOR_TODOS - 1)->toDateString();
 
         $component = Livewire::actingAs($this->user)
             ->test(RelatorioPdf::class)
@@ -100,12 +100,11 @@ class RelatorioPdfInvalidDateTest extends TestCase
                 'installation_id' => $this->installation->id,
                 'pool_id' => (string) $this->pool->id,
                 'data_inicio' => $startDate,
-                'data_fim' => now()->subDays(1)->toDateString(), // 10 dias
+                'data_fim' => now()->subDays(1)->toDateString(), // 40 dias
                 'controlador_modo' => 'todos',
             ]);
 
-        // O período é ajustado para 7 dias e o relatório é gerado no mesmo clique
-        // (antes o 1º clique só reescrevia a data e não gerava nada).
+        // O período é ajustado para 31 dias (1 mês completo) e o relatório é gerado no mesmo clique
         $this->assertNotNull($component->instance()->exportar());
         $this->assertEquals($expectedEndDate, $component->get('data.data_fim'));
     }

@@ -88,6 +88,8 @@ class RelatorioPdf extends Page implements HasForms
 
     public const MODELO_PERSONALIZADO = 'personalizado';
 
+    public const MAX_DIAS_CONTROLADOR_TODOS = 31;
+
     public const COLUNAS_DGS_OFICIAL = [
         'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
         'cloro_combinado', 'temperatura', 'transparencia',
@@ -105,7 +107,7 @@ class RelatorioPdf extends Page implements HasForms
 
     public const TODAS_COLUNAS = [
         'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
-        'cloro_combinado', 'temperatura', 'transparencia',
+        'cloro_combinado', 'temperatura', 'transparencia', 'orp',
         'contador_valor', 'bomba_tanque', 'renovacao_agua',
         'caleira_feita', 'pressao_filtro', 'lavagens_filtro',
         'banhistas', 'acao_corretiva', 'observacoes', 'conforme',
@@ -347,7 +349,7 @@ class RelatorioPdf extends Page implements HasForms
                             ->live(onBlur: true)
                             ->maxDate(now()->subDay())
                             ->helperText(fn (Get $get): ?string => $get('controlador_modo') === 'todos'
-                                ? 'No modo "Todos os registos" o período máximo é de 7 dias.'
+                                ? 'No modo "Todos os registos" o período máximo é de '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias (1 mês completo).'
                                 : null)
                             ->afterOrEqual('data_inicio')
                             ->displayFormat('d/m/Y')
@@ -490,6 +492,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'cloro_combinado' => 'Cloro Combinado',
                                 'temperatura' => 'Temperatura',
                                 'transparencia' => 'Transparência',
+                                'orp' => 'Redox / ORP da Sonda (mV)',
                                 'contador_valor' => 'Contador',
                                 'bomba_tanque' => 'Bomba / Tanque',
                                 'renovacao_agua' => 'Renovação Água',
@@ -709,16 +712,16 @@ class RelatorioPdf extends Page implements HasForms
         $dias = $inicio->diffInDays($fim->copy()->startOfDay()) + 1;
         $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
 
-        // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
-        if ($modoControlador === 'todos' && $dias > 7) {
-            $novoFim = $inicio->copy()->addDays(6);
+        // Prevenção de sobrecarga: limite de 31 dias quando o modo do controlador é "todos os registos"
+        if ($modoControlador === 'todos' && $dias > self::MAX_DIAS_CONTROLADOR_TODOS) {
+            $novoFim = $inicio->copy()->addDays(self::MAX_DIAS_CONTROLADOR_TODOS - 1);
             $this->data['data_fim'] = $novoFim->toDateString();
             $fim = $novoFim->copy()->endOfDay();
-            $dias = 7;
+            $dias = self::MAX_DIAS_CONTROLADOR_TODOS;
 
             Notification::make()
-                ->title('Período ajustado para 7 dias')
-                ->body('O modo "Todos os registos" está limitado a 7 dias. O relatório cobre '
+                ->title('Período ajustado para '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias')
+                ->body('O modo "Todos os registos" está limitado a '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias (1 mês completo). O relatório cobre '
                     .$inicio->format('d/m/Y').' a '.$novoFim->format('d/m/Y').'.')
                 ->warning()
                 ->send();
@@ -988,6 +991,7 @@ class RelatorioPdf extends Page implements HasForms
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
                         $pressaoAvg = $grupo->whereNotNull('pressao_filtro')->avg('pressao_filtro');
+                        $orpAvg = $grupo->whereNotNull('orp')->avg('orp');
 
                         $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
                         $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
@@ -1029,6 +1033,7 @@ class RelatorioPdf extends Page implements HasForms
                         $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float) $cloroTotalAvg, 2) : null;
                         $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
                         $mockRecord->transparencia = $transparenciaAvg !== null ? round((float) $transparenciaAvg, 2) : null;
+                        $mockRecord->orp = $orpAvg !== null ? (int) round((float) $orpAvg) : null;
                         $mockRecord->contador_valor = $contadorAvg !== null ? round((float) $contadorAvg, 2) : null;
                         $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float) $pressaoAvg, 2) : null;
                         $mockRecord->bomba_ferrada = $bombaFerrada;
