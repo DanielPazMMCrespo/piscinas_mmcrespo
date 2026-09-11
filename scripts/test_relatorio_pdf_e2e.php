@@ -18,6 +18,8 @@ echo "====================================================================\n\n";
 putenv('APP_ENV=testing');
 putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=:memory:');
+putenv('CACHE_STORE=array');
+putenv('CACHE_DRIVER=array');
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require_once __DIR__.'/../bootstrap/app.php';
@@ -203,7 +205,24 @@ try {
     $pdfOutput = $dompdf->output();
     $pdfBytes = strlen($pdfOutput);
 
-    recordCheck('Renderização Dompdf concluída', true, sprintf('%.2f segundos | Pico de memória: %.2f MB', $tempoRender, $deltaMemMB));
+    $viewHtml = view('pdf.livro-sanitario', [
+        'instalacao' => $installation,
+        'seccoes' => $seccoes,
+        'inicio' => $inicio,
+        'fim' => $fim,
+        'emitidoEm' => now(),
+        'emitidoPor' => $admin->name,
+        'colunasVisiveis' => RelatorioPdf::TODAS_COLUNAS,
+        'seccoesVisiveis' => array_merge(RelatorioPdf::TODAS_SECCOES, ['mostrar_observacoes_gerais']),
+        'modo' => 'todos',
+        'controladorModo' => 'media_diaria',
+        'observacoesGerais' => $justificacao."\n\nObservação Operacional: Bombas e filtros inspecionados às 08h15.",
+        'fotosObservacoes' => $fotosBase64,
+    ])->render();
+
+    $temColunaConformeSonda = str_contains($viewHtml, '>Conforme</th>');
+    $temConformidadeResumo = str_contains($viewHtml, 'Conformidade Sonda (pH e ORP): <strong>100,0%</strong>');
+    recordCheck('Coluna Conforme e taxa de conformidade da sonda (pH e ORP)', $temColunaConformeSonda && $temConformidadeResumo, 'Coluna Conforme e 100,0% presentes');
 
     echo "\n8. Auditoria binária e estrutural do ficheiro PDF gerado...\n";
     $temHeader = str_starts_with($pdfOutput, '%PDF-');
