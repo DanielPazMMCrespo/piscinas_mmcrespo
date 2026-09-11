@@ -314,7 +314,7 @@
             margin: 0 auto;
         }
         .legenda-foto {
-            font-size: 6.5px;
+            font-size: 6px;
             color: #333;
             margin-top: 3px;
             text-align: center;
@@ -492,6 +492,8 @@
             $phMax = \App\Models\DailyRecord::getPhMax();
             $orpMin = (int) ($piscina->orp_min ?? 650);
             $orpMax = (int) ($piscina->orp_max ?? 850);
+            $orpSanitarioMin = (int) ($piscina->orp_min ?? 650);
+            $orpSanitarioMax = max((int) ($piscina->orp_max ?? 850), 850);
         @endphp
 
         <div class="seccao-piscina {{ $indice > 0 ? 'quebra' : '' }}">
@@ -929,16 +931,18 @@
                                     $phConforme = $phMed !== null && !$phMedFora;
 
                                     $orpMed = $leitura->orp_avg !== null ? (int) round((float) $leitura->orp_avg, 0) : null;
-                                    $orpMedFora = $orpMed !== null && ($orpMed < $orpMin || $orpMed > $orpMax);
+                                    $orpMedFora = $orpMed !== null && ($orpMed < $orpSanitarioMin || $orpMed > $orpSanitarioMax);
                                     $cloroOrpConforme = $orpMed !== null && !$orpMedFora;
 
                                     $clManual = $leitura->manual_cloro_livre ?? null;
-                                    $clManualConforme = null;
+                                    $clManualConforme = $leitura->manual_cloro_conforme ?? null;
                                     $clManualFora = false;
                                     if ($clManual !== null) {
-                                        $diaCarbon = \Carbon\Carbon::parse($leitura->dia);
-                                        $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($phMed, $diaCarbon);
-                                        $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        if ($clManualConforme === null) {
+                                            $diaCarbon = \Carbon\Carbon::parse($leitura->dia);
+                                            $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($phMed, $diaCarbon);
+                                            $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        }
                                         $clManualFora = ! $clManualConforme;
                                     }
                                 @endphp
@@ -1026,16 +1030,18 @@
                                     $phConforme = $ph !== null && !$phFora;
 
                                     $orp = $leitura->orp !== null ? (int) round((float) $leitura->orp, 0) : null;
-                                    $orpFora = $orp !== null && ($orp < $orpMin || $orp > $orpMax);
+                                    $orpFora = $orp !== null && ($orp < $orpSanitarioMin || $orp > $orpSanitarioMax);
                                     $cloroOrpConforme = $orp !== null && !$orpFora;
 
                                     $clManual = $leitura->manual_cloro_livre ?? null;
-                                    $clManualConforme = null;
+                                    $clManualConforme = $leitura->manual_cloro_conforme ?? null;
                                     $clManualFora = false;
                                     if ($clManual !== null) {
-                                        $momentoCarbon = \Carbon\Carbon::parse($leitura->dia);
-                                        $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($ph, $momentoCarbon);
-                                        $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        if ($clManualConforme === null) {
+                                            $momentoCarbon = \Carbon\Carbon::parse($leitura->dia);
+                                            $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($ph, $momentoCarbon);
+                                            $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        }
                                         $clManualFora = ! $clManualConforme;
                                     }
                                 @endphp
@@ -1095,8 +1101,8 @@
                         ? $controlador->filter(fn ($l) => ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax))->count()
                         : $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
                     $diasOrpFora = $isTodos
-                        ? $controlador->filter(fn ($l) => ($l->orp ?? null) !== null && ((float) $l->orp < $orpMin || (float) $l->orp > $orpMax))->count()
-                        : $controlador->filter(fn ($l) => ($l->orp_avg ?? null) !== null && ((float) $l->orp_avg < $orpMin || (float) $l->orp_avg > $orpMax))->count();
+                        ? $controlador->filter(fn ($l) => ($l->orp ?? null) !== null && ((float) $l->orp < $orpSanitarioMin || (float) $l->orp > $orpSanitarioMax))->count()
+                        : $controlador->filter(fn ($l) => ($l->orp_avg ?? null) !== null && ((float) $l->orp_avg < $orpSanitarioMin || (float) $l->orp_avg > $orpSanitarioMax))->count();
                     $diasComDados = $isTodos
                         ? $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->unique('dia')->count()
                         : $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
@@ -1111,7 +1117,7 @@
                     | {{ $isTodos ? 'Leituras com' : 'Dias com' }} ORP {{ $isTodos ? '' : 'médio ' }}fora de gama (Desinfeção): <strong>{{ $diasOrpFora }}</strong>
                     @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
                     | Intervalo pH: {{ $phMin }} – {{ $phMax }}
-                    | Banda ORP (OMS / DIN 19643): {{ $orpMin }} – {{ $orpMax }} mV
+                    | Banda ORP (OMS / DIN 19643): {{ $orpSanitarioMin }} – {{ $orpSanitarioMax }} mV
                 </p>
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
                     Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.

@@ -34,10 +34,12 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -411,7 +413,7 @@ class RelatorioPdf extends Page implements HasForms
                                     $textoGerado = static::gerarJustificacaoSonda($get);
                                     $atual = (string) ($get('observacoes_gerais') ?? '');
                                     if (filled($atual)) {
-                                        $set('observacoes_gerais', $atual . "\n\n" . $textoGerado);
+                                        $set('observacoes_gerais', $atual."\n\n".$textoGerado);
                                     } else {
                                         $set('observacoes_gerais', $textoGerado);
                                     }
@@ -564,8 +566,8 @@ class RelatorioPdf extends Page implements HasForms
 
         if ($totalLeituras === 0) {
             return sprintf(
-                "Garantia de Desinfeção e Controlo Operacional:\n" .
-                "No período de %s a %s, todas as anomalias pontuais ou quebras de cloro decorrentes de manutenções ou paragens foram objeto de intervenção técnica corretiva imediata pela equipa operacional, com reposição célere da conformidade química regulamentar (CN 14/DA). As evidências e registos fotográficos em anexo comprovam a diligência técnica na salvaguarda da saúde pública.",
+                "Garantia de Desinfeção e Controlo Operacional:\n".
+                'No período de %s a %s, todas as anomalias pontuais ou quebras de cloro decorrentes de manutenções ou paragens foram objeto de intervenção técnica corretiva imediata pela equipa operacional, com reposição célere da conformidade química regulamentar (CN 14/DA). As evidências e registos fotográficos em anexo comprovam a diligência técnica na salvaguarda da saúde pública.',
                 $inicioDt->format('d/m/Y'),
                 $fimDt->format('d/m/Y')
             );
@@ -577,11 +579,11 @@ class RelatorioPdf extends Page implements HasForms
         $phMedio = round((float) $query->avg('ph'), 2);
 
         return sprintf(
-            "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n" .
-            "No período de %s a %s, o sistema de monitorização contínua registou %s leituras automáticas 24h/dia. " .
-            "O Potencial Redox (ORP) registou uma média de %.0f mV (amplitude de %.0f a %.0f mV, com pH médio de %.2f). " .
-            "Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus em menos de 1 segundo. " .
-            "Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.",
+            "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n".
+            'No período de %s a %s, o sistema de monitorização contínua registou %s leituras automáticas 24h/dia. '.
+            'O Potencial Redox (ORP) registou uma média de %.0f mV (amplitude de %.0f a %.0f mV, com pH médio de %.2f). '.
+            'Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus em menos de 1 segundo. '.
+            'Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.',
             $inicioDt->format('d/m/Y'),
             $fimDt->format('d/m/Y'),
             number_format($totalLeituras, 0, ',', '.'),
@@ -596,7 +598,6 @@ class RelatorioPdf extends Page implements HasForms
      * Processa fotografias carregadas no formulário (armazenadas em disco ou objetos de upload)
      * e converte-as em Data URIs (base64) para renderização fiável no Dompdf.
      *
-     * @param  mixed  $fotos
      * @return array<int, array{base64: string, nome: string, legenda: string}>
      */
     public function processarFotosObservacoes(mixed $fotos): array
@@ -622,7 +623,7 @@ class RelatorioPdf extends Page implements HasForms
             $mime = null;
             $nome = "Evidência {$contador}";
 
-            if ($foto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile || $foto instanceof \Illuminate\Http\UploadedFile) {
+            if ($foto instanceof TemporaryUploadedFile || $foto instanceof UploadedFile) {
                 $nome = $foto->getClientOriginalName();
                 $ext = strtolower(pathinfo($nome, PATHINFO_EXTENSION));
                 $mime = $mimeMap[$ext] ?? $foto->getMimeType();
@@ -1143,13 +1144,16 @@ class RelatorioPdf extends Page implements HasForms
                     $linha->sem_leitura_valida = false;
 
                     $diaCarbon = Carbon::parse($linha->dia);
-                    $cloroManualAvg = $registos
-                        ->filter(fn ($r) => $r->registado_em->isSameDay($diaCarbon))
+                    $registosDoDia = $registos->filter(fn ($r) => $r->registado_em->isSameDay($diaCarbon));
+                    $cloroManualAvg = $registosDoDia
                         ->map(fn ($r) => $r->cloro_livre_efetivo)
                         ->filter(fn ($v) => $v !== null)
                         ->average();
 
                     $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;
+                    $linha->manual_cloro_conforme = $registosDoDia->isNotEmpty()
+                        ? $registosDoDia->every(fn ($r) => $r->cloroLivreConforme())
+                        : null;
 
                     return $linha;
                 });
@@ -1192,6 +1196,7 @@ class RelatorioPdf extends Page implements HasForms
                         return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
                     });
                     $sintetico->manual_cloro_livre = $closestRegisto ? $closestRegisto->cloro_livre_efetivo : null;
+                    $sintetico->manual_cloro_conforme = $closestRegisto ? $closestRegisto->cloroLivreConforme() : null;
 
                     // Verificar se cai em alguma janela
                     $motivo = null;
