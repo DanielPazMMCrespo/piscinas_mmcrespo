@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -44,6 +45,12 @@ class TendenciaAlertaNotification extends Notification
             ->body($corpo)
             ->icon('heroicon-o-arrow-trending-down')
             ->color($this->confirmadaPorOrp() ? 'danger' : 'warning')
+            ->actions([
+                Action::make('ver')
+                    ->label('Ver Análise')
+                    ->button()
+                    ->url('/admin/analise-parametros'),
+            ])
             ->getDatabaseMessage();
     }
 
@@ -59,7 +66,7 @@ class TendenciaAlertaNotification extends Notification
             ->badge('/images/icon-192.png')
             ->tag('tendencia-'.md5($this->nomePiscina.$this->parametro))
             ->vibrate([200, 100, 200])
-            ->data(['url' => '/admin']);
+            ->data(['url' => '/admin/analise-parametros']);
     }
 
     private function label(): string

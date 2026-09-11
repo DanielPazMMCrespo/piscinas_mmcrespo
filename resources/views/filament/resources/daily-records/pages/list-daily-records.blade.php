@@ -1,4 +1,7 @@
 <x-filament-panels::page>
+    {{-- Filament Modals at root level (garante que modais de Page Actions como 'novaAcaoTecnica' abrem sempre, independente da tab ativa) --}}
+    <x-filament-actions::modals />
+
     @php
         $kpis = $this->getKpis();
         $timeline = $this->getTimelineEvents();

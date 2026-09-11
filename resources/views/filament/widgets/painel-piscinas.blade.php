@@ -1,8 +1,17 @@
 <x-filament-widgets::widget>
     <!-- Main Header -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">Painel de Controlo</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-medium">Visão global das piscinas</p>
+    <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">Painel de Controlo</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-medium">Visão global das piscinas</p>
+        </div>
+        @unless ($isNS)
+            <a href="{{ \App\Filament\Pages\InspecaoDgs::getUrl() }}" 
+               class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold shadow-sm transition-all self-start md:self-auto min-h-[40px]">
+                <x-filament::icon icon="heroicon-o-shield-check" class="w-4 h-4 text-emerald-400" />
+                <span>Modo Inspeção DGS</span>
+            </a>
+        @endunless
     </div>
 
     @if ($totalPiscinas > 0)
@@ -269,6 +278,33 @@
                                 {{ $avariaSonda ? 'Atualizar / dar baixa' : 'Reportar avaria da sonda' }}
                             </a>
                         @endif
+                    @endif
+
+                    {{-- Bidões de Químicos & Autonomia Preditiva (apenas Admin, Gestor e Técnico) --}}
+                    @if (! $isNS && ! empty($item['bidoes']))
+                        <div class="mt-2 pt-2 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Bidões:</span>
+                            @foreach ($item['bidoes'] as $bidao)
+                                @php
+                                    $isCritico = $bidao['status'] === 'critico' || $bidao['esta_baixo'];
+                                    $isAviso = $bidao['status'] === 'aviso' || $bidao['esgota_fim_de_semana'];
+                                    $badgeBg = $isCritico
+                                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                                        : ($isAviso
+                                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                                            : 'bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700');
+                                @endphp
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium {{ $badgeBg }}"
+                                     title="{{ $bidao['label'] }}: {{ $bidao['descricao_autonomia'] }} (Nível: {{ $bidao['percentagem'] !== null ? $bidao['percentagem'].'%' : '—' }})">
+                                    <x-filament::icon icon="heroicon-m-beaker" class="w-3.5 h-3.5" />
+                                    <span><strong>{{ $bidao['label'] }}:</strong> {{ $bidao['percentagem'] !== null ? $bidao['percentagem'].'%' : '—' }}</span>
+                                    <span class="text-[10px] opacity-75">({{ $bidao['descricao_autonomia'] }})</span>
+                                    @if ($bidao['esgota_fim_de_semana'])
+                                        <span class="px-1 py-0.5 text-[9px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-white rounded uppercase">Fim de Semana</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
                     @endif
 
                 <!-- Actions Footer -->

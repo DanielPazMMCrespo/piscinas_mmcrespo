@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -23,15 +23,20 @@ class TesteNotificacaoPush extends Notification
         return ['database', WebPushChannel::class];
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
-        return new DatabaseMessage([
-            'title' => 'Notificação de teste',
-            'body' => 'Se recebeu isto, as notificações estão a funcionar neste dispositivo.',
-            'format' => 'filament',
-            'icon' => 'heroicon-o-bell-alert',
-            'color' => 'success',
-        ]);
+        return \Filament\Notifications\Notification::make()
+            ->title('Notificação de teste')
+            ->body('Se recebeu isto, as notificações estão a funcionar perfeitamente neste dispositivo.')
+            ->icon('heroicon-o-bell-alert')
+            ->color('success')
+            ->actions([
+                Action::make('ok')
+                    ->label('Confirmar')
+                    ->button()
+                    ->url('/admin'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

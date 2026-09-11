@@ -73,8 +73,10 @@ class ListDailyRecords extends ListRecords
                             ->toArray()
                         )
                         ->default(fn () => request()->integer('pool')
+                            ?: $this->filterPoolId
                             ?: OperationalAction::query()->where('user_id', auth()->id())->orderByDesc('registado_em')->value('pool_id')
                             ?: DailyRecord::query()->where('user_id', auth()->id())->orderByDesc('registado_em')->value('pool_id')
+                            ?: Pool::query()->where('active', true)->value('id')
                         )
                         ->searchable()
                         ->required()

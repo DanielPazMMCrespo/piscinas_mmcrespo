@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Models\DosingContainer;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -31,19 +32,24 @@ class DosingContainerLowAlert extends Notification
         return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
         $piscina = $this->container->piscina?->nomeCompleto() ?? 'Piscina';
         $pct = $this->container->percentagem();
         $pctTxt = $pct !== null ? number_format($pct, 0, ',', '').'%' : 'nível baixo';
 
-        return new DatabaseMessage([
-            'title' => "Bidão de {$this->container->tipoLabel()} — {$piscina}: repor",
-            'body' => "Nível a {$pctTxt}. Reabastecer o bidão de {$this->container->tipoLabel()}.",
-            'format' => 'filament',
-            'icon' => 'heroicon-o-beaker',
-            'color' => 'warning',
-        ]);
+        return FilamentNotification::make()
+            ->title("Bidão de {$this->container->tipoLabel()} — {$piscina}: repor")
+            ->body("Nível a {$pctTxt}. Reabastecer o bidão de {$this->container->tipoLabel()}.")
+            ->icon('heroicon-o-beaker')
+            ->color('warning')
+            ->actions([
+                Action::make('ver')
+                    ->label('Ver no Stock Hub')
+                    ->button()
+                    ->url('/admin/stock'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

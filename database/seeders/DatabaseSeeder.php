@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             InstallationSeeder::class,
             PoolSeeder::class,
             ProductSeeder::class,
+            DosingContainerSeeder::class,
             UserSeeder::class,
         ]);
     }

@@ -12,6 +12,29 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
+// Garantir que classes em app/ e database/ deste worktree têm prioridade sobre qualquer junction de vendor
+spl_autoload_register(function (string $class): bool {
+    if (str_starts_with($class, 'App\\')) {
+        $file = __DIR__.'/../app/'.str_replace('\\', '/', substr($class, 4)).'.php';
+        if (file_exists($file)) {
+            require_once $file;
+
+            return true;
+        }
+    }
+
+    if (str_starts_with($class, 'Database\\')) {
+        $file = __DIR__.'/../database/'.str_replace('\\', '/', substr($class, 9)).'.php';
+        if (file_exists($file)) {
+            require_once $file;
+
+            return true;
+        }
+    }
+
+    return false;
+}, true, true);
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

@@ -24,6 +24,10 @@ final class AlertType
 
     public const SONDA_AVARIA = 'sonda_avaria';
 
+    public const AUTONOMIA_QUIMICA = 'autonomia_quimica';
+
+    public const ANOMALIA_AGUA = 'anomalia_agua';
+
     private function __construct()
     {
         // This class cannot be instantiated

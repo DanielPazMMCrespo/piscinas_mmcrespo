@@ -6,6 +6,7 @@ namespace App\Notifications;
 
 use App\Constants\PoolAccessRequestStatus;
 use App\Models\PoolAccessRequest;
+use Filament\Notifications\Actions\Action;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -27,11 +28,20 @@ class PedidoAcessoRespondidoNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        return [
-            'title' => $this->titulo(),
-            'body' => $this->corpo(),
-            'format' => 'filament',
-        ];
+        $url = $this->pedido->status === PoolAccessRequestStatus::APROVADO ? '/admin' : '/piscinas-encerradas';
+
+        return \Filament\Notifications\Notification::make()
+            ->title($this->titulo())
+            ->body($this->corpo())
+            ->icon($this->pedido->status === PoolAccessRequestStatus::APROVADO ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
+            ->color($this->pedido->status === PoolAccessRequestStatus::APROVADO ? 'success' : 'danger')
+            ->actions([
+                Action::make('abrir')
+                    ->label('Abrir')
+                    ->button()
+                    ->url($url),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable): WebPushMessage
