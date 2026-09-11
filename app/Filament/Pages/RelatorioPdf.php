@@ -974,11 +974,27 @@ class RelatorioPdf extends Page implements HasForms
             // sintético (mesmo padrão do "mockRecord" da agregação média diária,
             // abaixo) para reutilizar phConforme()/cloroLivreConforme()/etc. sem
             // duplicar a lógica de conformidade legal.
+            // A migração 2026_09_10_000002 copiou o histórico de analise_pontual
+            // para daily_records e deixou a OperationalAction de origem de pé.
+            // Sem descartar o par já migrado, cada análise antiga sai duas vezes
+            // no livro, em linhas seguidas com o mesmo carimbo.
+            $carimbosJaRegistados = $registos
+                ->map(fn (DailyRecord $r) => $r->registado_em->format('Y-m-d H:i'))
+                ->all();
+
             $analisesRapidas = ($acoesOperacionais->get($piscina->id) ?? collect())
                 ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+                ->reject(fn (OperationalAction $acao) => in_array(
+                    $acao->registado_em->format('Y-m-d H:i'),
+                    $carimbosJaRegistados,
+                    true
+                ))
                 ->map(fn (OperationalAction $acao) => self::registoSinteticoDeAnalise($acao, $piscina));
 
-            $registos = $registos->concat($analisesRapidas)->sortBy('registado_em')->values();
+            $registos = $registos->concat($analisesRapidas)
+                ->unique(fn ($r) => $r->registado_em->format('Y-m-d H:i'))
+                ->sortBy('registado_em')
+                ->values();
 
             if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
@@ -1412,6 +1428,38 @@ class RelatorioPdf extends Page implements HasForms
             ->where('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO)
             ->count();
         $totalLavagens += $lavagensAcoes;
+
+        // O livro imprime as análises pontuais como linhas de registo
+        // (construirSeccoes converte-as em DailyRecord sintéticos).
+        $piscinasPorId = $piscinas->keyBy('id');
+        $carimbosJaRegistados = $registos
+            ->map(fn (DailyRecord $r) => $r->pool_id.'_'.$r->registado_em->format('Y-m-d H:i'))
+            ->all();
+
+        OperationalAction::query()
+            ->whereIn('pool_id', $poolIds)
+            ->whereBetween('registado_em', [$inicioDt, $fimDt])
+            ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+            ->with('utilizador')
+            ->get()
+            ->reject(fn (OperationalAction $acao) => in_array(
+                $acao->pool_id.'_'.$acao->registado_em->format('Y-m-d H:i'),
+                $carimbosJaRegistados,
+                true
+            ))
+            ->each(function (OperationalAction $acao) use ($piscinasPorId, &$totalRegistos, &$totalViolacoes): void {
+                $piscina = $piscinasPorId->get($acao->pool_id);
+
+                if ($piscina === null) {
+                    return;
+                }
+
+                $totalRegistos++;
+
+                if (self::registoSinteticoDeAnalise($acao, $piscina)->listarViolacoes() !== []) {
+                    $totalViolacoes++;
+                }
+            });
 
         $taxaConformidade = $totalRegistos > 0
             ? round((($totalRegistos - $totalViolacoes) / $totalRegistos) * 100, 1)
