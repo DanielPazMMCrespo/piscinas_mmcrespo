@@ -7,7 +7,9 @@ Gera o Livro de Registo Sanitário oficial em PDF (`barryvdh/laravel-dompdf`) + 
 
 ## Form
 - Instalação → Piscina (dependente, com "Todas"). Data início/fim (fim não pode ser futura, fim ≥ início).
-- Personalização: aviso quando as opções desviam do modelo regulamentar "completo" (13 colunas + 6 secções). `registo_modo`/`controlador_modo` separados (todos/média diária) para manual vs. controlador. CheckboxList de 17 colunas e 6 secções visíveis.
+- Personalização: aviso quando as opções desviam do modelo regulamentar "completo" (17 colunas + 8 secções). `registo_modo`/`controlador_modo` separados (todos/média diária) para manual vs. controlador. CheckboxList de 17 colunas e 8 secções visíveis.
+- **Observações Gerais e Fotos**: campo de texto livre para anotações/justificações técnicas e upload de fotografias de suporte (até 6 imagens, máx. 5MB cada, JPG/PNG/WebP). Inclui a ação "Inserir Justificação da Sonda (OMS / DIN 19643)" que analisa as leituras contínuas do período (ORP médio/mínimo/máximo, total de leituras 24h) e gera uma justificação técnica sólida comprovando desinfeção contínua (ORP ≥ 650–700 mV) perante eventuais quebras matinais pontuais de cloro manual decorrentes de esgotamento noturno de doseadores.
+- No PDF (`pdf.livro-sanitario`), estas observações e fotos surgem antes das assinaturas, com um quadro de destaque sanitário, quebra de linha tratada e grelha de 3 colunas de fotos com legenda e proteção anti-quebra de página (`page-break-inside: avoid`). As imagens são convertidas em Data URIs base64 em `processarFotosObservacoes()` para garantir renderização fiável pelo Dompdf.
 
 ## Lógica não óbvia (`exportar()`)
 - `ini_set('memory_limit','1024M')` + `set_time_limit(240)` — gerar o PDF é pesado.

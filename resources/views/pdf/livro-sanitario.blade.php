@@ -241,6 +241,85 @@
             font-size: 8px;
         }
         table.assinaturas-termo .data-assinatura { font-size: 7px; margin-top: 5px; }
+
+        /* Observações Gerais e Fotos do Relatório */
+        .observacoes-gerais-bloco {
+            margin-top: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #000;
+            background: #fff;
+            page-break-inside: auto;
+        }
+        .observacoes-gerais-titulo {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 4px 6px;
+            background: #e8e8e8;
+            border-bottom: 1px solid #000;
+            margin: 0;
+        }
+        .observacoes-gerais-conteudo {
+            padding: 8px;
+        }
+        .quadro-destaque-sonda {
+            background: #f4f6f8;
+            border-left: 3.5px solid #000;
+            padding: 5px 8px;
+            margin-bottom: 8px;
+            font-size: 7px;
+            line-height: 1.35;
+        }
+        .quadro-destaque-sonda strong {
+            font-size: 7.5px;
+        }
+        .observacoes-gerais-texto {
+            font-size: 7.5px;
+            line-height: 1.4;
+            color: #000;
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+        .tabela-fotos-grid {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 6px;
+        }
+        .tabela-fotos-grid tr {
+            page-break-inside: avoid;
+        }
+        .celula-foto {
+            width: 33.33%;
+            padding: 4px;
+            vertical-align: top;
+            border: none;
+        }
+        .celula-foto-vazia {
+            width: 33.33%;
+            border: none;
+        }
+        .caixa-foto {
+            border: 0.5px solid #666;
+            padding: 3px;
+            background: #fafafa;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+        .caixa-foto img {
+            max-width: 100%;
+            max-height: 135px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .legenda-foto {
+            font-size: 6.5px;
+            color: #333;
+            margin-top: 3px;
+            text-align: center;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -1072,6 +1151,56 @@
 
         </div>
     @endforeach
+
+    {{-- ================================================================
+         Observações Gerais e Justificações Técnicas do Relatório
+         ================================================================ --}}
+    @if (in_array('mostrar_observacoes_gerais', $seccoesVisiveis) && (filled($observacoesGerais ?? null) || !empty($fotosObservacoes ?? [])))
+        <div class="observacoes-gerais-bloco">
+            <p class="observacoes-gerais-titulo">
+                Observações Gerais e Justificações Técnicas do Relatório
+            </p>
+            <div class="observacoes-gerais-conteudo">
+                <div class="quadro-destaque-sonda">
+                    <strong>Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643):</strong><br>
+                    O Potencial Redox (ORP medido em mV pela sonda contínua) avalia o poder germicida e oxidante real da água 24 horas por dia.
+                    A Organização Mundial da Saúde (OMS) estipula que um <strong>ORP &ge; 650 mV</strong> garante destruição de microrganismos patogénicos em menos de 1 segundo.
+                    Eventuais quebras pontuais de cloro livre registadas na abertura matinal decorrem do esgotamento noturno e são retificadas de imediato pela equipa técnica, mantendo-se a água em desinfeção permanente conforme comprovado pela monitorização contínua.
+                </div>
+
+                @if (filled($observacoesGerais ?? null))
+                    <div class="observacoes-gerais-texto">
+                        {!! nl2br(e($observacoesGerais)) !!}
+                    </div>
+                @endif
+
+                @if (!empty($fotosObservacoes ?? []))
+                    <div style="font-size: 7.5px; font-weight: bold; margin: 6px 0 3px 0; border-top: 0.5px solid #000; padding-top: 4px;">
+                        Evidências e Registos Fotográficos de Suporte (Ações Técnicas e Estado das Instalações):
+                    </div>
+                    <table class="tabela-fotos-grid">
+                        @foreach (array_chunk($fotosObservacoes, 3) as $linhaFotos)
+                            <tr>
+                                @foreach ($linhaFotos as $foto)
+                                    <td class="celula-foto">
+                                        <div class="caixa-foto">
+                                            <img src="{{ $foto['base64'] }}" alt="{{ $foto['nome'] ?? 'Evidência' }}">
+                                            @if (filled($foto['legenda'] ?? null))
+                                                <div class="legenda-foto">{{ $foto['legenda'] }}</div>
+                                            @endif
+                                        </div>
+                                    </td>
+                                @endforeach
+                                @for ($i = count($linhaFotos); $i < 3; $i++)
+                                    <td class="celula-foto-vazia"></td>
+                                @endfor
+                            </tr>
+                        @endforeach
+                    </table>
+                @endif
+            </div>
+        </div>
+    @endif
 
     {{-- Área de assinaturas (última página) --}}
     @if (in_array('mostrar_assinaturas', $seccoesVisiveis))

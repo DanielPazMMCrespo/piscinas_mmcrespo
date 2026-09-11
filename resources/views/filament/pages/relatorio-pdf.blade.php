@@ -30,7 +30,7 @@
                         @endif
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         @if ($summary['termoElegivel'])
                             <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
                                 <x-heroicon-m-check-badge class="h-4 w-4" />
@@ -40,6 +40,17 @@
                             <span class="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/20 dark:bg-gray-800 dark:text-gray-400">
                                 <x-heroicon-m-information-circle class="h-4 w-4" />
                                 Relatório Geral / Multi-Piscina
+                            </span>
+                        @endif
+
+                        @if (!empty($summary['temObservacoes']) || !empty($summary['fotosCount']))
+                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-400">
+                                <x-heroicon-m-document-text class="h-4 w-4" />
+                                @if (!empty($summary['fotosCount']))
+                                    Com Observações + {{ $summary['fotosCount'] }} {{ $summary['fotosCount'] === 1 ? 'Foto' : 'Fotos' }}
+                                @else
+                                    Com Observações Escritas
+                                @endif
                             </span>
                         @endif
                     </div>
