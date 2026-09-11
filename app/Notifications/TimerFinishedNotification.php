@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -24,7 +26,7 @@ class TimerFinishedNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        $channels = [];
+        $channels = ['database'];
         if ($notifiable->wantsNotification('timer_finished', 'push')) {
             $channels[] = WebPushChannel::class;
         }
@@ -33,6 +35,27 @@ class TimerFinishedNotification extends Notification
         }
 
         return $channels;
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        $faseLabel = $this->fase === 'enxaguamento' ? 'Enxaguamento' : 'Retrolavagem';
+        $titulo = $this->piscina
+            ? "{$faseLabel} terminada — {$this->piscina}"
+            : "{$faseLabel} terminada";
+
+        return FilamentNotification::make()
+            ->title($titulo)
+            ->body('O tempo definido terminou. Pode passar à fase seguinte.')
+            ->icon('heroicon-o-clock')
+            ->color('success')
+            ->actions([
+                Action::make('abrir')
+                    ->label('Abrir Registo')
+                    ->button()
+                    ->url('/admin/daily-records/create'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

@@ -7,12 +7,13 @@ namespace App\Console\Commands;
 use App\Models\AlertState;
 use App\Services\AlertasService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class AlertHousekeepingCommand extends Command
 {
     protected $signature = 'alerts:housekeeping';
 
-    protected $description = 'Prune old alert states (>7 days) and auto-resolve expired alerts';
+    protected $description = 'Prune old alert states (>7 days) and auto-resolve expired alerts, and clean up notifications table';
 
     public function handle(AlertasService $alertasService): int
     {
@@ -31,6 +32,21 @@ class AlertHousekeepingCommand extends Command
 
         if ($pruned > 0) {
             $this->info("Pruned $pruned old alert states");
+        }
+
+        // Poda da tabela notifications do Filament
+        $notificacoesLidasRemovidas = DB::table('notifications')
+            ->whereNotNull('read_at')
+            ->where('created_at', '<', now()->subDays(30))
+            ->delete();
+
+        $notificacoesAntigasRemovidas = DB::table('notifications')
+            ->whereNull('read_at')
+            ->where('created_at', '<', now()->subDays(60))
+            ->delete();
+
+        if ($notificacoesLidasRemovidas > 0 || $notificacoesAntigasRemovidas > 0) {
+            $this->info("Podadas {$notificacoesLidasRemovidas} notificações lidas (>30d) e {$notificacoesAntigasRemovidas} não lidas antigas (>60d).");
         }
 
         return self::SUCCESS;

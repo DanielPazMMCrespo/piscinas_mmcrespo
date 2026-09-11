@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -36,15 +37,20 @@ class CustomBroadcastNotification extends Notification
         return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
-        return new DatabaseMessage([
-            'title' => $this->titulo,
-            'body' => $this->corpo,
-            'format' => 'filament',
-            'icon' => 'heroicon-o-megaphone',
-            'color' => 'info',
-        ]);
+        return FilamentNotification::make()
+            ->title($this->titulo)
+            ->body($this->corpo)
+            ->icon('heroicon-o-megaphone')
+            ->color('info')
+            ->actions([
+                Action::make('view')
+                    ->label('Abrir Aplicação')
+                    ->button()
+                    ->url('/admin'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

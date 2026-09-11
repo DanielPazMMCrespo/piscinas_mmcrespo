@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ResumoConformidadeNotification;
 use App\Services\AlertasService;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -36,6 +37,10 @@ class SendComplianceDigestCommand extends Command
         $agora = now()->format('H:i');
 
         if (! in_array($agora, $horarios, true)) {
+            return self::SUCCESS;
+        }
+
+        if (app(JanelaSilencio::class)->ativa()) {
             return self::SUCCESS;
         }
 

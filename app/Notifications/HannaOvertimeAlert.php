@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Models\HannaDevice;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -38,19 +39,24 @@ class HannaOvertimeAlert extends Notification
         return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
         $poolName = $this->device->piscina?->name ?? $this->device->name;
         $horas = intdiv($this->dosingSettings['overtimeMinutes'], 60);
         $fmt = fn (float $v): string => number_format($v, 2, ',', '');
 
-        return new DatabaseMessage([
-            'title' => "Sensor Hanna — {$poolName}: pH em overtime",
-            'body' => "pH {$fmt($this->ph)} fora do setpoint {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])} há mais de {$horas}h — a dosagem não está a corrigir.",
-            'format' => 'filament',
-            'icon' => 'heroicon-o-beaker',
-            'color' => 'danger',
-        ]);
+        return FilamentNotification::make()
+            ->title("Sensor Hanna — {$poolName}: pH em overtime")
+            ->body("pH {$fmt($this->ph)} fora do setpoint {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])} há mais de {$horas}h — a dosagem não está a corrigir.")
+            ->icon('heroicon-o-beaker')
+            ->color('danger')
+            ->actions([
+                Action::make('ver')
+                    ->label('Ver Painel')
+                    ->button()
+                    ->url('/admin'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

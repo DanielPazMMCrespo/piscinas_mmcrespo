@@ -18,7 +18,9 @@ use App\Services\CacheService;
 use App\Services\HannaCircuitBreaker;
 use App\Services\HannaCloudService;
 use App\Services\LeituraArtefactoService;
+use App\Services\SettingsService;
 use App\Support\Auditoria;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -407,6 +409,11 @@ class HannaCloudSync extends Command
     /** @param array<string, mixed> $reading */
     private function notificarThresholds(HannaDevice $device, array $reading): void
     {
+        // Durante a janela de silêncio (22h-08h e domingos), não disparamos alertas de rotina
+        if (app(JanelaSilencio::class)->ativa()) {
+            return;
+        }
+
         if ($this->emArtefacto($device, $reading)) {
             return;
         }
@@ -421,9 +428,22 @@ class HannaCloudSync extends Command
                 : "pH {$fmt} acima do máximo (".number_format(DailyRecord::getPhMax(), 1, ',', '').')';
         }
 
+        $cooldownKey = "hanna_threshold_cooldown_{$device->id}";
+
         if (empty($violacoes)) {
+            // Parâmetros normalizados: limpa o cooldown para voltar a alertar se houver nova anomalia
+            Cache::forget($cooldownKey);
+
             return;
         }
+
+        // Cooldown para não disparar a cada 15 minutos com o mesmo valor fora
+        if (Cache::has($cooldownKey)) {
+            return;
+        }
+
+        $cooldownMinutos = (int) app(SettingsService::class)->get('silencio_cooldown_hanna_minutos', 240);
+        Cache::put($cooldownKey, true, now()->addMinutes(max(15, $cooldownMinutos)));
 
         $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
         Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
@@ -512,6 +532,11 @@ class HannaCloudSync extends Command
         $forcarNotificacao = $apiOvertime && $device->ph_overtime_notified_at === null;
 
         if (($forcarNotificacao || $minutosDecorridos >= $ds['overtimeMinutes']) && $device->ph_overtime_notified_at === null) {
+            // Se estiver na janela de silêncio, não queima o episódio: o próximo ciclo após as 08h notificará
+            if (app(JanelaSilencio::class)->ativa()) {
+                return;
+            }
+
             $device->update(['ph_overtime_notified_at' => now()]);
 
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();

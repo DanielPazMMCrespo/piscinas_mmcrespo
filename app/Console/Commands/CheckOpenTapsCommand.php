@@ -9,6 +9,7 @@ use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\TorneiraAbertaNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -27,6 +28,10 @@ class CheckOpenTapsCommand extends Command
     public function handle(SettingsService $settings): int
     {
         $limiteHoras = $settings->getInt('torneira_aberta_horas_aviso', 4);
+
+        if (app(JanelaSilencio::class)->ativa()) {
+            return self::SUCCESS;
+        }
 
         $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
         if ($destinatarios->isEmpty()) {

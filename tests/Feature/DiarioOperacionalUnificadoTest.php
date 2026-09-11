@@ -238,6 +238,29 @@ class DiarioOperacionalUnificadoTest extends TestCase
         $this->assertSame('Filtro Principal', $acao->dados['filtro_nome']);
     }
 
+    public function test_modal_da_acao_tecnica_e_impresso_fora_do_separador_escondido(): void
+    {
+        $this->actingAs($this->admin);
+
+        $html = Livewire::test(ListDailyRecords::class)
+            ->mountAction('novaAcaoTecnica')
+            ->html();
+
+        $separadorTabela = strpos($html, 'x-show="activeTab === \'leituras\'"');
+        $modal = strpos($html, 'Registar Ação Técnica na Piscina');
+
+        $this->assertNotFalse($separadorTabela, 'O separador das medições deixou de existir na vista.');
+        $this->assertNotFalse($modal, 'O modal da ação técnica não foi impresso.');
+
+        // O separador está com display:none por omissão (a vista abre na linha
+        // temporal). Se o modal sair depois dele, sai lá dentro e não abre.
+        $this->assertLessThan(
+            $separadorTabela,
+            $modal,
+            'O modal da ação técnica está dentro do separador escondido: o botão não abre nada.'
+        );
+    }
+
     public function test_source_selection_service_picks_latest_record_with_water_chemistry(): void
     {
         // Registo mais antigo com medição de água

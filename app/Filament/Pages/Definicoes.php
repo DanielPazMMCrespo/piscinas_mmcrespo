@@ -27,6 +27,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -81,6 +82,11 @@ class Definicoes extends Page implements HasForms, HasTable
 
         if ($this->podeGerir()) {
             $settings = AppSetting::all()->pluck('value', 'key')->toArray();
+            $settings['silencio_ativo'] ??= true;
+            $settings['silencio_domingo'] ??= true;
+            $settings['silencio_inicio'] ??= '22:00';
+            $settings['silencio_fim'] ??= '08:00';
+            $settings['silencio_cooldown_hanna_minutos'] ??= 240;
             $this->form->fill($settings);
         }
 
@@ -196,6 +202,32 @@ class Definicoes extends Page implements HasForms, HasTable
                             ->step(0.05)
                             ->helperText('Multiplica a dose calculada para compensar filtros, utilização, etc. (Padrão: 1.25 = +25%)')
                             ->columnSpanFull(),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Janela de Silêncio e Repouso')
+                    ->description('Bloqueia o envio de notificações push e e-mails durante o repouso e aos fins de semana (as ocorrências continuam gravadas na app).')
+                    ->icon('heroicon-o-moon')
+                    ->schema([
+                        Forms\Components\Toggle::make('silencio_ativo')
+                            ->label('Ativar Janela de Silêncio')
+                            ->helperText('Silencia alertas sonoros/push nas horas de descanso.')
+                            ->default(true),
+                        Forms\Components\Toggle::make('silencio_domingo')
+                            ->label('Silenciar aos Domingos')
+                            ->helperText('Não enviar notificações automáticas ao domingo.')
+                            ->default(true),
+                        Forms\Components\TextInput::make('silencio_inicio')
+                            ->label('Início do Silêncio (Noite)')
+                            ->placeholder('22:00')
+                            ->helperText('Hora em formato HH:MM (Padrão: 22:00).'),
+                        Forms\Components\TextInput::make('silencio_fim')
+                            ->label('Fim do Silêncio (Manhã)')
+                            ->placeholder('08:00')
+                            ->helperText('Hora em formato HH:MM (Padrão: 08:00).'),
+                        Forms\Components\TextInput::make('silencio_cooldown_hanna_minutos')
+                            ->label('Cooldown de Alertas Hanna (Minutos)')
+                            ->numeric()
+                            ->helperText('Intervalo mínimo entre notificações repetidas da sonda (Padrão: 240 = 4 horas).'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Definições Avançadas')
@@ -532,6 +564,37 @@ class Definicoes extends Page implements HasForms, HasTable
         Notification::make()
             ->title('Pedido enviado!')
             ->body('O seu pedido de ativação de notificações foi registado. O administrador será notificado.')
+            ->success()
+            ->send();
+    }
+
+    public function limparMinhasNotificacoesLidas(): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return;
+        }
+
+        $apagadas = $user->notifications()->whereNotNull('read_at')->delete();
+
+        Notification::make()
+            ->title('Notificações limpas')
+            ->body("Foram eliminadas {$apagadas} notificações já lidas do seu sino.")
+            ->success()
+            ->send();
+    }
+
+    public function limparTodasNotificacoesLidas(): void
+    {
+        abort_unless($this->podeGerir(), 403);
+
+        $apagadas = DB::table('notifications')
+            ->whereNotNull('read_at')
+            ->delete();
+
+        Notification::make()
+            ->title('Base de dados limpa')
+            ->body("Foram eliminadas {$apagadas} notificações lidas do sistema.")
             ->success()
             ->send();
     }

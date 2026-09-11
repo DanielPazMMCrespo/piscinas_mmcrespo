@@ -11,6 +11,7 @@ use App\Models\SensorReading;
 use App\Models\User;
 use App\Notifications\TendenciaAlertaNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -45,6 +46,10 @@ class CheckParameterTrendsCommand extends Command
      */
     public function handle(): int
     {
+        if (app(JanelaSilencio::class)->ativa()) {
+            return Command::SUCCESS;
+        }
+
         // Uma tendência degradante numa piscina encerrada não é accionável.
         $pools = Pool::operacionais()->with('instalacao')->get();
         $adminAndTecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();

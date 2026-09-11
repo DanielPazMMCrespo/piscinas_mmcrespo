@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Models\HannaDevice;
-use Illuminate\Notifications\Messages\DatabaseMessage;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
@@ -32,18 +33,23 @@ class HannaThresholdAlert extends Notification
         return $channels;
     }
 
-    public function toDatabase(object $notifiable): DatabaseMessage
+    public function toDatabase(object $notifiable): array
     {
         $poolName = $this->device->piscina?->name ?? $this->device->name;
         $lista = implode('; ', $this->violacoes);
 
-        return new DatabaseMessage([
-            'title' => "Sensor Hanna — {$poolName}: parâmetros fora dos limites",
-            'body' => $lista,
-            'format' => 'filament',
-            'icon' => 'heroicon-o-beaker',
-            'color' => 'danger',
-        ]);
+        return FilamentNotification::make()
+            ->title("Sensor Hanna — {$poolName}: fora dos limites")
+            ->body($lista)
+            ->icon('heroicon-o-beaker')
+            ->color('danger')
+            ->actions([
+                Action::make('ver')
+                    ->label('Ver Parâmetros')
+                    ->button()
+                    ->url('/admin/analise-parametros'),
+            ])
+            ->getDatabaseMessage();
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

@@ -12,6 +12,7 @@ use App\Models\Incident;
 use App\Models\User;
 use App\Notifications\EscalacaoIncidenteNotification;
 use App\Services\SettingsService;
+use App\Support\JanelaSilencio;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -143,6 +144,10 @@ class ExecuteBusinessRulesCommand extends Command
                 $cacheKey = "escalacao_{$incident->id}_".today()->toDateString();
 
                 if (! Cache::has($cacheKey)) {
+                    if (app(JanelaSilencio::class)->ativa()) {
+                        continue;
+                    }
+
                     $adminsAndGestores = User::role([UserRole::ADMIN, UserRole::GESTOR])->get();
 
                     Notification::send($adminsAndGestores, new EscalacaoIncidenteNotification($incident));

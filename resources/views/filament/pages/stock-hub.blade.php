@@ -5,6 +5,12 @@
         $ultimosMovimentos = $this->ultimosMovimentos;
     @endphp
 
+    {{-- Ver a nota em list-daily-records.blade.php: os modais das ações são impressos
+         no fim da vista da tabela, que aqui vive dentro do separador "inventario".
+         Nos outros separadores esse contentor fica display:none e o "Reabastecer" dos
+         bidões não abria nada. --}}
+    <x-filament-actions::modals />
+
     <div class="space-y-6" x-data="{ tab: 'inventario' }">
         <!-- Top KPIs Strip (Apple / Tesla HIG) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -213,6 +219,22 @@
                                             <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
                                                 <div class="h-3 rounded-full {{ $barColor }} transition-all duration-500" style="width: {{ min(100, max(0, $pct ?? 0)) }}%"></div>
                                             </div>
+                                        </div>
+
+                                        <!-- Autonomia Preditiva -->
+                                        @php
+                                            $autonomiaTxt = $container->descricaoAutonomia(3);
+                                            $esgotaFds = $container->esgotaNoFimDeSemana(3);
+                                            $statusAuto = $container->statusAutonomia(3);
+                                        @endphp
+                                        <div class="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-xl {{ $statusAuto === 'critico' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50' : ($statusAuto === 'aviso' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-800') }}">
+                                            <span class="flex items-center gap-1.5 font-medium text-[11px]">
+                                                <x-filament::icon icon="heroicon-m-clock" class="w-3.5 h-3.5 text-slate-400" />
+                                                Autonomia: <strong>{{ $autonomiaTxt }}</strong>
+                                            </span>
+                                            @if ($esgotaFds)
+                                                <span class="px-1.5 py-0.5 text-[9px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-white rounded uppercase tracking-wider">Fim de Semana</span>
+                                            @endif
                                         </div>
 
                                         <!-- Last refill info & Action -->
