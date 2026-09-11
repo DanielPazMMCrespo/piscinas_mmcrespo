@@ -20,6 +20,7 @@ putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=:memory:');
 putenv('CACHE_STORE=array');
 putenv('CACHE_DRIVER=array');
+putenv('QUEUE_CONNECTION=sync');
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require_once __DIR__.'/../bootstrap/app.php';
