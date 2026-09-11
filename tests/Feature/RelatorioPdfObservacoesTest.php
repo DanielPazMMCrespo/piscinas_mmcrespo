@@ -228,4 +228,142 @@ class RelatorioPdfObservacoesTest extends TestCase
         $this->assertTrue($summary['temObservacoes']);
         $this->assertEquals(2, $summary['fotosCount']);
     }
+
+    /**
+     * Teste 7: A justificação técnica e observações aparecem no TOPO do relatório antes das tabelas/piscinas.
+     */
+    public function test_justificacao_tecnica_appears_at_top_before_pools(): void
+    {
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect(),
+                    'controlador' => collect(),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => RelatorioPdf::COLUNAS_DGS_OFICIAL,
+            'seccoesVisiveis' => RelatorioPdf::SECCOES_DGS_OFICIAL,
+            'modo' => 'todos',
+            'controladorModo' => 'media_diaria',
+            'observacoesGerais' => 'Justificação prioritária no topo.',
+            'fotosObservacoes' => [],
+        ])->render();
+
+        $posObservacoes = strpos($html, 'Observações Gerais e Justificações Técnicas do Relatório');
+        $posPiscina = strpos($html, '<p class="info-piscina">');
+
+        $this->assertNotFalse($posObservacoes);
+        $this->assertNotFalse($posPiscina);
+        $this->assertLessThan($posPiscina, $posObservacoes, 'O bloco de justificações deve surgir ANTES da secção da piscina (no topo do relatório).');
+    }
+
+    /**
+     * Teste 8: Tabela do controlador apresenta a coluna Cloro Conf. (ORP) e avaliação de conformidade.
+     */
+    public function test_controlador_table_renders_cloro_orp_conforme_and_cl_manual(): void
+    {
+        $leituraConforme = (object) [
+            'dia' => '2026-09-08',
+            'leituras' => 24,
+            'ph_avg' => 7.25,
+            'ph_min' => 7.20,
+            'ph_max' => 7.30,
+            'orp_avg' => 735.0, // Dentro de 650-850 mV
+            'manual_cloro_livre' => 1.50, // Conforme
+            'temp_avg' => 26.5,
+            'sem_leitura_valida' => false,
+            'motivo_exclusao' => null,
+        ];
+
+        $leituraNaoConforme = (object) [
+            'dia' => '2026-09-09',
+            'leituras' => 24,
+            'ph_avg' => 7.20,
+            'ph_min' => 7.15,
+            'ph_max' => 7.25,
+            'orp_avg' => 580.0, // Fora de 650-850 mV
+            'manual_cloro_livre' => 0.40, // Fora da banda
+            'temp_avg' => 26.5,
+            'sem_leitura_valida' => false,
+            'motivo_exclusao' => null,
+        ];
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect(),
+                    'controlador' => collect([$leituraConforme, $leituraNaoConforme]),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => RelatorioPdf::COLUNAS_DGS_OFICIAL,
+            'seccoesVisiveis' => array_merge(RelatorioPdf::SECCOES_DGS_OFICIAL, ['mostrar_controlador_tabela']),
+            'modo' => 'todos',
+            'controladorModo' => 'media_diaria',
+            'observacoesGerais' => null,
+            'fotosObservacoes' => [],
+        ])->render();
+
+        $this->assertStringContainsString('Cloro Conf. (ORP)', $html);
+        $this->assertStringContainsString('Banda ORP (OMS / DIN 19643)', $html);
+        $this->assertStringContainsString('735', $html);
+        $this->assertStringContainsString('580', $html);
+        $this->assertStringContainsString('fora-gama', $html);
+    }
+
+    /**
+     * Teste 9: Tabela principal de registos suporta a coluna ORP quando selecionada.
+     */
+    public function test_main_table_renders_orp_column_when_selected(): void
+    {
+        $registo = new \App\Models\DailyRecord([
+            'pool_id' => $this->pool->id,
+            'registado_em' => now()->subDays(2),
+            'ph' => 7.2,
+            'cloro_livre' => 1.5,
+            'temperatura' => 26.5,
+            'orp' => 740,
+        ]);
+        $registo->id = 9999;
+        $registo->setRelation('piscina', $this->pool);
+        $registo->setRelation('adicoes', collect());
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect([$registo]),
+                    'controlador' => collect(),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => array_merge(RelatorioPdf::COLUNAS_DGS_OFICIAL, ['orp']),
+            'seccoesVisiveis' => RelatorioPdf::SECCOES_DGS_OFICIAL,
+            'modo' => 'todos',
+            'controladorModo' => 'media_diaria',
+            'observacoesGerais' => null,
+            'fotosObservacoes' => [],
+        ])->render();
+
+        $this->assertStringContainsString('<th>ORP (mV)</th>', $html);
+        $this->assertStringContainsString('740', $html);
+    }
 }
