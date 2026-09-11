@@ -10,7 +10,7 @@ use App\Models\Installation;
 use App\Models\Pool;
 use App\Models\SensorReading;
 use App\Models\User;
-use Carbon\Carbon;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Get;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -101,15 +101,11 @@ class RelatorioPdfObservacoesTest extends TestCase
             'lida_em' => now()->subDays(2)->setHour(14),
         ]);
 
-        $mockGet = new class([
-            'installation_id' => $this->installation->id,
-            'pool_id' => (string) $this->pool->id,
-            'data_inicio' => $inicio->toDateString(),
-            'data_fim' => $fim->toDateString(),
-        ]) extends Get {
+        $mockGet = new class(['installation_id' => $this->installation->id, 'pool_id' => (string) $this->pool->id, 'data_inicio' => $inicio->toDateString(), 'data_fim' => $fim->toDateString()]) extends Get
+        {
             public function __construct(private array $dados) {}
 
-            public function __invoke(\Filament\Forms\Components\Component|string $path = '', bool $isAbsolute = false): mixed
+            public function __invoke(Component|string $path = '', bool $isAbsolute = false): mixed
             {
                 $key = is_string($path) ? $path : $path->getName();
 
@@ -329,7 +325,7 @@ class RelatorioPdfObservacoesTest extends TestCase
      */
     public function test_main_table_renders_orp_column_when_selected(): void
     {
-        $registo = new \App\Models\DailyRecord([
+        $registo = new DailyRecord([
             'pool_id' => $this->pool->id,
             'registado_em' => now()->subDays(2),
             'ph' => 7.2,
