@@ -132,7 +132,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 7;
+    private const CACHE_SHAPE_VERSION = 8;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -546,7 +546,7 @@ class PainelPiscinasWidget extends Widget
             $clLivreVal = $registo?->cloro_livre_efetivo !== null ? (float) $registo->cloro_livre_efetivo : null;
 
             // Banda legal aplicável (CN 14/DA — critério prático 0,5 a 2,0 mg/L)
-            $bandaLivre = LimitesLegaisService::bandaCloroLivre($phParaBanda, $registo?->registado_em);
+            $bandaLivre = LimitesLegaisService::bandaCloroLivre(data: $registo?->registado_em);
             $bandaMinFmt = number_format($bandaLivre['min'], 1, ',', '');
             $bandaMaxFmt = number_format($bandaLivre['max'], 1, ',', '');
             $limiteResumoLivre = "{$bandaMinFmt}–{$bandaMaxFmt}";
