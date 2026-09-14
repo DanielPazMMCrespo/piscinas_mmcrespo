@@ -1,7 +1,52 @@
 <x-filament-widgets::widget>
-    <div x-data="painelPiscinasController()"
-         @keydown.escape.window="closeActions()"
-         class="space-y-6 select-none font-sans">
+    <div x-data="{
+            viewMode: 'cards',
+            filterStatus: 'all',
+            activeSheet: null,
+
+            init() {
+                try {
+                    const savedView = localStorage.getItem('mmc_pool_view_mode');
+                    if (savedView === 'cards' || savedView === 'cockpit') {
+                        this.viewMode = savedView;
+                    }
+                } catch (e) {}
+            },
+
+            setViewMode(mode) {
+                this.viewMode = mode;
+                try {
+                    localStorage.setItem('mmc_pool_view_mode', mode);
+                } catch (e) {}
+            },
+
+            setFilter(status) {
+                this.filterStatus = status;
+            },
+
+            matchesFilter(isAlert, isOk) {
+                if (this.filterStatus === 'all') return true;
+                if (this.filterStatus === 'attention') return isAlert === true;
+                if (this.filterStatus === 'ok') return isOk === true;
+                return true;
+            },
+
+            openActions(data) {
+                this.activeSheet = data;
+                try {
+                    document.body.style.overflow = 'hidden';
+                } catch (e) {}
+            },
+
+            closeActions() {
+                this.activeSheet = null;
+                try {
+                    document.body.style.overflow = '';
+                } catch (e) {}
+            }
+        }"
+        @keydown.escape.window="closeActions()"
+        class="space-y-6 select-none font-sans">
 
         <!-- =====================================================================
              1. Main Header & Quick Links
@@ -477,8 +522,8 @@
                         <button type="button"
                                 @click="openActions({
                                     id: {{ $piscina->id }},
-                                    name: '{{ addslashes($piscina->name) }}',
-                                    instalacao: '{{ addslashes($piscina->instalacao?->name ?? 'Instalação Geral') }}',
+                                    name: {{ json_encode($piscina->name) }},
+                                    instalacao: {{ json_encode($piscina->instalacao?->name ?? 'Instalação Geral') }},
                                     acoes: {{ json_encode($item['acoes_rapidas']) }}
                                 })"
                                 class="apple-action-btn min-w-[48px] px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-slate-300 border border-slate-200/60 dark:border-white/5"
@@ -648,8 +693,8 @@
                                         <button type="button"
                                                 @click="openActions({
                                                     id: {{ $piscina->id }},
-                                                    name: '{{ addslashes($piscina->name) }}',
-                                                    instalacao: '{{ addslashes($piscina->instalacao?->name ?? 'Instalação Geral') }}',
+                                                    name: {{ json_encode($piscina->name) }},
+                                                    instalacao: {{ json_encode($piscina->instalacao?->name ?? 'Instalação Geral') }},
                                                     acoes: {{ json_encode($item['acoes_rapidas']) }}
                                                 })"
                                                 class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 min-h-[36px] min-w-[36px] flex items-center justify-center"
@@ -685,8 +730,8 @@
                          x-show="matchesFilter({{ $isAlert ? 'true' : 'false' }}, {{ $isOk ? 'true' : 'false' }})"
                          @click="openActions({
                              id: {{ $piscina->id }},
-                             name: '{{ addslashes($piscina->name) }}',
-                             instalacao: '{{ addslashes($piscina->instalacao?->name ?? 'Instalação Geral') }}',
+                             name: {{ json_encode($piscina->name) }},
+                             instalacao: {{ json_encode($piscina->instalacao?->name ?? 'Instalação Geral') }},
                              acoes: {{ json_encode($item['acoes_rapidas']) }}
                          })"
                          class="p-4 flex items-center justify-between gap-3 active:bg-slate-50 dark:active:bg-white/5 cursor-pointer">
@@ -756,8 +801,8 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/80 dark:border-white/10">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white" x-text="activeSheet?.name"></h3>
-                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5" x-text="activeSheet?.instalacao"></p>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white" x-text="activeSheet ? activeSheet.name : ''"></h3>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5" x-text="activeSheet ? activeSheet.instalacao : ''"></p>
                     </div>
                     <button type="button"
                             @click="closeActions()"
@@ -768,7 +813,7 @@
 
                 <!-- Actions List -->
                 <div class="space-y-2">
-                    <template x-for="(acao, index) in (activeSheet?.acoes || [])" :key="index">
+                    <template x-for="(acao, index) in (activeSheet ? activeSheet.acoes : [])" :key="index">
                         <a :href="acao.url"
                            :class="acao.primary ? 'bg-slate-900 text-white hover:bg-black dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 font-bold' : 'bg-slate-50 text-slate-800 dark:bg-white/5 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 font-semibold'"
                            class="w-full min-h-[52px] px-4 rounded-2xl flex items-center justify-between transition-all active:scale-98 shadow-sm">
@@ -782,7 +827,7 @@
                         </a>
                     </template>
 
-                    <template x-if="!activeSheet?.acoes || activeSheet?.acoes.length === 0">
+                    <template x-if="!activeSheet || !activeSheet.acoes || activeSheet.acoes.length === 0">
                         <p class="text-xs text-slate-400 text-center py-4">Sem ações adicionais disponíveis para o seu perfil.</p>
                     </template>
                 </div>
@@ -797,56 +842,4 @@
         </div>
 
     </div>
-
-    <!-- Centralized Alpine Controller -->
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('painelPiscinasController', () => ({
-                viewMode: 'cards',
-                filterStatus: 'all',
-                activeSheet: null,
-
-                init() {
-                    try {
-                        const savedView = localStorage.getItem('mmc_pool_view_mode');
-                        if (savedView === 'cards' || savedView === 'cockpit') {
-                            this.viewMode = savedView;
-                        }
-                    } catch (e) {}
-                },
-
-                setViewMode(mode) {
-                    this.viewMode = mode;
-                    try {
-                        localStorage.setItem('mmc_pool_view_mode', mode);
-                    } catch (e) {}
-                },
-
-                setFilter(status) {
-                    this.filterStatus = status;
-                },
-
-                matchesFilter(isAlert, isOk) {
-                    if (this.filterStatus === 'all') return true;
-                    if (this.filterStatus === 'attention') return isAlert === true;
-                    if (this.filterStatus === 'ok') return isOk === true;
-                    return true;
-                },
-
-                openActions(data) {
-                    this.activeSheet = data;
-                    try {
-                        document.body.style.overflow = 'hidden';
-                    } catch (e) {}
-                },
-
-                closeActions() {
-                    this.activeSheet = null;
-                    try {
-                        document.body.style.overflow = '';
-                    } catch (e) {}
-                }
-            }));
-        });
-    </script>
 </x-filament-widgets::widget>
