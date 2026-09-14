@@ -77,7 +77,7 @@ class PainelPiscinasWidget extends Widget
             });
 
             return $this->attachQuickActions($viewData);
-        } catch (LockTimeoutException $e) {
+        } catch (\Throwable $e) {
             // Fallback: build without caching, or return the cache data if it got set in the meantime
             $cached = $cacheService->getPoolData($scope);
             if ($cached !== null) {
@@ -90,20 +90,33 @@ class PainelPiscinasWidget extends Widget
 
     private function attachQuickActions(array $viewData): array
     {
-        $viewData['piscinas'] = $viewData['piscinas']->map(function (array $item) {
+        $user = auth()->user();
+        $isNS = $user?->hasRole(UserRole::NADADOR_SALVADOR) ?? false;
+        $canCreateDailyRecord = DailyRecordResource::canCreate();
+        $canCreateOpAction = OperationalActionResource::canCreate() && ($user?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false);
+        $piscinasAtribuidas = ($user && $isNS) ? $user->piscinas()->pluck('pools.id')->flip() : null;
+
+        $viewData['isNS'] = $isNS;
+
+        $viewData['piscinas'] = $viewData['piscinas']->map(function (array $item) use ($canCreateDailyRecord, $canCreateOpAction, $piscinasAtribuidas) {
             $piscinaId = $item['piscina']->id;
 
             $encerrada = $item['encerramento'] !== null;
             // Piscina parada não aceita registos (o formulário bloqueia); com a
             // água em tratamento o registo continua a fazer sentido.
-            $podeRegistar = ! $encerrada || ($item['encerramento']['agua_em_tratamento'] ?? false);
+            $podeRegistarPorEstado = ! $encerrada || ($item['encerramento']['agua_em_tratamento'] ?? false);
+            $podeRegistarPorAtribuicao = $piscinasAtribuidas === null || isset($piscinasAtribuidas[$piscinaId]);
+            $podeRegistar = $canCreateDailyRecord && $podeRegistarPorEstado && $podeRegistarPorAtribuicao;
+
             $podeReabrir = $encerrada && EncerramentoPiscinas::canAccess();
 
             // Fora do payload cacheado: a chave 'full' é partilhada por admin,
             // gestor e técnico, e o gestor não pode criar ações operacionais.
-            $podeAcaoOperacional = auth()->user()?->hasAnyRole([UserRole::ADMIN, UserRole::TECNICO]) ?? false;
+            $podeAcaoOperacional = $canCreateOpAction && (! $encerrada || ($item['encerramento']['agua_em_tratamento'] ?? false));
 
-            $item['sonda']['url_reportar'] = $podeAcaoOperacional
+            $item['pode_registar'] = $podeRegistar;
+
+            $item['sonda']['url_reportar'] = $canCreateOpAction
                 ? OperationalActionResource::getUrl('create', ['pool' => $piscinaId, 'tipo' => OperationalAction::TIPO_AVARIA_SONDA])
                 : null;
 
@@ -132,7 +145,7 @@ class PainelPiscinasWidget extends Widget
      * que as chaves de metricas4 mudarem — evita servir um array com a forma antiga
      * a uma blade já atualizada (TTL de 10min seria tempo suficiente para um 500).
      */
-    private const CACHE_SHAPE_VERSION = 7;
+    private const CACHE_SHAPE_VERSION = 8;
 
     /**
      * Nadador-Salvador só vê as suas piscinas — uma chave global cruzaria
@@ -487,6 +500,21 @@ class PainelPiscinasWidget extends Widget
                     ];
                 }
             }
+            $phNumeric = match (true) {
+                $controladorOnline => $ph,
+                $usarRegistoManual => $registo?->ph_efetivo !== null ? (float) $registo->ph_efetivo : null,
+                $leitura !== null && $artefacto === null => $ph,
+                default => null,
+            };
+            $metricas4['ph']['gauge'] = self::calculateRangeGauge(
+                $phNumeric,
+                6.5,
+                8.5,
+                (float) DailyRecord::getPhMin(),
+                (float) DailyRecord::getPhMax(),
+                7.2,
+                7.6
+            );
 
             // 2. Redox (ORP)
             $valorOrp = null;
@@ -525,6 +553,13 @@ class PainelPiscinasWidget extends Widget
                 $orpIdade = $artefacto !== null ? $artefacto : $leitura->lida_em->locale('pt')->diffForHumans();
             }
 
+            $orpNumeric = match (true) {
+                $controladorOnline => $orp,
+                $usarRegistoManual => $orpsNoMomento[$piscina->id] ?? null,
+                $leitura !== null && $artefacto === null => $orp,
+                default => null,
+            };
+
             $metricas4['redox'] = [
                 'label' => 'Redox (ORP)',
                 'valor' => $valorOrp ?? '—',
@@ -539,6 +574,13 @@ class PainelPiscinasWidget extends Widget
                     $orpOk === false => "Alerta: {$valorOrp} fora do intervalo recomendado ({$limiteResumoOrp})".($orpOrigem === 'manual' && $autorNome ? " · por {$autorNome}" : ''),
                     default => "Conforme: {$valorOrp} (intervalo recomendado: {$limiteResumoOrp})".($orpOrigem === 'manual' && $autorNome ? " · por {$autorNome}" : ''),
                 },
+                'gauge' => self::calculateRangeGauge(
+                    $orpNumeric,
+                    min(500.0, (float) ($orpMin - 30)),
+                    max(900.0, (float) ($orpMax + 30)),
+                    (float) $orpMin,
+                    (float) $orpMax
+                ),
             ];
 
             // 3. Cloro Livre
@@ -572,6 +614,13 @@ class PainelPiscinasWidget extends Widget
                 'autor_curto' => $registo ? $autorCurto : null,
                 'limite_resumo' => $limiteResumoLivre,
                 'tooltip' => $tooltipLivre,
+                'gauge' => self::calculateRangeGauge(
+                    $clLivreVal,
+                    0.0,
+                    max(3.0, round($bandaLivre['max'] * 1.5, 1)),
+                    (float) $bandaLivre['min'],
+                    (float) $bandaLivre['max']
+                ),
             ];
             if ($cloroOkConformes === null) {
                 $cloroOkConformes = $livreOk;
@@ -747,6 +796,10 @@ class PainelPiscinasWidget extends Widget
             $metricas4['temp']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['temp']['origem'], 'temperatura'));
             $metricas4['turbidez']['sparkline'] = self::generateSparkline($getSparklineData($metricas4['turbidez']['origem'], 'transparencia'));
 
+            $metricas4['combinado']['gauge'] = null;
+            $metricas4['temp']['gauge'] = null;
+            $metricas4['turbidez']['gauge'] = null;
+
             $encerramento = $piscina->encerramentoEm();
 
             $bidoesPiscina = $todosBidoes->get($piscina->id, collect())->map(function (DosingContainer $b): array {
@@ -826,7 +879,59 @@ class PainelPiscinasWidget extends Widget
             'conformes' => $conformes,
             'percentagemRegisto' => $percentagemRegisto,
             'percentagemConforme' => $percentagemConforme,
-            'isNS' => auth()->user()?->hasRole(UserRole::NADADOR_SALVADOR) ?? false,
+        ];
+    }
+
+    /**
+     * Calcula a geometria e tolerância de um medidor linear Tesla (Range Gauge).
+     */
+    public static function calculateRangeGauge(
+        ?float $value,
+        float $scaleMin,
+        float $scaleMax,
+        float $targetMin,
+        float $targetMax,
+        ?float $sweetMin = null,
+        ?float $sweetMax = null
+    ): ?array {
+        if ($value === null || $scaleMax <= $scaleMin) {
+            return null;
+        }
+
+        $span = $scaleMax - $scaleMin;
+        $valClamped = max($scaleMin, min($scaleMax, $value));
+        $percent = (($valClamped - $scaleMin) / $span) * 100.0;
+
+        $targetStart = max(0.0, min(100.0, (($targetMin - $scaleMin) / $span) * 100.0));
+        $targetWidth = max(0.0, min(100.0 - $targetStart, (($targetMax - $targetMin) / $span) * 100.0));
+
+        $sweetBand = null;
+        if ($sweetMin !== null && $sweetMax !== null && $sweetMax > $sweetMin) {
+            $sStart = max(0.0, min(100.0, (($sweetMin - $scaleMin) / $span) * 100.0));
+            $sWidth = max(0.0, min(100.0 - $sStart, (($sweetMax - $sweetMin) / $span) * 100.0));
+            $sweetBand = [
+                'start_percent' => round($sStart, 1),
+                'width_percent' => round($sWidth, 1),
+                'min' => $sweetMin,
+                'max' => $sweetMax,
+            ];
+        }
+
+        $isOk = $value >= $targetMin && $value <= $targetMax;
+
+        return [
+            'value' => $value,
+            'percent' => round($percent, 1),
+            'target_start_percent' => round($targetStart, 1),
+            'target_width_percent' => round($targetWidth, 1),
+            'scale_min' => $scaleMin,
+            'scale_max' => $scaleMax,
+            'target_min' => $targetMin,
+            'target_max' => $targetMax,
+            'sweet_band' => $sweetBand,
+            'is_clamped_low' => $value < $scaleMin,
+            'is_clamped_high' => $value > $scaleMax,
+            'status' => $isOk ? 'ok' : ($value < $targetMin ? 'low' : 'high'),
         ];
     }
 
