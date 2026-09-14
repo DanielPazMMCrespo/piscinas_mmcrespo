@@ -33,36 +33,50 @@
                  ===================================================================== -->
             <div class="fleet-capsule p-3 sm:p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
                 <!-- Fleet Compliance Status Summary -->
-                <div class="flex items-center gap-3.5">
-                    @php
-                        $todosConformes = $conformes === $totalPiscinas && $totalPiscinas > 0;
-                        $numAlertas = $totalPiscinas - $conformes;
-                    @endphp
-                    <div class="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center font-extrabold text-base text-white shadow-md {{ $todosConformes ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20' : 'bg-gradient-to-br from-rose-500 to-amber-600 shadow-rose-500/20' }}">
-                        {{ $conformes }}/{{ $totalPiscinas }}
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm font-bold text-slate-900 dark:text-white">Estado da Frota</span>
-                            @if ($todosConformes)
-                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                    100% Conforme ✓
-                                </span>
-                            @else
-                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                                    {{ $numAlertas }} em Alerta
-                                </span>
-                            @endif
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-3.5">
+                        @php
+                            $todosConformes = $conformes === $totalPiscinas && $totalPiscinas > 0;
+                            $numAlertas = $totalPiscinas - $conformes;
+                        @endphp
+                        <div class="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center font-extrabold text-base text-white shadow-md {{ $todosConformes ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20' : 'bg-gradient-to-br from-rose-500 to-amber-600 shadow-rose-500/20' }}">
+                            {{ $conformes }}/{{ $totalPiscinas }}
                         </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            @if ($todosConformes)
-                                Todas as piscinas abertas operam dentro dos limites legais.
-                            @else
-                                Existem parâmetros fora da banda regulamentar recomendada.
-                            @endif
-                        </p>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-slate-900 dark:text-white">Piscinas Conformes</span>
+                                @if ($todosConformes)
+                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        100% Conforme ✓
+                                    </span>
+                                @else
+                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                                        {{ $numAlertas }} em Alerta
+                                    </span>
+                                @endif
+                            </div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                @if ($todosConformes)
+                                    Todas as piscinas abertas operam dentro dos limites legais.
+                                @else
+                                    Existem parâmetros fora da banda regulamentar recomendada.
+                                @endif
+                            </p>
+                        </div>
                     </div>
+
+                    @unless ($isNS)
+                        <div class="hidden sm:flex items-center gap-3 pl-4 border-l border-slate-200/80 dark:border-white/10">
+                            <div class="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-xs bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                                {{ $registadasHoje }}/{{ $totalPiscinas }}
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-900 dark:text-white block">Registos Hoje</span>
+                                <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ round($percentagemRegisto) }}% concluído</span>
+                            </div>
+                        </div>
+                    @endunless
                 </div>
 
                 <!-- Controls: Filter Segments + View Mode Switcher -->
