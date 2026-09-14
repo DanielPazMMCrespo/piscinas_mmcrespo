@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -11,7 +12,8 @@ use Throwable;
 
 /**
  * Envia uma notificação destinatário a destinatário, isolando a falha de um
- * canal externo do trabalho que a originou.
+ * canal externo do trabalho que a originou. Devolve quantos destinatários
+ * foram notificados sem erro.
  *
  * Porquê: `Notification::send($colecao, $n)` percorre destinatários e canais
  * em série e deixa a exceção subir. Um único destinatário recusado pelo
@@ -32,8 +34,7 @@ use Throwable;
 final class NotificacaoResiliente
 {
     /**
-     * @param  iterable<int, \App\Models\User>  $destinatarios
-     * @return int  número de destinatários notificados sem erro
+     * @param  iterable<int, Model>  $destinatarios
      */
     public static function enviar(iterable $destinatarios, Notification $notificacao, string $contexto): int
     {
@@ -46,7 +47,7 @@ final class NotificacaoResiliente
                 $enviadas++;
             } catch (Throwable $e) {
                 $falhas[] = [
-                    'destinatario_id' => $destinatario->id,
+                    'destinatario_id' => $destinatario->getKey(),
                     'erro' => $e->getMessage(),
                 ];
             }
