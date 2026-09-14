@@ -24,7 +24,7 @@
 <body>
 <div class="wrap">
   <div class="header">
-    <h1>Piscinas MMCrespo</h1>
+    <h1>Piscinas MMCRESPO</h1>
     <p>Plataforma de gestão operacional</p>
   </div>
   <div class="body">
@@ -42,7 +42,7 @@
     </p>
   </div>
   <div class="footer">
-    Piscinas MMCrespo · Este email foi enviado para {{ $email }}
+    Piscinas MMCRESPO · Este email foi enviado para {{ $email }}
   </div>
 </div>
 </body>

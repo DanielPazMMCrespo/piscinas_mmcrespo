@@ -80,7 +80,7 @@ return Application::configure(basePath: dirname(__DIR__))
             Cache::put($key, true, now()->addMinutes(10));
 
             $to = (string) env('LOG_ALERT_EMAIL', 'daniel.paz@mmcrespo.pt');
-            $subject = '[MMCrespo] Erro crítico: '.class_basename($e);
+            $subject = '[MMCRESPO] Erro crítico: '.class_basename($e);
             $body = implode("\n", [
                 'Ambiente: '.app()->environment(),
                 'URL: '.request()->fullUrl(),

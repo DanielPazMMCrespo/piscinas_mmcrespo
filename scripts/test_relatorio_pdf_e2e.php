@@ -225,6 +225,11 @@ try {
     $temConformidadeResumo = str_contains($viewHtml, 'Conformidade Sonda (pH e ORP): <strong>100,0%</strong>');
     recordCheck('Coluna Conforme e taxa de conformidade da sonda (pH e ORP)', $temColunaConformeSonda && $temConformidadeResumo, 'Coluna Conforme e 100,0% presentes');
 
+    $temMarcaMaiusculas = str_contains($viewHtml, 'MMCRESPO') && !str_contains($viewHtml, '<div class="marca">'."\n".'            MMCrespo');
+    $semDuplicacaoJustificacao = !str_contains($viewHtml, 'Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643)');
+    recordCheck('Marca da empresa no cabeçalho em maiúsculas (MMCRESPO)', $temMarcaMaiusculas, 'Marca MMCRESPO validada');
+    recordCheck('Sem duplicação de justificação/observações no topo', $semDuplicacaoJustificacao, 'Apenas a justificação dinâmica/observação presente');
+
     echo "\n8. Auditoria binária e estrutural do ficheiro PDF gerado...\n";
     $temHeader = str_starts_with($pdfOutput, '%PDF-');
     $temTrailer = str_contains($pdfOutput, '%%EOF');

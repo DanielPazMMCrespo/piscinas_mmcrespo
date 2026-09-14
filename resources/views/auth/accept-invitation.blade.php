@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aceitar Convite — Piscinas MMCrespo</title>
+<title>Aceitar Convite — Piscinas MMCRESPO</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -116,7 +116,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">Piscinas MMCrespo</div>
+  <div class="logo">Piscinas MMCRESPO</div>
 
   @if($expired)
     <div class="alert alert-expired">

@@ -74,6 +74,6 @@ class HannaSyncFalhouNotification extends Notification
             ->line("Erro devolvido pela Hanna Cloud: {$this->erro}")
             ->action('Ver Sensores Hanna', HannaDeviceResource::getUrl())
             ->line('Verifique as credenciais da conta Hanna Cloud (HANNA_CLOUD_EMAIL e HANNA_CLOUD_PASSWORD).')
-            ->salutation('Cumprimentos, Equipa MMCrespo');
+            ->salutation('Cumprimentos, Equipa MMCRESPO');
     }
 }

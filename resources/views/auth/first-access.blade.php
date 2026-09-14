@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Alterar Palavra-passe — Piscinas MMCrespo</title>
+<title>Alterar Palavra-passe — Piscinas MMCRESPO</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -95,7 +95,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">Piscinas MMCrespo</div>
+  <div class="logo">Piscinas MMCRESPO</div>
   <h1>Alterar palavra-passe</h1>
   <p class="subtitle">Primeira vez que acede. Defina uma nova palavra-passe pessoal.</p>
 
