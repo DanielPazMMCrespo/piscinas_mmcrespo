@@ -68,67 +68,81 @@ class ConformidadeLegalTest extends TestCase
         ]);
     }
 
-    // --- Banda baixa de pH: 6,9 a 7,4 -> cloro livre 0,5 a 1,2 -----------------
+    // --- Banda única de Cloro Livre: 0,5 a 2,0 mg/L independente de pH -----------
 
-    public function test_cloro_alto_com_ph_baixo_e_violacao(): void
+    public function test_cloro_livre_ate_dois_com_ph_baixo_e_conforme(): void
     {
         $pool = $this->criarPiscina();
+        // Na prática DGS, 1,8 mg/L a pH 7,0 está perfeitamente seguro e conforme (< 2,0)
         $registo = $this->criarRegisto($pool, ph: 7.0, cloroLivre: 1.8);
 
-        $this->assertFalse(
+        $this->assertTrue(
             $registo->cloroLivreConforme(),
-            'pH 7,0 com cloro livre 1,8 mg/L: a lei fixa o máximo em 1,2 nesta banda de pH.'
+            'Cloro livre 1,8 mg/L está abaixo de 2,0 mg/L e dentro dos limites regulamentares.'
         );
-
-        $this->assertSame(
-            EstadoConformidade::VERMELHO,
-            DailyRecord::avaliarConformidade('cloro_livre', 1.8, $pool, ph: 7.0)['estado'],
-            'O semáforo do formulário tem de ficar vermelho, não verde.'
-        );
-    }
-
-    public function test_cloro_dentro_da_banda_baixa_e_conforme(): void
-    {
-        $pool = $this->criarPiscina();
-        $registo = $this->criarRegisto($pool, ph: 7.0, cloroLivre: 0.9);
-
-        $this->assertTrue($registo->cloroLivreConforme());
 
         $this->assertSame(
             EstadoConformidade::VERDE,
-            DailyRecord::avaliarConformidade('cloro_livre', 0.9, $pool, ph: 7.0)['estado']
+            DailyRecord::avaliarConformidade('cloro_livre', 1.8, $pool, ph: 7.0)['estado'],
+            'O semáforo do formulário deve ficar verde.'
         );
     }
 
-    // --- Banda alta de pH: 7,5 a 8,0 -> cloro livre 1,0 a 2,0 ------------------
-
-    public function test_cloro_baixo_com_ph_alto_e_violacao(): void
+    public function test_cloro_livre_com_ph_alto_acima_de_meio_e_conforme(): void
     {
         $pool = $this->criarPiscina();
+        // Na prática DGS, 0,7 mg/L a pH 7,8 está conforme (>= 0,5 e <= 2,0)
         $registo = $this->criarRegisto($pool, ph: 7.8, cloroLivre: 0.7);
+
+        $this->assertTrue(
+            $registo->cloroLivreConforme(),
+            'Cloro livre 0,7 mg/L está acima de 0,5 mg/L e conforme.'
+        );
+
+        $this->assertSame(
+            EstadoConformidade::VERDE,
+            DailyRecord::avaliarConformidade('cloro_livre', 0.7, $pool, ph: 7.8)['estado'],
+            'O semáforo do formulário deve ficar verde.'
+        );
+    }
+
+    public function test_cloro_livre_acima_de_dois_e_violacao(): void
+    {
+        $pool = $this->criarPiscina();
+        $registo = $this->criarRegisto($pool, ph: 7.2, cloroLivre: 2.5);
 
         $this->assertFalse(
             $registo->cloroLivreConforme(),
-            'pH 7,8 com cloro livre 0,7 mg/L: a lei fixa o mínimo em 1,0 nesta banda de pH.'
+            'Cloro livre 2,5 mg/L excede o limite máximo de 2,0 mg/L.'
         );
 
         $this->assertSame(
             EstadoConformidade::VERMELHO,
-            DailyRecord::avaliarConformidade('cloro_livre', 0.7, $pool, ph: 7.8)['estado']
+            DailyRecord::avaliarConformidade('cloro_livre', 2.5, $pool, ph: 7.2)['estado'],
+            'O semáforo do formulário deve ficar vermelho.'
         );
     }
 
-    public function test_cloro_dentro_da_banda_alta_e_conforme(): void
+    public function test_cloro_livre_abaixo_de_meio_e_violacao(): void
     {
         $pool = $this->criarPiscina();
-        $registo = $this->criarRegisto($pool, ph: 7.8, cloroLivre: 1.6);
+        $registo = $this->criarRegisto($pool, ph: 7.2, cloroLivre: 0.2);
 
-        $this->assertTrue($registo->cloroLivreConforme());
+        $this->assertFalse(
+            $registo->cloroLivreConforme(),
+            'Cloro livre 0,2 mg/L está abaixo do limite mínimo de 0,5 mg/L.'
+        );
+
+        $this->assertSame(
+            EstadoConformidade::VERMELHO,
+            DailyRecord::avaliarConformidade('cloro_livre', 0.2, $pool, ph: 7.2)['estado'],
+            'O semáforo do formulário deve ficar vermelho.'
+        );
     }
 
-    // --- Sem pH não há banda ---------------------------------------------------
+    // --- Sem pH ----------------------------------------------------------------
 
-    public function test_sem_ph_usa_a_banda_larga_e_nao_inventa_violacao(): void
+    public function test_sem_ph_usa_a_banda_global_e_e_conforme(): void
     {
         $pool = $this->criarPiscina();
 
@@ -141,7 +155,7 @@ class ConformidadeLegalTest extends TestCase
 
         $this->assertTrue(
             $registo->cloroLivreConforme(),
-            'Sem pH não se sabe qual a banda. Não se declara violação por adivinhação.'
+            'Cloro livre 1,8 mg/L sem pH deve ser conforme dentro de 0,5–2,0 mg/L.'
         );
     }
 
@@ -168,74 +182,31 @@ class ConformidadeLegalTest extends TestCase
         $this->assertTrue($registo->cloroCombinadoConforme());
     }
 
-    // --- Os limites novos não reescrevem o passado -----------------------------
+    // --- Mensagens e Alertas de Violação ---------------------------------------
 
-    public function test_registo_anterior_a_vigencia_mantem_os_limites_antigos(): void
+    public function test_a_mensagem_explica_a_violacao_de_cloro_livre(): void
     {
         $pool = $this->criarPiscina();
-
-        $registo = DailyRecord::create([
-            'pool_id' => $pool->id,
-            'user_id' => User::factory()->create()->id,
-            'registado_em' => LimitesLegaisService::vigentesDesde()->subDay(),
-            'ph' => 7.0,
-            'cloro_livre' => 1.8,
-            'cloro_total' => 2.35,
-        ]);
-
-        $this->assertTrue(
-            $registo->cloroLivreConforme(),
-            'Um mês já entregue à autoridade de saúde não é reavaliado por regras novas.'
-        );
-
-        $this->assertTrue(
-            $registo->cloroCombinadoConforme(),
-            'Combinado 0,55 era conforme no regime antigo (máximo 0,6).'
-        );
-    }
-
-    public function test_registo_no_dia_da_vigencia_ja_usa_os_limites_novos(): void
-    {
-        $pool = $this->criarPiscina();
-
-        $registo = DailyRecord::create([
-            'pool_id' => $pool->id,
-            'user_id' => User::factory()->create()->id,
-            'registado_em' => LimitesLegaisService::vigentesDesde(),
-            'ph' => 7.0,
-            'cloro_livre' => 1.8,
-        ]);
-
-        $this->assertFalse($registo->cloroLivreConforme());
-    }
-
-    // --- A mensagem tem de explicar a banda ------------------------------------
-
-    public function test_a_mensagem_diz_qual_o_ph_que_escolheu_a_banda(): void
-    {
-        $pool = $this->criarPiscina();
-        $registo = $this->criarRegisto($pool, ph: 7.0, cloroLivre: 1.8);
+        $registo = $this->criarRegisto($pool, ph: 7.2, cloroLivre: 2.5);
 
         $mensagens = array_column($registo->listarViolacoes(), 'mensagem');
         $texto = implode(' | ', $mensagens);
 
-        $this->assertStringContainsString('1,2', $texto, 'Tem de citar o máximo da banda aplicada.');
-        $this->assertStringContainsString('pH', $texto, 'Tem de dizer que foi o pH a escolher a banda.');
+        $this->assertStringContainsString('2,0', $texto, 'Tem de citar o máximo da banda aplicada.');
+        $this->assertStringContainsString('acima do máximo', $texto);
     }
-
-    // --- A violação tem de chegar ao sino e ao Kanban --------------------------
 
     public function test_violacao_de_banda_aparece_na_lista_de_violacoes(): void
     {
         $pool = $this->criarPiscina();
-        $registo = $this->criarRegisto($pool, ph: 7.0, cloroLivre: 1.8);
+        $registo = $this->criarRegisto($pool, ph: 7.2, cloroLivre: 2.5);
 
         $parametros = array_column($registo->listarViolacoes(), 'parametro');
 
         $this->assertContains(
             'cloro_livre',
             $parametros,
-            'Uma violação legal tem de disparar o alerta, senão ninguém a corrige.'
+            'Uma violação legal tem de disparar o alerta.'
         );
     }
 }

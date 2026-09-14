@@ -545,21 +545,18 @@ class PainelPiscinasWidget extends Widget
             $livreOk = $registo?->cloro_livre_efetivo !== null ? $registo->cloroLivreConforme() : null;
             $clLivreVal = $registo?->cloro_livre_efetivo !== null ? (float) $registo->cloro_livre_efetivo : null;
 
-            // Banda legal aplicável em função do pH da leitura e da data (CN 14/DA)
-            $phParaBanda = $registo?->ph_efetivo !== null ? (float) $registo->ph_efetivo : ($controladorOnline ? $ph : null);
+            // Banda legal aplicável (CN 14/DA — critério prático 0,5 a 2,0 mg/L)
             $bandaLivre = LimitesLegaisService::bandaCloroLivre($phParaBanda, $registo?->registado_em);
             $bandaMinFmt = number_format($bandaLivre['min'], 1, ',', '');
             $bandaMaxFmt = number_format($bandaLivre['max'], 1, ',', '');
             $limiteResumoLivre = "{$bandaMinFmt}–{$bandaMaxFmt}";
 
             $clLivreValFmt = $clLivreVal !== null ? number_format($clLivreVal, 2, ',', '') : null;
-            $phFmt = $phParaBanda !== null ? number_format($phParaBanda, 2, ',', '') : null;
-            $contextoPh = $phFmt !== null ? " para pH {$phFmt}" : '';
 
             $tooltipLivre = match (true) {
                 $clLivreVal === null => 'Cloro livre sem registo',
-                $livreOk === false => "Alerta: {$clLivreValFmt} mg/L fora da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L{$contextoPh} — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
-                default => "Conforme: {$clLivreValFmt} mg/L dentro da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L{$contextoPh} — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+                $livreOk === false => "Alerta: {$clLivreValFmt} mg/L fora da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
+                default => "Conforme: {$clLivreValFmt} mg/L dentro da banda legal ({$bandaMinFmt}–{$bandaMaxFmt} mg/L — CN 14/DA)".($autorNome ? " · registado por {$autorNome}" : ''),
             };
 
             $metricas4['livre'] = [
