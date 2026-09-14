@@ -144,7 +144,7 @@ class RelatorioPdfE2ETest extends TestCase
         $this->assertStringContainsString('DIN 19643', $justificacaoAutomatica);
         $this->assertStringContainsString('721 mV', $justificacaoAutomatica); // Média arredondada
         $this->assertStringContainsString('650 mV', $justificacaoAutomatica);
-        $this->assertStringContainsString('menos de 30 minutos', $justificacaoAutomatica);
+        $this->assertStringContainsString('menos de 1 hora', $justificacaoAutomatica);
 
         // 4. Preparar fotografias de evidência técnica (JPEG e PNG base64)
         $jpegBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';

@@ -158,7 +158,7 @@ try {
     $justificacao = RelatorioPdf::gerarJustificacaoSonda($getter);
     $temOMS = str_contains($justificacao, 'OMS') && str_contains($justificacao, 'DIN 19643');
     $temORP = str_contains($justificacao, '721 mV') && str_contains($justificacao, '650 mV');
-    $temMatinal = str_contains($justificacao, 'menos de 30 minutos');
+    $temMatinal = str_contains($justificacao, 'menos de 1 hora');
     recordCheck('Justificação técnica automática gerada', $temOMS && $temORP && $temMatinal, 'Normas OMS, DIN 19643, ORP 721 mV e justificação matinal presentes');
 
     echo "\n5. Processamento de evidências fotográficas em Base64...\n";

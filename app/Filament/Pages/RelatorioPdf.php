@@ -398,7 +398,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->schema([
                         Textarea::make('observacoes_gerais')
                             ->label('Observações Gerais / Justificação Técnica')
-                            ->placeholder('Ex.: Durante o período, as quebras pontuais de cloro livre registadas na abertura matinal deveram-se ao esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela subida imediata do ORP para >720 mV...')
+                            ->placeholder('Ex.: Durante o período, as quebras pontuais de cloro livre registadas na abertura matinal deveram-se ao esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 1 hora, como comprovado pela subida imediata do ORP para >720 mV...')
                             ->rows(4)
                             ->maxLength(3000)
                             ->columnSpanFull()
@@ -582,8 +582,8 @@ class RelatorioPdf extends Page implements HasForms
             "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n".
             'No período de %s a %s, o sistema de monitorização contínua registou %s leituras automáticas 24h/dia. '.
             'O Potencial Redox (ORP) registou uma média de %.0f mV (amplitude de %.0f a %.0f mV, com pH médio de %.2f). '.
-            'Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus em menos de 1 segundo. '.
-            'Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.',
+            'Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus. '.
+            'Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 1 hora, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.',
             $inicioDt->format('d/m/Y'),
             $fimDt->format('d/m/Y'),
             number_format($totalLeituras, 0, ',', '.'),
