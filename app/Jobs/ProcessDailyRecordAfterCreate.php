@@ -12,6 +12,7 @@ use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\NaoConformidadeNotification;
 use App\Support\Auditoria;
+use App\Support\NotificacaoResiliente;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +21,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Throwable;
 
 class ProcessDailyRecordAfterCreate implements ShouldQueue
@@ -51,10 +51,14 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             ->with(['piscina.instalacao', 'adicoes.produto'])
             ->findOrFail($this->dailyRecordId);
 
+        // A notificação fica para o fim e nunca atira: em 2026-09 o Resend
+        // recusou os e-mails de não-conformidade (domínio por verificar) e as
+        // 3 tentativas do job repetiram tudo o que vem antes — stock debitado
+        // 3x, fotos duplicadas — sem nunca chegar a abrir/fechar a torneira.
         $this->guardarFotos($registo);
         $this->descontarStock($registo);
-        $this->notificarNaoConformidade($registo);
         $this->gerirTorneira($registo);
+        $this->notificarNaoConformidade($registo);
     }
 
     /**
@@ -147,7 +151,7 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
         }
 
         foreach ($registo->analises_fotos as $caminho) {
-            RecordPhoto::create([
+            RecordPhoto::firstOrCreate([
                 'daily_record_id' => $registo->id,
                 'type' => 'tecnico',
                 'path' => (string) $caminho,
@@ -165,6 +169,18 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
         $insuficientes = [];
 
         DB::transaction(function () use ($registo, $instalacaoId, &$insuficientes): void {
+            // Guarda de idempotência: o job pode correr até 3 vezes e o
+            // consumo não pode ser debitado mais do que uma.
+            $bloqueado = DailyRecord::query()
+                ->whereKey($registo->id)
+                ->select(['id', 'stock_processado_em'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($bloqueado->stock_processado_em !== null) {
+                return;
+            }
+
             foreach ($registo->adicoes as $adicao) {
                 if (! $adicao->product_id || (float) $adicao->quantity <= 0) {
                     continue;
@@ -206,6 +222,11 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
                     ]);
                 }
             }
+
+            // Update pelo query builder: a marca é escrituração interna e não
+            // deve acordar o DailyRecordObserver (invalidação de cache + job)
+            // nem mexer no `updated_at` do registo.
+            DailyRecord::query()->whereKey($registo->id)->update(['stock_processado_em' => now()]);
         });
 
         if ($insuficientes === []) {
@@ -264,6 +285,10 @@ class ProcessDailyRecordAfterCreate implements ShouldQueue
             return;
         }
 
-        NotificationFacade::send($destinatarios, new NaoConformidadeNotification($registo, $violacoes, $nome));
+        NotificacaoResiliente::enviar(
+            $destinatarios,
+            new NaoConformidadeNotification($registo, $violacoes, $nome),
+            "registo diário #{$registo->id}",
+        );
     }
 }

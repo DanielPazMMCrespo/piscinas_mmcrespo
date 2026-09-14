@@ -134,6 +134,7 @@ class DailyRecord extends Model
 
     protected $casts = [
         'registado_em' => 'datetime',
+        'stock_processado_em' => 'datetime',
         'cloro_livre' => 'decimal:2',
         'cloro_total' => 'decimal:2',
         'ph' => 'decimal:2',
@@ -358,17 +359,11 @@ class DailyRecord extends Model
             $cl = (float) $this->cloro_livre_efetivo;
             $banda = $this->bandaCloroLivre();
 
-            // A banda depende do pH, por isso a mensagem tem de dizer qual o pH
-            // que a escolheu — senão o técnico lê "acima de 1,2" e não entende.
-            $porque = $this->ph_efetivo !== null
-                ? ' para pH '.$fmt((float) $this->ph_efetivo)
-                : '';
-
             $violacoes[] = [
                 'parametro' => 'cloro_livre',
                 'mensagem' => $cl < $banda['min']
-                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($banda['min'], 1).')'.$porque
-                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($banda['max'], 1).')'.$porque,
+                    ? 'cloro livre '.$fmt($cl).' mg/L abaixo do mínimo ('.$fmt($banda['min'], 1).')'
+                    : 'cloro livre '.$fmt($cl).' mg/L acima do máximo ('.$fmt($banda['max'], 1).')',
             ];
         }
 

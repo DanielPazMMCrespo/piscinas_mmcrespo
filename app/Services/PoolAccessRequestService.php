@@ -11,10 +11,10 @@ use App\Models\PoolAccessRequest;
 use App\Models\User;
 use App\Notifications\PedidoAcessoContaNotification;
 use App\Notifications\PedidoAcessoRespondidoNotification;
+use App\Support\NotificacaoResiliente;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Bloqueia a conta do nadador-salvador quando todas as piscinas atribuídas
@@ -96,7 +96,13 @@ class PoolAccessRequestService
             'decidido_em' => Carbon::now(),
         ]);
 
-        $pedido->user?->notify(new PedidoAcessoRespondidoNotification($pedido));
+        if ($pedido->user !== null) {
+            NotificacaoResiliente::enviar(
+                [$pedido->user],
+                new PedidoAcessoRespondidoNotification($pedido),
+                "resposta ao pedido de acesso #{$pedido->id}",
+            );
+        }
     }
 
     public function negar(PoolAccessRequest $pedido, User $admin, ?string $resposta = null): void
@@ -108,7 +114,13 @@ class PoolAccessRequestService
             'decidido_em' => Carbon::now(),
         ]);
 
-        $pedido->user?->notify(new PedidoAcessoRespondidoNotification($pedido));
+        if ($pedido->user !== null) {
+            NotificacaoResiliente::enviar(
+                [$pedido->user],
+                new PedidoAcessoRespondidoNotification($pedido),
+                "resposta ao pedido de acesso #{$pedido->id}",
+            );
+        }
     }
 
     private function temAcessoAprovado(User $user): bool
@@ -142,6 +154,10 @@ class PoolAccessRequestService
             return;
         }
 
-        Notification::send($destinatarios, new PedidoAcessoContaNotification($pedido));
+        NotificacaoResiliente::enviar(
+            $destinatarios,
+            new PedidoAcessoContaNotification($pedido),
+            "pedido de acesso #{$pedido->id}",
+        );
     }
 }

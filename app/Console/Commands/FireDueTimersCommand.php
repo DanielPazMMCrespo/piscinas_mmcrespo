@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\TimerPush;
 use App\Notifications\TimerFinishedNotification;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
@@ -68,9 +69,13 @@ class FireDueTimersCommand extends Command
                     return;
                 }
 
-                $timer->user?->notify(
-                    new TimerFinishedNotification($timer->fase, $timer->pool?->name)
-                );
+                if ($timer->user !== null) {
+                    NotificacaoResiliente::enviar(
+                        [$timer->user],
+                        new TimerFinishedNotification($timer->fase, $timer->pool?->name),
+                        "temporizador #{$timer->id}",
+                    );
+                }
 
                 $timer->update(['sent_at' => $agora]);
             });

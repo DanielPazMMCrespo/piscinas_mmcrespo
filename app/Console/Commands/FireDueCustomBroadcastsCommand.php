@@ -7,9 +7,9 @@ namespace App\Console\Commands;
 use App\Models\CustomBroadcast;
 use App\Models\User;
 use App\Notifications\CustomBroadcastNotification;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Dispara os anúncios personalizados (App\Models\CustomBroadcast) criados
@@ -78,9 +78,10 @@ class FireDueCustomBroadcastsCommand extends Command
             return;
         }
 
-        Notification::send(
+        NotificacaoResiliente::enviar(
             $destinatarios,
-            new CustomBroadcastNotification($broadcast->titulo, $broadcast->corpo, $tag)
+            new CustomBroadcastNotification($broadcast->titulo, $broadcast->corpo, $tag),
+            "aviso personalizado #{$broadcast->id}",
         );
     }
 }

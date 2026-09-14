@@ -10,9 +10,9 @@ use App\Models\User;
 use App\Notifications\TorneiraAbertaNotification;
 use App\Services\SettingsService;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Avisa admin+técnico quando uma torneira fica aberta há mais do que o limite
@@ -47,7 +47,11 @@ class CheckOpenTapsCommand extends Command
             ->each(function (TapAlert $tap) use ($destinatarios, $limiteHoras): void {
                 $nome = $tap->piscina?->nome_completo ?? 'piscina';
 
-                Notification::send($destinatarios, new TorneiraAbertaNotification($tap, $nome, $limiteHoras));
+                NotificacaoResiliente::enviar(
+                    $destinatarios,
+                    new TorneiraAbertaNotification($tap, $nome, $limiteHoras),
+                    "torneira aberta #{$tap->id}",
+                );
 
                 $tap->update(['notified_at' => Carbon::now()]);
             });

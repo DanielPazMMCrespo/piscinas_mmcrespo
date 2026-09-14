@@ -10,9 +10,9 @@ use App\Models\Pool;
 use App\Models\StockInstallationLog;
 use App\Models\User;
 use App\Notifications\ComparacaoSemanalNotification;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Notification;
 
 class SendWeeklyComparisonCommand extends Command
 {
@@ -83,7 +83,11 @@ class SendWeeklyComparisonCommand extends Command
         $destinatarios = User::role([UserRole::ADMIN, UserRole::GESTOR])->get();
 
         if ($destinatarios->isNotEmpty()) {
-            Notification::send($destinatarios, new ComparacaoSemanalNotification($linhas));
+            NotificacaoResiliente::enviar(
+                $destinatarios,
+                new ComparacaoSemanalNotification($linhas),
+                'comparação semanal',
+            );
         }
 
         return self::SUCCESS;

@@ -1,5 +1,5 @@
 {{--
-    Livro de Registo Sanitário — CN 14/DA (DGS 2009) — MMCrespo
+    Livro de Registo Sanitário — CN 14/DA (DGS 2009) — MMCRESPO
     Template para dompdf (A4 landscape). Limitações do dompdf respeitadas:
     CSS embebido em <style>, sem flex/grid, fonte DejaVu Sans (acentos PT),
     repetição de cabeçalho de tabela via <thead>, preto e branco.
@@ -262,23 +262,18 @@
         .observacoes-gerais-conteudo {
             padding: 8px;
         }
-        .quadro-destaque-sonda {
+        .observacoes-gerais-texto {
             background: #f4f6f8;
             border-left: 3.5px solid #000;
-            padding: 5px 8px;
-            margin-bottom: 8px;
-            font-size: 7px;
-            line-height: 1.35;
-        }
-        .quadro-destaque-sonda strong {
-            font-size: 7.5px;
-        }
-        .observacoes-gerais-texto {
+            padding: 6px 8px;
             font-size: 7.5px;
             line-height: 1.4;
             color: #000;
             margin-bottom: 8px;
             text-align: justify;
+        }
+        .observacoes-gerais-texto strong {
+            font-size: 7.5px;
         }
         .tabela-fotos-grid {
             width: 100%;
@@ -314,7 +309,7 @@
             margin: 0 auto;
         }
         .legenda-foto {
-            font-size: 6.5px;
+            font-size: 6px;
             color: #333;
             margin-top: 3px;
             text-align: center;
@@ -337,7 +332,7 @@
             &nbsp;|&nbsp; Período: <strong>{{ $inicio->format('d/m/Y') }} a {{ $fim->format('d/m/Y') }}</strong>
         </p>
         <div class="marca">
-            MMCrespo
+            MMCRESPO
             <div class="emissao">
                 Emitido em {{ $emitidoEm->format('d/m/Y H:i') }}
                 @if (! empty($emitidoPor)) por {{ $emitidoPor }} @endif
@@ -374,6 +369,51 @@
             </table>
         </div>
         <div class="quebra"></div>
+    @endif
+
+    {{-- ================================================================
+         Observações Gerais e Justificações Técnicas do Relatório (Topo)
+         Apresentadas no início do relatório para esclarecimento imediato
+         às autoridades de saúde (DGS) e auditores antes da leitura das tabelas.
+         ================================================================ --}}
+    @if (in_array('mostrar_observacoes_gerais', $seccoesVisiveis) && (filled($observacoesGerais ?? null) || !empty($fotosObservacoes ?? [])))
+        <div class="observacoes-gerais-bloco">
+            <p class="observacoes-gerais-titulo">
+                Observações Gerais e Justificações Técnicas do Relatório
+            </p>
+            <div class="observacoes-gerais-conteudo">
+                @if (filled($observacoesGerais ?? null))
+                    <div class="observacoes-gerais-texto">
+                        {!! nl2br(e($observacoesGerais)) !!}
+                    </div>
+                @endif
+
+                @if (!empty($fotosObservacoes ?? []))
+                    <div style="font-size: 7.5px; font-weight: bold; margin: 6px 0 3px 0; border-top: 0.5px solid #000; padding-top: 4px;">
+                        Evidências e Registos Fotográficos de Suporte (Ações Técnicas e Estado das Instalações):
+                    </div>
+                    <table class="tabela-fotos-grid">
+                        @foreach (array_chunk($fotosObservacoes, 3) as $linhaFotos)
+                            <tr>
+                                @foreach ($linhaFotos as $foto)
+                                    <td class="celula-foto">
+                                        <div class="caixa-foto">
+                                            <img src="{{ $foto['base64'] }}" alt="{{ $foto['nome'] ?? 'Evidência' }}">
+                                            @if (filled($foto['legenda'] ?? null))
+                                                <div class="legenda-foto">{{ $foto['legenda'] }}</div>
+                                            @endif
+                                        </div>
+                                    </td>
+                                @endforeach
+                                @for ($i = count($linhaFotos); $i < 3; $i++)
+                                    <td class="celula-foto-vazia"></td>
+                                @endfor
+                            </tr>
+                        @endforeach
+                    </table>
+                @endif
+            </div>
+        </div>
     @endif
 
     @foreach ($seccoes as $indice => $seccao)
@@ -438,6 +478,10 @@
 
             $phMin = \App\Models\DailyRecord::getPhMin();
             $phMax = \App\Models\DailyRecord::getPhMax();
+            $orpMin = (int) ($piscina->orp_min ?? 650);
+            $orpMax = (int) ($piscina->orp_max ?? 850);
+            $orpSanitarioMin = (int) ($piscina->orp_min ?? 650);
+            $orpSanitarioMax = max((int) ($piscina->orp_max ?? 850), 850);
         @endphp
 
         <div class="seccao-piscina {{ $indice > 0 ? 'quebra' : '' }}">
@@ -499,6 +543,7 @@
                             @if (in_array('cloro_combinado', $colunasVisiveis)) <th>Cl. Combinado (mg/L)</th> @endif
                             @if (in_array('temperatura', $colunasVisiveis)) <th>Temp. (°C)</th> @endif
                             @if (in_array('transparencia', $colunasVisiveis)) <th>Transp.</th> @endif
+                            @if (in_array('orp', $colunasVisiveis)) <th>ORP (mV)</th> @endif
                             @if (in_array('contador_valor', $colunasVisiveis)) <th>Contador (m³)</th> @endif
                             @if (in_array('bomba_tanque', $colunasVisiveis)) <th>Bomba / Tanque</th> @endif
                             @if (in_array('renovacao_agua', $colunasVisiveis)) <th>Renov. Água</th> @endif
@@ -596,6 +641,17 @@
                                     <td>
                                         @if ($registo->transparencia !== null)
                                             <span @class(['fora-gama' => $turbidezFora])>{{ $registo->transparencia }}</span>
+                                        @else — @endif
+                                    </td>
+                                @endif
+                                @if (in_array('orp', $colunasVisiveis))
+                                    @php
+                                        $orpReg = $registo->orp;
+                                        $orpRegFora = $orpReg !== null && ($orpReg < $orpMin || $orpReg > $orpMax);
+                                    @endphp
+                                    <td>
+                                        @if ($orpReg !== null)
+                                            <span @class(['fora-gama' => $orpRegFora])>{{ $orpReg }}</span>
                                         @else — @endif
                                     </td>
                                 @endif
@@ -840,16 +896,18 @@
                     <table class="registos controlador">
                         <thead>
                             <tr>
-                                <th style="width: 9%;">Data</th>
-                                <th style="width: 7%;">Leituras/dia</th>
-                                <th style="width: 8%;">pH Médio</th>
-                                <th style="width: 8%;">pH Mínimo</th>
-                                <th style="width: 8%;">pH Máximo</th>
-                                <th style="width: 10%;">ORP Médio (mV)</th>
-                                <th style="width: 9%;">Cl. Livre Manual</th>
-                                <th style="width: 11%;">Temp. Água Média (°C)</th>
-                                <th style="width: 7%;">pH Conforme</th>
-                                <th style="width: 14%;">Excluído (motivo)</th>
+                                <th style="width: 8%;">Data</th>
+                                <th style="width: 6%;">Leituras/dia</th>
+                                <th style="width: 6%;">pH Médio</th>
+                                <th style="width: 6%;">pH Mínimo</th>
+                                <th style="width: 6%;">pH Máximo</th>
+                                <th style="width: 8%;">ORP Médio (mV)</th>
+                                <th style="width: 10%;">Cl. Livre Manual</th>
+                                <th style="width: 8%;">Temp. Água Média (°C)</th>
+                                <th style="width: 8%;">pH Conforme</th>
+                                <th style="width: 9%;">Cloro Conf. (ORP)</th>
+                                <th style="width: 8%;">Conforme</th>
+                                <th style="width: 17%;">Excluído (motivo)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -860,12 +918,31 @@
                                     $phMed = $leitura->ph_avg !== null ? round((float) $leitura->ph_avg, 2) : null;
                                     $phMedFora = $phMed !== null && ($phMed < $phMin || $phMed > $phMax);
                                     $phConforme = $phMed !== null && !$phMedFora;
+
+                                    $orpMed = $leitura->orp_avg !== null ? (int) round((float) $leitura->orp_avg, 0) : null;
+                                    $orpMedFora = $orpMed !== null && ($orpMed < $orpSanitarioMin || $orpMed > $orpSanitarioMax);
+                                    $cloroOrpConforme = $orpMed !== null && !$orpMedFora;
+
+                                    $conformeSonda = ($phMed === null || $phConforme)
+                                        && ($orpMed === null || $cloroOrpConforme)
+                                        && ($phMed !== null || $orpMed !== null);
+
                                     $clManual = $leitura->manual_cloro_livre ?? null;
+                                    $clManualConforme = $leitura->manual_cloro_conforme ?? null;
+                                    $clManualFora = false;
+                                    if ($clManual !== null) {
+                                        if ($clManualConforme === null) {
+                                            $diaCarbon = \Carbon\Carbon::parse($leitura->dia);
+                                            $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($phMed, $diaCarbon);
+                                            $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        }
+                                        $clManualFora = ! $clManualConforme;
+                                    }
                                 @endphp
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     @if ($semLeitura)
-                                        <td colspan="8" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
+                                        <td colspan="10" class="texto" style="font-style: italic;">Sem leitura válida — {{ $motivoExclusao }}</td>
                                     @else
                                         <td>{{ $leitura->leituras }}</td>
                                         <td>
@@ -886,13 +963,18 @@
                                             @else — @endif
                                         </td>
                                         <td>
-                                            @if ($leitura->orp_avg !== null)
-                                                {{ number_format(round((float) $leitura->orp_avg, 0), 0, ',', '') }}
+                                            @if ($orpMed !== null)
+                                                <span @class(['fora-gama' => $orpMedFora])>{{ $orpMed }}</span>
                                             @else — @endif
                                         </td>
                                         <td>
                                             @if ($clManual !== null)
-                                                {{ number_format($clManual, 2, ',', '') }}
+                                                <span @class(['fora-gama' => $clManualFora])>{{ number_format($clManual, 2, ',', '') }}</span>
+                                                @if ($clManualConforme)
+                                                    <span style="color: green; font-size: 7px; font-weight: bold;">✓</span>
+                                                @else
+                                                    <span class="nao-conforme" style="font-size: 7px;">✗</span>
+                                                @endif
                                             @else — @endif
                                         </td>
                                         <td>
@@ -905,6 +987,16 @@
                                                 @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
                                             @else — @endif
                                         </td>
+                                        <td>
+                                            @if ($orpMed !== null)
+                                                @if ($cloroOrpConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($phMed !== null || $orpMed !== null)
+                                                @if ($conformeSonda) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
                                     @endif
                                     <td class="texto">{{ $motivoExclusao ?? '—' }}</td>
                                 </tr>
@@ -915,14 +1007,16 @@
                     <table class="registos controlador">
                         <thead>
                             <tr>
-                                <th style="width: 10%;">Data</th>
-                                <th style="width: 8%;">Hora</th>
-                                <th style="width: 11%;">pH</th>
-                                <th style="width: 12%;">ORP (mV)</th>
-                                <th style="width: 15%;">Cl. Livre Manual</th>
-                                <th style="width: 12%;">Temp. Água (°C)</th>
-                                <th style="width: 9%;">pH Conforme</th>
-                                <th style="width: 23%;">Excluído (motivo)</th>
+                                <th style="width: 8%;">Data</th>
+                                <th style="width: 6%;">Hora</th>
+                                <th style="width: 7%;">pH</th>
+                                <th style="width: 8%;">ORP (mV)</th>
+                                <th style="width: 11%;">Cl. Livre Manual</th>
+                                <th style="width: 8%;">Temp. Água (°C)</th>
+                                <th style="width: 8%;">pH Conforme</th>
+                                <th style="width: 10%;">Cloro Conf. (ORP)</th>
+                                <th style="width: 8%;">Conforme</th>
+                                <th style="width: 26%;">Excluído (motivo)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -933,13 +1027,32 @@
                                     $ph = $leitura->ph !== null ? round((float) $leitura->ph, 2) : null;
                                     $phFora = $ph !== null && ($ph < $phMin || $ph > $phMax);
                                     $phConforme = $ph !== null && !$phFora;
+
+                                    $orp = $leitura->orp !== null ? (int) round((float) $leitura->orp, 0) : null;
+                                    $orpFora = $orp !== null && ($orp < $orpSanitarioMin || $orp > $orpSanitarioMax);
+                                    $cloroOrpConforme = $orp !== null && !$orpFora;
+
+                                    $conformeSonda = ($ph === null || $phConforme)
+                                        && ($orp === null || $cloroOrpConforme)
+                                        && ($ph !== null || $orp !== null);
+
                                     $clManual = $leitura->manual_cloro_livre ?? null;
+                                    $clManualConforme = $leitura->manual_cloro_conforme ?? null;
+                                    $clManualFora = false;
+                                    if ($clManual !== null) {
+                                        if ($clManualConforme === null) {
+                                            $momentoCarbon = \Carbon\Carbon::parse($leitura->dia);
+                                            $banda = \App\Services\LimitesLegaisService::bandaCloroLivre($ph, $momentoCarbon);
+                                            $clManualConforme = (float) $clManual >= $banda['min'] && (float) $clManual <= $banda['max'];
+                                        }
+                                        $clManualFora = ! $clManualConforme;
+                                    }
                                 @endphp
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($leitura->dia)->format('d/m/Y') }}</td>
                                     <td>{{ $leitura->hora ?? '—' }}</td>
                                     @if ($semLeitura && $ph === null)
-                                        <td colspan="5" class="texto" style="font-style: italic;">Sem leitura válida</td>
+                                        <td colspan="7" class="texto" style="font-style: italic;">Sem leitura válida</td>
                                     @else
                                         <td>
                                             @if ($ph !== null)
@@ -947,13 +1060,18 @@
                                             @else — @endif
                                         </td>
                                         <td>
-                                            @if ($leitura->orp !== null)
-                                                {{ number_format(round((float) $leitura->orp, 0), 0, ',', '') }}
+                                            @if ($orp !== null)
+                                                <span @class(['fora-gama' => $orpFora])>{{ $orp }}</span>
                                             @else — @endif
                                         </td>
                                         <td>
                                             @if ($clManual !== null)
-                                                {{ number_format($clManual, 2, ',', '') }}
+                                                <span @class(['fora-gama' => $clManualFora])>{{ number_format($clManual, 2, ',', '') }}</span>
+                                                @if ($clManualConforme)
+                                                    <span style="color: green; font-size: 7px; font-weight: bold;">✓</span>
+                                                @else
+                                                    <span class="nao-conforme" style="font-size: 7px;">✗</span>
+                                                @endif
                                             @else — @endif
                                         </td>
                                         <td>
@@ -964,6 +1082,16 @@
                                         <td>
                                             @if ($ph !== null)
                                                 @if ($phConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($orp !== null)
+                                                @if ($cloroOrpConforme) ✓ @else <span class="nao-conforme">✗</span> @endif
+                                            @else — @endif
+                                        </td>
+                                        <td>
+                                            @if ($ph !== null || $orp !== null)
+                                                @if ($conformeSonda) ✓ @else <span class="nao-conforme">✗</span> @endif
                                             @else — @endif
                                         </td>
                                     @endif
@@ -980,25 +1108,51 @@
                     $diasFora = $isTodos 
                         ? $controlador->filter(fn ($l) => ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax))->count()
                         : $controlador->filter(fn ($l) => ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax))->count();
+                    $diasOrpFora = $isTodos
+                        ? $controlador->filter(fn ($l) => ($l->orp ?? null) !== null && ((float) $l->orp < $orpSanitarioMin || (float) $l->orp > $orpSanitarioMax))->count()
+                        : $controlador->filter(fn ($l) => ($l->orp_avg ?? null) !== null && ((float) $l->orp_avg < $orpSanitarioMin || (float) $l->orp_avg > $orpSanitarioMax))->count();
                     $diasComDados = $isTodos
                         ? $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->unique('dia')->count()
                         : $controlador->filter(fn ($l) => ($l->leituras ?? 0) > 0)->count();
                     $diasArtefacto = $isTodos
                         ? $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->unique('dia')->count()
                         : $controlador->filter(fn ($l) => ! empty($l->motivo_exclusao))->count();
+
+                    if ($isTodos) {
+                        $linhasAvaliadas = $controlador->filter(fn ($l) => ! ($l->sem_leitura_valida ?? false) && (($l->ph ?? null) !== null || ($l->orp ?? null) !== null));
+                        $naoConformesSonda = $linhasAvaliadas->filter(function ($l) use ($phMin, $phMax, $orpSanitarioMin, $orpSanitarioMax) {
+                            $phFora = ($l->ph ?? null) !== null && ((float) $l->ph < $phMin || (float) $l->ph > $phMax);
+                            $orpFora = ($l->orp ?? null) !== null && ((float) $l->orp < $orpSanitarioMin || (float) $l->orp > $orpSanitarioMax);
+                            return $phFora || $orpFora;
+                        })->count();
+                    } else {
+                        $linhasAvaliadas = $controlador->filter(fn ($l) => ! ($l->sem_leitura_valida ?? false) && (($l->ph_avg ?? null) !== null || ($l->orp_avg ?? null) !== null));
+                        $naoConformesSonda = $linhasAvaliadas->filter(function ($l) use ($phMin, $phMax, $orpSanitarioMin, $orpSanitarioMax) {
+                            $phFora = ($l->ph_avg ?? null) !== null && ((float) $l->ph_avg < $phMin || (float) $l->ph_avg > $phMax);
+                            $orpFora = ($l->orp_avg ?? null) !== null && ((float) $l->orp_avg < $orpSanitarioMin || (float) $l->orp_avg > $orpSanitarioMax);
+                            return $phFora || $orpFora;
+                        })->count();
+                    }
+                    $totalAvaliadasSonda = $linhasAvaliadas->count();
+                    $conformidadeSondaPerc = $totalAvaliadasSonda > 0
+                        ? round((($totalAvaliadasSonda - $naoConformesSonda) / $totalAvaliadasSonda) * 100, 1)
+                        : null;
                 @endphp
                 <p class="resumo">
                     <strong>Controlador — {{ $piscina->name }}:</strong>
                     {{ $totalLeituras }} leituras automáticas em {{ $diasComDados }} {{ $diasComDados === 1 ? 'dia' : 'dias' }}
                     | {{ $isTodos ? 'Leituras com' : 'Dias com' }} pH {{ $isTodos ? '' : 'médio ' }}fora de gama: <strong>{{ $diasFora }}</strong>
+                    | {{ $isTodos ? 'Leituras com' : 'Dias com' }} ORP {{ $isTodos ? '' : 'médio ' }}fora de gama (Desinfeção): <strong>{{ $diasOrpFora }}</strong>
+                    | Conformidade Sonda (pH e ORP): <strong>{{ $conformidadeSondaPerc !== null ? number_format($conformidadeSondaPerc, 1, ',', '') . '%' : '—' }}</strong>
                     @if ($diasArtefacto > 0)| Dias com leituras excluídas (lavagem/bomba parada): <strong>{{ $diasArtefacto }}</strong>@endif
-                    | Intervalo de conformidade pH: {{ $phMin }} – {{ $phMax }}
+                    | Intervalo pH: {{ $phMin }} – {{ $phMax }}
+                    | Banda ORP (OMS / DIN 19643): {{ $orpSanitarioMin }} – {{ $orpSanitarioMax }} mV
                 </p>
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
                     Nota: valores anómalos registados durante lavagem/enxaguamento do filtro ou com a bomba parada são mantidos na média para evidência da DGS, mas devidamente justificados — nesses curtos períodos a água não circula normalmente no sensor e os valores não refletem a qualidade real.
                 </p>
                 <p class="resumo" style="font-size: 7px; border: none; padding: 2px 0;">
-                    Nota (Cloro Livre Manual): o valor na coluna «Cl. Livre Manual» da tabela da sonda é apenas apresentado quando um registo manual coincide com uma leitura automática, de modo a permitir verificar qual o cloro livre que coincide com o valor de ORP. Caso o valor não seja credível (por estar fora dos limites ou em incoerência com o ORP), este é apresentado com destaque numa cor/formatação específica acompanhado do motivo da não conformidade.
+                    Nota (Conformidade Sonda / pH e ORP): a coluna «Conforme» sintetiza a conformidade global da sonda simultaneamente por pH e ORP (Potencial Redox &ge; 650 mV conforme diretrizes da OMS e norma DIN 19643 asseguram destruição de patogénicos em &lt; 1s). A coluna «Cl. Livre Manual» indica o valor e conformidade da colheita manual; eventuais quebras matinais pontuais decorrem de esgotamento noturno dos doseadores repostos no início da manhã, mantendo-se a água em desinfeção contínua ao longo de todo o período.
                 </p>
                 @endif
             @endif
@@ -1152,55 +1306,6 @@
         </div>
     @endforeach
 
-    {{-- ================================================================
-         Observações Gerais e Justificações Técnicas do Relatório
-         ================================================================ --}}
-    @if (in_array('mostrar_observacoes_gerais', $seccoesVisiveis) && (filled($observacoesGerais ?? null) || !empty($fotosObservacoes ?? [])))
-        <div class="observacoes-gerais-bloco">
-            <p class="observacoes-gerais-titulo">
-                Observações Gerais e Justificações Técnicas do Relatório
-            </p>
-            <div class="observacoes-gerais-conteudo">
-                <div class="quadro-destaque-sonda">
-                    <strong>Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643):</strong><br>
-                    O Potencial Redox (ORP medido em mV pela sonda contínua) avalia o poder germicida e oxidante real da água 24 horas por dia.
-                    A Organização Mundial da Saúde (OMS) estipula que um <strong>ORP &ge; 650 mV</strong> garante destruição de microrganismos patogénicos em menos de 1 segundo.
-                    Eventuais quebras pontuais de cloro livre registadas na abertura matinal decorrem do esgotamento noturno e são retificadas de imediato pela equipa técnica, mantendo-se a água em desinfeção permanente conforme comprovado pela monitorização contínua.
-                </div>
-
-                @if (filled($observacoesGerais ?? null))
-                    <div class="observacoes-gerais-texto">
-                        {!! nl2br(e($observacoesGerais)) !!}
-                    </div>
-                @endif
-
-                @if (!empty($fotosObservacoes ?? []))
-                    <div style="font-size: 7.5px; font-weight: bold; margin: 6px 0 3px 0; border-top: 0.5px solid #000; padding-top: 4px;">
-                        Evidências e Registos Fotográficos de Suporte (Ações Técnicas e Estado das Instalações):
-                    </div>
-                    <table class="tabela-fotos-grid">
-                        @foreach (array_chunk($fotosObservacoes, 3) as $linhaFotos)
-                            <tr>
-                                @foreach ($linhaFotos as $foto)
-                                    <td class="celula-foto">
-                                        <div class="caixa-foto">
-                                            <img src="{{ $foto['base64'] }}" alt="{{ $foto['nome'] ?? 'Evidência' }}">
-                                            @if (filled($foto['legenda'] ?? null))
-                                                <div class="legenda-foto">{{ $foto['legenda'] }}</div>
-                                            @endif
-                                        </div>
-                                    </td>
-                                @endforeach
-                                @for ($i = count($linhaFotos); $i < 3; $i++)
-                                    <td class="celula-foto-vazia"></td>
-                                @endfor
-                            </tr>
-                        @endforeach
-                    </table>
-                @endif
-            </div>
-        </div>
-    @endif
 
     {{-- Área de assinaturas (última página) --}}
     @if (in_array('mostrar_assinaturas', $seccoesVisiveis))
@@ -1221,7 +1326,7 @@
     @if (in_array('mostrar_nota_legal', $seccoesVisiveis))
     <p class="nota-legal">
         Registo conforme CN 14/DA (DGS 2009), NP 4542:2017 e DR 5/97.
-        Documento gerado eletronicamente pela aplicação de gestão operacional MMCrespo em {{ $emitidoEm->format('d/m/Y H:i') }}.
+        Documento gerado eletronicamente pela aplicação de gestão operacional MMCRESPO em {{ $emitidoEm->format('d/m/Y H:i') }}.
     </p>
     @endif
 

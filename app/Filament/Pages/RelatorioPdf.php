@@ -34,10 +34,12 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -88,6 +90,8 @@ class RelatorioPdf extends Page implements HasForms
 
     public const MODELO_PERSONALIZADO = 'personalizado';
 
+    public const MAX_DIAS_CONTROLADOR_TODOS = 31;
+
     public const COLUNAS_DGS_OFICIAL = [
         'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
         'cloro_combinado', 'temperatura', 'transparencia',
@@ -105,7 +109,7 @@ class RelatorioPdf extends Page implements HasForms
 
     public const TODAS_COLUNAS = [
         'hora', 'tecnico', 'ph', 'cloro_livre', 'cloro_total',
-        'cloro_combinado', 'temperatura', 'transparencia',
+        'cloro_combinado', 'temperatura', 'transparencia', 'orp',
         'contador_valor', 'bomba_tanque', 'renovacao_agua',
         'caleira_feita', 'pressao_filtro', 'lavagens_filtro',
         'banhistas', 'acao_corretiva', 'observacoes', 'conforme',
@@ -347,7 +351,7 @@ class RelatorioPdf extends Page implements HasForms
                             ->live(onBlur: true)
                             ->maxDate(now()->subDay())
                             ->helperText(fn (Get $get): ?string => $get('controlador_modo') === 'todos'
-                                ? 'No modo "Todos os registos" o período máximo é de 7 dias.'
+                                ? 'No modo "Todos os registos" o período máximo é de '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias (1 mês completo).'
                                 : null)
                             ->afterOrEqual('data_inicio')
                             ->displayFormat('d/m/Y')
@@ -394,7 +398,7 @@ class RelatorioPdf extends Page implements HasForms
                     ->schema([
                         Textarea::make('observacoes_gerais')
                             ->label('Observações Gerais / Justificação Técnica')
-                            ->placeholder('Ex.: Durante o período, as quebras pontuais de cloro livre registadas na abertura matinal deveram-se ao esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela subida imediata do ORP para >720 mV...')
+                            ->placeholder('Ex.: Durante o período, as quebras pontuais de cloro livre registadas na abertura matinal deveram-se ao esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 1 hora, como comprovado pela subida imediata do ORP para >720 mV...')
                             ->rows(4)
                             ->maxLength(3000)
                             ->columnSpanFull()
@@ -409,7 +413,7 @@ class RelatorioPdf extends Page implements HasForms
                                     $textoGerado = static::gerarJustificacaoSonda($get);
                                     $atual = (string) ($get('observacoes_gerais') ?? '');
                                     if (filled($atual)) {
-                                        $set('observacoes_gerais', $atual . "\n\n" . $textoGerado);
+                                        $set('observacoes_gerais', $atual."\n\n".$textoGerado);
                                     } else {
                                         $set('observacoes_gerais', $textoGerado);
                                     }
@@ -490,6 +494,7 @@ class RelatorioPdf extends Page implements HasForms
                                 'cloro_combinado' => 'Cloro Combinado',
                                 'temperatura' => 'Temperatura',
                                 'transparencia' => 'Transparência',
+                                'orp' => 'Redox / ORP da Sonda (mV)',
                                 'contador_valor' => 'Contador',
                                 'bomba_tanque' => 'Bomba / Tanque',
                                 'renovacao_agua' => 'Renovação Água',
@@ -561,8 +566,8 @@ class RelatorioPdf extends Page implements HasForms
 
         if ($totalLeituras === 0) {
             return sprintf(
-                "Garantia de Desinfeção e Controlo Operacional:\n" .
-                "No período de %s a %s, todas as anomalias pontuais ou quebras de cloro decorrentes de manutenções ou paragens foram objeto de intervenção técnica corretiva imediata pela equipa operacional, com reposição célere da conformidade química regulamentar (CN 14/DA). As evidências e registos fotográficos em anexo comprovam a diligência técnica na salvaguarda da saúde pública.",
+                "Garantia de Desinfeção e Controlo Operacional:\n".
+                'No período de %s a %s, todas as anomalias pontuais ou quebras de cloro decorrentes de manutenções ou paragens foram objeto de intervenção técnica corretiva imediata pela equipa operacional, com reposição célere da conformidade química regulamentar (CN 14/DA). As evidências e registos fotográficos em anexo comprovam a diligência técnica na salvaguarda da saúde pública.',
                 $inicioDt->format('d/m/Y'),
                 $fimDt->format('d/m/Y')
             );
@@ -574,11 +579,11 @@ class RelatorioPdf extends Page implements HasForms
         $phMedio = round((float) $query->avg('ph'), 2);
 
         return sprintf(
-            "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n" .
-            "No período de %s a %s, o sistema de monitorização contínua registou %s leituras automáticas 24h/dia. " .
-            "O Potencial Redox (ORP) registou uma média de %.0f mV (amplitude de %.0f a %.0f mV, com pH médio de %.2f). " .
-            "Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus em menos de 1 segundo. " .
-            "Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 30 minutos, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.",
+            "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n".
+            'No período de %s a %s, o sistema de monitorização contínua registou %s leituras automáticas 24h/dia. '.
+            'O Potencial Redox (ORP) registou uma média de %.0f mV (amplitude de %.0f a %.0f mV, com pH médio de %.2f). '.
+            'Conforme as diretrizes da Organização Mundial da Saúde (OMS) e a norma técnica DIN 19643, um ORP sustentado >= 650 mV assegura destruição de bactérias e vírus. '.
+            'Quaisquer quebras pontuais de cloro livre registadas na abertura matinal decorreram de esgotamento noturno dos doseadores, tendo a reposição técnica ocorrido em menos de 1 hora, como comprovado pela imediata subida e estabilização do ORP acima de 700 mV ao longo de todo o período com banhistas.',
             $inicioDt->format('d/m/Y'),
             $fimDt->format('d/m/Y'),
             number_format($totalLeituras, 0, ',', '.'),
@@ -593,7 +598,6 @@ class RelatorioPdf extends Page implements HasForms
      * Processa fotografias carregadas no formulário (armazenadas em disco ou objetos de upload)
      * e converte-as em Data URIs (base64) para renderização fiável no Dompdf.
      *
-     * @param  mixed  $fotos
      * @return array<int, array{base64: string, nome: string, legenda: string}>
      */
     public function processarFotosObservacoes(mixed $fotos): array
@@ -619,7 +623,7 @@ class RelatorioPdf extends Page implements HasForms
             $mime = null;
             $nome = "Evidência {$contador}";
 
-            if ($foto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile || $foto instanceof \Illuminate\Http\UploadedFile) {
+            if ($foto instanceof TemporaryUploadedFile || $foto instanceof UploadedFile) {
                 $nome = $foto->getClientOriginalName();
                 $ext = strtolower(pathinfo($nome, PATHINFO_EXTENSION));
                 $mime = $mimeMap[$ext] ?? $foto->getMimeType();
@@ -709,16 +713,16 @@ class RelatorioPdf extends Page implements HasForms
         $dias = $inicio->diffInDays($fim->copy()->startOfDay()) + 1;
         $modoControlador = $estado['controlador_modo'] ?? 'media_diaria';
 
-        // Prevenção de "Erro 500": limite estrito de 7 dias quando o modo do controlador é "todos os registos"
-        if ($modoControlador === 'todos' && $dias > 7) {
-            $novoFim = $inicio->copy()->addDays(6);
+        // Prevenção de sobrecarga: limite de 31 dias quando o modo do controlador é "todos os registos"
+        if ($modoControlador === 'todos' && $dias > self::MAX_DIAS_CONTROLADOR_TODOS) {
+            $novoFim = $inicio->copy()->addDays(self::MAX_DIAS_CONTROLADOR_TODOS - 1);
             $this->data['data_fim'] = $novoFim->toDateString();
             $fim = $novoFim->copy()->endOfDay();
-            $dias = 7;
+            $dias = self::MAX_DIAS_CONTROLADOR_TODOS;
 
             Notification::make()
-                ->title('Período ajustado para 7 dias')
-                ->body('O modo "Todos os registos" está limitado a 7 dias. O relatório cobre '
+                ->title('Período ajustado para '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias')
+                ->body('O modo "Todos os registos" está limitado a '.self::MAX_DIAS_CONTROLADOR_TODOS.' dias (1 mês completo). O relatório cobre '
                     .$inicio->format('d/m/Y').' a '.$novoFim->format('d/m/Y').'.')
                 ->warning()
                 ->send();
@@ -970,11 +974,27 @@ class RelatorioPdf extends Page implements HasForms
             // sintético (mesmo padrão do "mockRecord" da agregação média diária,
             // abaixo) para reutilizar phConforme()/cloroLivreConforme()/etc. sem
             // duplicar a lógica de conformidade legal.
+            // A migração 2026_09_10_000002 copiou o histórico de analise_pontual
+            // para daily_records e deixou a OperationalAction de origem de pé.
+            // Sem descartar o par já migrado, cada análise antiga sai duas vezes
+            // no livro, em linhas seguidas com o mesmo carimbo.
+            $carimbosJaRegistados = $registos
+                ->map(fn (DailyRecord $r) => $r->registado_em->format('Y-m-d H:i'))
+                ->all();
+
             $analisesRapidas = ($acoesOperacionais->get($piscina->id) ?? collect())
                 ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+                ->reject(fn (OperationalAction $acao) => in_array(
+                    $acao->registado_em->format('Y-m-d H:i'),
+                    $carimbosJaRegistados,
+                    true
+                ))
                 ->map(fn (OperationalAction $acao) => self::registoSinteticoDeAnalise($acao, $piscina));
 
-            $registos = $registos->concat($analisesRapidas)->sortBy('registado_em')->values();
+            $registos = $registos->concat($analisesRapidas)
+                ->unique(fn ($r) => $r->registado_em->format('Y-m-d H:i'))
+                ->sortBy('registado_em')
+                ->values();
 
             if ($modo === 'media_diaria' && $registos->isNotEmpty()) {
                 $registos = $registos->groupBy(fn ($r) => $r->registado_em->toDateString())
@@ -988,6 +1008,7 @@ class RelatorioPdf extends Page implements HasForms
                         $transparenciaAvg = $grupo->whereNotNull('transparencia')->avg('transparencia');
                         $contadorAvg = $grupo->whereNotNull('contador_valor')->avg('contador_valor');
                         $pressaoAvg = $grupo->whereNotNull('pressao_filtro')->avg('pressao_filtro');
+                        $orpAvg = $grupo->whereNotNull('orp')->avg('orp');
 
                         $acoes = $grupo->flatMap(fn ($r) => $r->adicoes->pluck('acao_corretiva'))->filter()->unique()->implode('; ');
                         $observacoes = $grupo->pluck('observacoes')->filter()->unique()->implode('; ');
@@ -1029,6 +1050,7 @@ class RelatorioPdf extends Page implements HasForms
                         $mockRecord->cloro_total = $cloroTotalAvg !== null ? round((float) $cloroTotalAvg, 2) : null;
                         $mockRecord->temperatura = $tempAvg !== null ? round((float) $tempAvg, 1) : null;
                         $mockRecord->transparencia = $transparenciaAvg !== null ? round((float) $transparenciaAvg, 2) : null;
+                        $mockRecord->orp = $orpAvg !== null ? (int) round((float) $orpAvg) : null;
                         $mockRecord->contador_valor = $contadorAvg !== null ? round((float) $contadorAvg, 2) : null;
                         $mockRecord->pressao_filtro = $pressaoAvg !== null ? round((float) $pressaoAvg, 2) : null;
                         $mockRecord->bomba_ferrada = $bombaFerrada;
@@ -1138,13 +1160,16 @@ class RelatorioPdf extends Page implements HasForms
                     $linha->sem_leitura_valida = false;
 
                     $diaCarbon = Carbon::parse($linha->dia);
-                    $cloroManualAvg = $registos
-                        ->filter(fn ($r) => $r->registado_em->isSameDay($diaCarbon))
+                    $registosDoDia = $registos->filter(fn ($r) => $r->registado_em->isSameDay($diaCarbon));
+                    $cloroManualAvg = $registosDoDia
                         ->map(fn ($r) => $r->cloro_livre_efetivo)
                         ->filter(fn ($v) => $v !== null)
                         ->average();
 
                     $linha->manual_cloro_livre = $cloroManualAvg !== null ? round($cloroManualAvg, 2) : null;
+                    $linha->manual_cloro_conforme = $registosDoDia->isNotEmpty()
+                        ? $registosDoDia->every(fn ($r) => $r->cloroLivreConforme())
+                        : null;
 
                     return $linha;
                 });
@@ -1187,6 +1212,7 @@ class RelatorioPdf extends Page implements HasForms
                         return abs($r->registado_em->diffInMinutes($lidaEm)) <= 15;
                     });
                     $sintetico->manual_cloro_livre = $closestRegisto ? $closestRegisto->cloro_livre_efetivo : null;
+                    $sintetico->manual_cloro_conforme = $closestRegisto ? $closestRegisto->cloroLivreConforme() : null;
 
                     // Verificar se cai em alguma janela
                     $motivo = null;
@@ -1402,6 +1428,38 @@ class RelatorioPdf extends Page implements HasForms
             ->where('tipo', OperationalAction::TIPO_LAVAGEM_FILTRO)
             ->count();
         $totalLavagens += $lavagensAcoes;
+
+        // O livro imprime as análises pontuais como linhas de registo
+        // (construirSeccoes converte-as em DailyRecord sintéticos).
+        $piscinasPorId = $piscinas->keyBy('id');
+        $carimbosJaRegistados = $registos
+            ->map(fn (DailyRecord $r) => $r->pool_id.'_'.$r->registado_em->format('Y-m-d H:i'))
+            ->all();
+
+        OperationalAction::query()
+            ->whereIn('pool_id', $poolIds)
+            ->whereBetween('registado_em', [$inicioDt, $fimDt])
+            ->where('tipo', OperationalAction::TIPO_ANALISE_PONTUAL)
+            ->with('utilizador')
+            ->get()
+            ->reject(fn (OperationalAction $acao) => in_array(
+                $acao->pool_id.'_'.$acao->registado_em->format('Y-m-d H:i'),
+                $carimbosJaRegistados,
+                true
+            ))
+            ->each(function (OperationalAction $acao) use ($piscinasPorId, &$totalRegistos, &$totalViolacoes): void {
+                $piscina = $piscinasPorId->get($acao->pool_id);
+
+                if ($piscina === null) {
+                    return;
+                }
+
+                $totalRegistos++;
+
+                if (self::registoSinteticoDeAnalise($acao, $piscina)->listarViolacoes() !== []) {
+                    $totalViolacoes++;
+                }
+            });
 
         $taxaConformidade = $totalRegistos > 0
             ? round((($totalRegistos - $totalViolacoes) / $totalRegistos) * 100, 1)

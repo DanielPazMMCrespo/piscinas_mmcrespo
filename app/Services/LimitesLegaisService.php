@@ -90,41 +90,18 @@ final class LimitesLegaisService
     /**
      * Banda de cloro livre aplicável.
      *
-     * Sem pH não se sabe em que banda a leitura cai. Nesse caso devolve-se a
-     * união das duas: não se declara uma violação por adivinhação.
+     * Na prática das vistorias da DGS e gestão diária de piscinas, o critério
+     * fiscalizado é a banda global 0,5–2,0 mg/L (configurável em Definições),
+     * sem penalizar variações normais de pH.
      *
      * @return array{min: float, max: float, banda: string}
      */
-    public static function bandaCloroLivre(?float $ph, ?CarbonInterface $data = null): array
+    public static function bandaCloroLivre(?float $ph = null, ?CarbonInterface $data = null): array
     {
-        if (! self::aplicaRegimeNovo($data)) {
-            return [
-                'min' => DailyRecord::getCloroLivreMin(),
-                'max' => DailyRecord::getCloroLivreMax(),
-                'banda' => 'legado',
-            ];
-        }
-
-        if ($ph === null) {
-            return [
-                'min' => min(self::CLORO_LIVRE_PH_BAIXO_MIN, self::CLORO_LIVRE_PH_ALTO_MIN),
-                'max' => max(self::CLORO_LIVRE_PH_BAIXO_MAX, self::CLORO_LIVRE_PH_ALTO_MAX),
-                'banda' => 'sem_ph',
-            ];
-        }
-
-        if ($ph <= self::PH_FRONTEIRA_BANDAS) {
-            return [
-                'min' => self::CLORO_LIVRE_PH_BAIXO_MIN,
-                'max' => self::CLORO_LIVRE_PH_BAIXO_MAX,
-                'banda' => 'ph_baixo',
-            ];
-        }
-
         return [
-            'min' => self::CLORO_LIVRE_PH_ALTO_MIN,
-            'max' => self::CLORO_LIVRE_PH_ALTO_MAX,
-            'banda' => 'ph_alto',
+            'min' => DailyRecord::getCloroLivreMin(),
+            'max' => DailyRecord::getCloroLivreMax(),
+            'banda' => 'pratica',
         ];
     }
 
@@ -146,17 +123,12 @@ final class LimitesLegaisService
      * Texto para o rodapé do livro sanitário e para o formulário, a dizer que
      * banda foi aplicada. Um inspetor tem de conseguir refazer a conta.
      */
-    public static function explicarBanda(?float $ph, ?CarbonInterface $data = null): string
+    public static function explicarBanda(?float $ph = null, ?CarbonInterface $data = null): string
     {
         $banda = self::bandaCloroLivre($ph, $data);
         $fmt = static fn (float $v): string => number_format($v, 1, ',', '');
         $gama = $fmt($banda['min']).'–'.$fmt($banda['max']).' mg/L';
 
-        return match ($banda['banda']) {
-            'ph_baixo' => 'Cloro livre '.$gama.' (CN 14/DA, pH até '.$fmt(self::PH_FRONTEIRA_BANDAS).')',
-            'ph_alto' => 'Cloro livre '.$gama.' (CN 14/DA, pH acima de '.$fmt(self::PH_FRONTEIRA_BANDAS).')',
-            'sem_ph' => 'Cloro livre '.$gama.' (sem pH registado: banda larga)',
-            default => 'Cloro livre '.$gama.' (limites anteriores a '.self::vigentesDesde()->format('d/m/Y').')',
-        };
+        return 'Cloro livre '.$gama.' (CN 14/DA)';
     }
 }

@@ -104,21 +104,20 @@ class ConfirmacaoSoQuandoHaViolacaoTest extends TestCase
     }
 
     /**
-     * Cloro livre 1,8 com pH 7,0: a banda legal nessa faixa de pH é 0,5–1,2.
-     * É a violação que a app declarava conforme antes de 395f2d7.
+     * Cloro livre 2,5 com pH 7,0: passa da banda máxima de 2,0 mg/L (DGS).
      */
     public function test_violacao_de_cloro_ainda_pede_confirmacao(): void
     {
         $pagina = $this->preencher([
             'ns_ph' => 7.0,
-            'ns_cloro_livre' => 1.8,
-            'ns_cloro_total' => 2.0,
+            'ns_cloro_livre' => 2.5,
+            'ns_cloro_total' => 2.8,
             'ns_temperatura' => 26.5,
         ]);
 
         $this->assertTrue(
             $pagina->instance()->algumaLeituraForaDosLimites(),
-            'Cloro 1,8 com pH 7,0 passa do máximo legal de 1,2 — tem de haver confirmação.'
+            'Cloro 2,5 passa do máximo regulamentar de 2,0 — tem de haver confirmação.'
         );
 
         $pagina->call('validarERegistosGuardar');

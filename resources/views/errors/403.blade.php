@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Acesso não autorizado — Piscinas MMCrespo</title>
+    <title>Acesso não autorizado — Piscinas MMCRESPO</title>
     <style>
         body {
             margin: 0;
@@ -42,7 +42,7 @@
 </head>
 <body>
     <div class="card">
-        <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCrespo">
+        <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCRESPO">
         {{-- Falta de permissão numa página é o caso comum; a conta encerrada por
              inatividade é a exceção e traz a flag na sessão. --}}
         @if (session('mmc_inativo'))

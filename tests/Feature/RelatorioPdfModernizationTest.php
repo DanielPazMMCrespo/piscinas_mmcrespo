@@ -255,4 +255,79 @@ class RelatorioPdfModernizationTest extends TestCase
         $this->assertEquals('Piscina Ondas', $seccoes[1]['piscina']->name);
         $this->assertCount(1, $seccoes[1]['registos']);
     }
+
+    /**
+     * A migração 2026_09_10_000002 copiou cada analise_pontual para daily_records
+     * sem apagar a OperationalAction de origem. Tudo o que junta as duas tabelas
+     * passou a contar a medição a dobrar.
+     */
+    public function test_analise_pontual_ja_migrada_nao_duplica_no_livro(): void
+    {
+        $momento = now()->subDays(2)->startOfDay()->addHours(10);
+
+        OperationalAction::create([
+            'pool_id' => $this->poolLazer->id,
+            'user_id' => $this->admin->id,
+            'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
+            'registado_em' => $momento,
+            'dados' => ['ph' => 7.3, 'cloro_livre' => 1.1],
+        ]);
+
+        DailyRecord::create([
+            'pool_id' => $this->poolLazer->id,
+            'user_id' => $this->admin->id,
+            'registado_em' => $momento,
+            'ph' => 7.3,
+            'cloro_livre' => 1.1,
+            'e_correcao' => false,
+        ]);
+
+        $seccoes = RelatorioPdf::construirSeccoes(
+            collect([$this->poolLazer]),
+            now()->subDays(5)->startOfDay(),
+            now()->subDay()->endOfDay(),
+            'todos',
+            'media_diaria'
+        );
+
+        // Deve existir apenas 1 registo e não 2 cópias da mesma medição
+        $this->assertCount(1, $seccoes[0]['registos']);
+    }
+
+    public function test_migracao_apaga_analise_pontual_com_par_em_daily_records(): void
+    {
+        $momento = now()->subDays(2)->startOfDay()->addHours(10);
+
+        $comPar = OperationalAction::create([
+            'pool_id' => $this->poolLazer->id,
+            'user_id' => $this->admin->id,
+            'tipo' => OperationalAction::TIPO_ANALISE_PONTUAL,
+            'registado_em' => $momento,
+            'dados' => ['ph' => 7.3, 'cloro_livre' => 1.1],
+        ]);
+
+        DailyRecord::create([
+            'pool_id' => $this->poolLazer->id,
+            'user_id' => $this->admin->id,
+            'registado_em' => $momento,
+            'ph' => 7.3,
+            'cloro_livre' => 1.1,
+            'e_correcao' => false,
+        ]);
+
+        // Outro tipo de ação no mesmo carimbo: a migração não lhe pode tocar
+        $lavagem = OperationalAction::create([
+            'pool_id' => $this->poolLazer->id,
+            'user_id' => $this->admin->id,
+            'tipo' => OperationalAction::TIPO_LAVAGEM_FILTRO,
+            'registado_em' => $momento,
+            'dados' => ['duracao_min' => 20],
+        ]);
+
+        $migracao = require database_path('migrations/2026_09_11_000001_remover_analise_pontual_ja_migrada.php');
+        $migracao->up();
+
+        $this->assertDatabaseMissing('operational_actions', ['id' => $comPar->id]);
+        $this->assertDatabaseHas('operational_actions', ['id' => $lavagem->id]);
+    }
 }

@@ -144,8 +144,8 @@ class NadadorSalvadorLeiriaRecordTest extends TestCase
                     ],
                     $this->infantil->id => [
                         'ns_ph' => 7.4,
-                        'ns_cloro_livre' => 1.5,
-                        'ns_cloro_total' => 1.8,
+                        'ns_cloro_livre' => 2.5,
+                        'ns_cloro_total' => 2.8,
                         'ns_temperatura' => 30.0,
                         'banhistas' => 5,
                     ],

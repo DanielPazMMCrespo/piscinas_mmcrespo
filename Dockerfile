@@ -15,11 +15,15 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     zlib1g-dev \
     libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP extensions required by the app (bcmath: VAPID signing em minishlink/web-push)
-RUN docker-php-ext-install pdo pdo_pgsql intl zip opcache bcmath
+# PHP extensions required by the app (bcmath: VAPID signing em minishlink/web-push; gd: Dompdf fotos/evidencias)
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql intl zip opcache bcmath gd
 
 # Upload limits
 RUN { \

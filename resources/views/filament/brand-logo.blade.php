@@ -4,13 +4,13 @@
      Usa o seletor .dark do Filament para alternar entre imagens. --}}
 <img
     src="{{ asset('images/logo-mmcrespo.png') }}"
-    alt="Piscinas MMCrespo"
+    alt="Piscinas MMCRESPO"
     class="mmcrespo-brand-logo h-full w-auto object-contain"
     style="display: block; background-color: transparent !important;"
 />
 <img
     src="{{ asset('images/logo_mmcrespo_branco.webp') }}"
-    alt="Piscinas MMCrespo"
+    alt="Piscinas MMCRESPO"
     loading="lazy"
     class="mmcrespo-brand-logo-dark h-full w-auto object-contain"
     style="display: none; background-color: transparent !important;"

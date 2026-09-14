@@ -79,6 +79,6 @@ class DosingContainerLowAlert extends Notification
             ->line("O bidão de doseamento de {$this->container->tipoLabel()} da {$piscina} atingiu o nível crítico de {$pctTxt}.")
             ->action('Ver Bidões de Doseamento', DosingContainerResource::getUrl())
             ->line('Por favor, efetue o reabastecimento o quanto antes para garantir o tratamento correto da água.')
-            ->salutation('Cumprimentos, Equipa MMCrespo');
+            ->salutation('Cumprimentos, Equipa MMCRESPO');
     }
 }

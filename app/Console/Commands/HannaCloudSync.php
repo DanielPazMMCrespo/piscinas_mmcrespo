@@ -21,11 +21,11 @@ use App\Services\LeituraArtefactoService;
 use App\Services\SettingsService;
 use App\Support\Auditoria;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Sincroniza as últimas leituras de todos os dispositivos Hanna Cloud ativos.
@@ -260,7 +260,11 @@ class HannaCloudSync extends Command
             return;
         }
 
-        Notification::send($destinatarios, new HannaSyncFalhouNotification($erro));
+        NotificacaoResiliente::enviar(
+            $destinatarios,
+            new HannaSyncFalhouNotification($erro),
+            'falha de sincronização Hanna',
+        );
     }
 
     /** Janela máxima de recuperação de dosagem quando o sync esteve em baixo. */
@@ -335,16 +339,22 @@ class HannaCloudSync extends Command
             }
         }
 
-        $this->descontarBidao($device, DosingContainer::TIPO_CLORO, $doseCloro);
-        $this->descontarBidao($device, DosingContainer::TIPO_PH_MENOS, $dosePh);
+        $fatorCloro = (float) ($containerCloro->fator_correcao ?? 1.0);
+        $fatorPh = (float) ($containerPh->fator_correcao ?? 1.0);
+
+        $doseCloroReal = round($doseCloro * $fatorCloro, 2);
+        $dosePhReal = round($dosePh * $fatorPh, 2);
+
+        $this->descontarBidao($device, DosingContainer::TIPO_CLORO, $doseCloroReal, $fatorCloro);
+        $this->descontarBidao($device, DosingContainer::TIPO_PH_MENOS, $dosePhReal, $fatorPh);
 
         $device->update(['dose_sincronizada_ate' => $ultimoDt]);
     }
 
-    private function descontarBidao(HannaDevice $device, string $tipo, float $ml): void
+    private function descontarBidao(HannaDevice $device, string $tipo, float $ml, float $fator = 1.0): void
     {
-        // Validar plausibilidade: > 20L num ciclo é avaria, não dosagem legítima
-        if ($ml <= 0 || $ml > 20000) {
+        // Validar plausibilidade: > 60L num ciclo com bombas externas é implausível
+        if ($ml <= 0 || $ml > 60000) {
             Log::warning("HannaCloudSync [{$device->hanna_device_id}]: dosagem de {$ml} mL implausível; ignorada.");
 
             return;
@@ -355,7 +365,8 @@ class HannaCloudSync extends Command
         );
 
         $container->consumir($ml);
-        $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
+        $sufixoFator = abs($fator - 1.0) > 0.001 ? ' ('.number_format($fator, 2, ',', '').'× calibração)' : '';
+        $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}{$sufixoFator}");
 
         $container->notificarSeBaixo();
     }
@@ -446,7 +457,11 @@ class HannaCloudSync extends Command
         Cache::put($cooldownKey, true, now()->addMinutes(max(15, $cooldownMinutos)));
 
         $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-        Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
+        NotificacaoResiliente::enviar(
+            $adminsETecnicos,
+            new HannaThresholdAlert($device, $violacoes),
+            "limites da sonda #{$device->id}",
+        );
     }
 
     /**
@@ -540,7 +555,11 @@ class HannaCloudSync extends Command
             $device->update(['ph_overtime_notified_at' => now()]);
 
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-            Notification::send($adminsETecnicos, new HannaOvertimeAlert($device, $ph, $ds));
+            NotificacaoResiliente::enviar(
+                $adminsETecnicos,
+                new HannaOvertimeAlert($device, $ph, $ds),
+                "overtime de pH da sonda #{$device->id}",
+            );
         }
     }
 

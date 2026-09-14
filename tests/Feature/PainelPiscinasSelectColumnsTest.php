@@ -125,13 +125,11 @@ class PainelPiscinasSelectColumnsTest extends TestCase
         $item = collect($dados['piscinas'])->firstWhere(fn (array $i) => $i['piscina']->id === $this->piscina->id);
 
         $this->assertNotNull($item);
-        $this->assertSame('1,27 mg/L', $item['metricas4']['livre']['valor']);
-        $this->assertFalse($item['metricas4']['livre']['ok']); // Alerta porque 1.27 > 1.20 a pH 7.30
-        $this->assertSame('0,5–1,2', $item['metricas4']['livre']['limite_resumo']);
+        $this->assertTrue($item['metricas4']['livre']['ok']); // Conforme na banda prática 0,5–2,0 mg/L
+        $this->assertSame('0,5–2,0', $item['metricas4']['livre']['limite_resumo']);
         $this->assertSame('Carlos Silva', $item['metricas4']['livre']['autor']);
         $this->assertSame('Carlos S.', $item['metricas4']['livre']['autor_curto']);
-        $this->assertStringContainsString('0,5–1,2', $item['metricas4']['livre']['tooltip']);
-        $this->assertStringContainsString('pH 7,30', $item['metricas4']['livre']['tooltip']);
+        $this->assertStringContainsString('0,5–2,0', $item['metricas4']['livre']['tooltip']);
         $this->assertStringContainsString('Carlos Silva', $item['metricas4']['livre']['tooltip']);
 
         $this->assertNotNull($item['ultimo_registo_manual']);

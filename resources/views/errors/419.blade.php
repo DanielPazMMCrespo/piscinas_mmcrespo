@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sessão expirada — Piscinas MMCrespo</title>
+    <title>Sessão expirada — Piscinas MMCRESPO</title>
     <style>
         body {
             margin: 0;
@@ -42,7 +42,7 @@
 </head>
 <body>
     <div class="card">
-        <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCrespo">
+        <img src="{{ asset('images/logo-mmcrespo.png') }}" alt="Piscinas MMCRESPO">
         <h1>A sessão expirou</h1>
         <p>Por segurança, a sua sessão foi terminada por inatividade. Inicie sessão novamente para continuar.</p>
         <a class="btn" href="{{ url('/admin/login') }}">Iniciar sessão</a>

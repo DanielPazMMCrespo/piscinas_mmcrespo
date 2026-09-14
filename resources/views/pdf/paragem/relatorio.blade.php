@@ -404,7 +404,7 @@
     </div>
 
     <div class="nota-legal">
-        <strong>Certificação Regulamentar:</strong> Relatório emitido pelo sistema de gestão técnica MMCrespo, em conformidade com a Lei n.º 52/2018 (Prevenção de Legionella), Despacho n.º 1547/2022, Circular Normativa n.º 14/DA da Direção-Geral da Saúde e Decreto Regulamentar n.º 5/97.
+        <strong>Certificação Regulamentar:</strong> Relatório emitido pelo sistema de gestão técnica MMCRESPO, em conformidade com a Lei n.º 52/2018 (Prevenção de Legionella), Despacho n.º 1547/2022, Circular Normativa n.º 14/DA da Direção-Geral da Saúde e Decreto Regulamentar n.º 5/97.
     </div>
 </body>
 </html>
