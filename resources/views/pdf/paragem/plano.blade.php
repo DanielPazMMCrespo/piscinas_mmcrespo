@@ -52,7 +52,7 @@
     </div>
 
     <div class="nota-legal">
-        <strong>Nota de Conformidade:</strong> Plano de paragem elaborado nos termos da Lei n.º 52/2018 (Prevenção e Controlo de Legionella), Despacho n.º 1547/2022, Circular Normativa n.º 14/DA da DGS e Decreto Regulamentar n.º 5/97. MMCrespo Software de Gestão.
+        <strong>Nota de Conformidade:</strong> Plano de paragem elaborado nos termos da Lei n.º 52/2018 (Prevenção e Controlo de Legionella), Despacho n.º 1547/2022, Circular Normativa n.º 14/DA da DGS e Decreto Regulamentar n.º 5/97. MMCRESPO Software de Gestão.
     </div>
 </body>
 </html>

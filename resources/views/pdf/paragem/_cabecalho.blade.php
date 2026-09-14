@@ -6,7 +6,7 @@
         <strong>Período:</strong> {{ $encerramento->descricao_periodo }}
     </div>
     <div class="marca">
-        MMCrespo — Gestão de Piscinas
+        MMCRESPO — Gestão de Piscinas
         <div class="emissao">Emitido a {{ $emitidoEm->format('d/m/Y H:i') }}{{ filled($emitidoPor) ? ' por ' . $emitidoPor : '' }}</div>
     </div>
 </div>

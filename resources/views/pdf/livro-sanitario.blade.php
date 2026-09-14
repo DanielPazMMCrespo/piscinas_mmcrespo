@@ -1,5 +1,5 @@
 {{--
-    Livro de Registo Sanitário — CN 14/DA (DGS 2009) — MMCrespo
+    Livro de Registo Sanitário — CN 14/DA (DGS 2009) — MMCRESPO
     Template para dompdf (A4 landscape). Limitações do dompdf respeitadas:
     CSS embebido em <style>, sem flex/grid, fonte DejaVu Sans (acentos PT),
     repetição de cabeçalho de tabela via <thead>, preto e branco.
@@ -262,23 +262,18 @@
         .observacoes-gerais-conteudo {
             padding: 8px;
         }
-        .quadro-destaque-sonda {
+        .observacoes-gerais-texto {
             background: #f4f6f8;
             border-left: 3.5px solid #000;
-            padding: 5px 8px;
-            margin-bottom: 8px;
-            font-size: 7px;
-            line-height: 1.35;
-        }
-        .quadro-destaque-sonda strong {
-            font-size: 7.5px;
-        }
-        .observacoes-gerais-texto {
+            padding: 6px 8px;
             font-size: 7.5px;
             line-height: 1.4;
             color: #000;
             margin-bottom: 8px;
             text-align: justify;
+        }
+        .observacoes-gerais-texto strong {
+            font-size: 7.5px;
         }
         .tabela-fotos-grid {
             width: 100%;
@@ -337,7 +332,7 @@
             &nbsp;|&nbsp; Período: <strong>{{ $inicio->format('d/m/Y') }} a {{ $fim->format('d/m/Y') }}</strong>
         </p>
         <div class="marca">
-            MMCrespo
+            MMCRESPO
             <div class="emissao">
                 Emitido em {{ $emitidoEm->format('d/m/Y H:i') }}
                 @if (! empty($emitidoPor)) por {{ $emitidoPor }} @endif
@@ -387,13 +382,6 @@
                 Observações Gerais e Justificações Técnicas do Relatório
             </p>
             <div class="observacoes-gerais-conteudo">
-                <div class="quadro-destaque-sonda">
-                    <strong>Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643):</strong><br>
-                    O Potencial Redox (ORP medido em mV pela sonda contínua) avalia o poder germicida e oxidante real da água 24 horas por dia.
-                    A Organização Mundial da Saúde (OMS) estipula que um <strong>ORP &ge; 650 mV</strong> garante destruição de microrganismos patogénicos em menos de 1 segundo.
-                    Eventuais quebras pontuais de cloro livre registadas na abertura matinal decorrem do esgotamento noturno dos doseadores e são retificadas de imediato pela equipa técnica, mantendo-se a água em desinfeção permanente conforme comprovado pela monitorização contínua.
-                </div>
-
                 @if (filled($observacoesGerais ?? null))
                     <div class="observacoes-gerais-texto">
                         {!! nl2br(e($observacoesGerais)) !!}
@@ -1338,7 +1326,7 @@
     @if (in_array('mostrar_nota_legal', $seccoesVisiveis))
     <p class="nota-legal">
         Registo conforme CN 14/DA (DGS 2009), NP 4542:2017 e DR 5/97.
-        Documento gerado eletronicamente pela aplicação de gestão operacional MMCrespo em {{ $emitidoEm->format('d/m/Y H:i') }}.
+        Documento gerado eletronicamente pela aplicação de gestão operacional MMCRESPO em {{ $emitidoEm->format('d/m/Y H:i') }}.
     </p>
     @endif
 

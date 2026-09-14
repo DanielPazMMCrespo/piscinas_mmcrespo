@@ -57,7 +57,7 @@ class AdminPanelProvider extends PanelProvider
             // não injeta nenhum <link> — os ficheiros vêm do bundle (@fontsource).
             ->font('Lato', provider: LocalFontProvider::class)
             ->login(Login::class)
-            ->brandName('Piscinas MMCrespo')
+            ->brandName('Piscinas MMCRESPO')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/logo-mmcrespo.png'))

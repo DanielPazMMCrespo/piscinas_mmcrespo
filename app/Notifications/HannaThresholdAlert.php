@@ -76,6 +76,6 @@ class HannaThresholdAlert extends Notification
             ->line($lista)
             ->action('Ver Painel de Controlo', url('/admin'))
             ->line('Por favor, efetue uma verificação local para repor os parâmetros dentro dos limites regulamentares.')
-            ->salutation('Cumprimentos, Equipa MMCrespo');
+            ->salutation('Cumprimentos, Equipa MMCRESPO');
     }
 }

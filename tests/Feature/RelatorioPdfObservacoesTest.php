@@ -172,7 +172,8 @@ class RelatorioPdfObservacoesTest extends TestCase
 
         $this->assertStringContainsString('Observações Gerais e Justificações Técnicas do Relatório', $html);
         $this->assertStringContainsString('Substituição da válvula seletora às 09h30, parâmetros repostos a 100%.', $html);
-        $this->assertStringContainsString('Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643)', $html);
+        $this->assertStringNotContainsString('Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643)', $html);
+        $this->assertStringContainsString('MMCRESPO', $html);
         $this->assertStringContainsString('data:image/png;base64,', $html);
         $this->assertStringContainsString('filtro_novo.png', $html);
     }
@@ -408,5 +409,74 @@ class RelatorioPdfObservacoesTest extends TestCase
 
         $this->assertStringContainsString('<th>ORP (mV)</th>', $html);
         $this->assertStringContainsString('740', $html);
+    }
+
+    /**
+     * Teste 11: O cabeçalho fixo e a nota de rodapé apresentam o nome da empresa em maiúsculas (MMCRESPO).
+     */
+    public function test_cabecalho_marca_empresa_em_maiusculas(): void
+    {
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect(),
+                    'controlador' => collect(),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => RelatorioPdf::COLUNAS_DGS_OFICIAL,
+            'seccoesVisiveis' => RelatorioPdf::SECCOES_DGS_OFICIAL,
+            'modo' => 'todos',
+            'controladorModo' => 'media_diaria',
+            'observacoesGerais' => null,
+            'fotosObservacoes' => [],
+        ])->render();
+
+        $this->assertStringContainsString('<div class="marca">' . "\n" . '            MMCRESPO', $html);
+        $this->assertStringContainsString('aplicação de gestão operacional MMCRESPO', $html);
+        $this->assertStringNotContainsString('<div class="marca">' . "\n" . '            MMCrespo', $html);
+    }
+
+    /**
+     * Teste 12: Quando a justificação da sonda é inserida, não existe duplicação estática.
+     */
+    public function test_bloco_observacoes_sem_duplicacao_quando_justificacao_sonda_usada(): void
+    {
+        $justificacao = "Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643):\n" .
+            "No período de 01/09/2026 a 11/09/2026, o sistema de monitorização contínua registou 959 leituras automáticas 24h/dia. " .
+            "O Potencial Redox (ORP) registou uma média de 758 mV. Conforme OMS e DIN 19643, ORP >= 650 mV assegura destruição de vírus.";
+
+        $html = view('pdf.livro-sanitario', [
+            'instalacao' => $this->installation,
+            'seccoes' => [
+                [
+                    'piscina' => $this->pool,
+                    'registos' => collect(),
+                    'controlador' => collect(),
+                    'acoesOperacionais' => collect(),
+                ],
+            ],
+            'inicio' => now()->subDays(5),
+            'fim' => now()->subDay(),
+            'emitidoEm' => now(),
+            'emitidoPor' => 'Técnico de Teste',
+            'colunasVisiveis' => RelatorioPdf::COLUNAS_DGS_OFICIAL,
+            'seccoesVisiveis' => RelatorioPdf::SECCOES_DGS_OFICIAL,
+            'modo' => 'todos',
+            'controladorModo' => 'media_diaria',
+            'observacoesGerais' => $justificacao,
+            'fotosObservacoes' => [],
+        ])->render();
+
+        // O texto dinâmico deve existir exatamente uma vez
+        $this->assertEquals(1, substr_count($html, 'Garantia de Desinfeção Contínua (Sonda Automática 24h/dia — Norma OMS / DIN 19643)'));
+        // Não deve existir o bloco estático redundante antigo
+        $this->assertStringNotContainsString('Critério Sanitário de Eficácia da Desinfeção (Norma OMS / DIN 19643)', $html);
     }
 }

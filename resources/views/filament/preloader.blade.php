@@ -1,5 +1,5 @@
 <div id="global-loader" style="position: fixed; inset: 0; background: #021a2f; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 120ms ease-in-out; pointer-events: none;">
-    <img src="{{ asset('images/logo_mmcrespo_branco.webp') }}" id="global-loader-logo" alt="Piscinas MMCrespo" width="300" height="100" fetchpriority="high" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.98); transition: opacity 50ms ease-out, transform 50ms ease-out;">
+    <img src="{{ asset('images/logo_mmcrespo_branco.webp') }}" id="global-loader-logo" alt="Piscinas MMCRESPO" width="300" height="100" fetchpriority="high" style="height: 100px; width: auto; object-fit: contain; opacity: 0; transform: scale(0.98); transition: opacity 50ms ease-out, transform 50ms ease-out;">
 </div>
 
 <script>

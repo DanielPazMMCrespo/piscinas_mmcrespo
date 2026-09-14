@@ -24,7 +24,7 @@ class UserInvitationMail extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $subject = app(SettingsService::class)->get('email_convite_assunto', 'Convite — Piscinas MMCrespo');
+        $subject = app(SettingsService::class)->get('email_convite_assunto', 'Convite — Piscinas MMCRESPO');
 
         return new Envelope(
             subject: $subject,
@@ -33,7 +33,7 @@ class UserInvitationMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $mensagem = app(SettingsService::class)->get('email_convite_mensagem', 'Foi convidado(a) para aceder à plataforma de gestão operacional da MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:');
+        $mensagem = app(SettingsService::class)->get('email_convite_mensagem', 'Foi convidado(a) para aceder à plataforma de gestão operacional da MMCRESPO. Clique no botão abaixo para completar o seu registo e ativar a conta:');
 
         return new Content(
             view: 'emails.user-invitation',

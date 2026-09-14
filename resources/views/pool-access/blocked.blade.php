@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Piscina Encerrada — Piscinas MMCrespo</title>
+<title>Piscina Encerrada — Piscinas MMCRESPO</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -108,7 +108,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">Piscinas MMCrespo</div>
+  <div class="logo">Piscinas MMCRESPO</div>
   <h1>Piscina encerrada</h1>
   <p class="subtitle">Não pode aceder à app enquanto a sua piscina estiver encerrada.</p>
 

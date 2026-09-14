@@ -86,6 +86,6 @@ class HannaOvertimeAlert extends Notification
             ->line("Setpoint Configurado: {$fmt($this->dosingSettings['setpoint'])} ± {$fmt($this->dosingSettings['band'])}")
             ->action('Ver Painel de Controlo', url('/admin'))
             ->line('Isto indica que a dosagem automática não está a conseguir corrigir o desvio. Por favor, verifique as bombas doseadoras e os níveis de produto químico.')
-            ->salutation('Cumprimentos, Equipa MMCrespo');
+            ->salutation('Cumprimentos, Equipa MMCRESPO');
     }
 }

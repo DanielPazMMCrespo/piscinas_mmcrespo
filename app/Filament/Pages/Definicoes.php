@@ -292,14 +292,14 @@ class Definicoes extends Page implements HasForms, HasTable
                     ->schema([
                         Forms\Components\TextInput::make('email_convite_assunto')
                             ->label('Assunto do Email (Convite)')
-                            ->placeholder('Convite — Piscinas MMCrespo')
-                            ->helperText('Predefinição: Convite — Piscinas MMCrespo')
+                            ->placeholder('Convite — Piscinas MMCRESPO')
+                            ->helperText('Predefinição: Convite — Piscinas MMCRESPO')
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('email_convite_mensagem')
                             ->label('Mensagem do Corpo (Convite)')
                             ->rows(3)
-                            ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
-                            ->helperText('Predefinição: Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCrespo. Clique no botão abaixo para completar o seu registo e ativar a conta:')
+                            ->placeholder('Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCRESPO. Clique no botão abaixo para completar o seu registo e ativar a conta:')
+                            ->helperText('Predefinição: Foi convidado(a) para aceder à plataforma de gestão operacional das Piscinas de Leiria, Maceira e Caranguejeira desenvolvido pela MMCRESPO. Clique no botão abaixo para completar o seu registo e ativar a conta:')
                             ->columnSpanFull(),
                     ]),
             ])
