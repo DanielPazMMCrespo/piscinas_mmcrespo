@@ -37,9 +37,22 @@ class DosingContainer extends Model
         self::TIPO_PH_MENOS => 'pH-',
     ];
 
+    public const BOMBA_STANDARD = 'standard';
+
+    public const BOMBA_HANNA_BL10_2 = 'hanna_bl10_2';
+
+    public const BOMBA_CUSTOM = 'custom';
+
+    public const BOMBA_MODELOS = [
+        self::BOMBA_STANDARD => 'Padrão BL132 (3,5 L/h)',
+        self::BOMBA_HANNA_BL10_2 => 'Hanna Blackstone BL10-2 (10,8 L/h)',
+        self::BOMBA_CUSTOM => 'Outra / Personalizada',
+    ];
+
     protected $fillable = [
         'pool_id', 'product_id', 'tipo', 'capacidade_ml', 'restante_ml',
         'alerta_percent', 'reabastecido_em', 'reabastecido_por', 'alerta_notificado_em',
+        'bomba_modelo', 'bomba_capacidade_max_lh', 'bomba_potenciometro_percent', 'fator_correcao',
     ];
 
     protected $casts = [
@@ -48,6 +61,9 @@ class DosingContainer extends Model
         'alerta_percent' => 'integer',
         'reabastecido_em' => 'datetime',
         'alerta_notificado_em' => 'datetime',
+        'bomba_capacidade_max_lh' => 'decimal:2',
+        'bomba_potenciometro_percent' => 'integer',
+        'fator_correcao' => 'decimal:3',
     ];
 
     /**
@@ -58,7 +74,10 @@ class DosingContainer extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['pool_id', 'product_id', 'tipo', 'capacidade_ml', 'alerta_percent'])
+            ->logOnly([
+                'pool_id', 'product_id', 'tipo', 'capacidade_ml', 'alerta_percent',
+                'bomba_modelo', 'bomba_capacidade_max_lh', 'bomba_potenciometro_percent', 'fator_correcao',
+            ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
@@ -76,6 +95,74 @@ class DosingContainer extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(DosingContainerLog::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (DosingContainer $container) {
+            $container->fator_correcao = $container->obterFatorCalculado();
+        });
+    }
+
+    /**
+     * Calcula o fator de correção de débito em relação ao limite nominal da sonda BL132 (3,5 L/h).
+     */
+    public static function calcularFator(?float $capacidadeMax = null, ?int $percent = null): float
+    {
+        if ($capacidadeMax === null || $capacidadeMax <= 0 || $percent === null || $percent <= 0) {
+            return 1.0;
+        }
+
+        $pct = min(100, $percent);
+        $caudalEfetivo = $capacidadeMax * ($pct / 100);
+
+        return round(max(0.001, $caudalEfetivo / 3.50), 3);
+    }
+
+    /**
+     * Calcula o fator de correção para o modelo e percentagem atuais desta instância.
+     */
+    public function obterFatorCalculado(): float
+    {
+        $modelo = $this->bomba_modelo ?? self::BOMBA_STANDARD;
+
+        if ($modelo === self::BOMBA_HANNA_BL10_2) {
+            $cap = 10.80;
+            $pct = $this->bomba_potenciometro_percent;
+        } elseif ($modelo === self::BOMBA_CUSTOM) {
+            $cap = $this->bomba_capacidade_max_lh !== null ? (float) $this->bomba_capacidade_max_lh : null;
+            $pct = $this->bomba_potenciometro_percent;
+        } else {
+            return 1.0;
+        }
+
+        return self::calcularFator($cap, $pct);
+    }
+
+    /**
+     * Descrição curta da bomba e calibração para visualização no dashboard e stock hub.
+     */
+    public function descricaoBomba(): string
+    {
+        $fator = (float) ($this->fator_correcao ?? 1.0);
+        $modelo = $this->bomba_modelo ?? self::BOMBA_STANDARD;
+
+        if ($modelo === self::BOMBA_HANNA_BL10_2) {
+            $pct = $this->bomba_potenciometro_percent ?? 100;
+            $caudal = number_format(10.8 * ($pct / 100), 1, ',', '');
+
+            return "Hanna BL10-2 @ {$pct}% ({$caudal} L/h · ".number_format($fator, 2, ',', '').'×)';
+        }
+
+        if ($modelo === self::BOMBA_CUSTOM) {
+            $pct = $this->bomba_potenciometro_percent ?? 100;
+            $cap = (float) ($this->bomba_capacidade_max_lh ?? 3.5);
+            $caudal = number_format($cap * ($pct / 100), 1, ',', '');
+
+            return "Bomba ext. @ {$pct}% ({$caudal} L/h · ".number_format($fator, 2, ',', '').'×)';
+        }
+
+        return 'Padrão BL132 (3,5 L/h)';
     }
 
     public function tipoLabel(): string
@@ -435,15 +522,18 @@ class DosingContainer extends Model
                 }
             }
 
-            if ($doseMl > 0) {
-                DB::transaction(function () use ($doseMl) {
+            $fator = (float) ($this->fator_correcao ?? 1.0);
+            $doseMlReal = round($doseMl * $fator, 2);
+
+            if ($doseMlReal > 0) {
+                DB::transaction(function () use ($doseMlReal) {
                     $this->refresh();
-                    $this->restante_ml = max(0.0, round($this->restante_ml - $doseMl, 2));
+                    $this->restante_ml = max(0.0, round($this->restante_ml - $doseMlReal, 2));
                     $this->save();
 
                     $this->logs()->create([
                         'tipo_movimento' => 'consumo_sonda',
-                        'quantidade_ml' => round($doseMl, 2),
+                        'quantidade_ml' => round($doseMlReal, 2),
                         'restante_apos_ml' => $this->restante_ml,
                         'origem' => 'sonda',
                         'nota' => 'Consumo recalculado retroativamente após reabastecimento',

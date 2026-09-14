@@ -136,6 +136,7 @@ class StockHub extends Page implements HasForms, HasTable
         return [
             ...$this->getHeaderActions(),
             $this->reabastecerBidaoAction(),
+            $this->calibrarBombaAction(),
         ];
     }
 
@@ -460,6 +461,128 @@ class StockHub extends Page implements HasForms, HasTable
                     ->success()
                     ->title('Bidão reabastecido com sucesso')
                     ->body("{$container->tipoLabel()} em {$container->piscina?->name} reposto para {$data['quantidade_l']} L.")
+                    ->send();
+            });
+    }
+
+    /**
+     * Ação para calibrar a bomba doseadora ligada ao bidão (modelo, caudal máximo e potenciómetro %).
+     */
+    public function calibrarBombaAction(): Actions\Action
+    {
+        return Actions\Action::make('calibrarBomba')
+            ->label('Calibrar Bomba')
+            ->icon('heroicon-o-adjustments-horizontal')
+            ->color('primary')
+            ->visible(fn (): bool => self::podeMovimentar())
+            ->modalHeading(function (array $arguments): string {
+                $container = isset($arguments['container']) ? DosingContainer::find($arguments['container']) : null;
+
+                return $container ? "Calibrar Bomba de {$container->tipoLabel()} — {$container->piscina?->name}" : 'Calibrar Bomba Doseadora';
+            })
+            ->form(function (array $arguments): array {
+                $container = isset($arguments['container']) ? DosingContainer::find($arguments['container']) : null;
+                $modeloAtual = $container?->bomba_modelo ?? DosingContainer::BOMBA_STANDARD;
+                $capacidadeMaxAtual = (float) ($container?->bomba_capacidade_max_lh ?? 3.50);
+                $percentAtual = (int) ($container?->bomba_potenciometro_percent ?? 100);
+
+                return [
+                    Forms\Components\Hidden::make('container_id')
+                        ->default($arguments['container'] ?? null)
+                        ->required(),
+                    Forms\Components\Select::make('bomba_modelo')
+                        ->label('Modelo da Bomba')
+                        ->options(DosingContainer::BOMBA_MODELOS)
+                        ->default($modeloAtual)
+                        ->live()
+                        ->afterStateUpdated(function (Set $set, ?string $state) {
+                            if ($state === DosingContainer::BOMBA_HANNA_BL10_2) {
+                                $set('bomba_capacidade_max_lh', 10.80);
+                            } elseif ($state === DosingContainer::BOMBA_STANDARD) {
+                                $set('bomba_capacidade_max_lh', 3.50);
+                                $set('bomba_potenciometro_percent', 100);
+                            }
+                        })
+                        ->required(),
+                    Forms\Components\TextInput::make('bomba_capacidade_max_lh')
+                        ->label('Caudal Máximo a 100% (L/h)')
+                        ->numeric()
+                        ->step(0.1)
+                        ->minValue(0.1)
+                        ->maxValue(100.0)
+                        ->default($capacidadeMaxAtual)
+                        ->disabled(fn (Get $get): bool => $get('bomba_modelo') !== DosingContainer::BOMBA_CUSTOM)
+                        ->dehydrated()
+                        ->required(),
+                    Forms\Components\TextInput::make('bomba_potenciometro_percent')
+                        ->label('Regulação do Potenciómetro / Botão (%)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(100)
+                        ->suffix('%')
+                        ->default($percentAtual)
+                        ->extraInputAttributes(['pattern' => '[0-9]*', 'inputmode' => 'numeric'])
+                        ->helperText('Percentagem marcada no botão rotativo na frente da bomba.')
+                        ->live()
+                        ->required(),
+                    Forms\Components\Placeholder::make('calculo_efetivo')
+                        ->label('Débito Efetivo e Fator de Correção')
+                        ->content(function (Get $get): string {
+                            $cap = (float) ($get('bomba_capacidade_max_lh') ?? 3.5);
+                            $pct = (int) ($get('bomba_potenciometro_percent') ?? 100);
+                            $caudal = $cap * ($pct / 100);
+                            $fator = DosingContainer::calcularFator($cap, $pct);
+
+                            return sprintf(
+                                'Caudal real: %.2f L/h · Fator: %.3f× face ao limite da sonda (3,5 L/h)',
+                                $caudal,
+                                $fator
+                            );
+                        }),
+                    Forms\Components\Toggle::make('zerar_nivel')
+                        ->label('Marcar bidão físico como vazio (0 L)?')
+                        ->helperText('Ative se o químico já tiver acabado fisicamente no local.')
+                        ->default(false),
+                ];
+            })
+            ->action(function (array $data, array $arguments): void {
+                $containerId = $data['container_id'] ?? ($arguments['container'] ?? null);
+                $container = DosingContainer::findOrFail($containerId);
+                $fator = DosingContainer::calcularFator(
+                    (float) $data['bomba_capacidade_max_lh'],
+                    (int) $data['bomba_potenciometro_percent']
+                );
+
+                $updateData = [
+                    'bomba_modelo' => $data['bomba_modelo'],
+                    'bomba_capacidade_max_lh' => (float) $data['bomba_capacidade_max_lh'],
+                    'bomba_potenciometro_percent' => (int) $data['bomba_potenciometro_percent'],
+                    'fator_correcao' => $fator,
+                ];
+
+                if (! empty($data['zerar_nivel'])) {
+                    $updateData['restante_ml'] = 0.00;
+                }
+
+                $container->update($updateData);
+
+                if (! empty($data['zerar_nivel'])) {
+                    $container->logs()->create([
+                        'tipo_movimento' => 'ajuste',
+                        'quantidade_ml' => 0.00,
+                        'restante_apos_ml' => 0.00,
+                        'origem' => 'manual',
+                        'user_id' => auth()->id(),
+                        'nota' => 'Bidão marcado como vazio durante calibração da bomba',
+                        'registado_em' => now(),
+                    ]);
+                    $container->notificarSeBaixo();
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Bomba calibrada com sucesso')
+                    ->body("{$container->piscina?->name} ({$container->tipoLabel()}): Fator {$fator}× ({$data['bomba_potenciometro_percent']}% de {$data['bomba_capacidade_max_lh']} L/h).")
                     ->send();
             });
     }

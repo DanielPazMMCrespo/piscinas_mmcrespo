@@ -128,6 +128,60 @@ class DosingContainerResource extends Resource
                 ->minValue(1)
                 ->maxValue(100)
                 ->default(20),
+
+            Forms\Components\Section::make('Bomba Doseadora & Calibração de Caudal')
+                ->description('Configuração do débito real da bomba e regulação do potenciómetro analógico.')
+                ->schema([
+                    Forms\Components\Select::make('bomba_modelo')
+                        ->label('Modelo da Bomba')
+                        ->options(DosingContainer::BOMBA_MODELOS)
+                        ->default(DosingContainer::BOMBA_STANDARD)
+                        ->live()
+                        ->afterStateUpdated(function (Forms\Set $set, ?string $state) {
+                            if ($state === DosingContainer::BOMBA_HANNA_BL10_2) {
+                                $set('bomba_capacidade_max_lh', 10.80);
+                            } elseif ($state === DosingContainer::BOMBA_STANDARD) {
+                                $set('bomba_capacidade_max_lh', 3.50);
+                                $set('bomba_potenciometro_percent', 100);
+                            }
+                        })
+                        ->required(),
+                    Forms\Components\TextInput::make('bomba_capacidade_max_lh')
+                        ->label('Caudal Máximo a 100% (L/h)')
+                        ->numeric()
+                        ->step(0.1)
+                        ->minValue(0.1)
+                        ->maxValue(100.0)
+                        ->default(3.50)
+                        ->disabled(fn (Forms\Get $get): bool => $get('bomba_modelo') !== DosingContainer::BOMBA_CUSTOM)
+                        ->dehydrated()
+                        ->required(),
+                    Forms\Components\TextInput::make('bomba_potenciometro_percent')
+                        ->label('Regulação do Potenciómetro / Botão (%)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(100)
+                        ->suffix('%')
+                        ->default(100)
+                        ->extraInputAttributes(['pattern' => '[0-9]*', 'inputmode' => 'numeric'])
+                        ->helperText('Percentagem marcada no botão rotativo na frente da bomba.')
+                        ->live()
+                        ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                            $cap = (float) ($get('bomba_capacidade_max_lh') ?? 3.5);
+                            $pct = (int) ($get('bomba_potenciometro_percent') ?? 100);
+                            $set('fator_correcao', DosingContainer::calcularFator($cap, $pct));
+                        })
+                        ->required(),
+                    Forms\Components\TextInput::make('fator_correcao')
+                        ->label('Fator Multiplicador de Correção')
+                        ->numeric()
+                        ->step(0.001)
+                        ->minValue(0.001)
+                        ->default(1.000)
+                        ->helperText('Fator aplicado à dose lida da sonda. Ex: 1.851x.')
+                        ->required(),
+                ])
+                ->columns(2),
         ]);
     }
 
@@ -165,6 +219,11 @@ class DosingContainerResource extends Resource
                     ->formatStateUsing(fn (DosingContainer $r) => $r->capacidade_ml !== null
                         ? number_format($r->capacidade_ml / 1000, 2, ',', ' ').' L'
                         : '—'),
+                Tables\Columns\TextColumn::make('bomba')
+                    ->label('Bomba / Débito')
+                    ->state(fn (DosingContainer $r) => $r->descricaoBomba())
+                    ->badge()
+                    ->color(fn (DosingContainer $r) => abs((float) ($r->fator_correcao ?? 1.0) - 1.0) > 0.01 ? 'primary' : 'gray'),
                 Tables\Columns\TextColumn::make('reabastecido_em')
                     ->label('Último reabastecimento')
                     ->dateTime('d/m/Y H:i')

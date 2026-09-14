@@ -339,16 +339,22 @@ class HannaCloudSync extends Command
             }
         }
 
-        $this->descontarBidao($device, DosingContainer::TIPO_CLORO, $doseCloro);
-        $this->descontarBidao($device, DosingContainer::TIPO_PH_MENOS, $dosePh);
+        $fatorCloro = (float) ($containerCloro->fator_correcao ?? 1.0);
+        $fatorPh = (float) ($containerPh->fator_correcao ?? 1.0);
+
+        $doseCloroReal = round($doseCloro * $fatorCloro, 2);
+        $dosePhReal = round($dosePh * $fatorPh, 2);
+
+        $this->descontarBidao($device, DosingContainer::TIPO_CLORO, $doseCloroReal, $fatorCloro);
+        $this->descontarBidao($device, DosingContainer::TIPO_PH_MENOS, $dosePhReal, $fatorPh);
 
         $device->update(['dose_sincronizada_ate' => $ultimoDt]);
     }
 
-    private function descontarBidao(HannaDevice $device, string $tipo, float $ml): void
+    private function descontarBidao(HannaDevice $device, string $tipo, float $ml, float $fator = 1.0): void
     {
-        // Validar plausibilidade: > 20L num ciclo é avaria, não dosagem legítima
-        if ($ml <= 0 || $ml > 20000) {
+        // Validar plausibilidade: > 60L num ciclo com bombas externas é implausível
+        if ($ml <= 0 || $ml > 60000) {
             Log::warning("HannaCloudSync [{$device->hanna_device_id}]: dosagem de {$ml} mL implausível; ignorada.");
 
             return;
@@ -359,7 +365,8 @@ class HannaCloudSync extends Command
         );
 
         $container->consumir($ml);
-        $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}");
+        $sufixoFator = abs($fator - 1.0) > 0.001 ? ' ('.number_format($fator, 2, ',', '').'× calibração)' : '';
+        $this->line("  ↓ {$device->name}: -".number_format($ml, 0, ',', '')." mL {$container->tipoLabel()}{$sufixoFator}");
 
         $container->notificarSeBaixo();
     }
