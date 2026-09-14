@@ -21,11 +21,11 @@ use App\Services\LeituraArtefactoService;
 use App\Services\SettingsService;
 use App\Support\Auditoria;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Sincroniza as últimas leituras de todos os dispositivos Hanna Cloud ativos.
@@ -260,7 +260,11 @@ class HannaCloudSync extends Command
             return;
         }
 
-        Notification::send($destinatarios, new HannaSyncFalhouNotification($erro));
+        NotificacaoResiliente::enviar(
+            $destinatarios,
+            new HannaSyncFalhouNotification($erro),
+            'falha de sincronização Hanna',
+        );
     }
 
     /** Janela máxima de recuperação de dosagem quando o sync esteve em baixo. */
@@ -446,7 +450,11 @@ class HannaCloudSync extends Command
         Cache::put($cooldownKey, true, now()->addMinutes(max(15, $cooldownMinutos)));
 
         $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-        Notification::send($adminsETecnicos, new HannaThresholdAlert($device, $violacoes));
+        NotificacaoResiliente::enviar(
+            $adminsETecnicos,
+            new HannaThresholdAlert($device, $violacoes),
+            "limites da sonda #{$device->id}",
+        );
     }
 
     /**
@@ -540,7 +548,11 @@ class HannaCloudSync extends Command
             $device->update(['ph_overtime_notified_at' => now()]);
 
             $adminsETecnicos = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-            Notification::send($adminsETecnicos, new HannaOvertimeAlert($device, $ph, $ds));
+            NotificacaoResiliente::enviar(
+                $adminsETecnicos,
+                new HannaOvertimeAlert($device, $ph, $ds),
+                "overtime de pH da sonda #{$device->id}",
+            );
         }
     }
 

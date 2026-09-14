@@ -12,10 +12,10 @@ use App\Models\User;
 use App\Notifications\TendenciaAlertaNotification;
 use App\Services\SettingsService;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class CheckParameterTrendsCommand extends Command
 {
@@ -173,7 +173,7 @@ class CheckParameterTrendsCommand extends Command
             }
         }
 
-        NotificationFacade::send(
+        NotificacaoResiliente::enviar(
             $users,
             new TendenciaAlertaNotification(
                 $pool->nome_completo,
@@ -182,7 +182,8 @@ class CheckParameterTrendsCommand extends Command
                 $nextValue,
                 $limitCrossed,
                 $orp
-            )
+            ),
+            "tendência de {$parameter} na {$pool->nome_completo}",
         );
         Cache::add($cacheKey, true, now()->endOfDay());
     }

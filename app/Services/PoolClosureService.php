@@ -14,11 +14,11 @@ use App\Models\PoolClosureTask;
 use App\Models\TapAlert;
 use App\Models\User;
 use App\Notifications\PiscinaEncerradaNotification;
+use App\Support\NotificacaoResiliente;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Encerrar e reabrir piscinas, e responder à pergunta "esta piscina estava
@@ -294,9 +294,10 @@ class PoolClosureService
             return;
         }
 
-        Notification::send(
+        NotificacaoResiliente::enviar(
             $destinatarios,
             new PiscinaEncerradaNotification($encerramento, $piscina->nome_completo, $reaberta),
+            ($reaberta ? 'reabertura' : 'encerramento').' da '.$piscina->nome_completo,
         );
     }
 

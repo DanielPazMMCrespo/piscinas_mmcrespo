@@ -14,9 +14,9 @@ use App\Models\User;
 use App\Notifications\ResumoTurnoNotification;
 use App\Services\SettingsService;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Notification;
 
 class SendShiftSummaryCommand extends Command
 {
@@ -90,7 +90,11 @@ class SendShiftSummaryCommand extends Command
         $destinatarios = User::role([UserRole::ADMIN, UserRole::GESTOR, UserRole::TECNICO])->get();
 
         if ($destinatarios->isNotEmpty()) {
-            Notification::send($destinatarios, new ResumoTurnoNotification($linhas, $horaAtual, $status));
+            NotificacaoResiliente::enviar(
+                $destinatarios,
+                new ResumoTurnoNotification($linhas, $horaAtual, $status),
+                "resumo de turno {$horaAtual}",
+            );
         }
 
         return self::SUCCESS;

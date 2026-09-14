@@ -10,9 +10,9 @@ use App\Models\DailyRecord;
 use App\Models\Installation;
 use App\Models\User;
 use App\Notifications\RelatorioMensalDisponivelNotification;
+use App\Support\NotificacaoResiliente;
 use App\Support\PdfRenderer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -83,9 +83,10 @@ class GerarRelatorioMensalCommand extends Command
                 ->log("Gerou relatório mensal automático: {$nomeFicheiro}");
 
             if ($destinatarios->isNotEmpty()) {
-                Notification::send(
+                NotificacaoResiliente::enviar(
                     $destinatarios,
                     new RelatorioMensalDisponivelNotification($instalacao->name, $mesLabel, $url),
+                    "relatório mensal de {$instalacao->name}",
                 );
             }
         }

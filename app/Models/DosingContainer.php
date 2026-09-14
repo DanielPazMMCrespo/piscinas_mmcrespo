@@ -9,13 +9,13 @@ use App\Notifications\DosingContainerLowAlert;
 use App\Services\HannaCloudService;
 use App\Services\StockService;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -262,7 +262,11 @@ class DosingContainer extends Model
 
         $this->update(['alerta_notificado_em' => now()]);
         $destinatarios = User::role([UserRole::ADMIN, UserRole::TECNICO])->get();
-        Notification::send($destinatarios, new DosingContainerLowAlert($this));
+        NotificacaoResiliente::enviar(
+            $destinatarios,
+            new DosingContainerLowAlert($this),
+            "bidão #{$this->id} com nível baixo",
+        );
     }
 
     /**

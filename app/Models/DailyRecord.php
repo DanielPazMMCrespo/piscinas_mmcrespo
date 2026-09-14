@@ -134,6 +134,7 @@ class DailyRecord extends Model
 
     protected $casts = [
         'registado_em' => 'datetime',
+        'stock_processado_em' => 'datetime',
         'cloro_livre' => 'decimal:2',
         'cloro_total' => 'decimal:2',
         'ph' => 'decimal:2',

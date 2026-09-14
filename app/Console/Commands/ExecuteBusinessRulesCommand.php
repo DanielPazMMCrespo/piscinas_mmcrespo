@@ -13,10 +13,10 @@ use App\Models\User;
 use App\Notifications\EscalacaoIncidenteNotification;
 use App\Services\SettingsService;
 use App\Support\JanelaSilencio;
+use App\Support\NotificacaoResiliente;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 class ExecuteBusinessRulesCommand extends Command
 {
@@ -150,7 +150,11 @@ class ExecuteBusinessRulesCommand extends Command
 
                     $adminsAndGestores = User::role([UserRole::ADMIN, UserRole::GESTOR])->get();
 
-                    Notification::send($adminsAndGestores, new EscalacaoIncidenteNotification($incident));
+                    NotificacaoResiliente::enviar(
+                        $adminsAndGestores,
+                        new EscalacaoIncidenteNotification($incident),
+                        "escalação do incidente #{$incident->id}",
+                    );
 
                     Cache::put($cacheKey, true, now()->endOfDay());
                     $this->info("Incidente #{$incident->id} escalado para admins/gestores.");
